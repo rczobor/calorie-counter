@@ -152,3 +152,78 @@ export const cookedRecipeIngredients = createTable(
     }),
   ],
 );
+
+// Persons table to track individuals
+export const persons = createTable(
+  "person",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    name: varchar("name", { length: 256 }).notNull(),
+    targetDailyCalories: decimal("target_daily_calories", {
+      precision: 10,
+      scale: 2,
+    }),
+    createdBy: varchar("created_by", { length: 256 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+      () => new Date(),
+    ),
+  },
+  (person) => [index("person_name_idx").on(person.name)],
+);
+
+// Servings table to track how many portions were created from a cooking
+export const servings = createTable("serving", {
+  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  cookingId: integer("cooking_id")
+    .notNull()
+    .references(() => cookings.id),
+  numberOfServings: integer("number_of_servings").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+// Track which cooked recipes are included in a serving and their weights
+export const servingPortions = createTable(
+  "serving_portion",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    servingId: integer("serving_id")
+      .notNull()
+      .references(() => servings.id),
+    cookedRecipeId: integer("cooked_recipe_id")
+      .notNull()
+      .references(() => cookedRecipes.id),
+    weightGrams: decimal("weight_grams", { precision: 10, scale: 2 }).notNull(),
+  },
+  (servingPortion) => [
+    index("serving_portion_serving_idx").on(servingPortion.servingId),
+  ],
+);
+
+// Track consumption of servings by persons
+export const consumptions = createTable(
+  "consumption",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    personId: integer("person_id")
+      .notNull()
+      .references(() => persons.id),
+    servingId: integer("serving_id")
+      .notNull()
+      .references(() => servings.id),
+    consumedAt: timestamp("consumed_at", { withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    notes: text("notes"),
+  },
+  (consumption) => [
+    index("consumption_person_date_idx").on(
+      consumption.personId,
+      consumption.consumedAt,
+    ),
+  ],
+);
