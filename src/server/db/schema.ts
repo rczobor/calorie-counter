@@ -31,7 +31,5 @@ export const posts = createTable(
       () => new Date(),
     ),
   },
-  (example) => ({
-    nameIndex: index("name_idx").on(example.name),
-  }),
+  (example) => [index("name_idx").on(example.name)],
 );
