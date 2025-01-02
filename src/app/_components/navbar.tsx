@@ -20,7 +20,7 @@ const navItems = [
 export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
+      <div className="flex h-16 items-center justify-between gap-4 px-4">
         {/* Scrollable navigation container */}
         <div className="flex-1 overflow-x-auto">
           <div className="flex items-center gap-4 p-2">
