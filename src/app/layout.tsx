@@ -6,6 +6,7 @@ import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { ClerkProvider } from "@clerk/nextjs";
 import Navbar from "@/app/_components/navbar";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -19,12 +20,23 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <TRPCReactProvider>
-        <html lang="en" className={`${GeistSans.variable}`}>
+        <html
+          lang="en"
+          className={`${GeistSans.variable}`}
+          suppressHydrationWarning
+        >
           <body>
-            <header>
-              <Navbar />
-            </header>
-            <main>{children}</main>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <header>
+                <Navbar />
+              </header>
+              <main>{children}</main>
+            </ThemeProvider>
           </body>
         </html>
       </TRPCReactProvider>

@@ -7,6 +7,7 @@ import {
   UserButton,
   SignOutButton,
 } from "@clerk/nextjs";
+import { ModeToggle } from "@/components/mode-toggle";
 
 const navItems = [
   { name: "Dashboard", href: "/" },
@@ -18,7 +19,7 @@ const navItems = [
 
 export default function Navbar() {
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-white">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background">
       <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
         {/* Scrollable navigation container */}
         <div className="flex-1 overflow-x-auto">
@@ -47,6 +48,7 @@ export default function Navbar() {
               <Button variant="outline">Sign Out</Button>
             </SignOutButton>
           </SignedIn>
+          <ModeToggle />
         </div>
       </div>
     </nav>
