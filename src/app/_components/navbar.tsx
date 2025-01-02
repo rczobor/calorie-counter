@@ -1,12 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  SignedOut,
-  SignInButton,
-  SignedIn,
-  UserButton,
-  SignOutButton,
-} from "@clerk/nextjs";
+import { SignedOut, SignInButton, SignedIn, UserButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
 
 const navItems = [
@@ -44,9 +38,6 @@ export default function Navbar() {
           </SignedOut>
           <SignedIn>
             <UserButton />
-            <SignOutButton>
-              <Button variant="outline">Sign Out</Button>
-            </SignOutButton>
           </SignedIn>
           <ModeToggle />
         </div>
