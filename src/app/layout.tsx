@@ -4,15 +4,8 @@ import { GeistSans } from "geist/font/sans";
 import { type Metadata } from "next";
 
 import { TRPCReactProvider } from "@/trpc/react";
-import {
-  ClerkProvider,
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-  UserButton,
-} from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
+import { ClerkProvider } from "@clerk/nextjs";
+import Navbar from "@/app/_components/navbar";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -29,17 +22,7 @@ export default function RootLayout({
         <html lang="en" className={`${GeistSans.variable}`}>
           <body>
             <header>
-              <SignedOut>
-                <SignInButton>
-                  <Button>Sign In</Button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <UserButton />
-                <SignOutButton>
-                  <Button>Sign Out</Button>
-                </SignOutButton>
-              </SignedIn>
+              <Navbar />
             </header>
             <main>{children}</main>
           </body>
