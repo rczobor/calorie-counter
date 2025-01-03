@@ -58,6 +58,7 @@ export default function CreateIngredientDialog() {
     onSuccess: async () => {
       await utils.ingredient.getAll.invalidate();
       setOpen(false);
+      form.reset();
     },
   });
 

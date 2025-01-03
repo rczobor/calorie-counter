@@ -13,5 +13,8 @@ export const columns: ColumnDef<Ingredient>[] = [
   {
     accessorKey: "category",
     header: "Category",
+    meta: {
+      filterVariant: "select",
+    },
   },
 ];
