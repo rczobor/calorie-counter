@@ -22,7 +22,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem } from "@/components/ui/select";
-import { ingredientCategories } from "@/server/db/schema";
 import { Button } from "@/components/ui/button";
 import { EllipsisVertical } from "lucide-react";
 import { SelectTrigger } from "@radix-ui/react-select";
@@ -38,12 +37,16 @@ declare module "@tanstack/react-table" {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  options?: readonly string[];
+  nameSearch?: boolean;
   onClick?: (data: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  options,
+  nameSearch = false,
   onClick,
 }: DataTableProps<TData, TValue>) {
   const [nameFilter, setNameFilter] = useState("");
@@ -63,11 +66,13 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="flex flex-col gap-2">
-      <Input
-        placeholder="Search..."
-        value={nameFilter}
-        onChange={(e) => setNameFilter(e.target.value)}
-      />
+      {nameSearch && (
+        <Input
+          placeholder="Search..."
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+        />
+      )}
 
       <div className="rounded-md border">
         <Table>
@@ -85,7 +90,10 @@ export function DataTable<TData, TValue>({
                           )}
                       {header.column.getCanFilter() &&
                       header.column.columnDef.meta?.filterVariant ? (
-                        <Filter column={header.column} />
+                        <Filter
+                          column={header.column}
+                          options={options ?? []}
+                        />
                       ) : null}
                     </div>
                   </TableHead>
@@ -128,8 +136,14 @@ export function DataTable<TData, TValue>({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Filter({ column }: { column: Column<any, unknown> }) {
+function Filter({
+  column,
+  options,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  column: Column<any, unknown>;
+  options: readonly string[];
+}) {
   const columnFilterValue = column.getFilterValue();
   const { filterVariant } = column.columnDef.meta ?? {};
 
@@ -177,7 +191,7 @@ function Filter({ column }: { column: Column<any, unknown> }) {
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="All">All</SelectItem>
-        {ingredientCategories.map((cat) => (
+        {options.map((cat) => (
           <SelectItem key={cat} value={cat}>
             {cat}
           </SelectItem>

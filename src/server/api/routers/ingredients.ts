@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { ingredients } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { z } from "zod";
 
 export const ingredientRouter = createTRPCRouter({
@@ -12,14 +12,21 @@ export const ingredientRouter = createTRPCRouter({
         category: z.enum(ingredients.category.enumValues),
       }),
     )
-    .mutation(async ({ ctx, input }) =>
-      ctx.db.insert(ingredients).values({
-        name: input.name,
-        caloriesPer100g: input.caloriesPer100g,
-        category: input.category,
-        createdBy: ctx.userId,
-      }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const [ingredient] = await ctx.db
+        .insert(ingredients)
+        .values({
+          name: input.name,
+          caloriesPer100g: input.caloriesPer100g,
+          category: input.category,
+          createdBy: ctx.userId,
+        })
+        .returning();
+
+      if (!ingredient) throw new Error("Failed to create ingredient");
+
+      return ingredient;
+    }),
 
   update: protectedProcedure
     .input(
@@ -52,4 +59,14 @@ export const ingredientRouter = createTRPCRouter({
       orderBy: (ingredients, { desc }) => [desc(ingredients.updatedAt)],
     }),
   ),
+
+  search: protectedProcedure
+    .input(z.object({ name: z.string() }))
+    .query(({ ctx, input }) =>
+      ctx.db.query.ingredients.findMany({
+        where: like(ingredients.name, `%${input.name}%`),
+        orderBy: (ingredients, { desc }) => [desc(ingredients.updatedAt)],
+        limit: 10,
+      }),
+    ),
 });

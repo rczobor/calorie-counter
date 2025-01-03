@@ -1,0 +1,243 @@
+"use client";
+
+import CreateIngredientDialog from "@/app/ingredients/create-dialog";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { type Ingredient, recipeCategories } from "@/server/db/schema";
+import { api } from "@/trpc/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { type ColumnDef } from "@tanstack/react-table";
+import { Minus, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useFieldArray, useForm, useFormContext } from "react-hook-form";
+import { z } from "zod";
+
+const formSchema = z.object({
+  ingredients: z.array(
+    z.object({
+      id: z.number(),
+      name: z.string().min(1),
+      caloriesPer100g: z
+        .string()
+        .min(1, { message: "Required" })
+        .pipe(z.coerce.number().min(0))
+        .or(z.number().min(0)),
+      quantityGrams: z
+        .string()
+        .min(1, { message: "Required" })
+        .pipe(z.coerce.number().min(0)),
+    }),
+  ),
+  name: z.string().min(1),
+  description: z.string(),
+  category: z.enum(recipeCategories),
+});
+
+const defaultValues = {
+  ingredients: [],
+  name: "",
+  description: "",
+  category: undefined,
+};
+
+type FormValues = z.infer<typeof formSchema>;
+
+export default function RecipeForm() {
+  const form = useForm<FormValues>({
+    defaultValues,
+    resolver: zodResolver(formSchema),
+  });
+  const utils = api.useUtils();
+  const router = useRouter();
+  const createRecipe = api.recipe.create.useMutation({
+    onSuccess: async (res) => {
+      await utils.recipe.getAll.invalidate();
+      router.push(`/recipes/${res.id}`);
+    },
+  });
+
+  const onSubmit = (data: FormValues) => {
+    createRecipe.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form
+        className="container mx-auto flex flex-col px-4"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <div className="flex items-center justify-between py-4">
+          <h1 className="text-2xl font-bold">Create Recipe</h1>
+          <Button type="submit">Save</Button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <FormField
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Name" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="category"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Category</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value as string | undefined}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                  </FormControl>
+
+                  <SelectContent>
+                    {recipeCategories.map((cat) => (
+                      <SelectItem value={cat} key={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+
+          <IngredientSearch />
+
+          <FormField
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Description" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+function IngredientSearch() {
+  const { data } = api.ingredient.getAll.useQuery();
+  const form = useFormContext<FormValues>();
+  const fieldArray = useFieldArray({
+    control: form.control,
+    name: "ingredients",
+    keyName: "_id",
+  });
+  const columns: ColumnDef<Ingredient>[] = [
+    { accessorKey: "name", header: "Name" },
+    { accessorKey: "caloriesPer100g", header: "Calories" },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            className="px-2 py-1"
+            onClick={() => {
+              const ingredient = row.original;
+              fieldArray.append({
+                id: ingredient.id,
+                name: ingredient.name,
+                caloriesPer100g: ingredient.caloriesPer100g,
+                quantityGrams: "" as unknown as number,
+              });
+            }}
+          >
+            <Plus />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2>Ingredients</h2>
+        <CreateIngredientDialog
+          onCreate={(ingredient) =>
+            fieldArray.append({
+              id: ingredient.id,
+              name: ingredient.name,
+              caloriesPer100g: ingredient.caloriesPer100g,
+              quantityGrams: "" as unknown as number,
+            })
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {fieldArray.fields.map((field, index) => (
+          <div key={field.id} className="flex items-center gap-2">
+            <FormField
+              name={`ingredients.${index}.quantityGrams`}
+              render={({ field }) => (
+                <FormItem className="w-24">
+                  <FormControl>
+                    <Input placeholder="Quantity" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="">{field.name}</div>
+            <div className="ml-auto">{field.caloriesPer100g}</div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                className="px-2 py-1"
+                onClick={() => {
+                  fieldArray.remove(index);
+                }}
+              >
+                <Minus />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <DataTable
+        columns={columns}
+        data={
+          data?.filter(({ id }) =>
+            fieldArray.fields.every((field) => field.id !== id),
+          ) ?? []
+        }
+        nameSearch
+      />
+    </section>
+  );
+}

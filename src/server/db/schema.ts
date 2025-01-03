@@ -8,7 +8,6 @@ import {
   pgTableCreator,
   timestamp,
   varchar,
-  decimal,
   primaryKey,
   text,
   pgEnum,
@@ -61,6 +60,18 @@ export const ingredientCategory = pgEnum(
   ingredientCategories,
 );
 
+export const recipeCategories = [
+  "Dessert",
+  "Main Dish",
+  "Salad",
+  "Side",
+  "Snack",
+  "Soup",
+  "Other",
+] as const;
+
+export const recipeCategory = pgEnum("recipe_category", recipeCategories);
+
 // Base ingredients table
 export const ingredients = createTable(
   "ingredient",
@@ -87,6 +98,7 @@ export const recipes = createTable(
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     name: varchar("name", { length: 256 }).notNull(),
     description: text("description"),
+    category: recipeCategory("category").notNull(),
     createdBy: varchar("created_by", { length: 256 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .default(sql`CURRENT_TIMESTAMP`)
@@ -108,10 +120,7 @@ export const recipeIngredients = createTable(
     ingredientId: integer("ingredient_id")
       .notNull()
       .references(() => ingredients.id),
-    quantityGrams: decimal("quantity_grams", {
-      precision: 10,
-      scale: 2,
-    }).notNull(),
+    quantityGrams: integer("quantity_grams").notNull(),
   },
   (recipeIngredient) => [
     primaryKey({
@@ -139,13 +148,10 @@ export const cookedRecipes = createTable("cooked_recipe", {
   cookingId: integer("cooking_id")
     .notNull()
     .references(() => cookings.id),
-  recipeId: integer("recipe_id")
-    .notNull()
-    .references(() => recipes.id),
-  finalWeightGrams: decimal("final_weight_grams", {
-    precision: 10,
-    scale: 2,
-  }).notNull(),
+  recipeId: integer("recipe_id").references(() => recipes.id),
+  name: varchar("name", { length: 256 }).notNull(),
+  description: text("description"),
+  finalWeightGrams: integer("final_weight_grams").notNull(),
 });
 
 // Cooked recipe ingredients (can override quantities and calories from original recipe)
@@ -158,12 +164,9 @@ export const cookedRecipeIngredients = createTable(
     ingredientId: integer("ingredient_id")
       .notNull()
       .references(() => ingredients.id),
-    quantityGrams: decimal("quantity_grams", {
-      precision: 10,
-      scale: 2,
-    }).notNull(),
+    quantityGrams: integer("quantity_grams").notNull(),
     // Override calories if different from original ingredient
-    caloriesPer100g: decimal("calories_per_100g", { precision: 10, scale: 2 }),
+    caloriesPer100g: integer("calories_per_100g"),
   },
   (cookedRecipeIngredient) => [
     primaryKey({
@@ -181,10 +184,7 @@ export const persons = createTable(
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     name: varchar("name", { length: 256 }).notNull(),
-    targetDailyCalories: decimal("target_daily_calories", {
-      precision: 10,
-      scale: 2,
-    }),
+    targetDailyCalories: integer("target_daily_calories"),
     createdBy: varchar("created_by", { length: 256 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .default(sql`CURRENT_TIMESTAMP`)
@@ -199,10 +199,10 @@ export const persons = createTable(
 // Servings table to track how many portions were created from a cooking
 export const servings = createTable("serving", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  cookingId: integer("cooking_id")
-    .notNull()
-    .references(() => cookings.id),
+  cookingId: integer("cooking_id").references(() => cookings.id),
+  name: varchar("name", { length: 256 }),
   numberOfServings: integer("number_of_servings").notNull(),
+  createdBy: varchar("created_by", { length: 256 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
@@ -219,7 +219,7 @@ export const servingPortions = createTable(
     cookedRecipeId: integer("cooked_recipe_id")
       .notNull()
       .references(() => cookedRecipes.id),
-    weightGrams: decimal("weight_grams", { precision: 10, scale: 2 }).notNull(),
+    weightGrams: integer("weight_grams").notNull(),
   },
   (servingPortion) => [
     index("serving_portion_serving_idx").on(servingPortion.servingId),
@@ -247,6 +247,26 @@ export const consumptions = createTable(
       consumption.personId,
       consumption.consumedAt,
     ),
+  ],
+);
+
+// Add direct ingredients to servings (for cases without cooking/recipe)
+export const servingIngredients = createTable(
+  "serving_ingredient",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    servingId: integer("serving_id")
+      .notNull()
+      .references(() => servings.id),
+    ingredientId: integer("ingredient_id")
+      .notNull()
+      .references(() => ingredients.id),
+    weightGrams: integer("weight_grams").notNull(),
+    // Override calories if different from original ingredient
+    caloriesPer100g: integer("calories_per_100g"),
+  },
+  (servingIngredient) => [
+    index("serving_ingredient_serving_idx").on(servingIngredient.servingId),
   ],
 );
 
@@ -284,3 +304,6 @@ export type NewServingPortion = InferInsertModel<typeof servingPortions>;
 
 export type Consumption = InferSelectModel<typeof consumptions>;
 export type NewConsumption = InferInsertModel<typeof consumptions>;
+
+export type ServingIngredient = InferSelectModel<typeof servingIngredients>;
+export type NewServingIngredient = InferInsertModel<typeof servingIngredients>;

@@ -3,7 +3,7 @@
 import { columns } from "@/app/ingredients/columns";
 import EditIngredientDialog from "@/app/ingredients/edit-dialog";
 import { DataTable } from "@/components/ui/data-table";
-import { type Ingredient } from "@/server/db/schema";
+import { ingredientCategories, type Ingredient } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { useState } from "react";
 
@@ -17,6 +17,8 @@ export default function IngredientTable() {
       <DataTable
         columns={columns}
         data={data ?? []}
+        options={ingredientCategories}
+        nameSearch
         onClick={setSelectedIngredient}
       />
 

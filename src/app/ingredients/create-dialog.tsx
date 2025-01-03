@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ingredientCategories } from "@/server/db/schema";
+import { Ingredient, ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Plus } from "lucide-react";
@@ -34,8 +34,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 const formSchema = z.object({
-  name: z.string().min(1),
-  caloriesPer100g: z.string().min(1).pipe(z.coerce.number().min(0)),
+  name: z.string().min(1, { message: "Required" }),
+  caloriesPer100g: z
+    .string()
+    .min(1, { message: "Required" })
+    .pipe(z.coerce.number().min(0)),
   category: z.enum(ingredientCategories),
 });
 
@@ -47,7 +50,11 @@ const defaultValues = {
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function CreateIngredientDialog() {
+export default function CreateIngredientDialog({
+  onCreate,
+}: {
+  onCreate?: (ingredient: Ingredient) => void;
+}) {
   const [open, setOpen] = useState(false);
   const form = useForm<FormValues>({
     defaultValues,
@@ -55,10 +62,11 @@ export default function CreateIngredientDialog() {
   });
   const utils = api.useUtils();
   const createIngredient = api.ingredient.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       await utils.ingredient.getAll.invalidate();
       setOpen(false);
       form.reset();
+      onCreate?.(res);
     },
   });
 

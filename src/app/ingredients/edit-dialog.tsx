@@ -35,8 +35,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 const formSchema = z.object({
-  name: z.string().min(1),
-  caloriesPer100g: z.string().min(1).pipe(z.coerce.number().min(0)),
+  name: z.string().min(1, { message: "Required" }),
+  caloriesPer100g: z
+    .string()
+    .min(1, { message: "Required" })
+    .pipe(z.coerce.number().min(0)),
   category: z.enum(ingredientCategories),
 });
 
