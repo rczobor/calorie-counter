@@ -11,7 +11,9 @@ import {
   decimal,
   primaryKey,
   text,
+  pgEnum,
 } from "drizzle-orm/pg-core";
+import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -37,16 +39,36 @@ export const posts = createTable(
   (example) => [index("name_idx").on(example.name)],
 );
 
+export const ingredientCategories = [
+  "Baking & Cooking Ingredients",
+  "Canned & Packaged Foods",
+  "Dairy",
+  "Drinks & Liquids",
+  "Fruit",
+  "Meat",
+  "Nuts & Seeds",
+  "Oat & Muesli",
+  "Oils & Fats",
+  "Pasta & Rice",
+  "Spices & Herbs",
+  "Sweets & Snackies",
+  "Vegetable",
+  "Other",
+] as const;
+
+export const ingredientCategory = pgEnum(
+  "ingredient_category",
+  ingredientCategories,
+);
+
 // Base ingredients table
 export const ingredients = createTable(
   "ingredient",
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     name: varchar("name", { length: 256 }).notNull(),
-    caloriesPer100g: decimal("calories_per_100g", {
-      precision: 10,
-      scale: 2,
-    }).notNull(),
+    caloriesPer100g: integer("calories_per_100g").notNull(),
+    category: ingredientCategory("category").notNull(),
     createdBy: varchar("created_by", { length: 256 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .default(sql`CURRENT_TIMESTAMP`)
@@ -227,3 +249,38 @@ export const consumptions = createTable(
     ),
   ],
 );
+
+// Type exports
+export type Ingredient = InferSelectModel<typeof ingredients>;
+export type NewIngredient = InferInsertModel<typeof ingredients>;
+
+export type Recipe = InferSelectModel<typeof recipes>;
+export type NewRecipe = InferInsertModel<typeof recipes>;
+
+export type RecipeIngredient = InferSelectModel<typeof recipeIngredients>;
+export type NewRecipeIngredient = InferInsertModel<typeof recipeIngredients>;
+
+export type Cooking = InferSelectModel<typeof cookings>;
+export type NewCooking = InferInsertModel<typeof cookings>;
+
+export type CookedRecipe = InferSelectModel<typeof cookedRecipes>;
+export type NewCookedRecipe = InferInsertModel<typeof cookedRecipes>;
+
+export type CookedRecipeIngredient = InferSelectModel<
+  typeof cookedRecipeIngredients
+>;
+export type NewCookedRecipeIngredient = InferInsertModel<
+  typeof cookedRecipeIngredients
+>;
+
+export type Person = InferSelectModel<typeof persons>;
+export type NewPerson = InferInsertModel<typeof persons>;
+
+export type Serving = InferSelectModel<typeof servings>;
+export type NewServing = InferInsertModel<typeof servings>;
+
+export type ServingPortion = InferSelectModel<typeof servingPortions>;
+export type NewServingPortion = InferInsertModel<typeof servingPortions>;
+
+export type Consumption = InferSelectModel<typeof consumptions>;
+export type NewConsumption = InferInsertModel<typeof consumptions>;
