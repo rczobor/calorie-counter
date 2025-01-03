@@ -46,28 +46,27 @@ export function DataTable<TData, TValue>({
   data,
   onClick,
 }: DataTableProps<TData, TValue>) {
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const table = useReactTable({
     data,
     columns,
-    state: {
-      globalFilter,
-      columnFilters,
-    },
-    onGlobalFilterChange: setGlobalFilter,
+    state: { columnFilters },
     onColumnFiltersChange: setColumnFilters,
-    globalFilterFn: "includesString",
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+
+  useEffect(() => {
+    table.setColumnFilters([{ id: "name", value: nameFilter }]);
+  }, [nameFilter, table]);
 
   return (
     <div className="flex flex-col gap-2">
       <Input
         placeholder="Search..."
-        value={globalFilter}
-        onChange={(e) => setGlobalFilter(e.target.value)}
+        value={nameFilter}
+        onChange={(e) => setNameFilter(e.target.value)}
       />
 
       <div className="rounded-md border">
