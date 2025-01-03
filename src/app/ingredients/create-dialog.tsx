@@ -28,7 +28,7 @@ import {
 import { ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Loader, Plus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -137,7 +137,15 @@ export default function CreateIngredientDialog() {
 
             <DialogFooter>
               <div className="self-end pt-2">
-                <Button type="submit">Save</Button>
+                <Button type="submit" disabled={createIngredient.isPending}>
+                  {createIngredient.isPending ? (
+                    <span className="flex items-center gap-2">
+                      <Loader className="h-4 w-4 animate-spin" />
+                    </span>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
               </div>
             </DialogFooter>
           </form>

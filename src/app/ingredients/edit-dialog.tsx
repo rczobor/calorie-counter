@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -27,6 +28,8 @@ import {
 import { type Ingredient, ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { DialogTrigger } from "@radix-ui/react-dialog";
+import { Loader, Trash } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -92,6 +95,9 @@ export default function EditIngredientDialog({
     if (!ingredient) return;
     deleteIngredient.mutate({ id: ingredient.id });
   };
+
+  const isAnythingPending =
+    updateIngredient.isPending || deleteIngredient.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onCloseAction}>
@@ -159,10 +165,46 @@ export default function EditIngredientDialog({
 
             <DialogFooter>
               <div className="flex justify-end gap-2">
-                <Button type="submit">Save</Button>
-                <Button type="button" variant="destructive" onClick={onDelete}>
-                  Delete
+                <Button type="submit" disabled={isAnythingPending}>
+                  {updateIngredient.isPending ? (
+                    <span className="flex items-center gap-2">
+                      <Loader className="h-4 w-4 animate-spin" />
+                    </span>
+                  ) : (
+                    "Save"
+                  )}
                 </Button>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive">
+                      <Trash />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Ingredient</DialogTitle>
+                      <DialogDescription></DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter>
+                      <div className="flex justify-end gap-2">
+                        <DialogClose asChild>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={onDelete}
+                          >
+                            Delete
+                          </Button>
+                        </DialogClose>
+                        <DialogClose asChild>
+                          <Button type="button">Cancel</Button>
+                        </DialogClose>
+                      </div>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </DialogFooter>
           </form>
