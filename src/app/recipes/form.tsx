@@ -4,6 +4,16 @@ import CreateIngredientDialog from "@/app/ingredients/create-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -24,8 +34,9 @@ import { type Ingredient, recipeCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Minus, Plus } from "lucide-react";
+import { Loader, Minus, Plus, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useFieldArray, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 
@@ -59,7 +70,12 @@ const defaultValues = {
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function RecipeForm() {
+export default function RecipeForm({ id }: { id?: number }) {
+  const isEdit = id != null;
+  const { data: recipe } = api.recipe.getByIdWithIngredient.useQuery(
+    { id: id ?? -1 },
+    { enabled: isEdit },
+  );
   const form = useForm<FormValues>({
     defaultValues,
     resolver: zodResolver(formSchema),
@@ -72,9 +88,48 @@ export default function RecipeForm() {
       router.push(`/recipes/${res.id}`);
     },
   });
+  const updateRecipe = api.recipe.update.useMutation({
+    onSuccess: async () => {
+      await utils.recipe.getAll.invalidate();
+    },
+  });
+  const deleteRecipe = api.recipe.delete.useMutation({
+    onSuccess: async () => {
+      await utils.recipe.getAll.invalidate();
+      router.push("/recipes");
+    },
+  });
+
+  const isPending =
+    createRecipe.isPending || updateRecipe.isPending || deleteRecipe.isPending;
+
+  useEffect(() => {
+    if (!isEdit || !recipe) return;
+    form.reset({
+      name: recipe.name,
+      category: recipe.category,
+      description: recipe.description ?? "",
+      ingredients: recipe.recipesToIngredients.map((recipesToIngredient) => ({
+        id: recipesToIngredient.ingredient.id,
+        name: recipesToIngredient.ingredient.name,
+        caloriesPer100g: recipesToIngredient.ingredient.caloriesPer100g,
+        quantityGrams:
+          recipesToIngredient.quantityGrams.toString() as unknown as number,
+      })),
+    });
+  }, [form, isEdit, recipe]);
 
   const onSubmit = (data: FormValues) => {
+    if (isEdit) {
+      updateRecipe.mutate({ id, ...data });
+      return;
+    }
     createRecipe.mutate(data);
+  };
+
+  const onDelete = () => {
+    if (!recipe) return;
+    deleteRecipe.mutate({ id: recipe.id });
   };
 
   return (
@@ -83,9 +138,51 @@ export default function RecipeForm() {
         className="container mx-auto flex flex-col px-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-center justify-between py-4">
-          <h1 className="text-2xl font-bold">Create Recipe</h1>
-          <Button type="submit">Save</Button>
+        <div className="flex items-center gap-2 py-4">
+          <h1 className="text-2xl font-bold">
+            {isEdit ? "Edit Recipe" : "Create Recipe"}
+          </h1>
+          <Button type="submit" className="ml-auto" disabled={isPending}>
+            {createRecipe.isPending || updateRecipe.isPending ? (
+              <span className="flex items-center gap-2">
+                <Loader className="h-4 w-4 animate-spin" />
+              </span>
+            ) : (
+              "Save"
+            )}
+          </Button>
+          {isEdit && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="destructive" disabled={isPending}>
+                  <Trash />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete Recipe</DialogTitle>
+                  <DialogDescription></DialogDescription>
+                </DialogHeader>
+
+                <DialogFooter>
+                  <div className="flex justify-end gap-2">
+                    <DialogClose asChild>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={onDelete}
+                      >
+                        Delete
+                      </Button>
+                    </DialogClose>
+                    <DialogClose asChild>
+                      <Button type="button">Cancel</Button>
+                    </DialogClose>
+                  </div>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">

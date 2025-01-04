@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Ingredient, ingredientCategories } from "@/server/db/schema";
+import { type Ingredient, ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Plus } from "lucide-react";

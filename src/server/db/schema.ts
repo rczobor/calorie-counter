@@ -1,7 +1,7 @@
 // Example model schema from the Drizzle docs
 // https://orm.drizzle.team/docs/sql-schema-declaration
 
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -91,6 +91,10 @@ export const ingredients = createTable(
   (ingredient) => [index("ingredient_name_idx").on(ingredient.name)],
 );
 
+export const ingredientRelations = relations(ingredients, ({ many }) => ({
+  recipesToIngredients: many(recipesToIngredients),
+}));
+
 // Recipes table
 export const recipes = createTable(
   "recipe",
@@ -110,16 +114,20 @@ export const recipes = createTable(
   (recipe) => [index("recipe_name_idx").on(recipe.name)],
 );
 
-// Recipe ingredients junction table
-export const recipeIngredients = createTable(
-  "recipe_ingredient",
+export const recipesRelations = relations(recipes, ({ many }) => ({
+  recipesToIngredients: many(recipesToIngredients),
+}));
+
+// Recipe ingredients join table
+export const recipesToIngredients = createTable(
+  "recipes_to_ingredients",
   {
     recipeId: integer("recipe_id")
       .notNull()
-      .references(() => recipes.id),
+      .references(() => recipes.id, { onDelete: "cascade" }),
     ingredientId: integer("ingredient_id")
       .notNull()
-      .references(() => ingredients.id),
+      .references(() => ingredients.id, { onDelete: "cascade" }),
     quantityGrams: integer("quantity_grams").notNull(),
   },
   (recipeIngredient) => [
@@ -127,6 +135,20 @@ export const recipeIngredients = createTable(
       columns: [recipeIngredient.recipeId, recipeIngredient.ingredientId],
     }),
   ],
+);
+
+export const recipesToIngredientsRelations = relations(
+  recipesToIngredients,
+  ({ one }) => ({
+    recipe: one(recipes, {
+      fields: [recipesToIngredients.recipeId],
+      references: [recipes.id],
+    }),
+    ingredient: one(ingredients, {
+      fields: [recipesToIngredients.ingredientId],
+      references: [ingredients.id],
+    }),
+  }),
 );
 
 // Cookings table
@@ -147,8 +169,10 @@ export const cookedRecipes = createTable("cooked_recipe", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   cookingId: integer("cooking_id")
     .notNull()
-    .references(() => cookings.id),
-  recipeId: integer("recipe_id").references(() => recipes.id),
+    .references(() => cookings.id, { onDelete: "cascade" }),
+  recipeId: integer("recipe_id").references(() => recipes.id, {
+    onDelete: "cascade",
+  }),
   name: varchar("name", { length: 256 }).notNull(),
   description: text("description"),
   finalWeightGrams: integer("final_weight_grams").notNull(),
@@ -160,10 +184,10 @@ export const cookedRecipeIngredients = createTable(
   {
     cookedRecipeId: integer("cooked_recipe_id")
       .notNull()
-      .references(() => cookedRecipes.id),
+      .references(() => cookedRecipes.id, { onDelete: "cascade" }),
     ingredientId: integer("ingredient_id")
       .notNull()
-      .references(() => ingredients.id),
+      .references(() => ingredients.id, { onDelete: "cascade" }),
     quantityGrams: integer("quantity_grams").notNull(),
     // Override calories if different from original ingredient
     caloriesPer100g: integer("calories_per_100g"),
@@ -199,7 +223,9 @@ export const persons = createTable(
 // Servings table to track how many portions were created from a cooking
 export const servings = createTable("serving", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  cookingId: integer("cooking_id").references(() => cookings.id),
+  cookingId: integer("cooking_id").references(() => cookings.id, {
+    onDelete: "cascade",
+  }),
   name: varchar("name", { length: 256 }),
   numberOfServings: integer("number_of_servings").notNull(),
   createdBy: varchar("created_by", { length: 256 }),
@@ -215,10 +241,10 @@ export const servingPortions = createTable(
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     servingId: integer("serving_id")
       .notNull()
-      .references(() => servings.id),
+      .references(() => servings.id, { onDelete: "cascade" }),
     cookedRecipeId: integer("cooked_recipe_id")
       .notNull()
-      .references(() => cookedRecipes.id),
+      .references(() => cookedRecipes.id, { onDelete: "cascade" }),
     weightGrams: integer("weight_grams").notNull(),
   },
   (servingPortion) => [
@@ -233,10 +259,10 @@ export const consumptions = createTable(
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     personId: integer("person_id")
       .notNull()
-      .references(() => persons.id),
+      .references(() => persons.id, { onDelete: "cascade" }),
     servingId: integer("serving_id")
       .notNull()
-      .references(() => servings.id),
+      .references(() => servings.id, { onDelete: "cascade" }),
     consumedAt: timestamp("consumed_at", { withTimezone: true })
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
@@ -257,10 +283,10 @@ export const servingIngredients = createTable(
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     servingId: integer("serving_id")
       .notNull()
-      .references(() => servings.id),
+      .references(() => servings.id, { onDelete: "cascade" }),
     ingredientId: integer("ingredient_id")
       .notNull()
-      .references(() => ingredients.id),
+      .references(() => ingredients.id, { onDelete: "cascade" }),
     weightGrams: integer("weight_grams").notNull(),
     // Override calories if different from original ingredient
     caloriesPer100g: integer("calories_per_100g"),
@@ -277,8 +303,10 @@ export type NewIngredient = InferInsertModel<typeof ingredients>;
 export type Recipe = InferSelectModel<typeof recipes>;
 export type NewRecipe = InferInsertModel<typeof recipes>;
 
-export type RecipeIngredient = InferSelectModel<typeof recipeIngredients>;
-export type NewRecipeIngredient = InferInsertModel<typeof recipeIngredients>;
+export type RecipesToIngredient = InferSelectModel<typeof recipesToIngredients>;
+export type NewRecipesToIngredient = InferInsertModel<
+  typeof recipesToIngredients
+>;
 
 export type Cooking = InferSelectModel<typeof cookings>;
 export type NewCooking = InferInsertModel<typeof cookings>;
