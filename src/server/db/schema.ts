@@ -22,22 +22,6 @@ import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
  */
 export const createTable = pgTableCreator((name) => `calorie-counter_${name}`);
 
-export const posts = createTable(
-  "post",
-  {
-    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-    name: varchar("name", { length: 256 }),
-    createdBy: varchar("created_by", { length: 256 }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
-      () => new Date(),
-    ),
-  },
-  (example) => [index("name_idx").on(example.name)],
-);
-
 export const ingredientCategories = [
   "Baking & Cooking Ingredients",
   "Canned & Packaged Foods",
