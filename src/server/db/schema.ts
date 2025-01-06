@@ -165,9 +165,20 @@ export const cookedRecipes = createTable("cooked_recipe", {
   finalWeightGrams: integer("final_weight_grams").notNull(),
 });
 
-export const cookedRecipesRelations = relations(cookedRecipes, ({ many }) => ({
-  cookedRecipeIngredients: many(cookedRecipeIngredients),
-}));
+export const cookedRecipesRelations = relations(
+  cookedRecipes,
+  ({ one, many }) => ({
+    cookedRecipeIngredients: many(cookedRecipeIngredients),
+    cooking: one(cookings, {
+      fields: [cookedRecipes.cookingId],
+      references: [cookings.id],
+    }),
+    recipe: one(recipes, {
+      fields: [cookedRecipes.recipeId],
+      references: [recipes.id],
+    }),
+  }),
+);
 
 // Cooked recipe ingredients (can override quantities and calories from original recipe)
 export const cookedRecipeIngredients = createTable(
@@ -180,8 +191,7 @@ export const cookedRecipeIngredients = createTable(
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     quantityGrams: integer("quantity_grams").notNull(),
-    // Override calories if different from original ingredient
-    caloriesPer100g: integer("calories_per_100g"),
+    caloriesPer100g: integer("calories_per_100g").notNull(),
   },
   (cookedRecipeIngredient) => [
     primaryKey({
@@ -191,6 +201,20 @@ export const cookedRecipeIngredients = createTable(
       ],
     }),
   ],
+);
+
+export const cookedRecipesToIngredientsRelations = relations(
+  cookedRecipeIngredients,
+  ({ one }) => ({
+    ingredient: one(ingredients, {
+      fields: [cookedRecipeIngredients.ingredientId],
+      references: [ingredients.id],
+    }),
+    cookedRecipe: one(cookedRecipes, {
+      fields: [cookedRecipeIngredients.cookedRecipeId],
+      references: [cookedRecipes.id],
+    }),
+  }),
 );
 
 // Persons table to track individuals

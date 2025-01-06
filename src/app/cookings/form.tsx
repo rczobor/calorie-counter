@@ -7,8 +7,10 @@ import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -30,7 +32,7 @@ import {
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Plus, Trash } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFieldArray, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import CreateIngredientDialog from "@/app/ingredients/create-dialog";
@@ -41,7 +43,7 @@ const formSchema = z.object({
   cookedRecipes: z.array(
     z.object({
       id: z.number().optional(),
-      recipeId: z.number().optional(),
+      recipeId: z.number().nullish(),
       name: z.string().min(1),
       finalWeightGrams: z.coerce.number().min(0),
       cookedRecipeIngredients: z.array(
@@ -64,10 +66,14 @@ const defaultValues = {
   cookedRecipes: [],
 };
 
-export default function CookingForm() {
+export default function CookingForm({ cookingId }: { cookingId?: number }) {
+  const isEdit = cookingId != null;
+  const { data: cooking } = api.cooking.getByIdWithRelations.useQuery(
+    { id: cookingId ?? -1 },
+    { enabled: isEdit },
+  );
   const [addRecipeOpen, setAddRecipeOpen] = useState(false);
   const { data: recipes } = api.recipe.getAll.useQuery();
-  const isEdit = false;
   const form = useForm<FormValues>({
     defaultValues,
     resolver: zodResolver(formSchema),
@@ -85,9 +91,51 @@ export default function CookingForm() {
       router.push(`/cookings/${res.id}`);
     },
   });
-  const isPending = createCooking.isPending;
+  const deleteCooking = api.cooking.delete.useMutation({
+    onSuccess: async () => {
+      await utils.cooking.getAll.invalidate();
+      router.push("/cookings");
+    },
+  });
+  const updateCooking = api.cooking.update.useMutation({
+    onSuccess: async () => {
+      await utils.cooking.getAll.invalidate();
+    },
+  });
+  const isPending =
+    createCooking.isPending ||
+    updateCooking.isPending ||
+    deleteCooking.isPending;
+
+  useEffect(() => {
+    if (!isEdit || !cooking) return;
+    form.reset({
+      name: cooking.name,
+      cookedRecipes: cooking.cookedRecipes.map((cookedRecipe) => ({
+        id: cookedRecipe.id,
+        recipeId: cookedRecipe.recipeId,
+        name: cookedRecipe.name,
+        finalWeightGrams:
+          cookedRecipe.finalWeightGrams.toString() as unknown as number,
+        cookedRecipeIngredients: cookedRecipe.cookedRecipeIngredients.map(
+          (cookedRecipeIngredient) => ({
+            ingredientId: cookedRecipeIngredient.ingredientId,
+            name: cookedRecipeIngredient.ingredient.name,
+            quantityGrams:
+              cookedRecipeIngredient.quantityGrams.toString() as unknown as number,
+            caloriesPer100g:
+              cookedRecipeIngredient.caloriesPer100g.toString() as unknown as number,
+          }),
+        ),
+      })),
+    });
+  }, [cooking, form, isEdit]);
 
   const onSubmit = async (data: FormValues) => {
+    if (isEdit) {
+      updateCooking.mutate({ id: cookingId, ...data });
+      return;
+    }
     createCooking.mutate(data);
   };
 
@@ -126,6 +174,11 @@ export default function CookingForm() {
     setAddRecipeOpen(false);
   };
 
+  const onDelete = () => {
+    if (!isEdit) return;
+    deleteCooking.mutate({ id: cookingId });
+  };
+
   return (
     <Form {...form}>
       <form
@@ -137,7 +190,7 @@ export default function CookingForm() {
             {isEdit ? "Edit Cooking" : "Create Cooking"}
           </h1>
           <Button type="submit" className="ml-auto" disabled={isPending}>
-            {createCooking.isPending ? (
+            {createCooking.isPending || updateCooking.isPending ? (
               <span className="flex items-center gap-2">
                 <Loader className="h-4 w-4 animate-spin" />
               </span>
@@ -145,6 +198,38 @@ export default function CookingForm() {
               "Save"
             )}
           </Button>
+          {isEdit && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="destructive" disabled={isPending}>
+                  <Trash />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete Recipe</DialogTitle>
+                  <DialogDescription></DialogDescription>
+                </DialogHeader>
+
+                <DialogFooter>
+                  <div className="flex justify-end gap-2">
+                    <DialogClose asChild>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={onDelete}
+                      >
+                        Delete
+                      </Button>
+                    </DialogClose>
+                    <DialogClose asChild>
+                      <Button type="button">Cancel</Button>
+                    </DialogClose>
+                  </div>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <FormField
