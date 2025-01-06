@@ -11,6 +11,7 @@ export default async function ServingsPage({
 
   await api.cooking.getByIdWithRelations.prefetch({ id: cookingId });
   await api.serving.getByCooking.prefetch({ cookingId });
+  await api.persona.getAll.prefetch();
 
   return (
     <HydrateClient>

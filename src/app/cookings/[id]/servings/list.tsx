@@ -30,6 +30,7 @@ export default function ServingList({ cookingId }: { cookingId: number }) {
       {servings?.map((serving) => (
         <Card key={serving.id} className="space-y-2 p-4">
           <div className="flex justify-between p-0 text-center">
+            <div>{serving.persona.name}</div>
             <div>{serving.name}</div>
             <div>
               <DeleteConfirmDialog onDelete={() => onDelete(serving.id)} />

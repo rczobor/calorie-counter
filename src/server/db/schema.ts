@@ -242,6 +242,11 @@ export const servings = createTable("serving", {
   cookingId: integer("cooking_id").references(() => cookings.id, {
     onDelete: "cascade",
   }),
+  personaId: integer("persona_id")
+    .references(() => personas.id, {
+      onDelete: "cascade",
+    })
+    .notNull(),
   name: varchar("name", { length: 256 }),
   createdBy: varchar("created_by", { length: 256 }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -253,6 +258,10 @@ export const servingRelations = relations(servings, ({ one, many }) => ({
   cooking: one(cookings, {
     fields: [servings.cookingId],
     references: [cookings.id],
+  }),
+  persona: one(personas, {
+    fields: [servings.personaId],
+    references: [personas.id],
   }),
   portions: many(servingPortions),
 }));
@@ -287,30 +296,6 @@ export const servingPortionRelations = relations(
       references: [cookedRecipes.id],
     }),
   }),
-);
-
-// Track consumption of servings by persons
-export const consumptions = createTable(
-  "consumption",
-  {
-    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-    personaId: integer("person_id")
-      .notNull()
-      .references(() => personas.id, { onDelete: "cascade" }),
-    servingId: integer("serving_id")
-      .notNull()
-      .references(() => servings.id, { onDelete: "cascade" }),
-    consumedAt: timestamp("consumed_at", { withTimezone: true })
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-    notes: text("notes"),
-  },
-  (consumption) => [
-    index("consumption_person_date_idx").on(
-      consumption.personaId,
-      consumption.consumedAt,
-    ),
-  ],
 );
 
 // Add direct ingredients to servings (for cases without cooking/recipe)
@@ -365,9 +350,6 @@ export type NewServing = InferInsertModel<typeof servings>;
 
 export type ServingPortion = InferSelectModel<typeof servingPortions>;
 export type NewServingPortion = InferInsertModel<typeof servingPortions>;
-
-export type Consumption = InferSelectModel<typeof consumptions>;
-export type NewConsumption = InferInsertModel<typeof consumptions>;
 
 export type ServingIngredient = InferSelectModel<typeof servingIngredients>;
 export type NewServingIngredient = InferInsertModel<typeof servingIngredients>;

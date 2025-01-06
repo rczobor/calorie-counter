@@ -13,6 +13,7 @@ export const servingRouter = createTRPCRouter({
       z.object({
         cookingId: z.number(),
         name: z.string().optional(),
+        personaId: z.number(),
         portions: z.array(
           z.object({
             cookedRecipeId: z.number(),
@@ -37,6 +38,7 @@ export const servingRouter = createTRPCRouter({
           .insert(servings)
           .values({
             cookingId: input.cookingId,
+            personaId: input.personaId,
             name: input.name,
             createdBy: ctx.userId,
           })
@@ -122,6 +124,7 @@ export const servingRouter = createTRPCRouter({
               },
             },
           },
+          persona: true,
           portions: {
             with: {
               cookedRecipe: {
