@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { ingredients } from "@/server/db/schema";
-import { eq, like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { z } from "zod";
 
 export const ingredientRouter = createTRPCRouter({
@@ -56,6 +56,7 @@ export const ingredientRouter = createTRPCRouter({
 
   getAll: protectedProcedure.query(async ({ ctx }) =>
     ctx.db.query.ingredients.findMany({
+      where: eq(ingredients.createdBy, ctx.userId),
       orderBy: (ingredients, { desc }) => [desc(ingredients.updatedAt)],
     }),
   ),
@@ -64,7 +65,10 @@ export const ingredientRouter = createTRPCRouter({
     .input(z.object({ name: z.string() }))
     .query(({ ctx, input }) =>
       ctx.db.query.ingredients.findMany({
-        where: like(ingredients.name, `%${input.name}%`),
+        where: and(
+          like(ingredients.name, `%${input.name}%`),
+          eq(ingredients.createdBy, ctx.userId),
+        ),
         orderBy: (ingredients, { desc }) => [desc(ingredients.updatedAt)],
         limit: 10,
       }),

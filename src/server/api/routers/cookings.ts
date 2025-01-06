@@ -218,6 +218,7 @@ export const cookingRouter = createTRPCRouter({
 
   getAll: protectedProcedure.query(({ ctx }) =>
     ctx.db.query.cookings.findMany({
+      where: eq(cookings.createdBy, ctx.userId),
       orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
     }),
   ),

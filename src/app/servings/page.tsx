@@ -8,7 +8,7 @@ export default async function AllServingsPage() {
     <HydrateClient>
       <div className="container mx-auto flex flex-col px-4">
         <div className="flex items-center justify-between py-4">
-          <h1 className="text-2xl font-bold">Personas</h1>
+          <h1 className="text-2xl font-bold">Servings</h1>
         </div>
 
         <AllServingsTable />

@@ -140,6 +140,7 @@ export const servingRouter = createTRPCRouter({
 
   getAll: protectedProcedure.query(({ ctx }) =>
     ctx.db.query.servings.findMany({
+      where: eq(servings.createdBy, ctx.userId),
       orderBy: (servings, { desc }) => [desc(servings.createdAt)],
       with: { cooking: true, persona: true },
     }),
