@@ -117,7 +117,7 @@ export const recipeRouter = createTRPCRouter({
     }),
   ),
 
-  getByIdWithIngredient: protectedProcedure
+  getByIdWithRelations: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) =>
       ctx.db.query.recipes.findFirst({

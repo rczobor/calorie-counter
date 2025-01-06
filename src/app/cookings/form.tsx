@@ -140,8 +140,9 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
   };
 
   const addExistingRecipe = async (recipe: Recipe) => {
-    const recipeWithIngredients =
-      await utils.recipe.getByIdWithIngredient.fetch({ id: recipe.id });
+    const recipeWithIngredients = await utils.recipe.getByIdWithRelations.fetch(
+      { id: recipe.id },
+    );
 
     if (!recipeWithIngredients) return;
 

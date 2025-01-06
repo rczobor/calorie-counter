@@ -72,7 +72,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function RecipeForm({ id }: { id?: number }) {
   const isEdit = id != null;
-  const { data: recipe } = api.recipe.getByIdWithIngredient.useQuery(
+  const { data: recipe } = api.recipe.getByIdWithRelations.useQuery(
     { id: id ?? -1 },
     { enabled: isEdit },
   );
