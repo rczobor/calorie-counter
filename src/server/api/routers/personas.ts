@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { personas } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 export const personaRouter = createTRPCRouter({
@@ -54,7 +54,10 @@ export const personaRouter = createTRPCRouter({
     .input(z.object({ id: z.number() }))
     .query(({ ctx, input }) =>
       ctx.db.query.personas.findFirst({
-        where: eq(personas.id, input.id),
+        where: and(
+          eq(personas.id, input.id),
+          eq(personas.createdBy, ctx.userId),
+        ),
       }),
     ),
 

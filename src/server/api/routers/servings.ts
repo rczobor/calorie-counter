@@ -5,7 +5,7 @@ import {
   servingIngredients,
 } from "@/server/db/schema";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export const servingRouter = createTRPCRouter({
   create: protectedProcedure
@@ -83,7 +83,10 @@ export const servingRouter = createTRPCRouter({
     .input(z.object({ id: z.number() }))
     .query(({ ctx, input }) =>
       ctx.db.query.servings.findFirst({
-        where: eq(servings.id, input.id),
+        where: and(
+          eq(servings.id, input.id),
+          eq(servings.createdBy, ctx.userId),
+        ),
         with: {
           cooking: {
             with: {
