@@ -85,7 +85,7 @@ export const recipes = createTable(
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     name: varchar("name", { length: 256 }).notNull(),
-    description: text("description"),
+    description: text("description").notNull(),
     category: recipeCategory("category").notNull(),
     createdBy: varchar("created_by", { length: 256 }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -162,6 +162,7 @@ export const cookedRecipes = createTable("cooked_recipe", {
     onDelete: "cascade",
   }),
   name: varchar("name", { length: 256 }).notNull(),
+  description: text("description").notNull(),
   finalWeightGrams: integer("final_weight_grams").notNull(),
 });
 
@@ -303,8 +304,7 @@ export const servingIngredients = createTable(
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     weightGrams: integer("weight_grams").notNull(),
-    // Override calories if different from original ingredient
-    caloriesPer100g: integer("calories_per_100g"),
+    caloriesPer100g: integer("calories_per_100g").notNull(),
   },
   (servingIngredient) => [
     index("serving_ingredient_serving_idx").on(servingIngredient.servingId),

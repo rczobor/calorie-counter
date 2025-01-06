@@ -37,6 +37,7 @@ import { useFieldArray, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import CreateIngredientDialog from "@/app/ingredients/create-dialog";
 import { useRouter } from "next/navigation";
+import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
   name: z.string().min(1),
@@ -45,6 +46,7 @@ const formSchema = z.object({
       id: z.number().optional(),
       recipeId: z.number().nullish(),
       name: z.string().min(1),
+      description: z.string(),
       finalWeightGrams: z.coerce.number().min(0),
       cookedRecipeIngredients: z.array(
         z.object({
@@ -115,6 +117,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
         id: cookedRecipe.id,
         recipeId: cookedRecipe.recipeId,
         name: cookedRecipe.name,
+        description: cookedRecipe.description,
         finalWeightGrams:
           cookedRecipe.finalWeightGrams.toString() as unknown as number,
         cookedRecipeIngredients: cookedRecipe.cookedRecipeIngredients.map(
@@ -149,6 +152,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
     recipesFieldArray.append({
       recipeId: recipeWithIngredients.id,
       name: recipeWithIngredients.name,
+      description: recipeWithIngredients.description,
       finalWeightGrams: "" as unknown as number,
       cookedRecipeIngredients: recipeWithIngredients.recipesToIngredients.map(
         (recipesToIngredient) => ({
@@ -168,6 +172,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const addNewRecipe = () => {
     recipesFieldArray.append({
       name: "",
+      description: "",
       finalWeightGrams: "" as unknown as number,
       cookedRecipeIngredients: [],
     });
@@ -319,6 +324,18 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                     <Trash />
                   </Button>
                 </div>
+
+                <FormField
+                  name={`cookedRecipes.${index}.description`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Recipe description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Description" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
                 <CookedRecipeIngredients index={index} />
               </Card>

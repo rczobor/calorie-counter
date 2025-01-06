@@ -17,6 +17,7 @@ export const cookingRouter = createTRPCRouter({
             id: z.number().optional(),
             recipeId: z.number().nullish(),
             name: z.string().min(1),
+            description: z.string(),
             finalWeightGrams: z.number().min(0),
             cookedRecipeIngredients: z.array(
               z.object({
@@ -50,6 +51,7 @@ export const cookingRouter = createTRPCRouter({
               cookingId: cooking.id,
               recipeId: recipe.recipeId,
               name: recipe.name,
+              description: recipe.description,
               finalWeightGrams: recipe.finalWeightGrams,
             })
             .returning();
@@ -80,6 +82,7 @@ export const cookingRouter = createTRPCRouter({
             id: z.number().optional(),
             recipeId: z.number().nullish(),
             name: z.string().min(1),
+            description: z.string(),
             finalWeightGrams: z.number().min(0),
             cookedRecipeIngredients: z.array(
               z.object({
@@ -183,6 +186,7 @@ export const cookingRouter = createTRPCRouter({
                 cookingId: cooking.id,
                 recipeId: recipe.recipeId,
                 name: recipe.name,
+                description: recipe.description,
                 finalWeightGrams: recipe.finalWeightGrams,
               })
               .returning();
