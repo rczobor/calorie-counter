@@ -148,6 +148,10 @@ export const cookings = createTable("cooking", {
   ),
 });
 
+export const cookingsRelations = relations(cookings, ({ many }) => ({
+  cookedRecipes: many(cookedRecipes),
+}));
+
 // Cooked recipes table (recipes used in a cooking)
 export const cookedRecipes = createTable("cooked_recipe", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
@@ -158,9 +162,12 @@ export const cookedRecipes = createTable("cooked_recipe", {
     onDelete: "cascade",
   }),
   name: varchar("name", { length: 256 }).notNull(),
-  description: text("description"),
   finalWeightGrams: integer("final_weight_grams").notNull(),
 });
+
+export const cookedRecipesRelations = relations(cookedRecipes, ({ many }) => ({
+  cookedRecipeIngredients: many(cookedRecipeIngredients),
+}));
 
 // Cooked recipe ingredients (can override quantities and calories from original recipe)
 export const cookedRecipeIngredients = createTable(

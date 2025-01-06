@@ -310,7 +310,7 @@ function IngredientSearch() {
                 </FormItem>
               )}
             />
-            <div className="">{field.name}</div>
+            <div>{field.name}</div>
             <div className="ml-auto">{field.caloriesPer100g}</div>
             <div className="flex justify-end gap-2">
               <Button
