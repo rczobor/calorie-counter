@@ -67,10 +67,7 @@ export default function CreateServingForm({
     },
   });
 
-  console.log(form.formState.errors, form.getValues());
-
   const onSubmit = (data: FormValues) => {
-    console.log(data);
     createServing.mutate({
       cookingId,
       ...data,
