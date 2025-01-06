@@ -137,4 +137,11 @@ export const servingRouter = createTRPCRouter({
         },
       }),
     ),
+
+  getAll: protectedProcedure.query(({ ctx }) =>
+    ctx.db.query.servings.findMany({
+      orderBy: (servings, { desc }) => [desc(servings.createdAt)],
+      with: { cooking: true, persona: true },
+    }),
+  ),
 });
