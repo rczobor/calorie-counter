@@ -61,8 +61,9 @@ export function DataTable<TData, TValue>({
   });
 
   useEffect(() => {
+    if (!nameSearch) return;
     table.setColumnFilters([{ id: "name", value: nameFilter }]);
-  }, [nameFilter, table]);
+  }, [nameFilter, nameSearch, table]);
 
   return (
     <div className="flex flex-col gap-2">

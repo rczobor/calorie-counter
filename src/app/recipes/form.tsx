@@ -1,18 +1,9 @@
 "use client";
 
 import CreateIngredientDialog from "@/app/ingredients/create-dialog";
+import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -34,7 +25,7 @@ import { type Ingredient, recipeCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Loader, Minus, Plus, Trash } from "lucide-react";
+import { Loader, Minus, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFieldArray, useForm, useFormContext } from "react-hook-form";
@@ -151,38 +142,7 @@ export default function RecipeForm({ id }: { id?: number }) {
               "Save"
             )}
           </Button>
-          {isEdit && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="destructive" disabled={isPending}>
-                  <Trash />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Recipe</DialogTitle>
-                  <DialogDescription></DialogDescription>
-                </DialogHeader>
-
-                <DialogFooter>
-                  <div className="flex justify-end gap-2">
-                    <DialogClose asChild>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={onDelete}
-                      >
-                        Delete
-                      </Button>
-                    </DialogClose>
-                    <DialogClose asChild>
-                      <Button type="button">Cancel</Button>
-                    </DialogClose>
-                  </div>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+          {isEdit && <DeleteConfirmDialog onDelete={onDelete} />}
         </div>
 
         <div className="flex flex-col gap-2">

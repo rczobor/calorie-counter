@@ -243,12 +243,19 @@ export const servings = createTable("serving", {
     onDelete: "cascade",
   }),
   name: varchar("name", { length: 256 }),
-  numberOfServings: integer("number_of_servings").notNull(),
   createdBy: varchar("created_by", { length: 256 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
 });
+
+export const servingRelations = relations(servings, ({ one, many }) => ({
+  cooking: one(cookings, {
+    fields: [servings.cookingId],
+    references: [cookings.id],
+  }),
+  portions: many(servingPortions),
+}));
 
 // Track which cooked recipes are included in a serving and their weights
 export const servingPortions = createTable(
@@ -266,6 +273,20 @@ export const servingPortions = createTable(
   (servingPortion) => [
     index("serving_portion_serving_idx").on(servingPortion.servingId),
   ],
+);
+
+export const servingPortionRelations = relations(
+  servingPortions,
+  ({ one }) => ({
+    serving: one(servings, {
+      fields: [servingPortions.servingId],
+      references: [servings.id],
+    }),
+    cookedRecipe: one(cookedRecipes, {
+      fields: [servingPortions.cookedRecipeId],
+      references: [cookedRecipes.id],
+    }),
+  }),
 );
 
 // Track consumption of servings by persons

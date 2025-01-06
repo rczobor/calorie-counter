@@ -7,10 +7,8 @@ import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -38,6 +36,7 @@ import { z } from "zod";
 import CreateIngredientDialog from "@/app/ingredients/create-dialog";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
+import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 
 const formSchema = z.object({
   name: z.string().min(1),
@@ -191,7 +190,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
         className="container mx-auto flex flex-col gap-2 px-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-center gap-2 py-4">
+        <div className="flex items-center gap-2 pt-4">
           <h1 className="text-2xl font-bold">
             {isEdit ? "Edit Cooking" : "Create Cooking"}
           </h1>
@@ -204,39 +203,19 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
               "Save"
             )}
           </Button>
-          {isEdit && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="destructive" disabled={isPending}>
-                  <Trash />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Recipe</DialogTitle>
-                  <DialogDescription></DialogDescription>
-                </DialogHeader>
-
-                <DialogFooter>
-                  <div className="flex justify-end gap-2">
-                    <DialogClose asChild>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={onDelete}
-                      >
-                        Delete
-                      </Button>
-                    </DialogClose>
-                    <DialogClose asChild>
-                      <Button type="button">Cancel</Button>
-                    </DialogClose>
-                  </div>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+          {isEdit && <DeleteConfirmDialog onDelete={onDelete} />}
         </div>
+
+        {isEdit && (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={() => router.push(`/cookings/${cookingId}/servings`)}
+            >
+              Servings
+            </Button>
+          </div>
+        )}
 
         <FormField
           name="name"
