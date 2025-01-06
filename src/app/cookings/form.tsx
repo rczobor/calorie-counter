@@ -39,19 +39,19 @@ import { Textarea } from "@/components/ui/textarea";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 
 const formSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, { message: "Required" }),
   cookedRecipes: z.array(
     z.object({
       id: z.number().optional(),
       recipeId: z.number().nullish(),
-      name: z.string().min(1),
+      name: z.string().min(1, { message: "Required" }),
       description: z.string(),
       finalWeightGrams: z.coerce.number().min(0),
       cookedRecipeIngredients: z.array(
         z.object({
           id: z.number().optional(),
           ingredientId: z.number(),
-          name: z.string().min(1),
+          name: z.string().min(1, { message: "Required" }),
           quantityGrams: z.coerce.number().min(0),
           caloriesPer100g: z.coerce.number().min(0),
         }),

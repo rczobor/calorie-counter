@@ -34,15 +34,15 @@ export default function DeleteConfirmDialog({
         </DialogHeader>
 
         <DialogFooter>
-          <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button type="button" onClick={onCancel}>
-                Cancel
-              </Button>
-            </DialogClose>
+          <div className="flex justify-center gap-2">
             <DialogClose asChild>
               <Button type="button" variant="destructive" onClick={onDelete}>
                 Delete
+              </Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button type="button" onClick={onCancel}>
+                Cancel
               </Button>
             </DialogClose>
           </div>

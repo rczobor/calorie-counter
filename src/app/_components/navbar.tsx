@@ -9,6 +9,7 @@ const navItems = [
   { name: "Recipes", href: "/recipes" },
   { name: "Cookings", href: "/cookings" },
   { name: "Servings", href: "/servings" },
+  { name: "Personas", href: "/personas" },
 ] as const;
 
 export default function Navbar() {

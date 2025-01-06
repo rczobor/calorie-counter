@@ -219,8 +219,8 @@ export const cookedRecipesToIngredientsRelations = relations(
 );
 
 // Persons table to track individuals
-export const persons = createTable(
-  "person",
+export const personas = createTable(
+  "persona",
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     name: varchar("name", { length: 256 }).notNull(),
@@ -294,9 +294,9 @@ export const consumptions = createTable(
   "consumption",
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-    personId: integer("person_id")
+    personaId: integer("person_id")
       .notNull()
-      .references(() => persons.id, { onDelete: "cascade" }),
+      .references(() => personas.id, { onDelete: "cascade" }),
     servingId: integer("serving_id")
       .notNull()
       .references(() => servings.id, { onDelete: "cascade" }),
@@ -307,7 +307,7 @@ export const consumptions = createTable(
   },
   (consumption) => [
     index("consumption_person_date_idx").on(
-      consumption.personId,
+      consumption.personaId,
       consumption.consumedAt,
     ),
   ],
@@ -357,8 +357,8 @@ export type NewCookedRecipeIngredient = InferInsertModel<
   typeof cookedRecipeIngredients
 >;
 
-export type Person = InferSelectModel<typeof persons>;
-export type NewPerson = InferInsertModel<typeof persons>;
+export type Persona = InferSelectModel<typeof personas>;
+export type NewPersona = InferInsertModel<typeof personas>;
 
 export type Serving = InferSelectModel<typeof servings>;
 export type NewServing = InferInsertModel<typeof servings>;

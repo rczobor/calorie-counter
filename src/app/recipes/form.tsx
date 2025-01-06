@@ -35,7 +35,7 @@ const formSchema = z.object({
   ingredients: z.array(
     z.object({
       id: z.number(),
-      name: z.string().min(1),
+      name: z.string().min(1, { message: "Required" }),
       caloriesPer100g: z
         .string()
         .min(1, { message: "Required" })
@@ -47,7 +47,7 @@ const formSchema = z.object({
         .pipe(z.coerce.number().min(0)),
     }),
   ),
-  name: z.string().min(1),
+  name: z.string().min(1, { message: "Required" }),
   description: z.string(),
   category: z.enum(recipeCategories),
 });

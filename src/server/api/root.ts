@@ -1,5 +1,6 @@
 import { cookingRouter } from "@/server/api/routers/cookings";
 import { ingredientRouter } from "@/server/api/routers/ingredients";
+import { personaRouter } from "@/server/api/routers/personas";
 import { recipeRouter } from "@/server/api/routers/recipes";
 import { servingRouter } from "@/server/api/routers/servings";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
@@ -14,6 +15,7 @@ export const appRouter = createTRPCRouter({
   ingredient: ingredientRouter,
   recipe: recipeRouter,
   serving: servingRouter,
+  persona: personaRouter,
 });
 
 // export type definition of API
