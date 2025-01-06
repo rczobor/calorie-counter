@@ -7,12 +7,14 @@ import { useRouter } from "next/navigation";
 
 export default function AllServingsTable() {
   const { data } = api.serving.getAll.useQuery();
+  const { data: personas } = api.persona.getAll.useQuery();
   const router = useRouter();
 
   return (
     <DataTable
       columns={columns}
       data={data ?? []}
+      options={personas?.map((persona) => persona.name) ?? []}
       onClick={(serving) =>
         router.push(`/cookings/${serving.cookingId}/servings`)
       }
