@@ -121,23 +121,40 @@ export default function CreateServingForm({
                 data={recipe.cookedRecipeIngredients}
               />
 
-              <FormField
-                name={`portions.${index}.weightGrams`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Portion Weight</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        placeholder="Weight in grams"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div>
+                <FormField
+                  name={`portions.${index}.weightGrams`}
+                  render={({ field }) => (
+                    <FormItem className="flex justify-between gap-2">
+                      <div>
+                        <FormLabel>Portion Weight</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="Weight in grams"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </div>
+
+                      <div>
+                        <div>Portion kcal</div>
+                        <div>
+                          {field.value
+                            ? Math.round(
+                                (field.value *
+                                  calculateCaloriesPer100g(recipe)) /
+                                  100,
+                              )
+                            : 0}
+                        </div>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </Card>
           ))}
         </section>
