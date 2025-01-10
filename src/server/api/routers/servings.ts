@@ -6,7 +6,7 @@ import {
   servings,
 } from "@/server/db/schema";
 import { z } from "zod";
-import { and, between, eq, sql } from "drizzle-orm";
+import { and, between, eq } from "drizzle-orm";
 import { calculateTotalCalories } from "@/app/cookings/[id]/servings/utils";
 
 export const servingRouter = createTRPCRouter({
