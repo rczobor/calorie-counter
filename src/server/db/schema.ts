@@ -233,26 +233,38 @@ export const personas = createTable(
       () => new Date(),
     ),
   },
-  (person) => [index("person_name_idx").on(person.name)],
+  (persona) => [
+    index("persona_id_created_by_idx").on(persona.id, persona.createdBy),
+  ],
 );
 
 // Servings table to track how many portions were created from a cooking
-export const servings = createTable("serving", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  cookingId: integer("cooking_id").references(() => cookings.id, {
-    onDelete: "cascade",
-  }),
-  personaId: integer("persona_id")
-    .references(() => personas.id, {
+export const servings = createTable(
+  "serving",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    cookingId: integer("cooking_id").references(() => cookings.id, {
       onDelete: "cascade",
-    })
-    .notNull(),
-  name: varchar("name", { length: 256 }),
-  createdBy: varchar("created_by", { length: 256 }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .default(sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+    }),
+    personaId: integer("persona_id")
+      .references(() => personas.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
+    name: varchar("name", { length: 256 }),
+    createdBy: varchar("created_by", { length: 256 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (serving) => [
+    index("serving_persona_created_idx").on(
+      serving.personaId,
+      serving.createdBy,
+      serving.createdAt,
+    ),
+  ],
+);
 
 export const servingRelations = relations(servings, ({ one, many }) => ({
   cooking: one(cookings, {
@@ -325,31 +337,19 @@ export type Recipe = InferSelectModel<typeof recipes>;
 export type NewRecipe = InferInsertModel<typeof recipes>;
 
 export type RecipesToIngredient = InferSelectModel<typeof recipesToIngredients>;
-export type NewRecipesToIngredient = InferInsertModel<
-  typeof recipesToIngredients
->;
 
 export type Cooking = InferSelectModel<typeof cookings>;
-export type NewCooking = InferInsertModel<typeof cookings>;
 
 export type CookedRecipe = InferSelectModel<typeof cookedRecipes>;
-export type NewCookedRecipe = InferInsertModel<typeof cookedRecipes>;
 
 export type CookedRecipeIngredient = InferSelectModel<
   typeof cookedRecipeIngredients
 >;
-export type NewCookedRecipeIngredient = InferInsertModel<
-  typeof cookedRecipeIngredients
->;
 
 export type Persona = InferSelectModel<typeof personas>;
-export type NewPersona = InferInsertModel<typeof personas>;
 
 export type Serving = InferSelectModel<typeof servings>;
-export type NewServing = InferInsertModel<typeof servings>;
 
 export type ServingPortion = InferSelectModel<typeof servingPortions>;
-export type NewServingPortion = InferInsertModel<typeof servingPortions>;
 
 export type ServingIngredient = InferSelectModel<typeof servingIngredients>;
-export type NewServingIngredient = InferInsertModel<typeof servingIngredients>;
