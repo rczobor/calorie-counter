@@ -6,6 +6,7 @@ import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/react";
 import Navbar from "@/app/_components/navbar";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -38,6 +39,7 @@ export default function RootLayout({
               </header>
               <main>{children}</main>
               <SpeedInsights />
+              <Analytics />
             </ThemeProvider>
           </body>
         </html>
