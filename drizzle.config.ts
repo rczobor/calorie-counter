@@ -8,5 +8,5 @@ export default {
   dbCredentials: {
     url: env.DATABASE_URL,
   },
-  tablesFilter: ["calorie-counter_*"],
+  tablesFilter: ["cc_*"],
 } satisfies Config;
