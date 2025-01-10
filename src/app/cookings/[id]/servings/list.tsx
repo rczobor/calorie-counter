@@ -15,13 +15,14 @@ export default function ServingList({ cookingId }: { cookingId: number }) {
   const { data: servings } = api.serving.getByCooking.useQuery({ cookingId });
   const utils = api.useUtils();
   const deleteMutation = api.serving.delete.useMutation({
-    onSuccess: async () => {
-      await utils.serving.getByCooking.invalidate({ cookingId });
+    onSuccess: () => {
+      void utils.serving.getByCooking.invalidate({ cookingId });
     },
   });
 
   const onDelete = (id: number) => {
     deleteMutation.mutate({ id });
+    void utils.serving.getPersonaCalories.invalidate();
   };
 
   return (

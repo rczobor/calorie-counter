@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -68,12 +67,10 @@ export default function CreateServingForm({
   endOfToday.setHours(23, 59, 59, 999);
 
   const createServing = api.serving.create.useMutation({
-    onSuccess: async (res) => {
-      await utils.serving.getByCooking.invalidate({ cookingId });
-      await utils.serving.getPersonaCalories.invalidate({
+    onSuccess: (res) => {
+      void utils.serving.getByCooking.invalidate({ cookingId });
+      void utils.serving.getPersonaCalories.invalidate({
         personaId: res.personaId,
-        startDate: startOfToday,
-        endDate: endOfToday,
       });
       form.reset();
     },
@@ -84,12 +81,6 @@ export default function CreateServingForm({
     startDate: startOfToday,
     endDate: endOfToday,
   });
-
-  useEffect(() => {
-    if (!personaCalories) return;
-
-    console.log(personaCalories);
-  }, [personaCalories]);
 
   const onSubmit = (data: FormValues) => {
     createServing.mutate({
