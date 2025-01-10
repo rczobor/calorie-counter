@@ -1,11 +1,13 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
-  servings,
-  servingPortions,
+  personas,
   servingIngredients,
+  servingPortions,
+  servings,
 } from "@/server/db/schema";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, between, eq, sql } from "drizzle-orm";
+import { calculateTotalCalories } from "@/app/cookings/[id]/servings/utils";
 
 export const servingRouter = createTRPCRouter({
   create: protectedProcedure
@@ -148,4 +150,59 @@ export const servingRouter = createTRPCRouter({
       with: { cooking: true, persona: true },
     }),
   ),
+
+  getPersonaCalories: protectedProcedure
+    .input(
+      z.object({
+        personaId: z.number(),
+        startDate: z.date(),
+        endDate: z.date(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Get all servings for this persona on the given date
+      const servingArr = await ctx.db.query.servings.findMany({
+        where: and(
+          eq(servings.personaId, input.personaId),
+          eq(servings.createdBy, ctx.userId),
+          between(servings.createdAt, input.startDate, input.endDate),
+        ),
+        with: {
+          portions: {
+            with: {
+              cookedRecipe: {
+                with: {
+                  cookedRecipeIngredients: { with: { ingredient: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Calculate total calories from portions and direct ingredients
+      const totalCalories = servingArr.reduce((total, serving) => {
+        // Add calories from portions (cooked recipes)
+        const portionCalories = serving.portions.reduce(
+          (acc, portion) => acc + calculateTotalCalories(portion),
+          0,
+        );
+
+        return total + portionCalories;
+      }, 0);
+
+      // Get target calories from persona
+      const persona = await ctx.db.query.personas.findFirst({
+        columns: { targetDailyCalories: true },
+        where: eq(personas.id, input.personaId),
+      });
+
+      const targetCalories = persona?.targetDailyCalories ?? 0;
+
+      return {
+        consumedCalories: totalCalories,
+        targetCalories,
+        remainingCalories: Math.max(0, targetCalories - totalCalories),
+      };
+    }),
 });

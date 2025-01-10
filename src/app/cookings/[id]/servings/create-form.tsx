@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -60,12 +61,35 @@ export default function CreateServingForm({
     },
   });
   const utils = api.useUtils();
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
   const createServing = api.serving.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       await utils.serving.getByCooking.invalidate({ cookingId });
+      await utils.serving.getPersonaCalories.invalidate({
+        personaId: res.personaId,
+        startDate: startOfToday,
+        endDate: endOfToday,
+      });
       form.reset();
     },
   });
+
+  const { data: personaCalories } = api.serving.getPersonaCalories.useQuery({
+    personaId: Number(form.watch("personaId")),
+    startDate: startOfToday,
+    endDate: endOfToday,
+  });
+
+  useEffect(() => {
+    if (!personaCalories) return;
+
+    console.log(personaCalories);
+  }, [personaCalories]);
 
   const onSubmit = (data: FormValues) => {
     createServing.mutate({
@@ -164,7 +188,9 @@ export default function CreateServingForm({
             name="personaId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Persona</FormLabel>
+                <FormLabel>
+                  Remaining kcal: {personaCalories?.remainingCalories}
+                </FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={String(field.value)}
@@ -190,6 +216,7 @@ export default function CreateServingForm({
               </FormItem>
             )}
           />
+
           <Button type="submit">Create Serving</Button>
         </div>
       </form>
