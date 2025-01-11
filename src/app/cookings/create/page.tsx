@@ -2,8 +2,8 @@ import CookingForm from "@/app/cookings/form";
 import { api, HydrateClient } from "@/trpc/server";
 
 export default async function CreateCooking() {
-  await api.ingredient.getAll.prefetch();
-  await api.recipe.getAll.prefetch();
+  void api.ingredient.getAll.prefetch();
+  void api.recipe.getAll.prefetch();
 
   return (
     <HydrateClient>

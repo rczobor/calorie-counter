@@ -2,7 +2,7 @@ import AllServingsTable from "@/app/servings/table";
 import { api, HydrateClient } from "@/trpc/server";
 
 export default async function AllServingsPage() {
-  await api.serving.getAll.prefetch();
+  void api.serving.getAll.prefetch();
 
   return (
     <HydrateClient>

@@ -9,9 +9,9 @@ export default async function ServingsPage({
 }) {
   const cookingId = Number((await params).id);
 
-  await api.cooking.getByIdWithRelations.prefetch({ id: cookingId });
-  await api.serving.getByCooking.prefetch({ cookingId });
-  await api.persona.getAll.prefetch();
+  void api.cooking.getByIdWithRelations.prefetch({ id: cookingId });
+  void api.serving.getByCooking.prefetch({ cookingId });
+  void api.persona.getAll.prefetch();
 
   return (
     <HydrateClient>

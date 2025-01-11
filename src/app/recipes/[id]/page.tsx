@@ -8,7 +8,7 @@ export default async function RecipePage({
 }) {
   const id = (await params).id;
 
-  await api.recipe.getByIdWithRelations.prefetch({ id: Number(id) });
+  void api.recipe.getByIdWithRelations.prefetch({ id: Number(id) });
 
   return (
     <HydrateClient>

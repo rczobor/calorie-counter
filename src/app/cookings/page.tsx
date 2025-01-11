@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 
 export default async function Cookings() {
-  await api.cooking.getAll.prefetch();
+  void api.cooking.getAll.prefetch();
 
   return (
     <HydrateClient>

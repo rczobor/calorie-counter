@@ -3,7 +3,7 @@ import IngredientTable from "@/app/ingredients/table";
 import { api, HydrateClient } from "@/trpc/server";
 
 export default async function Ingredients() {
-  await api.ingredient.getAll.prefetch();
+  void api.ingredient.getAll.prefetch();
 
   return (
     <HydrateClient>

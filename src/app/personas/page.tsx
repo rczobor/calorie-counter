@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 
 export default async function PersonasPage() {
-  await api.persona.getAll.prefetch();
+  void api.persona.getAll.prefetch();
 
   return (
     <HydrateClient>

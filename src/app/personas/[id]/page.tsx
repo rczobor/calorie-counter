@@ -8,7 +8,7 @@ export default async function PersonaPage({
 }) {
   const id = Number((await params).id);
 
-  await api.persona.getById.prefetch({ id });
+  void api.persona.getById.prefetch({ id });
 
   return (
     <HydrateClient>
