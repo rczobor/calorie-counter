@@ -43,16 +43,16 @@ export default function CreateServingForm({
 }: {
   cookingId: number;
 }) {
-  const { data: cooking, isPending } =
-    api.cooking.getByIdWithRelations.useQuery({
+  const [cooking, { isPending }] =
+    api.cooking.getByIdWithRelations.useSuspenseQuery({
       id: cookingId,
     });
-  const { data: personas } = api.persona.getAll.useQuery();
+  const [personas] = api.persona.getAll.useSuspenseQuery();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      personaId: (personas?.[0]?.id.toString() ?? "") as unknown as number,
+      personaId: (personas[0]?.id.toString() ?? "") as unknown as number,
       portions:
         cooking?.cookedRecipes.map((recipe) => ({
           cookedRecipeId: recipe.id,
