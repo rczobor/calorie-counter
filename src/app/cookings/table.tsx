@@ -6,7 +6,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function CookingTable() {
-  const [data, { isPending }] = api.cooking.getAll.useSuspenseQuery();
+  const { data, isPending } = api.cooking.getAll.useQuery();
   const router = useRouter();
   return (
     <DataTable

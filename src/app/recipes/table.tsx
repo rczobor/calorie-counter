@@ -7,7 +7,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function RecipeTable() {
-  const [data, { isPending }] = api.recipe.getAll.useSuspenseQuery();
+  const { data, isPending } = api.recipe.getAll.useQuery();
   const router = useRouter();
 
   return (

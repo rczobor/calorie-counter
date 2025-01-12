@@ -6,7 +6,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function PersonaTable() {
-  const [data, { isPending }] = api.persona.getAll.useSuspenseQuery();
+  const { data, isPending } = api.persona.getAll.useQuery();
   const router = useRouter();
 
   return (

@@ -1,5 +1,4 @@
 import PersonaForm from "@/app/personas/form";
-import { api, HydrateClient } from "@/trpc/server";
 
 export default async function PersonaPage({
   params,
@@ -8,11 +7,5 @@ export default async function PersonaPage({
 }) {
   const id = Number((await params).id);
 
-  void api.persona.getById.prefetch({ id });
-
-  return (
-    <HydrateClient>
-      <PersonaForm id={Number(id)} />
-    </HydrateClient>
-  );
+  return <PersonaForm id={Number(id)} />;
 }

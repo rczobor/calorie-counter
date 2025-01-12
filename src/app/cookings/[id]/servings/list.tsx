@@ -12,7 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { api } from "@/trpc/react";
 
 export default function ServingList({ cookingId }: { cookingId: number }) {
-  const [servings, { isPending }] = api.serving.getByCooking.useSuspenseQuery({
+  const { data: servings, isPending } = api.serving.getByCooking.useQuery({
     cookingId,
   });
   const utils = api.useUtils();

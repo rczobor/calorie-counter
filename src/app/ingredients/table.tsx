@@ -8,7 +8,7 @@ import { api } from "@/trpc/react";
 import { useState } from "react";
 
 export default function IngredientTable() {
-  const [data, { isPending }] = api.ingredient.getAll.useSuspenseQuery();
+  const { data, isPending } = api.ingredient.getAll.useQuery();
   const [selectedIngredient, setSelectedIngredient] =
     useState<Ingredient | null>(null);
 
