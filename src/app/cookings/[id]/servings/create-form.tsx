@@ -43,9 +43,10 @@ export default function CreateServingForm({
 }: {
   cookingId: number;
 }) {
-  const { data: cooking } = api.cooking.getByIdWithRelations.useQuery({
-    id: cookingId,
-  });
+  const { data: cooking, isPending } =
+    api.cooking.getByIdWithRelations.useQuery({
+      id: cookingId,
+    });
   const { data: personas } = api.persona.getAll.useQuery();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -134,6 +135,7 @@ export default function CreateServingForm({
                   { accessorKey: "caloriesPer100g", header: "Kcal/100g" },
                 ]}
                 data={recipe.cookedRecipeIngredients}
+                loading={isPending}
               />
 
               <div>

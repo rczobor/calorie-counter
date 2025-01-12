@@ -205,7 +205,7 @@ export default function RecipeForm({ id }: { id?: number }) {
 }
 
 function IngredientSearch() {
-  const { data } = api.ingredient.getAll.useQuery();
+  const { data, isPending } = api.ingredient.getAll.useQuery();
   const form = useFormContext<FormValues>();
   const fieldArray = useFieldArray({
     control: form.control,
@@ -294,6 +294,7 @@ function IngredientSearch() {
           ) ?? []
         }
         nameSearch
+        loading={isPending}
       />
     </section>
   );

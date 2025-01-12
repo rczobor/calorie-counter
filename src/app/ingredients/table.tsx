@@ -8,7 +8,7 @@ import { api } from "@/trpc/react";
 import { useState } from "react";
 
 export default function IngredientTable() {
-  const { data } = api.ingredient.getAll.useQuery();
+  const { data, isPending } = api.ingredient.getAll.useQuery();
   const [selectedIngredient, setSelectedIngredient] =
     useState<Ingredient | null>(null);
 
@@ -20,6 +20,7 @@ export default function IngredientTable() {
         options={ingredientCategories}
         nameSearch
         onClick={setSelectedIngredient}
+        loading={isPending}
       />
 
       <EditIngredientDialog

@@ -12,7 +12,9 @@ import { DataTable } from "@/components/ui/data-table";
 import { api } from "@/trpc/react";
 
 export default function ServingList({ cookingId }: { cookingId: number }) {
-  const { data: servings } = api.serving.getByCooking.useQuery({ cookingId });
+  const { data: servings, isPending } = api.serving.getByCooking.useQuery({
+    cookingId,
+  });
   const utils = api.useUtils();
   const deleteMutation = api.serving.delete.useMutation({
     onSuccess: () => {
@@ -66,6 +68,7 @@ export default function ServingList({ cookingId }: { cookingId: number }) {
               },
             ]}
             data={serving.portions}
+            loading={isPending}
           />
         </Card>
       ))}

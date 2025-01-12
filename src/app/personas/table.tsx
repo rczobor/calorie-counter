@@ -6,7 +6,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function PersonaTable() {
-  const { data } = api.persona.getAll.useQuery();
+  const { data, isPending } = api.persona.getAll.useQuery();
   const router = useRouter();
 
   return (
@@ -14,6 +14,7 @@ export default function PersonaTable() {
       columns={columns}
       data={data ?? []}
       onClick={(persona) => router.push(`/personas/${persona.id}`)}
+      loading={isPending}
     />
   );
 }

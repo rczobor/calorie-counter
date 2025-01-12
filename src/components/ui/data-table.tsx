@@ -20,11 +20,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EllipsisVertical } from "lucide-react";
 import { SelectTrigger } from "@radix-ui/react-select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 declare module "@tanstack/react-table" {
   //allows us to define custom properties for our columns
@@ -39,6 +40,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   options?: readonly string[] | string[];
   nameSearch?: boolean;
+  loading?: boolean;
   onClick?: (data: TData) => void;
 }
 
@@ -47,13 +49,28 @@ export function DataTable<TData, TValue>({
   data,
   options,
   nameSearch = false,
+  loading = false,
   onClick,
 }: DataTableProps<TData, TValue>) {
   const [nameFilter, setNameFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const tableData = useMemo(
+    () => (loading ? (Array(10).fill({}) as TData[]) : data),
+    [loading, data],
+  );
+  const tableColumns = useMemo(
+    () =>
+      loading
+        ? columns.map((column) => ({
+            ...column,
+            cell: () => <Skeleton className="h-5 w-8/12" />,
+          }))
+        : columns,
+    [loading, columns],
+  );
   const table = useReactTable({
-    data,
-    columns,
+    data: tableData,
+    columns: tableColumns,
     state: { columnFilters },
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),

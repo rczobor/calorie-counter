@@ -6,7 +6,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function AllServingsTable() {
-  const { data } = api.serving.getAll.useQuery();
+  const { data, isPending } = api.serving.getAll.useQuery();
   const { data: personas } = api.persona.getAll.useQuery();
   const router = useRouter();
 
@@ -18,6 +18,7 @@ export default function AllServingsTable() {
       onClick={(serving) =>
         router.push(`/cookings/${serving.cookingId}/servings`)
       }
+      loading={isPending}
     />
   );
 }

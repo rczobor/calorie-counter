@@ -7,7 +7,7 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function RecipeTable() {
-  const { data } = api.recipe.getAll.useQuery();
+  const { data, isPending } = api.recipe.getAll.useQuery();
   const router = useRouter();
 
   return (
@@ -17,6 +17,7 @@ export default function RecipeTable() {
       options={recipeCategories}
       nameSearch
       onClick={(recipe) => router.push(`/recipes/${recipe.id}`)}
+      loading={isPending}
     />
   );
 }

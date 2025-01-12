@@ -74,7 +74,8 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
     { enabled: isEdit },
   );
   const [addRecipeOpen, setAddRecipeOpen] = useState(false);
-  const { data: recipes } = api.recipe.getAll.useQuery();
+  const { data: recipes, isPending: isRecipePending } =
+    api.recipe.getAll.useQuery();
   const form = useForm<FormValues>({
     defaultValues,
     resolver: zodResolver(formSchema),
@@ -103,7 +104,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
       await utils.cooking.getAll.invalidate();
     },
   });
-  const isPending =
+  const isMutationPending =
     createCooking.isPending ||
     updateCooking.isPending ||
     deleteCooking.isPending;
@@ -194,7 +195,11 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
           <h1 className="text-2xl font-bold">
             {isEdit ? "Edit Cooking" : "Create Cooking"}
           </h1>
-          <Button type="submit" className="ml-auto" disabled={isPending}>
+          <Button
+            type="submit"
+            className="ml-auto"
+            disabled={isMutationPending}
+          >
             {createCooking.isPending || updateCooking.isPending ? (
               <span className="flex items-center gap-2">
                 <Loader className="h-4 w-4 animate-spin" />
@@ -262,6 +267,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                   nameSearch
                   options={recipeCategories}
                   onClick={addExistingRecipe}
+                  loading={isRecipePending}
                 />
               </DialogContent>
             </Dialog>
@@ -328,7 +334,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
 
 function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
   const [addIngredientOpen, setAddIngredientOpen] = useState(false);
-  const { data: ingridients } = api.ingredient.getAll.useQuery();
+  const { data: ingridients, isPending } = api.ingredient.getAll.useQuery();
   const form = useFormContext<FormValues>();
   const fieldName =
     `cookedRecipes.${parentIndex}.cookedRecipeIngredients` as const;
@@ -390,6 +396,7 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
               nameSearch
               options={ingredientCategories}
               onClick={addExistingIngredient}
+              loading={isPending}
             />
           </DialogContent>
         </Dialog>
