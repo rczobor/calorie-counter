@@ -69,13 +69,12 @@ const defaultValues = {
 
 export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const isEdit = cookingId != null;
-  const { data: cooking } = api.cooking.getByIdWithRelations.useQuery(
-    { id: cookingId ?? -1 },
-    { enabled: isEdit },
-  );
+  const [cooking] = api.cooking.getByIdWithRelations.useSuspenseQuery({
+    id: cookingId,
+  });
   const [addRecipeOpen, setAddRecipeOpen] = useState(false);
-  const { data: recipes, isPending: isRecipePending } =
-    api.recipe.getAll.useQuery();
+  const [recipes, { isPending: isRecipePending }] =
+    api.recipe.getAll.useSuspenseQuery();
   const form = useForm<FormValues>({
     defaultValues,
     resolver: zodResolver(formSchema),
@@ -334,7 +333,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
 
 function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
   const [addIngredientOpen, setAddIngredientOpen] = useState(false);
-  const { data: ingridients, isPending } = api.ingredient.getAll.useQuery();
+  const [ingridients, { isPending }] = api.ingredient.getAll.useSuspenseQuery();
   const form = useFormContext<FormValues>();
   const fieldName =
     `cookedRecipes.${parentIndex}.cookedRecipeIngredients` as const;

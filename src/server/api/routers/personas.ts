@@ -51,15 +51,16 @@ export const personaRouter = createTRPCRouter({
     ),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.number() }))
-    .query(({ ctx, input }) =>
-      ctx.db.query.personas.findFirst({
+    .input(z.object({ id: z.number().optional() }))
+    .query(({ ctx, input }) => {
+      if (!input.id) return;
+      return ctx.db.query.personas.findFirst({
         where: and(
           eq(personas.id, input.id),
           eq(personas.createdBy, ctx.userId),
         ),
-      }),
-    ),
+      });
+    }),
 
   getAll: protectedProcedure.query(({ ctx }) =>
     ctx.db.query.personas.findMany({

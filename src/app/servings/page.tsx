@@ -3,6 +3,7 @@ import { api, HydrateClient } from "@/trpc/server";
 
 export default async function AllServingsPage() {
   void api.serving.getAll.prefetch();
+  void api.persona.getAll.prefetch();
 
   return (
     <HydrateClient>

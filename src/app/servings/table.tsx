@@ -6,8 +6,8 @@ import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 
 export default function AllServingsTable() {
-  const { data, isPending } = api.serving.getAll.useQuery();
-  const { data: personas } = api.persona.getAll.useQuery();
+  const [data, { isPending }] = api.serving.getAll.useSuspenseQuery();
+  const [personas] = api.persona.getAll.useSuspenseQuery();
   const router = useRouter();
 
   return (

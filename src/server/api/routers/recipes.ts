@@ -120,11 +120,12 @@ export const recipeRouter = createTRPCRouter({
   ),
 
   getByIdWithRelations: protectedProcedure
-    .input(z.object({ id: z.number() }))
-    .query(async ({ ctx, input }) =>
-      ctx.db.query.recipes.findFirst({
+    .input(z.object({ id: z.number().optional() }))
+    .query(async ({ ctx, input }) => {
+      if (!input.id) return;
+      return ctx.db.query.recipes.findFirst({
         where: and(eq(recipes.id, input.id), eq(recipes.createdBy, ctx.userId)),
         with: { recipesToIngredients: { with: { ingredient: true } } },
-      }),
-    ),
+      });
+    }),
 });

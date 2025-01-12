@@ -43,16 +43,16 @@ export default function CreateServingForm({
 }: {
   cookingId: number;
 }) {
-  const { data: cooking, isPending } =
-    api.cooking.getByIdWithRelations.useQuery({
+  const [cooking, { isPending }] =
+    api.cooking.getByIdWithRelations.useSuspenseQuery({
       id: cookingId,
     });
-  const { data: personas } = api.persona.getAll.useQuery();
+  const [personas] = api.persona.getAll.useSuspenseQuery();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      personaId: (personas?.[0]?.id.toString() ?? "") as unknown as number,
+      personaId: (personas[0]?.id.toString() ?? "") as unknown as number,
       portions:
         cooking?.cookedRecipes.map((recipe) => ({
           cookedRecipeId: recipe.id,
@@ -66,6 +66,7 @@ export default function CreateServingForm({
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
+  const personaId = Number(form.watch("personaId"));
 
   const createServing = api.serving.create.useMutation({
     onSuccess: (res) => {
@@ -77,11 +78,14 @@ export default function CreateServingForm({
     },
   });
 
-  const { data: personaCalories } = api.serving.getPersonaCalories.useQuery({
-    personaId: Number(form.watch("personaId")),
-    startDate: startOfToday,
-    endDate: endOfToday,
-  });
+  const { data: personaCalories } = api.serving.getPersonaCalories.useQuery(
+    {
+      personaId,
+      startDate: startOfToday,
+      endDate: endOfToday,
+    },
+    { enabled: !!personaId },
+  );
 
   const onSubmit = (data: FormValues) => {
     createServing.mutate({
