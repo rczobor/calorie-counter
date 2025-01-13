@@ -69,9 +69,10 @@ const defaultValues = {
 
 export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const isEdit = cookingId != null;
-  const { data: cooking } = api.cooking.getByIdWithRelations.useQuery({
-    id: cookingId,
-  });
+  const { data: cooking } = api.cooking.getByIdWithRelations.useQuery(
+    { id: cookingId },
+    { enabled: isEdit },
+  );
   const [addRecipeOpen, setAddRecipeOpen] = useState(false);
   const { data: recipes, isPending: isRecipePending } =
     api.recipe.getAll.useQuery();

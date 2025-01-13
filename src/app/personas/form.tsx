@@ -32,7 +32,10 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function PersonaForm({ id }: { id?: number }) {
   const isEdit = id != null;
-  const { data: persona } = api.persona.getById.useQuery({ id });
+  const { data: persona } = api.persona.getById.useQuery(
+    { id },
+    { enabled: isEdit },
+  );
   const form = useForm<FormValues>({
     defaultValues,
     resolver: zodResolver(formSchema),
