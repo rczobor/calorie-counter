@@ -19,6 +19,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,7 +47,7 @@ const formSchema = z.object({
       recipeId: z.number().nullish(),
       name: z.string().min(1, { message: "Required" }),
       description: z.string(),
-      finalWeightGrams: z.coerce.number().min(0),
+      finalWeightGrams: z.coerce.number().min(1),
       cookedRecipeIngredients: z.array(
         z.object({
           id: z.number().optional(),
@@ -297,11 +298,13 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                         <FormControl>
                           <Input placeholder="Final Weight" {...field} />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
 
                   <Button
+                    className="ml-auto"
                     type="button"
                     variant="destructive"
                     onClick={() => recipesFieldArray.remove(index)}
