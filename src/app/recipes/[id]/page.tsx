@@ -1,5 +1,4 @@
 import RecipeForm from "@/app/recipes/form";
-import { api, HydrateClient } from "@/trpc/server";
 
 export default async function RecipePage({
   params,
@@ -8,11 +7,5 @@ export default async function RecipePage({
 }) {
   const id = (await params).id;
 
-  void api.recipe.getByIdWithRelations.prefetch({ id: Number(id) });
-
-  return (
-    <HydrateClient>
-      <RecipeForm id={Number(id)} />
-    </HydrateClient>
-  );
+  return <RecipeForm id={Number(id)} />;
 }
