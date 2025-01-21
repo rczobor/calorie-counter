@@ -4,6 +4,7 @@ import { personaRouter } from "@/server/api/routers/personas";
 import { recipeRouter } from "@/server/api/routers/recipes";
 import { servingRouter } from "@/server/api/routers/servings";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
+import { quickServingRouter } from "./routers/quick-servings";
 
 /**
  * This is the primary router for your server.
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   ingredient: ingredientRouter,
   recipe: recipeRouter,
   serving: servingRouter,
+  quickServing: quickServingRouter,
   persona: personaRouter,
 });
 

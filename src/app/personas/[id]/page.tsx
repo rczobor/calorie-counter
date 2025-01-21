@@ -1,4 +1,5 @@
 import PersonaForm from "@/app/personas/form";
+import PersonaServingsList from "../servings-list";
 
 export default async function PersonaPage({
   params,
@@ -7,5 +8,11 @@ export default async function PersonaPage({
 }) {
   const id = Number((await params).id);
 
-  return <PersonaForm id={Number(id)} />;
+  return (
+    <div>
+      <PersonaForm id={id} />
+      <div className="my-4 border-b" />
+      <PersonaServingsList id={id} />
+    </div>
+  );
 }

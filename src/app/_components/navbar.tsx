@@ -4,6 +4,7 @@ import { SignedOut, SignInButton, SignedIn, UserButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
 
 const navItems = [
+  { name: "Dashboard", href: "/" },
   { name: "Ingredients", href: "/ingredients" },
   { name: "Recipes", href: "/recipes" },
   { name: "Cookings", href: "/cookings" },

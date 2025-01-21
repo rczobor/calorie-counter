@@ -55,7 +55,7 @@ export function DataTable<TData, TValue>({
   const [nameFilter, setNameFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const tableData = useMemo(
-    () => (loading ? (Array(10).fill({}) as TData[]) : data),
+    () => (loading ? (Array(5).fill({}) as TData[]) : data),
     [loading, data],
   );
   const tableColumns = useMemo(

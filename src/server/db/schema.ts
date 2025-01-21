@@ -79,7 +79,7 @@ export const ingredientRelations = relations(ingredients, ({ many }) => ({
   recipesToIngredients: many(recipesToIngredients, {
     relationName: "ri_ing_fk",
   }),
-  servingIngredients: many(servingIngredients, { relationName: "si_ing_fk" }),
+  servingIngredients: many(quickServing, { relationName: "si_ing_fk" }),
 }));
 
 // Recipes table
@@ -295,7 +295,6 @@ export const servingRelations = relations(servings, ({ one, many }) => ({
     relationName: "srv_per_fk",
   }),
   portions: many(servingPortions, { relationName: "sp_srv_fk" }),
-  servingIngredients: many(servingIngredients, { relationName: "si_srv_fk" }),
 }));
 
 // Track which cooked recipes are included in a serving and their weights
@@ -334,34 +333,37 @@ export const servingPortionRelations = relations(
   }),
 );
 
-// Add direct ingredients to servings (for cases without cooking/recipe)
-export const servingIngredients = createTable("serving_ingredient", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  servingId: integer("serving_id")
-    .notNull()
-    .references(() => servings.id, { onDelete: "cascade" }),
-  ingredientId: integer("ingredient_id")
-    .notNull()
-    .references(() => ingredients.id, { onDelete: "cascade" }),
-  weightGrams: integer("weight_grams").notNull(),
-  caloriesPer100g: integer("calories_per_100g").notNull(),
-});
-
-export const servingIngredientRelations = relations(
-  servingIngredients,
-  ({ one }) => ({
-    serving: one(servings, {
-      fields: [servingIngredients.servingId],
-      references: [servings.id],
-      relationName: "si_srv_fk",
-    }),
-    ingredient: one(ingredients, {
-      fields: [servingIngredients.ingredientId],
-      references: [ingredients.id],
-      relationName: "si_ing_fk",
-    }),
-  }),
+// Add direct serving without cooking/recipe/ingredient
+export const quickServing = createTable(
+  "quick_serving",
+  {
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+    personaId: integer("persona_id")
+      .references(() => personas.id, { onDelete: "cascade" })
+      .notNull(),
+    name: varchar("name", { length: 256 }),
+    calories: integer("calories").notNull(),
+    createdBy: varchar("created_by", { length: 256 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (quickServing) => [
+    index("qs_persona_created_idx").on(
+      quickServing.personaId,
+      quickServing.createdBy,
+      quickServing.createdAt,
+    ),
+  ],
 );
+
+export const quickServingRelations = relations(quickServing, ({ one }) => ({
+  personaId: one(personas, {
+    fields: [quickServing.personaId],
+    references: [personas.id],
+    relationName: "qs_per_fk",
+  }),
+}));
 
 // Type exports
 export type Ingredient = InferSelectModel<typeof ingredients>;
@@ -393,4 +395,4 @@ export type ServingPortionWithRelations = ServingPortion & {
   };
 };
 
-export type ServingIngredient = InferSelectModel<typeof servingIngredients>;
+export type QuickServing = InferSelectModel<typeof quickServing>;

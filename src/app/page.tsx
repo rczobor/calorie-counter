@@ -1,6 +1,9 @@
-import { redirect } from "next/navigation";
+import Personas from "./_components/personas";
 
 export default function Home() {
-  redirect("/cookings");
-  return null;
+  return (
+    <div className="container mx-auto flex flex-col p-4">
+      <Personas />
+    </div>
+  );
 }
