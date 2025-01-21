@@ -385,5 +385,12 @@ export type Persona = InferSelectModel<typeof personas>;
 export type Serving = InferSelectModel<typeof servings>;
 
 export type ServingPortion = InferSelectModel<typeof servingPortions>;
+export type ServingPortionWithRelations = ServingPortion & {
+  cookedRecipe: CookedRecipe & {
+    cookedRecipeIngredients: (CookedRecipeIngredient & {
+      ingredient: Ingredient;
+    })[];
+  };
+};
 
 export type ServingIngredient = InferSelectModel<typeof servingIngredients>;

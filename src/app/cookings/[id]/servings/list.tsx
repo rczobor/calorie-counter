@@ -9,7 +9,32 @@ import {
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { type ServingPortionWithRelations } from "@/server/db/schema";
 import { api } from "@/trpc/react";
+import { type ColumnDef } from "@tanstack/react-table";
+
+const columns: ColumnDef<ServingPortionWithRelations>[] = [
+  {
+    accessorKey: "cookedRecipe.name",
+    id: "recipeName",
+    header: "Recipe",
+  },
+  {
+    accessorKey: "weightGrams",
+    header: "Weight",
+  },
+  {
+    accessorFn: (originalRow) =>
+      calculateCaloriesPer100g(originalRow.cookedRecipe),
+    id: "calories",
+    header: "kcal/100g",
+  },
+  {
+    accessorFn: (originalRow) => calculateTotalCalories(originalRow),
+    id: "totalCalories",
+    header: "Total kcal",
+  },
+];
 
 export default function ServingList({ cookingId }: { cookingId: number }) {
   const [servings, { isPending }] = api.serving.getByCooking.useSuspenseQuery({
@@ -44,29 +69,7 @@ export default function ServingList({ cookingId }: { cookingId: number }) {
             <div>Total Weight: {calculateServingTotalWeight(serving)}g</div>
           </div>
           <DataTable
-            columns={[
-              {
-                accessorKey: "cookedRecipe.name",
-                id: "recipeName",
-                header: "Recipe",
-              },
-              {
-                accessorKey: "weightGrams",
-                header: "Weight",
-              },
-              {
-                accessorFn: (originalRow) =>
-                  calculateCaloriesPer100g(originalRow.cookedRecipe),
-                id: "calories",
-                header: "kcal/100g",
-              },
-              {
-                accessorFn: (originalRow) =>
-                  calculateTotalCalories(originalRow),
-                id: "totalCalories",
-                header: "Total kcal",
-              },
-            ]}
+            columns={columns}
             data={serving.portions}
             loading={isPending}
           />
