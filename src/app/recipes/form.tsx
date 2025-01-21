@@ -152,7 +152,7 @@ export default function RecipeForm({ id }: { id?: number }) {
               <FormItem>
                 <FormLabel>Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Name" {...field} />
+                  <Input placeholder="Name" type="number" {...field} />
                 </FormControl>
               </FormItem>
             )}
@@ -264,7 +264,7 @@ function IngredientSearch() {
               render={({ field }) => (
                 <FormItem className="w-24">
                   <FormControl>
-                    <Input placeholder="Quantity" {...field} />
+                    <Input placeholder="Quantity" type="number" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

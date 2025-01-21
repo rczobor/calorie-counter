@@ -296,7 +296,11 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                       <FormItem>
                         <FormLabel>Final Weight</FormLabel>
                         <FormControl>
-                          <Input placeholder="Final Weight" {...field} />
+                          <Input
+                            placeholder="Final Weight"
+                            type="number"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -414,7 +418,7 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
                 <FormItem>
                   <FormLabel>Quantity</FormLabel>
                   <FormControl>
-                    <Input placeholder="Quantity" {...field} />
+                    <Input placeholder="Quantity" type="number" {...field} />
                   </FormControl>
                 </FormItem>
               )}
@@ -425,7 +429,7 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
                 <FormItem>
                   <FormLabel>Calories</FormLabel>
                   <FormControl>
-                    <Input placeholder="Calories" {...field} />
+                    <Input placeholder="Calories" type="number" {...field} />
                   </FormControl>
                 </FormItem>
               )}

@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useGetTodayDate } from "@/hooks/use-get-today-date";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -62,10 +63,7 @@ export default function CreateServingForm({
   });
   const utils = api.useUtils();
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+  const { startOfToday, endOfToday } = useGetTodayDate();
   const personaId = Number(form.watch("personaId"));
 
   const createServing = api.serving.create.useMutation({
@@ -73,6 +71,8 @@ export default function CreateServingForm({
       void utils.serving.getByCooking.invalidate({ cookingId });
       void utils.serving.getPersonaCalories.invalidate({
         personaId: res.personaId,
+        startDate: startOfToday,
+        endDate: endOfToday,
       });
       form.reset();
     },

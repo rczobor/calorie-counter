@@ -111,7 +111,11 @@ export default function CreateIngredientDialog({
                 <FormItem>
                   <FormLabel>Calories per 100g</FormLabel>
                   <FormControl>
-                    <Input placeholder="Calories per 100g" {...field} />
+                    <Input
+                      placeholder="Calories per 100g"
+                      type="number"
+                      {...field}
+                    />
                   </FormControl>
                 </FormItem>
               )}
