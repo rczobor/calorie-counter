@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.9.14",
+    "@clerk/nextjs": "^6.9.15",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-dropdown-menu": "^2.1.4",
@@ -28,7 +28,7 @@
     "@radix-ui/react-select": "^2.1.4",
     "@radix-ui/react-slot": "^1.1.1",
     "@t3-oss/env-nextjs": "^0.11.1",
-    "@tanstack/react-query": "^5.64.1",
+    "@tanstack/react-query": "^5.64.2",
     "@tanstack/react-table": "^8.20.6",
     "@trpc/client": "11.0.0-rc.660",
     "@trpc/react-query": "11.0.0-rc.660",
@@ -57,8 +57,8 @@
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.20.0",
-    "@typescript-eslint/parser": "^8.20.0",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
     "drizzle-kit": "^0.30.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.1.5",
