@@ -69,7 +69,7 @@ export default function CreateServingForm({
   const createServing = api.serving.create.useMutation({
     onSuccess: (res) => {
       void utils.serving.getByCooking.invalidate({ cookingId });
-      void utils.serving.getPersonaCalories.invalidate({
+      void utils.persona.getPersonaCalories.invalidate({
         personaId: res.personaId,
         startDate: startOfToday,
         endDate: endOfToday,
@@ -78,7 +78,7 @@ export default function CreateServingForm({
     },
   });
 
-  const { data: personaCalories } = api.serving.getPersonaCalories.useQuery(
+  const { data: personaCalories } = api.persona.getPersonaCalories.useQuery(
     {
       personaId,
       startDate: startOfToday,
