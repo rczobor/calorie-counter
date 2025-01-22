@@ -72,6 +72,11 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
       startDate: startOfToday,
       endDate: endOfToday,
     });
+    void utils.persona.getServingsById.invalidate({
+      id: personaId,
+      startDate: startOfToday,
+      endDate: endOfToday,
+    });
     setOpen(false);
   };
 

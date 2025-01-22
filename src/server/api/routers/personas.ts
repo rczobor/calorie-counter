@@ -170,15 +170,14 @@ export const personaRouter = createTRPCRouter({
         },
       });
 
-      const mappedServings = servingsArr.map((serving) => {
-        return {
-          id: serving.id,
-          cookingId: serving.cookingId,
-          name: serving.name,
-          calories: calculateServingTotalCalories(serving),
-          createdAt: serving.createdAt,
-        };
-      });
+      const mappedServings = servingsArr.map((serving) => ({
+        id: serving.id,
+        cookingId: serving.cookingId,
+        name: serving.name,
+        calories: calculateServingTotalCalories(serving),
+        createdAt: serving.createdAt,
+        isQuickServing: false,
+      }));
 
       const quickServingArr = await ctx.db.query.quickServing.findMany({
         where: and(
@@ -193,6 +192,7 @@ export const personaRouter = createTRPCRouter({
         name: quickServing.name,
         calories: quickServing.calories,
         createdAt: quickServing.createdAt,
+        isQuickServing: true,
       }));
 
       return [...mappedServings, ...mappedQuickServings].sort(
