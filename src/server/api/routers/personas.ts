@@ -145,7 +145,7 @@ export const personaRouter = createTRPCRouter({
   getServingsById: protectedProcedure
     .input(
       z.object({
-        id: z.number(),
+        personaId: z.number(),
         startDate: z.date(),
         endDate: z.date(),
       }),
@@ -153,7 +153,7 @@ export const personaRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const servingsArr = await ctx.db.query.servings.findMany({
         where: and(
-          eq(servings.personaId, input.id),
+          eq(servings.personaId, input.personaId),
           eq(servings.createdBy, ctx.userId),
           between(servings.createdAt, input.startDate, input.endDate),
         ),
@@ -181,7 +181,7 @@ export const personaRouter = createTRPCRouter({
 
       const quickServingArr = await ctx.db.query.quickServing.findMany({
         where: and(
-          eq(quickServing.personaId, input.id),
+          eq(quickServing.personaId, input.personaId),
           eq(quickServing.createdBy, ctx.userId),
           between(quickServing.createdAt, input.startDate, input.endDate),
         ),

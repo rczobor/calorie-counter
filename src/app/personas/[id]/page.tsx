@@ -12,7 +12,7 @@ export default async function PersonaPage({
     <div>
       <PersonaForm id={id} />
       <div className="my-4 border-b" />
-      <PersonaServingsList id={id} />
+      <PersonaServingsList personaId={id} />
     </div>
   );
 }

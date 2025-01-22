@@ -13,10 +13,14 @@ type Serving = {
   isQuickServing: boolean;
 };
 
-export default function PersonaServingsList({ id }: { id: number }) {
+export default function PersonaServingsList({
+  personaId,
+}: {
+  personaId: number;
+}) {
   const { startOfToday, endOfToday } = useGetTodayDate();
   const { data, isPending } = api.persona.getServingsById.useQuery({
-    id,
+    personaId,
     startDate: startOfToday,
     endDate: endOfToday,
   });
@@ -25,12 +29,12 @@ export default function PersonaServingsList({ id }: { id: number }) {
   const deleteServing = api.serving.delete.useMutation({
     onSuccess: () => {
       void utils.persona.getServingsById.invalidate({
-        id,
+        personaId,
         startDate: startOfToday,
         endDate: endOfToday,
       });
       void utils.persona.getPersonaCalories.invalidate({
-        personaId: id,
+        personaId,
         startDate: startOfToday,
         endDate: endOfToday,
       });
@@ -40,12 +44,12 @@ export default function PersonaServingsList({ id }: { id: number }) {
   const deleteQuickServing = api.quickServing.delete.useMutation({
     onSuccess: () => {
       void utils.persona.getServingsById.invalidate({
-        id,
+        personaId,
         startDate: startOfToday,
         endDate: endOfToday,
       });
       void utils.persona.getPersonaCalories.invalidate({
-        personaId: id,
+        personaId,
         startDate: startOfToday,
         endDate: endOfToday,
       });
