@@ -70,7 +70,9 @@ export default function PersonaServingsList({
     {
       id: "actions",
       cell: ({ row }) => (
-        <DeleteConfirmDialog onDelete={() => onDelete(row.original)} />
+        <div className="flex justify-end gap-2">
+          <DeleteConfirmDialog onDelete={() => onDelete(row.original)} />
+        </div>
       ),
     },
   ];

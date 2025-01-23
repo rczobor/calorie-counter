@@ -29,17 +29,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
-const CaloriesLeftCell = ({ personaId }: { personaId: number }) => {
-  const { startOfToday, endOfToday } = useGetTodayDate();
-  const { data } = api.persona.getPersonaCalories.useQuery({
-    personaId,
-    startDate: startOfToday,
-    endDate: endOfToday,
-  });
-
-  return <div>{data?.remainingCalories ?? 0}</div>;
-};
+import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
@@ -158,7 +148,9 @@ const columns: ColumnDef<Persona>[] = [
   {
     id: "caloriesLeft",
     header: "Remaining",
-    cell: ({ row }) => <CaloriesLeftCell personaId={row.original.id} />,
+    cell: ({ row }) => (
+      <PersonaRemainingCaloriesCell personaId={row.original.id} />
+    ),
   },
   {
     id: "actions",
