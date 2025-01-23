@@ -181,7 +181,7 @@ function Filter({
             column.setFilterValue((old: [number, number]) => [value, old?.[1]])
           }
           placeholder={`Min`}
-          className="w-24 rounded border shadow"
+          className="w-24 rounded border shadow-sm"
         />
         <Input
           type="number"
@@ -190,7 +190,7 @@ function Filter({
             column.setFilterValue((old: [number, number]) => [old?.[0], value])
           }
           placeholder={`Max`}
-          className="w-24 rounded border shadow"
+          className="w-24 rounded border shadow-sm"
         />
       </div>
       <div className="h-1" />
@@ -218,7 +218,7 @@ function Filter({
     </Select>
   ) : (
     <Input
-      className="w-36 rounded border shadow"
+      className="w-36 rounded border shadow-sm"
       onChange={(value) => column.setFilterValue(value)}
       placeholder={`Search...`}
       type="text"
