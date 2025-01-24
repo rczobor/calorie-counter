@@ -14,7 +14,7 @@ const navItems = [
 
 export default function Navbar() {
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background">
+    <nav className="bg-background sticky top-0 z-50 w-full border-b">
       <div className="flex h-16 items-center justify-between gap-4 px-4">
         {/* Scrollable navigation container */}
         <div className="flex-1 overflow-x-auto">
@@ -23,7 +23,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                className="text-muted-foreground hover:text-primary text-sm font-medium whitespace-nowrap transition-colors"
               >
                 {item.name}
               </Link>
