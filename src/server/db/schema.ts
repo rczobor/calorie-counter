@@ -72,14 +72,11 @@ export const ingredients = createTable(
       () => new Date(),
     ),
   },
-  (ingredient) => [index("ing_name_idx").on(ingredient.name)],
+  (table) => [index("ingredient_name_idx").on(table.name)],
 );
 
 export const ingredientRelations = relations(ingredients, ({ many }) => ({
-  recipesToIngredients: many(recipesToIngredients, {
-    relationName: "ri_ing_fk",
-  }),
-  servingIngredients: many(quickServing, { relationName: "si_ing_fk" }),
+  recipesToIngredients: many(recipesToIngredients),
 }));
 
 // Recipes table
@@ -98,14 +95,12 @@ export const recipes = createTable(
       () => new Date(),
     ),
   },
-  (recipe) => [index("rec_name_idx").on(recipe.name)],
+  (table) => [index("recipe_name_idx").on(table.name)],
 );
 
 export const recipesRelations = relations(recipes, ({ many }) => ({
-  recipesToIngredients: many(recipesToIngredients, {
-    relationName: "ri_rec_fk",
-  }),
-  cookedRecipes: many(cookedRecipes, { relationName: "cr_rec_fk" }),
+  recipesToIngredients: many(recipesToIngredients),
+  cookedRecipes: many(cookedRecipes),
 }));
 
 // Recipe ingredients join table
@@ -123,7 +118,6 @@ export const recipesToIngredients = createTable(
   (recipeIngredient) => [
     primaryKey({
       columns: [recipeIngredient.recipeId, recipeIngredient.ingredientId],
-      name: "ri_pk",
     }),
   ],
 );
@@ -134,12 +128,10 @@ export const recipesToIngredientsRelations = relations(
     recipe: one(recipes, {
       fields: [recipesToIngredients.recipeId],
       references: [recipes.id],
-      relationName: "ri_rec_fk",
     }),
     ingredient: one(ingredients, {
       fields: [recipesToIngredients.ingredientId],
       references: [ingredients.id],
-      relationName: "ri_ing_fk",
     }),
   }),
 );
@@ -158,11 +150,11 @@ export const cookings = createTable("cooking", {
 });
 
 export const cookingsRelations = relations(cookings, ({ many }) => ({
-  cookedRecipes: many(cookedRecipes, { relationName: "cr_cook_fk" }),
+  cookedRecipes: many(cookedRecipes),
 }));
 
 // Cooked recipes table (recipes used in a cooking)
-export const cookedRecipes = createTable("c_recipe", {
+export const cookedRecipes = createTable("cooked_recipe", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   cookingId: integer("cooking_id")
     .notNull()
@@ -181,25 +173,21 @@ export const cookedRecipesRelations = relations(
     cooking: one(cookings, {
       fields: [cookedRecipes.cookingId],
       references: [cookings.id],
-      relationName: "cr_cook_fk",
     }),
     recipe: one(recipes, {
       fields: [cookedRecipes.recipeId],
       references: [recipes.id],
-      relationName: "cr_rec_fk",
     }),
-    servingPortions: many(servingPortions, { relationName: "sp_cr_fk" }),
-    cookedRecipeIngredients: many(cookedRecipeIngredients, {
-      relationName: "cri_ing_fk",
-    }),
+    servingPortions: many(servingPortions),
+    cookedRecipeIngredients: many(cookedRecipeIngredients),
   }),
 );
 
 // Cooked recipe ingredients (can override quantities and calories from original recipe)
 export const cookedRecipeIngredients = createTable(
-  "c_recipe_ing",
+  "cooked_recipe_ingredient",
   {
-    cookedRecipeId: integer("c_recipe_id")
+    cookedRecipeId: integer("cooked_recipe_id")
       .notNull()
       .references(() => cookedRecipes.id, { onDelete: "cascade" }),
     ingredientId: integer("ingredient_id")
@@ -214,7 +202,6 @@ export const cookedRecipeIngredients = createTable(
         cookedRecipeIngredient.cookedRecipeId,
         cookedRecipeIngredient.ingredientId,
       ],
-      name: "cri_pk",
     }),
   ],
 );
@@ -225,12 +212,10 @@ export const cookedRecipesToIngredientsRelations = relations(
     ingredient: one(ingredients, {
       fields: [cookedRecipeIngredients.ingredientId],
       references: [ingredients.id],
-      relationName: "cri_ing_fk",
     }),
     cookedRecipe: one(cookedRecipes, {
       fields: [cookedRecipeIngredients.cookedRecipeId],
       references: [cookedRecipes.id],
-      relationName: "cri_cr_fk",
     }),
   }),
 );
@@ -241,7 +226,7 @@ export const personas = createTable(
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
     name: varchar("name", { length: 256 }).notNull(),
-    targetDailyCalories: integer("target_daily_calories"),
+    targetDailyCalories: integer("target_daily_calories").notNull(),
     createdBy: varchar("created_by", { length: 256 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .default(sql`CURRENT_TIMESTAMP`)
@@ -250,11 +235,12 @@ export const personas = createTable(
       () => new Date(),
     ),
   },
-  (persona) => [index("per_id_created_idx").on(persona.id, persona.createdBy)],
+  (table) => [index("persona_created_idx").on(table.id, table.createdBy)],
 );
 
 export const personaRelations = relations(personas, ({ many }) => ({
-  servings: many(servings, { relationName: "srv_per_fk" }),
+  servings: many(servings),
+  quickServings: many(quickServings),
 }));
 
 // Servings table to track how many portions were created from a cooking
@@ -274,11 +260,11 @@ export const servings = createTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
   },
-  (serving) => [
-    index("srv_persona_created_idx").on(
-      serving.personaId,
-      serving.createdBy,
-      serving.createdAt,
+  (table) => [
+    index("serving_persona_created_idx").on(
+      table.personaId,
+      table.createdBy,
+      table.createdAt,
     ),
   ],
 );
@@ -287,14 +273,12 @@ export const servingRelations = relations(servings, ({ one, many }) => ({
   cooking: one(cookings, {
     fields: [servings.cookingId],
     references: [cookings.id],
-    relationName: "srv_cook_fk",
   }),
   persona: one(personas, {
     fields: [servings.personaId],
     references: [personas.id],
-    relationName: "srv_per_fk",
   }),
-  portions: many(servingPortions, { relationName: "sp_srv_fk" }),
+  portions: many(servingPortions),
 }));
 
 // Track which cooked recipes are included in a serving and their weights
@@ -312,7 +296,6 @@ export const servingPortions = createTable(
   (servingPortions) => [
     primaryKey({
       columns: [servingPortions.servingId, servingPortions.cookedRecipeId],
-      name: "sp_pk",
     }),
   ],
 );
@@ -323,18 +306,16 @@ export const servingPortionRelations = relations(
     serving: one(servings, {
       fields: [servingPortions.servingId],
       references: [servings.id],
-      relationName: "sp_srv_fk",
     }),
     cookedRecipe: one(cookedRecipes, {
       fields: [servingPortions.cookedRecipeId],
       references: [cookedRecipes.id],
-      relationName: "sp_cr_fk",
     }),
   }),
 );
 
 // Add direct serving without cooking/recipe/ingredient
-export const quickServing = createTable(
+export const quickServings = createTable(
   "quick_serving",
   {
     id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
@@ -348,20 +329,19 @@ export const quickServing = createTable(
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
   },
-  (quickServing) => [
-    index("qs_persona_created_idx").on(
-      quickServing.personaId,
-      quickServing.createdBy,
-      quickServing.createdAt,
+  (table) => [
+    index("quick_serving_persona_created_idx").on(
+      table.personaId,
+      table.createdBy,
+      table.createdAt,
     ),
   ],
 );
 
-export const quickServingRelations = relations(quickServing, ({ one }) => ({
-  personaId: one(personas, {
-    fields: [quickServing.personaId],
+export const quickServingRelations = relations(quickServings, ({ one }) => ({
+  persona: one(personas, {
+    fields: [quickServings.personaId],
     references: [personas.id],
-    relationName: "qs_per_fk",
   }),
 }));
 
@@ -395,4 +375,4 @@ export type ServingPortionWithRelations = ServingPortion & {
   };
 };
 
-export type QuickServing = InferSelectModel<typeof quickServing>;
+export type QuickServing = InferSelectModel<typeof quickServings>;
