@@ -3,7 +3,15 @@ import {
   calculateTotalCalories,
 } from "@/app/cookings/[id]/servings/utils";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { personas, quickServing, servings } from "@/server/db/schema";
+import {
+  type Persona,
+  personas,
+  type QuickServing,
+  quickServings,
+  type Serving,
+  type ServingPortionWithRelations,
+  servings,
+} from "@/server/db/schema";
 import { and, between, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -101,45 +109,76 @@ export const personaRouter = createTRPCRouter({
         },
       });
 
-      const quickServingArr = await ctx.db.query.quickServing.findMany({
+      const quickServingArr = await ctx.db.query.quickServings.findMany({
         where: and(
-          eq(quickServing.personaId, input.personaId),
-          eq(quickServing.createdBy, ctx.userId),
-          between(quickServing.createdAt, input.startDate, input.endDate),
+          eq(quickServings.personaId, input.personaId),
+          eq(quickServings.createdBy, ctx.userId),
+          between(quickServings.createdAt, input.startDate, input.endDate),
         ),
       });
 
-      const totalQuickServingCalories = quickServingArr.reduce(
-        (total, quickServing) => total + quickServing.calories,
-        0,
-      );
-
-      // Calculate total calories from portions and direct ingredients
-      const totalServingCalories = servingArr.reduce((total, serving) => {
-        // Add calories from portions (cooked recipes)
-        const portionCalories = serving.portions.reduce(
-          (acc, portion) => acc + calculateTotalCalories(portion),
-          0,
-        );
-
-        return total + portionCalories;
-      }, 0);
-
-      const totalCalories = totalQuickServingCalories + totalServingCalories;
-
-      // Get target calories from persona
       const persona = await ctx.db.query.personas.findFirst({
         columns: { targetDailyCalories: true },
         where: eq(personas.id, input.personaId),
       });
 
-      const targetCalories = persona?.targetDailyCalories ?? 0;
+      if (!persona) throw new Error("Persona not found");
 
-      return {
-        consumedCalories: totalCalories,
-        targetCalories,
-        remainingCalories: Math.max(0, targetCalories - totalCalories),
-      };
+      return calculatePersonaCalories(quickServingArr, servingArr, persona);
+    }),
+
+  // Unused as for on, maybe use this for the dashboard
+  getAllWithCalories: protectedProcedure
+    .input(
+      z.object({
+        startDate: z.date(),
+        endDate: z.date(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const personasArr = await ctx.db.query.personas.findMany({
+        where: eq(personas.createdBy, ctx.userId),
+        with: {
+          servings: {
+            where: and(
+              eq(servings.createdBy, ctx.userId),
+              between(servings.createdAt, input.startDate, input.endDate),
+            ),
+            with: {
+              portions: {
+                with: {
+                  cookedRecipe: {
+                    with: {
+                      cookedRecipeIngredients: {
+                        with: {
+                          ingredient: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          quickServings: {
+            where: and(
+              eq(quickServings.createdBy, ctx.userId),
+              between(quickServings.createdAt, input.startDate, input.endDate),
+            ),
+          },
+        },
+      });
+
+      console.log(personasArr);
+
+      return personasArr.map((persona) => ({
+        ...persona,
+        remainingCalories: calculatePersonaCalories(
+          persona.quickServings,
+          persona.servings,
+          persona,
+        ),
+      }));
     }),
 
   getServingsById: protectedProcedure
@@ -179,11 +218,11 @@ export const personaRouter = createTRPCRouter({
         isQuickServing: false,
       }));
 
-      const quickServingArr = await ctx.db.query.quickServing.findMany({
+      const quickServingArr = await ctx.db.query.quickServings.findMany({
         where: and(
-          eq(quickServing.personaId, input.personaId),
-          eq(quickServing.createdBy, ctx.userId),
-          between(quickServing.createdAt, input.startDate, input.endDate),
+          eq(quickServings.personaId, input.personaId),
+          eq(quickServings.createdBy, ctx.userId),
+          between(quickServings.createdAt, input.startDate, input.endDate),
         ),
       });
 
@@ -200,3 +239,31 @@ export const personaRouter = createTRPCRouter({
       );
     }),
 });
+
+function calculatePersonaCalories(
+  quickServingArr: QuickServing[],
+  servingArr: (Serving & { portions: ServingPortionWithRelations[] })[],
+  persona: Pick<Persona, "targetDailyCalories">,
+) {
+  const totalQuickServingCalories = quickServingArr.reduce(
+    (total, quickServing) => total + quickServing.calories,
+    0,
+  );
+
+  const totalServingCalories = servingArr.reduce((total, serving) => {
+    const portionCalories = serving.portions.reduce(
+      (acc, portion) => acc + calculateTotalCalories(portion),
+      0,
+    );
+    return total + portionCalories;
+  }, 0);
+
+  const totalCalories = totalQuickServingCalories + totalServingCalories;
+  const targetCalories = persona.targetDailyCalories;
+
+  return {
+    consumedCalories: totalCalories,
+    targetCalories,
+    remainingCalories: Math.max(0, targetCalories - totalCalories),
+  };
+}

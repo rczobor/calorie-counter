@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { quickServing } from "@/server/db/schema";
+import { quickServings } from "@/server/db/schema";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 
@@ -14,7 +14,7 @@ export const quickServingRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const [newQuickServing] = await ctx.db
-        .insert(quickServing)
+        .insert(quickServings)
         .values({
           personaId: input.personaId,
           name: input.name,
@@ -32,11 +32,11 @@ export const quickServingRouter = createTRPCRouter({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) =>
       ctx.db
-        .delete(quickServing)
+        .delete(quickServings)
         .where(
           and(
-            eq(quickServing.id, input.id),
-            eq(quickServing.createdBy, ctx.userId),
+            eq(quickServings.id, input.id),
+            eq(quickServings.createdBy, ctx.userId),
           ),
         ),
     ),
