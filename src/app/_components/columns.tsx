@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
 import {
   Dialog,
   DialogContent,
@@ -142,7 +141,7 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
   );
 };
 
-const columns: ColumnDef<Persona>[] = [
+export const columns: ColumnDef<Persona>[] = [
   { accessorKey: "name", header: "Name" },
   { accessorKey: "targetDailyCalories", header: "Target" },
   {
@@ -158,9 +157,3 @@ const columns: ColumnDef<Persona>[] = [
     cell: ({ row }) => <ActionButtonCell personaId={row.original.id} />,
   },
 ];
-
-export default function Personas() {
-  const { data, isPending } = api.persona.getAll.useQuery();
-
-  return <DataTable columns={columns} data={data ?? []} loading={isPending} />;
-}

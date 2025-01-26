@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useGetTodayDate } from "@/hooks/use-get-today-date";
 import { api } from "@/trpc/react";
 
@@ -9,11 +10,15 @@ export default function PersonaRemainingCaloriesCell({
   personaId: number;
 }) {
   const { startOfToday, endOfToday } = useGetTodayDate();
-  const { data } = api.persona.getPersonaCalories.useQuery({
+  const { data, isLoading } = api.persona.getPersonaCalories.useQuery({
     personaId,
     startDate: startOfToday,
     endDate: endOfToday,
   });
 
-  return <div>{data?.remainingCalories ?? 0}</div>;
+  return isLoading ? (
+    <Skeleton className="h-5 w-full" />
+  ) : (
+    <div>{data?.remainingCalories}</div>
+  );
 }

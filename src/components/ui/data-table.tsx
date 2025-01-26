@@ -37,7 +37,7 @@ declare module "@tanstack/react-table" {
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
-  data: TData[];
+  data?: TData[];
   options?: readonly string[] | string[];
   nameSearch?: boolean;
   loading?: boolean;
@@ -46,7 +46,7 @@ interface DataTableProps<TData, TValue> {
 
 export function DataTable<TData, TValue>({
   columns,
-  data,
+  data = [],
   options,
   nameSearch = false,
   loading = false,
