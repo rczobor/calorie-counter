@@ -43,19 +43,22 @@ export default function PersonaForm({ id }: { id?: number }) {
   const utils = api.useUtils();
   const router = useRouter();
   const createPersona = api.persona.create.useMutation({
-    onSuccess: async (res) => {
-      await utils.recipe.getAll.invalidate();
+    onSuccess: (res) => {
+      void utils.recipe.getAll.invalidate();
+      void utils.persona.getAll.invalidate();
       router.push(`/personas/${res.id}`);
     },
   });
   const updatePersona = api.persona.update.useMutation({
-    onSuccess: async () => {
-      await utils.recipe.getAll.invalidate();
+    onSuccess: () => {
+      void utils.recipe.getAll.invalidate();
+      void utils.persona.getAll.invalidate();
     },
   });
   const deletePersona = api.persona.delete.useMutation({
-    onSuccess: async () => {
-      await utils.recipe.getAll.invalidate();
+    onSuccess: () => {
+      void utils.recipe.getAll.invalidate();
+      void utils.persona.getAll.invalidate();
       router.push("/personas");
     },
   });
