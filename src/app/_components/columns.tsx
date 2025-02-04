@@ -56,6 +56,7 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
 
   const onSubmit = async (values: FormValues) => {
     await mutateAsync({ personaId, ...values });
+    form.reset();
     void utils.persona.getPersonaCalories.invalidate({
       personaId,
       startDate: startOfToday,
