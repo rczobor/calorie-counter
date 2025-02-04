@@ -9,7 +9,6 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
 import Navbar from "@/app/_components/navbar";
 import { ThemeProvider } from "@/components/theme-provider";
-import { auth } from "@clerk/nextjs/server";
 
 export const metadata: Metadata = {
   title: "Calorie Counter",
@@ -17,13 +16,9 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const { userId, redirectToSignIn } = await auth();
-
-  if (!userId) return redirectToSignIn();
-
   return (
     <ClerkProvider>
       <TRPCReactProvider>

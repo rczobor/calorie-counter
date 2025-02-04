@@ -12,7 +12,7 @@ const navItems = [
   { name: "Personas", href: "/personas" },
 ] as const;
 
-export default function Navbar() {
+export default async function Navbar() {
   return (
     <nav className="bg-background sticky top-0 z-50 w-full border-b">
       <div className="flex h-16 items-center justify-between gap-4 px-4">
