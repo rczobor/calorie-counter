@@ -152,8 +152,9 @@ export default function RecipeForm({ id }: { id?: number }) {
               <FormItem>
                 <FormLabel>Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Name" type="number" {...field} />
+                  <Input {...field} placeholder="Name" />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
