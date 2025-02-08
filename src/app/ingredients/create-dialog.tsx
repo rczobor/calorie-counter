@@ -1,5 +1,6 @@
 "use client";
 
+import AddButton from "@/components/add-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,7 +29,7 @@ import {
 import { type Ingredient, ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader, Plus } from "lucide-react";
+import { Loader } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -77,9 +78,7 @@ export default function CreateIngredientDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus />
-        </Button>
+        <AddButton variant="default" />
       </DialogTrigger>
 
       <DialogContent onInteractOutside={(e) => e.preventDefault()}>

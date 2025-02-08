@@ -23,12 +23,14 @@ import { type Persona } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Loader, Pencil, Plus } from "lucide-react";
+import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
+import EditButton from "@/components/edit-button";
+import AddButton from "@/components/add-button";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
@@ -71,12 +73,10 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex justify-end gap-2">
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button type="button" variant="secondary" className="px-2 py-1">
-            <Plus />
-          </Button>
+          <AddButton />
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -130,14 +130,7 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
           </Form>
         </DialogContent>
       </Dialog>
-      <Button
-        type="button"
-        variant="secondary"
-        className="px-2 py-1"
-        onClick={() => router.push(`/personas/${personaId}`)}
-      >
-        <Pencil />
-      </Button>
+      <EditButton onClick={() => router.push(`/personas/${personaId}`)} />
     </div>
   );
 };
@@ -154,7 +147,6 @@ export const columns: ColumnDef<Persona>[] = [
   },
   {
     id: "actions",
-    header: "Actions",
     cell: ({ row }) => <ActionButtonCell personaId={row.original.id} />,
   },
 ];

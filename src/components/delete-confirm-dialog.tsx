@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trash } from "lucide-react";
+import DeleteButton from "./delete-button";
 
 export default function DeleteConfirmDialog({
   label = "Are you sure?",
@@ -23,9 +23,7 @@ export default function DeleteConfirmDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="destructive">
-          <Trash />
-        </Button>
+        <DeleteButton />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

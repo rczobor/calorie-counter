@@ -1,5 +1,6 @@
 "use client";
 
+import EditButton from "@/components/edit-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,12 +54,8 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function EditIngredientDialog({
   ingredient,
-  open,
-  onCloseAction,
 }: {
   ingredient: Ingredient | null;
-  open: boolean;
-  onCloseAction: () => void;
 }) {
   const form = useForm<FormValues>({
     defaultValues,
@@ -68,25 +65,23 @@ export default function EditIngredientDialog({
   const updateIngredient = api.ingredient.update.useMutation({
     onSuccess: async () => {
       await utils.ingredient.getAll.invalidate();
-      onCloseAction();
     },
   });
   const deleteIngredient = api.ingredient.delete.useMutation({
     onSuccess: async () => {
       await utils.ingredient.getAll.invalidate();
-      onCloseAction();
     },
   });
 
   useEffect(() => {
-    if (!open || !ingredient) return;
+    if (!ingredient) return;
 
     form.reset({
       name: ingredient.name,
       caloriesPer100g: String(ingredient.caloriesPer100g),
       category: ingredient.category,
     } as unknown as FormValues);
-  }, [form, ingredient, open]);
+  }, [form, ingredient]);
 
   const onSubmit = (data: FormValues) => {
     if (!ingredient) return;
@@ -103,7 +98,10 @@ export default function EditIngredientDialog({
     updateIngredient.isPending || deleteIngredient.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onCloseAction}>
+    <Dialog>
+      <DialogTrigger asChild>
+        <EditButton />
+      </DialogTrigger>
       <DialogContent onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Edit Ingredient</DialogTitle>
