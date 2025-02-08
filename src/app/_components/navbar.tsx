@@ -15,7 +15,7 @@ const navItems = [
 export default async function Navbar() {
   return (
     <nav className="bg-background sticky top-0 z-50 w-full border-b">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-2">
         {/* Scrollable navigation container */}
         <div className="no-scrollbar flex-1 overflow-x-auto">
           <div className="flex items-center gap-4 p-4">
@@ -31,7 +31,7 @@ export default async function Navbar() {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 pr-2">
           <SignedOut>
             <SignInButton>
               <Button>Sign In</Button>
