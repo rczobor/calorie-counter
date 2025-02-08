@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SignedOut, SignInButton, SignedIn, UserButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
+import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 const navItems = [
   { name: "Dashboard", href: "/" },
@@ -12,7 +16,9 @@ const navItems = [
   { name: "Personas", href: "/personas" },
 ] as const;
 
-export default async function Navbar() {
+export default function Navbar() {
+  const pathname = usePathname();
+
   return (
     <nav className="bg-background sticky top-0 z-50 w-full border-b">
       <div className="flex items-center justify-between gap-2">
@@ -23,7 +29,10 @@ export default async function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-muted-foreground hover:text-primary text-sm font-medium whitespace-nowrap transition-colors"
+                className={cn(
+                  "text-muted-foreground hover:text-primary text-sm font-medium whitespace-nowrap transition-colors",
+                  pathname === item.href && "text-primary",
+                )}
               >
                 {item.name}
               </Link>
