@@ -33,6 +33,7 @@ import { DialogTrigger } from "@radix-ui/react-dialog";
 import { Loader, Trash } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -63,13 +64,15 @@ export default function EditIngredientDialog({
   });
   const utils = api.useUtils();
   const updateIngredient = api.ingredient.update.useMutation({
-    onSuccess: async () => {
-      await utils.ingredient.getAll.invalidate();
+    onSuccess: () => {
+      void utils.ingredient.getAll.invalidate();
+      toast.success("Ingredient updated");
     },
   });
   const deleteIngredient = api.ingredient.delete.useMutation({
-    onSuccess: async () => {
-      await utils.ingredient.getAll.invalidate();
+    onSuccess: () => {
+      void utils.ingredient.getAll.invalidate();
+      toast.success("Ingredient deleted");
     },
   });
 

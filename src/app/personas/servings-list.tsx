@@ -5,7 +5,7 @@ import { useGetTodayDate } from "@/hooks/use-get-today-date";
 import { api } from "@/trpc/react";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { type ColumnDef } from "@tanstack/react-table";
-
+import { toast } from "sonner";
 type Serving = {
   id: number;
   name: string | null;
@@ -38,6 +38,7 @@ export default function PersonaServingsList({
         startDate: startOfToday,
         endDate: endOfToday,
       });
+      toast.success("Serving deleted");
     },
   });
 
@@ -53,6 +54,7 @@ export default function PersonaServingsList({
         startDate: startOfToday,
         endDate: endOfToday,
       });
+      toast.success("Quick serving deleted");
     },
   });
 

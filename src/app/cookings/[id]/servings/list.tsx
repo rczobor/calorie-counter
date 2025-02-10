@@ -12,6 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { type ServingPortionWithRelations } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { type ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 const columns: ColumnDef<ServingPortionWithRelations>[] = [
   {
@@ -45,6 +46,7 @@ export default function ServingList({ cookingId }: { cookingId: number }) {
     onSuccess: () => {
       void utils.serving.getByCooking.invalidate({ cookingId });
       void utils.persona.getPersonaCalories.invalidate();
+      toast.success("Serving deleted");
     },
   });
 

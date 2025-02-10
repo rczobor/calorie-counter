@@ -38,6 +38,7 @@ import CreateIngredientDialog from "@/app/ingredients/create-dialog";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
@@ -89,20 +90,23 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const utils = api.useUtils();
   const router = useRouter();
   const createCooking = api.cooking.create.useMutation({
-    onSuccess: async (res) => {
-      await utils.cooking.getAll.invalidate();
+    onSuccess: (res) => {
+      void utils.cooking.getAll.invalidate();
       router.push(`/cookings/${res.id}`);
+      toast.success("Cooking created");
     },
   });
   const deleteCooking = api.cooking.delete.useMutation({
-    onSuccess: async () => {
-      await utils.cooking.getAll.invalidate();
+    onSuccess: () => {
+      void utils.cooking.getAll.invalidate();
       router.push("/cookings");
+      toast.success("Cooking deleted");
     },
   });
   const updateCooking = api.cooking.update.useMutation({
-    onSuccess: async () => {
-      await utils.cooking.getAll.invalidate();
+    onSuccess: () => {
+      void utils.cooking.getAll.invalidate();
+      toast.success("Cooking updated");
     },
   });
   const isMutationPending =

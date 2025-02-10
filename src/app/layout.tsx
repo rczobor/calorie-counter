@@ -9,6 +9,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
 import Navbar from "@/app/_components/navbar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Calorie Counter",
@@ -38,6 +39,7 @@ export default function RootLayout({
                 <Navbar />
               </header>
               <main>{children}</main>
+              <Toaster />
               <SpeedInsights />
               <Analytics />
             </ThemeProvider>

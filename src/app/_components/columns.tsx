@@ -31,6 +31,7 @@ import { z } from "zod";
 import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
 import EditButton from "@/components/edit-button";
 import AddButton from "@/components/add-button";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
@@ -70,6 +71,7 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
       endDate: endOfToday,
     });
     setOpen(false);
+    toast.success("Quick serving added");
   };
 
   return (

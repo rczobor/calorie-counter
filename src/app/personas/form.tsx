@@ -16,6 +16,7 @@ import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -47,12 +48,14 @@ export default function PersonaForm({ id }: { id?: number }) {
       void utils.recipe.getAll.invalidate();
       void utils.persona.getAll.invalidate();
       router.push(`/personas/${res.id}`);
+      toast.success("Persona created");
     },
   });
   const updatePersona = api.persona.update.useMutation({
     onSuccess: () => {
       void utils.recipe.getAll.invalidate();
       void utils.persona.getAll.invalidate();
+      toast.success("Persona updated");
     },
   });
   const deletePersona = api.persona.delete.useMutation({
@@ -60,6 +63,7 @@ export default function PersonaForm({ id }: { id?: number }) {
       void utils.recipe.getAll.invalidate();
       void utils.persona.getAll.invalidate();
       router.push("/personas");
+      toast.success("Persona deleted");
     },
   });
 

@@ -29,6 +29,7 @@ import { Loader, Minus, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFieldArray, useForm, useFormContext } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -74,20 +75,23 @@ export default function RecipeForm({ id }: { id?: number }) {
   const utils = api.useUtils();
   const router = useRouter();
   const createRecipe = api.recipe.create.useMutation({
-    onSuccess: async (res) => {
-      await utils.recipe.getAll.invalidate();
+    onSuccess: (res) => {
+      void utils.recipe.getAll.invalidate();
       router.push(`/recipes/${res.id}`);
+      toast.success("Recipe created");
     },
   });
   const updateRecipe = api.recipe.update.useMutation({
-    onSuccess: async () => {
-      await utils.recipe.getAll.invalidate();
+    onSuccess: () => {
+      void utils.recipe.getAll.invalidate();
+      toast.success("Recipe updated");
     },
   });
   const deleteRecipe = api.recipe.delete.useMutation({
-    onSuccess: async () => {
-      await utils.recipe.getAll.invalidate();
+    onSuccess: () => {
+      void utils.recipe.getAll.invalidate();
       router.push("/recipes");
+      toast.success("Recipe deleted");
     },
   });
 

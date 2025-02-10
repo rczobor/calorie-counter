@@ -3,6 +3,7 @@ import { type Ingredient } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import EditIngredientDialog from "./edit-dialog";
+import { toast } from "sonner";
 
 export const columns: ColumnDef<Ingredient>[] = [
   {
@@ -31,6 +32,7 @@ const ActionButtonColumn = ({ ingredient }: { ingredient: Ingredient }) => {
   const { mutate } = api.ingredient.delete.useMutation({
     onSuccess: () => {
       void utils.ingredient.getAll.invalidate();
+      toast.success("Ingredient deleted");
     },
   });
 
