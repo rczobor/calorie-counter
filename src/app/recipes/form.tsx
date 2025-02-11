@@ -1,7 +1,9 @@
 "use client";
 
 import CreateIngredientDialog from "@/app/ingredients/create-dialog";
+import AddButton from "@/components/add-button";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
+import MinusButton from "@/components/remove-button";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import {
@@ -25,7 +27,7 @@ import { type Ingredient, recipeCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Loader, Minus, Plus } from "lucide-react";
+import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFieldArray, useForm, useFormContext } from "react-hook-form";
@@ -224,10 +226,7 @@ function IngredientSearch() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="secondary"
-            className="px-2 py-1"
+          <AddButton
             onClick={() => {
               const ingredient = row.original;
               fieldArray.append({
@@ -237,9 +236,7 @@ function IngredientSearch() {
                 quantityGrams: "" as unknown as number,
               });
             }}
-          >
-            <Plus />
-          </Button>
+          />
         </div>
       ),
     },
@@ -278,15 +275,11 @@ function IngredientSearch() {
             <div>{field.name}</div>
             <div className="ml-auto">{field.caloriesPer100g}</div>
             <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                className="px-2 py-1"
+              <MinusButton
                 onClick={() => {
                   fieldArray.remove(index);
                 }}
-              >
-                <Minus />
-              </Button>
+              />
             </div>
           </div>
         ))}
