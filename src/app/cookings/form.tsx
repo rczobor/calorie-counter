@@ -106,6 +106,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const updateCooking = api.cooking.update.useMutation({
     onSuccess: () => {
       void utils.cooking.getAll.invalidate();
+      void utils.cooking.getByIdWithRelations.invalidate({ id: cookingId });
       toast.success("Cooking updated");
     },
   });
