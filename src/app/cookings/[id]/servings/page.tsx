@@ -14,9 +14,14 @@ export default async function CreateServingsPage({
   void api.persona.getAll.prefetch();
 
   return (
-    <HydrateClient>
-      <CreateServingForm cookingId={cookingId} />
-      <ServingList cookingId={cookingId} />
-    </HydrateClient>
+    <div className="container mx-auto flex flex-col px-4">
+      <div className="flex items-center justify-between py-4">
+        <h1 className="text-2xl font-bold">Servings</h1>
+      </div>
+      <HydrateClient>
+        <CreateServingForm cookingId={cookingId} />
+        <ServingList cookingId={cookingId} />
+      </HydrateClient>
+    </div>
   );
 }
