@@ -1,6 +1,5 @@
 import PersonaTable from "@/app/personas/table";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import AddButton from "@/components/add-button";
 import Link from "next/link";
 
 export default async function PersonasPage() {
@@ -9,9 +8,7 @@ export default async function PersonasPage() {
       <div className="flex items-center justify-between py-4">
         <h1 className="text-2xl font-bold">Personas</h1>
         <Link href="/personas/create">
-          <Button>
-            <Plus />
-          </Button>
+          <AddButton variant={"default"} />
         </Link>
       </div>
       <PersonaTable />

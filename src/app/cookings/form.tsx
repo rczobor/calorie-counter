@@ -30,7 +30,7 @@ import {
 } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader, Plus, Trash } from "lucide-react";
+import { Loader, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
@@ -246,9 +246,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
             <h2 className="text-lg font-bold">Recipes</h2>
             <Dialog open={addRecipeOpen} onOpenChange={setAddRecipeOpen}>
               <DialogTrigger asChild>
-                <Button type="button" variant="secondary">
-                  <Plus />
-                </Button>
+                <AddButton />
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -395,9 +393,7 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
         <h3 className="font-bold">Ingredients</h3>
         <Dialog open={addIngredientOpen} onOpenChange={setAddIngredientOpen}>
           <DialogTrigger asChild>
-            <Button type="button" variant="secondary">
-              <Plus />
-            </Button>
+            <AddButton />
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
