@@ -41,7 +41,6 @@ interface DataTableProps<TData, TValue> {
   options?: readonly string[] | string[];
   nameSearch?: boolean;
   loading?: boolean;
-  onClick?: (data: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -50,7 +49,6 @@ export function DataTable<TData, TValue>({
   options,
   nameSearch = false,
   loading = false,
-  onClick,
 }: DataTableProps<TData, TValue>) {
   const [nameFilter, setNameFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -125,7 +123,6 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => onClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

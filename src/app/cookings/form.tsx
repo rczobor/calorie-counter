@@ -39,6 +39,7 @@ import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { toast } from "sonner";
+import AddButton from "@/components/add-button";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
@@ -256,23 +257,32 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                 </DialogHeader>
 
                 <div className="flex justify-end">
-                  <Button type="button" onClick={addNewRecipe}>
-                    <Plus />
-                  </Button>
+                  <AddButton variant={"default"} onClick={addNewRecipe} />
                 </div>
 
                 <DataTable
-                  columns={recipeColumns}
+                  columns={[
+                    ...recipeColumns.filter((col) => col.id !== "actions"),
+                    {
+                      id: "actions",
+                      cell: ({ row }) => (
+                        <div className="flex justify-end gap-2">
+                          <AddButton
+                            onClick={() => addExistingRecipe(row.original)}
+                          />
+                        </div>
+                      ),
+                    },
+                  ]}
                   data={
                     recipes?.filter(({ id }) =>
                       recipesFieldArray.fields.every(
-                        (field) => field.id !== id,
+                        (field) => field.recipeId !== id,
                       ),
                     ) ?? []
                   }
                   nameSearch
                   options={recipeCategories}
-                  onClick={addExistingRecipe}
                   loading={isRecipePending}
                 />
               </DialogContent>
@@ -379,8 +389,6 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
     setAddIngredientOpen(false);
   };
 
-  // TODO remove onClick events from table
-
   return (
     <section className="flex flex-col gap-2 pt-2">
       <div className="flex items-center justify-between gap-2">
@@ -401,7 +409,19 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
             </div>
 
             <DataTable
-              columns={ingredientColumns}
+              columns={[
+                ...ingredientColumns.filter((col) => col.id !== "actions"),
+                {
+                  id: "actions",
+                  cell: ({ row }) => (
+                    <div className="flex justify-end gap-2">
+                      <AddButton
+                        onClick={() => addExistingIngredient(row.original)}
+                      />
+                    </div>
+                  ),
+                },
+              ]}
               data={
                 ingridients?.filter(({ id }) =>
                   fieldArray.fields.every((field) => field.ingredientId !== id),
@@ -409,7 +429,6 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
               }
               nameSearch
               options={ingredientCategories}
-              onClick={addExistingIngredient}
               loading={isPending}
             />
           </DialogContent>
