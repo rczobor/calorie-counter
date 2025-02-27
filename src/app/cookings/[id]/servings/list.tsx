@@ -45,7 +45,9 @@ export default function ServingList({ cookingId }: { cookingId: number }) {
   const deleteMutation = api.serving.delete.useMutation({
     onSuccess: () => {
       void utils.serving.getByCooking.invalidate({ cookingId });
+      void utils.serving.getAll.invalidate();
       void utils.persona.getPersonaCalories.invalidate();
+      void utils.persona.getServingsById.invalidate();
       toast.success("Serving deleted");
     },
   });

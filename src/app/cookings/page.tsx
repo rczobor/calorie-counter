@@ -1,6 +1,5 @@
 import CookingTable from "@/app/cookings/table";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import AddButton from "@/components/add-button";
 import Link from "next/link";
 
 export default async function Cookings() {
@@ -9,9 +8,7 @@ export default async function Cookings() {
       <div className="flex items-center justify-between py-4">
         <h1 className="text-2xl font-bold">Cookings</h1>
         <Link href="/cookings/create">
-          <Button>
-            <Plus />
-          </Button>
+          <AddButton variant={"default"} />
         </Link>
       </div>
       <CookingTable />
