@@ -15,19 +15,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { type DefaultValues, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  targetDailyCalories: z.coerce.number().min(0),
+  targetDailyCalories: z.number().min(0),
 });
 
 const defaultValues = {
   name: "",
-  targetDailyCalories: "" as unknown as number,
-};
+  targetDailyCalories: 0,
+} satisfies DefaultValues<FormValues>;
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -76,8 +76,7 @@ export default function PersonaForm({ id }: { id?: number }) {
     if (!isEdit || !persona) return;
     form.reset({
       name: persona.name,
-      targetDailyCalories: (persona.targetDailyCalories?.toString() ??
-        "") as unknown as number,
+      targetDailyCalories: persona.targetDailyCalories,
     });
   }, [form, isEdit, persona]);
 

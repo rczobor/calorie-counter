@@ -31,24 +31,21 @@ import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { type DefaultValues, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  caloriesPer100g: z
-    .string()
-    .min(1, { message: "Required" })
-    .pipe(z.coerce.number().min(0)),
+  caloriesPer100g: z.number().min(0),
   category: z.enum(ingredientCategories),
 });
 
 const defaultValues = {
   name: "",
-  caloriesPer100g: "",
+  caloriesPer100g: 0,
   category: undefined,
-} as unknown as FormValues;
+} satisfies DefaultValues<FormValues>;
 
 type FormValues = z.infer<typeof formSchema>;
 

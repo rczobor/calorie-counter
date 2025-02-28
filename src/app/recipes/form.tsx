@@ -30,7 +30,12 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useFieldArray, useForm, useFormContext } from "react-hook-form";
+import {
+  type DefaultValues,
+  useFieldArray,
+  useForm,
+  useFormContext,
+} from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -39,15 +44,8 @@ const formSchema = z.object({
     z.object({
       id: z.number(),
       name: z.string().min(1, { message: "Required" }),
-      caloriesPer100g: z
-        .string()
-        .min(1, { message: "Required" })
-        .pipe(z.coerce.number().min(0))
-        .or(z.number().min(0)),
-      quantityGrams: z
-        .string()
-        .min(1, { message: "Required" })
-        .pipe(z.coerce.number().min(0)),
+      caloriesPer100g: z.number().min(0),
+      quantityGrams: z.number().min(0),
     }),
   ),
   name: z.string().min(1, { message: "Required" }),
@@ -60,7 +58,7 @@ const defaultValues = {
   name: "",
   description: "",
   category: undefined,
-};
+} satisfies DefaultValues<FormValues>;
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -110,8 +108,7 @@ export default function RecipeForm({ id }: { id?: number }) {
         id: recipesToIngredient.ingredient.id,
         name: recipesToIngredient.ingredient.name,
         caloriesPer100g: recipesToIngredient.ingredient.caloriesPer100g,
-        quantityGrams:
-          recipesToIngredient.quantityGrams.toString() as unknown as number,
+        quantityGrams: recipesToIngredient.quantityGrams,
       })),
     });
   }, [form, isEdit, recipe]);
@@ -233,7 +230,7 @@ function IngredientSearch() {
                 id: ingredient.id,
                 name: ingredient.name,
                 caloriesPer100g: ingredient.caloriesPer100g,
-                quantityGrams: "" as unknown as number,
+                quantityGrams: 0,
               });
             }}
           />
@@ -252,7 +249,7 @@ function IngredientSearch() {
               id: ingredient.id,
               name: ingredient.name,
               caloriesPer100g: ingredient.caloriesPer100g,
-              quantityGrams: "" as unknown as number,
+              quantityGrams: 0,
             })
           }
         />
