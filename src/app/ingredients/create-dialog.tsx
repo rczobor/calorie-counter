@@ -112,6 +112,7 @@ export default function CreateIngredientDialog({
                     <Input
                       placeholder="Calories per 100g"
                       type="number"
+                      pattern="[0-9]*"
                       {...field}
                     />
                   </FormControl>

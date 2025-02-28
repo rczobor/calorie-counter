@@ -106,7 +106,12 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
                   <FormItem>
                     <FormLabel>Calories</FormLabel>
                     <FormControl>
-                      <Input placeholder="Kcal" type="number" {...field} />
+                      <Input
+                        placeholder="Kcal"
+                        type="number"
+                        pattern="[0-9]*"
+                        {...field}
+                      />
                     </FormControl>
                   </FormItem>
                 )}

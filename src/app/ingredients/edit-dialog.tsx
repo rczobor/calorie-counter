@@ -134,6 +134,7 @@ export default function EditIngredientDialog({
                     <Input
                       placeholder="Calories per 100g"
                       type="number"
+                      pattern="[0-9]*"
                       {...field}
                     />
                   </FormControl>

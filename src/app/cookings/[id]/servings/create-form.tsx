@@ -154,6 +154,7 @@ export default function CreateServingForm({
                         <FormControl>
                           <Input
                             type="number"
+                            pattern="[0-9]*"
                             min={0}
                             placeholder="Weight in grams"
                             {...field}

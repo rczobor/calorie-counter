@@ -263,7 +263,12 @@ function IngredientSearch() {
               render={({ field }) => (
                 <FormItem className="w-24">
                   <FormControl>
-                    <Input placeholder="Quantity" type="number" {...field} />
+                    <Input
+                      placeholder="Quantity"
+                      type="number"
+                      pattern="[0-9]*"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

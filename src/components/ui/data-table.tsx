@@ -173,6 +173,7 @@ function Filter({
         {/* See faceted column filters example for min max values functionality */}
         <Input
           type="number"
+          pattern="[0-9]*"
           value={(columnFilterValue as [number, number])?.[0] ?? ""}
           onChange={(value) =>
             column.setFilterValue((old: [number, number]) => [value, old?.[1]])
@@ -182,6 +183,7 @@ function Filter({
         />
         <Input
           type="number"
+          pattern="[0-9]*"
           value={(columnFilterValue as [number, number])?.[1] ?? ""}
           onChange={(value) =>
             column.setFilterValue((old: [number, number]) => [old?.[0], value])

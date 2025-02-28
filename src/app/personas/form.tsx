@@ -137,6 +137,7 @@ export default function PersonaForm({ id }: { id?: number }) {
                   <Input
                     placeholder="Target Daily Calories"
                     type="number"
+                    pattern="[0-9]*"
                     min={0}
                     {...field}
                   />
