@@ -1,3 +1,5 @@
+"use client";
+
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { type Ingredient } from "@/server/db/schema";
 import { api } from "@/trpc/react";
