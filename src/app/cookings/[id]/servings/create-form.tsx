@@ -29,11 +29,11 @@ import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string(),
-  personaId: z.number(),
+  personaId: z.coerce.number(),
   portions: z.array(
     z.object({
       cookedRecipeId: z.number(),
-      weightGrams: z.number().min(0),
+      weightGrams: z.coerce.number().min(0),
     }),
   ),
 });
@@ -54,11 +54,11 @@ export default function CreateServingForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      personaId: personas[0]?.id,
+      personaId: (personas[0]?.id.toString() ?? "") as unknown as number,
       portions:
         cooking?.cookedRecipes.map((recipe) => ({
           cookedRecipeId: recipe.id,
-          weightGrams: 0,
+          weightGrams: "" as unknown as number,
         })) ?? [],
     },
   });

@@ -26,7 +26,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { type DefaultValues, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
 import EditButton from "@/components/edit-button";
@@ -35,13 +35,16 @@ import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  calories: z.number().min(0),
+  calories: z
+    .string()
+    .min(1, { message: "Required" })
+    .pipe(z.coerce.number().min(0)),
 });
 type FormValues = z.infer<typeof formSchema>;
 const defaultValues = {
   name: "",
-  calories: 0,
-} satisfies DefaultValues<FormValues>;
+  calories: "" as unknown as number,
+};
 
 const ActionButtonCell = ({ personaId }: { personaId: number }) => {
   const { startOfToday, endOfToday } = useGetTodayDate();

@@ -32,21 +32,24 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { DialogTrigger } from "@radix-ui/react-dialog";
 import { Loader, Trash } from "lucide-react";
 import { useEffect } from "react";
-import { type DefaultValues, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  caloriesPer100g: z.number().min(0),
+  caloriesPer100g: z
+    .string()
+    .min(1, { message: "Required" })
+    .pipe(z.coerce.number().min(0)),
   category: z.enum(ingredientCategories),
 });
 
 const defaultValues = {
   name: "",
-  caloriesPer100g: 0,
+  caloriesPer100g: "",
   category: undefined,
-} satisfies DefaultValues<FormValues>;
+} as unknown as FormValues;
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -78,9 +81,9 @@ export default function EditIngredientDialog({
 
     form.reset({
       name: ingredient.name,
-      caloriesPer100g: ingredient.caloriesPer100g,
+      caloriesPer100g: String(ingredient.caloriesPer100g),
       category: ingredient.category,
-    } satisfies DefaultValues<FormValues>);
+    } as unknown as FormValues);
   }, [form, ingredient]);
 
   const onSubmit = (data: FormValues) => {
