@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { requiredNumberInputSchema } from "@/components/utils";
 import { useGetTodayDate } from "@/hooks/use-get-today-date";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,11 +30,11 @@ import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string(),
-  personaId: z.coerce.number(),
+  personaId: requiredNumberInputSchema(z.coerce.number()),
   portions: z.array(
     z.object({
       cookedRecipeId: z.number(),
-      weightGrams: z.coerce.number().min(0),
+      weightGrams: requiredNumberInputSchema(z.coerce.number().nonnegative()),
     }),
   ),
 });
@@ -50,15 +51,15 @@ export default function CreateServingForm({
       id: cookingId,
     });
   const [personas] = api.persona.getAll.useSuspenseQuery();
-  const form = useForm<FormValues>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      personaId: (personas[0]?.id.toString() ?? "") as unknown as number,
+      personaId: personas[0]?.id.toString() ?? "",
       portions:
         cooking?.cookedRecipes.map((recipe) => ({
           cookedRecipeId: recipe.id,
-          weightGrams: "" as unknown as number,
+          weightGrams: "",
         })) ?? [],
     },
   });

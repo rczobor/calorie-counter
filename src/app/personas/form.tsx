@@ -8,8 +8,10 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { requiredNumberInputSchema } from "@/components/utils";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader } from "lucide-react";
@@ -21,13 +23,10 @@ import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  targetDailyCalories: z.coerce.number().min(0),
+  targetDailyCalories: requiredNumberInputSchema(
+    z.coerce.number().nonnegative(),
+  ),
 });
-
-const defaultValues = {
-  name: "",
-  targetDailyCalories: "" as unknown as number,
-};
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -37,8 +36,11 @@ export default function PersonaForm({ id }: { id?: number }) {
     { id },
     { enabled: isEdit },
   );
-  const form = useForm<FormValues>({
-    defaultValues,
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      targetDailyCalories: "",
+    },
     resolver: zodResolver(formSchema),
   });
   const utils = api.useUtils();
@@ -76,8 +78,7 @@ export default function PersonaForm({ id }: { id?: number }) {
     if (!isEdit || !persona) return;
     form.reset({
       name: persona.name,
-      targetDailyCalories: (persona.targetDailyCalories?.toString() ??
-        "") as unknown as number,
+      targetDailyCalories: persona.targetDailyCalories?.toString() ?? "",
     });
   }, [form, isEdit, persona]);
 
@@ -125,6 +126,7 @@ export default function PersonaForm({ id }: { id?: number }) {
                 <FormControl>
                   <Input placeholder="Name" {...field} />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -143,6 +145,7 @@ export default function PersonaForm({ id }: { id?: number }) {
                     {...field}
                   />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />

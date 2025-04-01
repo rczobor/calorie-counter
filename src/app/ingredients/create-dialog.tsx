@@ -17,6 +17,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { requiredNumberInputSchema } from "@/components/utils";
 import { type Ingredient, ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,18 +39,9 @@ import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  caloriesPer100g: z
-    .string()
-    .min(1, { message: "Required" })
-    .pipe(z.coerce.number().min(0)),
+  caloriesPer100g: requiredNumberInputSchema(z.coerce.number().nonnegative()),
   category: z.enum(ingredientCategories),
 });
-
-const defaultValues = {
-  name: "",
-  caloriesPer100g: "",
-  category: undefined,
-} as unknown as FormValues;
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -58,8 +51,12 @@ export default function CreateIngredientDialog({
   onCreate?: (ingredient: Ingredient) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const form = useForm<FormValues>({
-    defaultValues,
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      caloriesPer100g: "",
+      category: undefined,
+    },
     resolver: zodResolver(formSchema),
   });
   const utils = api.useUtils();
@@ -102,6 +99,7 @@ export default function CreateIngredientDialog({
                   <FormControl>
                     <Input placeholder="Name" {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -119,6 +117,7 @@ export default function CreateIngredientDialog({
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -146,6 +145,7 @@ export default function CreateIngredientDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />

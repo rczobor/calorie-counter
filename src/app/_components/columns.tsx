@@ -16,6 +16,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useGetTodayDate } from "@/hooks/use-get-today-date";
@@ -32,26 +33,24 @@ import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
 import EditButton from "@/components/edit-button";
 import AddButton from "@/components/add-button";
 import { toast } from "sonner";
+import { requiredNumberInputSchema } from "@/components/utils";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
-  calories: z
-    .string()
-    .min(1, { message: "Required" })
-    .pipe(z.coerce.number().min(0)),
+  calories: requiredNumberInputSchema(z.coerce.number().nonnegative()),
 });
+
 type FormValues = z.infer<typeof formSchema>;
-const defaultValues = {
-  name: "",
-  calories: "" as unknown as number,
-};
 
 const ActionButtonCell = ({ personaId }: { personaId: number }) => {
   const { startOfToday, endOfToday } = useGetTodayDate();
   const { mutateAsync, isPending } = api.quickServing.create.useMutation();
   const [open, setOpen] = useState(false);
-  const form = useForm<FormValues>({
-    defaultValues,
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      calories: "",
+    },
     resolver: zodResolver(formSchema),
   });
   const utils = api.useUtils();
@@ -99,6 +98,7 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
                     <FormControl>
                       <Input placeholder="Name" {...field} />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -116,6 +116,7 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

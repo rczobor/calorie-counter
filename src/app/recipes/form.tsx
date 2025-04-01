@@ -55,13 +55,6 @@ const formSchema = z.object({
   category: z.enum(recipeCategories),
 });
 
-const defaultValues = {
-  ingredients: [],
-  name: "",
-  description: "",
-  category: undefined,
-};
-
 type FormValues = z.infer<typeof formSchema>;
 
 export default function RecipeForm({ id }: { id?: number }) {
@@ -70,8 +63,13 @@ export default function RecipeForm({ id }: { id?: number }) {
     { id },
     { enabled: isEdit },
   );
-  const form = useForm<FormValues>({
-    defaultValues,
+  const form = useForm({
+    defaultValues: {
+      ingredients: [],
+      name: "",
+      description: "",
+      category: undefined,
+    },
     resolver: zodResolver(formSchema),
   });
   const utils = api.useUtils();
@@ -110,8 +108,7 @@ export default function RecipeForm({ id }: { id?: number }) {
         id: recipesToIngredient.ingredient.id,
         name: recipesToIngredient.ingredient.name,
         caloriesPer100g: recipesToIngredient.ingredient.caloriesPer100g,
-        quantityGrams:
-          recipesToIngredient.quantityGrams.toString() as unknown as number,
+        quantityGrams: recipesToIngredient.quantityGrams.toString(),
       })),
     });
   }, [form, isEdit, recipe]);
@@ -188,6 +185,7 @@ export default function RecipeForm({ id }: { id?: number }) {
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -202,6 +200,7 @@ export default function RecipeForm({ id }: { id?: number }) {
                 <FormControl>
                   <Textarea placeholder="Description" {...field} />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />

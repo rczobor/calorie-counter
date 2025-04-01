@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { toast } from "sonner";
 import AddButton from "@/components/add-button";
+import { requiredNumberInputSchema } from "@/components/utils";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Required" }),
@@ -49,14 +50,18 @@ const formSchema = z.object({
       recipeId: z.number().nullish(),
       name: z.string().min(1, { message: "Required" }),
       description: z.string(),
-      finalWeightGrams: z.coerce.number().min(1),
+      finalWeightGrams: requiredNumberInputSchema(z.coerce.number().positive()),
       cookedRecipeIngredients: z.array(
         z.object({
           id: z.number().optional(),
           ingredientId: z.number(),
           name: z.string().min(1, { message: "Required" }),
-          quantityGrams: z.coerce.number().min(0),
-          caloriesPer100g: z.coerce.number().min(0),
+          quantityGrams: requiredNumberInputSchema(
+            z.coerce.number().nonnegative(),
+          ),
+          caloriesPer100g: requiredNumberInputSchema(
+            z.coerce.number().nonnegative(),
+          ),
         }),
       ),
     }),
@@ -64,11 +69,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-const defaultValues = {
-  name: "",
-  cookedRecipes: [],
-};
 
 export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const isEdit = cookingId != null;
@@ -79,8 +79,11 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
   const [addRecipeOpen, setAddRecipeOpen] = useState(false);
   const { data: recipes, isPending: isRecipePending } =
     api.recipe.getAll.useQuery();
-  const form = useForm<FormValues>({
-    defaultValues,
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      cookedRecipes: [],
+    },
     resolver: zodResolver(formSchema),
   });
   const recipesFieldArray = useFieldArray({
@@ -125,16 +128,13 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
         recipeId: cookedRecipe.recipeId,
         name: cookedRecipe.name,
         description: cookedRecipe.description,
-        finalWeightGrams:
-          cookedRecipe.finalWeightGrams.toString() as unknown as number,
+        finalWeightGrams: cookedRecipe.finalWeightGrams.toString(),
         cookedRecipeIngredients: cookedRecipe.cookedRecipeIngredients.map(
           (cookedRecipeIngredient) => ({
             ingredientId: cookedRecipeIngredient.ingredientId,
             name: cookedRecipeIngredient.ingredient.name,
-            quantityGrams:
-              cookedRecipeIngredient.quantityGrams.toString() as unknown as number,
-            caloriesPer100g:
-              cookedRecipeIngredient.caloriesPer100g.toString() as unknown as number,
+            quantityGrams: cookedRecipeIngredient.quantityGrams.toString(),
+            caloriesPer100g: cookedRecipeIngredient.caloriesPer100g.toString(),
           }),
         ),
       })),
@@ -160,15 +160,14 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
       recipeId: recipeWithIngredients.id,
       name: recipeWithIngredients.name,
       description: recipeWithIngredients.description,
-      finalWeightGrams: "" as unknown as number,
+      finalWeightGrams: "",
       cookedRecipeIngredients: recipeWithIngredients.recipesToIngredients.map(
         (recipesToIngredient) => ({
           ingredientId: recipesToIngredient.ingredientId,
           name: recipesToIngredient.ingredient.name,
-          quantityGrams:
-            recipesToIngredient.quantityGrams.toString() as unknown as number,
+          quantityGrams: recipesToIngredient.quantityGrams.toString(),
           caloriesPer100g:
-            recipesToIngredient.ingredient.caloriesPer100g.toString() as unknown as number,
+            recipesToIngredient.ingredient.caloriesPer100g.toString(),
         }),
       ),
     });
@@ -180,7 +179,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
     recipesFieldArray.append({
       name: "",
       description: "",
-      finalWeightGrams: "" as unknown as number,
+      finalWeightGrams: "",
       cookedRecipeIngredients: [],
     });
 
@@ -237,6 +236,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
               <FormControl>
                 <Input placeholder="Name" {...field} />
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -299,6 +299,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                         <FormControl>
                           <Input placeholder="Name" {...field} />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -339,6 +340,7 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
                       <FormControl>
                         <Textarea placeholder="Description" {...field} />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -356,7 +358,11 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
 function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
   const [addIngredientOpen, setAddIngredientOpen] = useState(false);
   const { data: ingridients, isPending } = api.ingredient.getAll.useQuery();
-  const form = useFormContext<FormValues>();
+  const form = useFormContext<
+    z.input<typeof formSchema>,
+    unknown,
+    z.output<typeof formSchema>
+  >();
   const fieldName =
     `cookedRecipes.${parentIndex}.cookedRecipeIngredients` as const;
   const fieldArray = useFieldArray({
@@ -369,9 +375,8 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
     fieldArray.append({
       ingredientId: ingredient.id,
       name: ingredient.name,
-      quantityGrams: "" as unknown as number,
-      caloriesPer100g:
-        ingredient.caloriesPer100g.toString() as unknown as number,
+      quantityGrams: "",
+      caloriesPer100g: ingredient.caloriesPer100g.toString(),
     });
 
     setAddIngredientOpen(false);
@@ -381,8 +386,8 @@ function CookedRecipeIngredients({ index: parentIndex }: { index: number }) {
     fieldArray.append({
       ingredientId: ingredient.id,
       name: ingredient.name,
-      caloriesPer100g: ingredient.caloriesPer100g,
-      quantityGrams: "" as unknown as number,
+      caloriesPer100g: ingredient.caloriesPer100g.toString(),
+      quantityGrams: "",
     });
 
     setAddIngredientOpen(false);
