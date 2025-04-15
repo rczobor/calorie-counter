@@ -1,11 +1,11 @@
 import CookingForm from "@/app/cookings/form";
 
 export default async function CookingPage({
-  params,
+	params,
 }: {
-  params: Promise<{ id: string }>;
+	params: Promise<{ id: string }>;
 }) {
-  const id = (await params).id;
+	const id = (await params).id;
 
-  return <CookingForm cookingId={Number(id)} />;
+	return <CookingForm cookingId={Number(id)} />;
 }

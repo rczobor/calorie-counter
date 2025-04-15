@@ -12,12 +12,12 @@ import { quickServingRouter } from "./routers/quick-servings";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  cooking: cookingRouter,
-  ingredient: ingredientRouter,
-  recipe: recipeRouter,
-  serving: servingRouter,
-  quickServing: quickServingRouter,
-  persona: personaRouter,
+	cooking: cookingRouter,
+	ingredient: ingredientRouter,
+	recipe: recipeRouter,
+	serving: servingRouter,
+	quickServing: quickServingRouter,
+	persona: personaRouter,
 });
 
 // export type definition of API

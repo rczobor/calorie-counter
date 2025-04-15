@@ -6,15 +6,15 @@ import { ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
 
 export default function IngredientTable() {
-  const [data, { isPending }] = api.ingredient.getAll.useSuspenseQuery();
+	const [data, { isPending }] = api.ingredient.getAll.useSuspenseQuery();
 
-  return (
-    <DataTable
-      columns={columns}
-      data={data ?? []}
-      options={ingredientCategories}
-      nameSearch
-      loading={isPending}
-    />
-  );
+	return (
+		<DataTable
+			columns={columns}
+			data={data ?? []}
+			options={ingredientCategories}
+			nameSearch
+			loading={isPending}
+		/>
+	);
 }
