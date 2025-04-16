@@ -1,2 +1,6 @@
-ignoredBuiltDependencies:
+onlyBuiltDependencies:
   - '@biomejs/biome'
+  - '@clerk/shared'
+  - '@vercel/speed-insights'
+  - esbuild
+  - sharp
