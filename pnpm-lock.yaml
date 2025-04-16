@@ -126,9 +126,6 @@ importers:
       postcss:
         specifier: ^8.5.3
         version: 8.5.3
-      prettier:
-        specifier: ^3.5.3
-        version: 3.5.3
       tailwindcss:
         specifier: ^4.1.4
         version: 4.1.4
@@ -1620,11 +1617,6 @@ packages:
     resolution: {integrity: sha512-cDWgoah1Gez9rN3H4165peY9qfpEo+SA61oQv65O3cRUE1pOEoJWwddwcqKE8XZYjbblOJlYDlLV4h67HrEVDg==}
     engines: {node: '>=12'}
 
-  prettier@3.5.3:
-    resolution: {integrity: sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw==}
-    engines: {node: '>=14'}
-    hasBin: true
-
   react-dom@19.1.0:
     resolution: {integrity: sha512-Xs1hdnE+DyKgeHJeJznQmYMIBG3TKIHJJT95Q58nHLSrElKlGQqDTR2HQ9fx5CN/Gk6Vh/kupBTDLU11/nDk/g==}
     peerDependencies:
@@ -2928,8 +2920,6 @@ snapshots:
       source-map-js: 1.2.1
 
   postgres@3.4.5: {}
-
-  prettier@3.5.3: {}
 
   react-dom@19.1.0(react@19.1.0):
     dependencies:
