@@ -194,7 +194,7 @@ export default function CreateServingForm({
 								</FormLabel>
 								<Select
 									onValueChange={field.onChange}
-									defaultValue={String(field.value)}
+									value={field.value}
 								>
 									<FormControl>
 										<SelectTrigger className="w-[180px]">

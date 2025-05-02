@@ -129,7 +129,7 @@ export default function CreateIngredientDialog({
 									<FormLabel>Category</FormLabel>
 									<Select
 										onValueChange={field.onChange}
-										defaultValue={field.value as string | undefined}
+										value={field.value}
 									>
 										<FormControl>
 											<SelectTrigger className="w-[180px]">
