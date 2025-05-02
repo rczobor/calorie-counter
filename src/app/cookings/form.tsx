@@ -160,7 +160,10 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
 			recipeId: recipeWithIngredients.id,
 			name: recipeWithIngredients.name,
 			description: recipeWithIngredients.description,
-			finalWeightGrams: "",
+			finalWeightGrams: recipeWithIngredients.recipesToIngredients.reduce(
+				(acc, curr) => acc + curr.quantityGrams,
+				0,
+			).toString(),
 			cookedRecipeIngredients: recipeWithIngredients.recipesToIngredients.map(
 				(recipesToIngredient) => ({
 					ingredientId: recipesToIngredient.ingredientId,
