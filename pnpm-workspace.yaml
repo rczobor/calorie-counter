@@ -1,9 +1,7 @@
 onlyBuiltDependencies:
   - '@biomejs/biome'
   - '@clerk/shared'
+  - '@tailwindcss/oxide'
   - '@vercel/speed-insights'
   - esbuild
   - sharp
-
-ignoredBuiltDependencies:
-  - '@tailwindcss/oxide'
