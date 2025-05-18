@@ -12,7 +12,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
 					className,
 				)}
 				ref={ref}
-				{...type === 'number' && {onWheel: (e) => e.currentTarget.blur()}}
+				{...(type === "number" && { onWheel: (e) => e.currentTarget.blur() })}
 				{...props}
 			/>
 		);

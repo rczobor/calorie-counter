@@ -192,10 +192,7 @@ export default function CreateServingForm({
 								<FormLabel>
 									Remaining kcal: {personaCalories?.remainingCalories}
 								</FormLabel>
-								<Select
-									onValueChange={field.onChange}
-									value={field.value}
-								>
+								<Select onValueChange={field.onChange} value={field.value}>
 									<FormControl>
 										<SelectTrigger className="w-[180px]">
 											<SelectValue placeholder="Select a persona" />

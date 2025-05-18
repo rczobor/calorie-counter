@@ -149,10 +149,7 @@ export default function EditIngredientDialog({
 							render={({ field }) => (
 								<FormItem className="flex flex-col">
 									<FormLabel>Category</FormLabel>
-									<Select
-										onValueChange={field.onChange}
-										value={field.value}
-									>
+									<Select onValueChange={field.onChange} value={field.value}>
 										<FormControl>
 											<SelectTrigger className="w-[180px]">
 												<SelectValue placeholder="Select a category" />
