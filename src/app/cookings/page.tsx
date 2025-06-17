@@ -1,9 +1,9 @@
+import Link from "next/link";
+import { Suspense } from "react";
 import CookingTable from "@/app/cookings/table";
 import AddButton from "@/components/add-button";
 import { DataTable } from "@/components/ui/data-table";
-import { HydrateClient, api } from "@/trpc/server";
-import Link from "next/link";
-import { Suspense } from "react";
+import { api, HydrateClient } from "@/trpc/server";
 import { columns } from "./columns";
 
 export default function Cookings() {

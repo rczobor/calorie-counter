@@ -1,12 +1,12 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
+import { toast } from "sonner";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import EditButton from "@/components/edit-button";
 import type { Cooking, Persona, Serving } from "@/server/db/schema";
 import { api } from "@/trpc/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
-import { toast } from "sonner";
 
 export const columns: ColumnDef<
 	Serving & { cooking: Cooking | null; persona: Persona }

@@ -1,8 +1,8 @@
+import { Suspense } from "react";
 import CreateIngredientDialog from "@/app/ingredients/create-dialog";
 import IngredientTable from "@/app/ingredients/table";
 import { DataTable } from "@/components/ui/data-table";
-import { HydrateClient, api } from "@/trpc/server";
-import { Suspense } from "react";
+import { api, HydrateClient } from "@/trpc/server";
 import { columns } from "./columns";
 
 export default function Ingredients() {

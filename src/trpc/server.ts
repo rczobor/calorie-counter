@@ -1,13 +1,12 @@
 import "server-only";
 
+import { getAuth } from "@clerk/nextjs/server";
 import { createHydrationHelpers } from "@trpc/react-query/rsc";
 import { headers } from "next/headers";
+import { NextRequest } from "next/server";
 import { cache } from "react";
-
 import { type AppRouter, createCaller } from "@/server/api/root";
 import { createTRPCContext } from "@/server/api/trpc";
-import { getAuth } from "@clerk/nextjs/server";
-import { NextRequest } from "next/server";
 import { createQueryClient } from "./query-client";
 
 /**

@@ -10,14 +10,14 @@ import SuperJSON from "superjson";
 import type { AppRouter } from "@/server/api/root";
 import { createQueryClient } from "./query-client";
 
-let clientQueryClientSingleton: QueryClient | undefined = undefined;
+let clientQueryClientSingleton: QueryClient | undefined;
 const getQueryClient = () => {
 	if (typeof window === "undefined") {
 		// Server: always make a new query client
 		return createQueryClient();
 	}
 	// Browser: use singleton pattern to keep the same query client
-	// biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
+	// biome-ignore lint/suspicious/noAssignInExpressions: false positive
 	return (clientQueryClientSingleton ??= createQueryClient());
 };
 

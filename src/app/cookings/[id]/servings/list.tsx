@@ -1,5 +1,7 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 import {
 	calculateCaloriesPer100g,
 	calculateServingTotalCalories,
@@ -11,8 +13,6 @@ import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import type { ServingPortionWithRelations } from "@/server/db/schema";
 import { api } from "@/trpc/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { toast } from "sonner";
 
 const columns: ColumnDef<ServingPortionWithRelations>[] = [
 	{

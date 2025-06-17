@@ -1,6 +1,6 @@
 import CreateServingForm from "@/app/cookings/[id]/servings/create-form";
 import ServingList from "@/app/cookings/[id]/servings/list";
-import { HydrateClient, api } from "@/trpc/server";
+import { api, HydrateClient } from "@/trpc/server";
 
 export default async function CreateServingsPage({
 	params,

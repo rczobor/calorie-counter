@@ -1,10 +1,10 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import type { Ingredient } from "@/server/db/schema";
 import { api } from "@/trpc/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { toast } from "sonner";
 import EditIngredientDialog from "./edit-dialog";
 
 export const columns: ColumnDef<Ingredient>[] = [

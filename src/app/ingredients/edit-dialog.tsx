@@ -1,5 +1,12 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
+import { DialogTrigger } from "@radix-ui/react-dialog";
+import { Loader, Trash } from "lucide-react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import EditButton from "@/components/edit-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,13 +37,6 @@ import {
 import { requiredNumberInputSchema } from "@/components/utils";
 import { type Ingredient, ingredientCategories } from "@/server/db/schema";
 import { api } from "@/trpc/react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { DialogTrigger } from "@radix-ui/react-dialog";
-import { Loader, Trash } from "lucide-react";
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const formSchema = z.object({
 	name: z.string().min(1, { message: "Required" }),

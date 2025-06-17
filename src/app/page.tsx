@@ -1,6 +1,6 @@
-import { DataTable } from "@/components/ui/data-table";
-import { HydrateClient, api } from "@/trpc/server";
 import { Suspense } from "react";
+import { DataTable } from "@/components/ui/data-table";
+import { api, HydrateClient } from "@/trpc/server";
 import { columns } from "./_components/columns";
 import DashboardTable from "./_components/dashboard-table";
 

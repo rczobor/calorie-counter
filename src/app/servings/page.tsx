@@ -1,7 +1,7 @@
+import { Suspense } from "react";
 import AllServingsTable from "@/app/servings/table";
 import { DataTable } from "@/components/ui/data-table";
-import { HydrateClient, api } from "@/trpc/server";
-import { Suspense } from "react";
+import { api, HydrateClient } from "@/trpc/server";
 import { columns } from "./columns";
 
 export default function AllServingsPage() {

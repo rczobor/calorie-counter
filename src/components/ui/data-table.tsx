@@ -1,16 +1,18 @@
 "use client";
 
+import { SelectTrigger } from "@radix-ui/react-select";
 import {
 	type Column,
 	type ColumnDef,
 	type ColumnFiltersState,
-	type RowData,
 	flexRender,
 	getCoreRowModel,
 	getFilteredRowModel,
+	type RowData,
 	useReactTable,
 } from "@tanstack/react-table";
-
+import { EllipsisVertical } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem } from "@/components/ui/select";
@@ -23,12 +25,10 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { SelectTrigger } from "@radix-ui/react-select";
-import { EllipsisVertical } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
 declare module "@tanstack/react-table" {
-	interface ColumnMeta<TData extends RowData, TValue> {
+	// biome-ignore lint/correctness/noUnusedVariables: false positive
+	interface ColumnMeta<TData extends RowData = unknown, TValue = unknown> {
 		filterVariant?: "text" | "range" | "select";
 	}
 }
@@ -153,7 +153,7 @@ function Filter({
 	column,
 	options,
 }: {
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: false positive
 	column: Column<any, unknown>;
 	options: readonly string[];
 }) {

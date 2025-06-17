@@ -1,3 +1,5 @@
+import { and, between, eq } from "drizzle-orm";
+import { z } from "zod";
 import {
 	calculateServingTotalCalories,
 	calculateTotalCalories,
@@ -5,15 +7,13 @@ import {
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
 	type Persona,
+	personas,
 	type QuickServing,
+	quickServings,
 	type Serving,
 	type ServingPortionWithRelations,
-	personas,
-	quickServings,
 	servings,
 } from "@/server/db/schema";
-import { and, between, eq } from "drizzle-orm";
-import { z } from "zod";
 
 export const personaRouter = createTRPCRouter({
 	create: protectedProcedure

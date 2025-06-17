@@ -1,11 +1,12 @@
 "use client";
 
+import type { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 import DeleteConfirmDialog from "@/components/delete-confirm-dialog";
 import { DataTable } from "@/components/ui/data-table";
 import { useGetTodayDate } from "@/hooks/use-get-today-date";
 import { api } from "@/trpc/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { toast } from "sonner";
+
 type Serving = {
 	id: number;
 	name: string | null;
