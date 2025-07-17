@@ -43,19 +43,19 @@ import {
 import { api } from "@/trpc/react";
 
 const formSchema = z.object({
-	name: z.string().min(1, { message: "Required" }),
+	name: z.string().min(1, { error: "Required" }),
 	cookedRecipes: z.array(
 		z.object({
 			id: z.number().optional(),
 			recipeId: z.number().nullish(),
-			name: z.string().min(1, { message: "Required" }),
+			name: z.string().min(1, { error: "Required" }),
 			description: z.string(),
 			finalWeightGrams: requiredNumberInputSchema(),
 			cookedRecipeIngredients: z.array(
 				z.object({
 					id: z.number().optional(),
 					ingredientId: z.number(),
-					name: z.string().min(1, { message: "Required" }),
+					name: z.string().min(1, { error: "Required" }),
 					quantityGrams: requiredNumberInputSchema(),
 					caloriesPer100g: requiredNumberInputSchema(),
 				}),

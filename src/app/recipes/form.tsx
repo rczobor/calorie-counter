@@ -38,22 +38,22 @@ const formSchema = z.object({
 	ingredients: z.array(
 		z.object({
 			id: z.number(),
-			name: z.string().min(1, { message: "Required" }),
+			name: z.string().min(1, { error: "Required" }),
 			caloriesPer100g: z
 				.string()
-				.min(1, { message: "Required" })
+				.min(1, { error: "Required" })
 				.refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
-					message: "Must be a valid number greater than or equal to 0",
+					error: "Must be a valid number greater than or equal to 0",
 				}),
 			quantityGrams: z
 				.string()
-				.min(1, { message: "Required" })
+				.min(1, { error: "Required" })
 				.refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
-					message: "Must be a valid number greater than or equal to 0",
+					error: "Must be a valid number greater than or equal to 0",
 				}),
 		}),
 	),
-	name: z.string().min(1, { message: "Required" }),
+	name: z.string().min(1, { error: "Required" }),
 	description: z.string(),
 	category: z.enum(recipeCategories),
 });

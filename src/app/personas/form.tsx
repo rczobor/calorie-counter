@@ -22,7 +22,7 @@ import { requiredNumberInputSchema } from "@/components/utils";
 import { api } from "@/trpc/react";
 
 const formSchema = z.object({
-	name: z.string().min(1, { message: "Required" }),
+	name: z.string().min(1, { error: "Required" }),
 	targetDailyCalories: requiredNumberInputSchema(),
 });
 

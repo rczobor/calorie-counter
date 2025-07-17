@@ -36,7 +36,7 @@ import { api } from "@/trpc/react";
 import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
 
 const formSchema = z.object({
-	name: z.string().min(1, { message: "Required" }),
+	name: z.string().min(1, { error: "Required" }),
 	calories: requiredNumberInputSchema(),
 });
 
