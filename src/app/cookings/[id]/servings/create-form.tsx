@@ -30,11 +30,11 @@ import { api } from "@/trpc/react";
 
 const formSchema = z.object({
 	name: z.string(),
-	personaId: requiredNumberInputSchema(z.coerce.number()),
+	personaId: requiredNumberInputSchema(),
 	portions: z.array(
 		z.object({
 			cookedRecipeId: z.number(),
-			weightGrams: requiredNumberInputSchema(z.coerce.number().nonnegative()),
+			weightGrams: requiredNumberInputSchema(),
 		}),
 	),
 });
@@ -93,7 +93,12 @@ export default function CreateServingForm({
 	const onSubmit = (data: FormValues) => {
 		createServing.mutate({
 			cookingId,
-			...data,
+			name: data.name,
+			personaId: Number(data.personaId),
+			portions: data.portions.map((portion) => ({
+				cookedRecipeId: portion.cookedRecipeId,
+				weightGrams: Number(portion.weightGrams),
+			})),
 		});
 	};
 

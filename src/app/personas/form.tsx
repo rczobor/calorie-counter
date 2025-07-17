@@ -23,9 +23,7 @@ import { api } from "@/trpc/react";
 
 const formSchema = z.object({
 	name: z.string().min(1, { message: "Required" }),
-	targetDailyCalories: requiredNumberInputSchema(
-		z.coerce.number().nonnegative(),
-	),
+	targetDailyCalories: requiredNumberInputSchema(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -84,10 +82,10 @@ export default function PersonaForm({ id }: { id?: number }) {
 
 	const onSubmit = (data: FormValues) => {
 		if (isEdit) {
-			updatePersona.mutate({ id, ...data });
+			updatePersona.mutate({ id, ...data, targetDailyCalories: Number(data.targetDailyCalories) });
 			return;
 		}
-		createPersona.mutate(data);
+		createPersona.mutate({ ...data, targetDailyCalories: Number(data.targetDailyCalories) });
 	};
 
 	const onDelete = () => {

@@ -50,18 +50,14 @@ const formSchema = z.object({
 			recipeId: z.number().nullish(),
 			name: z.string().min(1, { message: "Required" }),
 			description: z.string(),
-			finalWeightGrams: requiredNumberInputSchema(z.coerce.number().positive()),
+			finalWeightGrams: requiredNumberInputSchema(),
 			cookedRecipeIngredients: z.array(
 				z.object({
 					id: z.number().optional(),
 					ingredientId: z.number(),
 					name: z.string().min(1, { message: "Required" }),
-					quantityGrams: requiredNumberInputSchema(
-						z.coerce.number().nonnegative(),
-					),
-					caloriesPer100g: requiredNumberInputSchema(
-						z.coerce.number().nonnegative(),
-					),
+					quantityGrams: requiredNumberInputSchema(),
+					caloriesPer100g: requiredNumberInputSchema(),
 				}),
 			),
 		}),
@@ -142,11 +138,23 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
 	}, [cooking, form, isEdit]);
 
 	const onSubmit = async (data: FormValues) => {
+		const transformedData = {
+			...data,
+			cookedRecipes: data.cookedRecipes.map((recipe) => ({
+				...recipe,
+				finalWeightGrams: Number(recipe.finalWeightGrams),
+				cookedRecipeIngredients: recipe.cookedRecipeIngredients.map((ingredient) => ({
+					...ingredient,
+					quantityGrams: Number(ingredient.quantityGrams),
+					caloriesPer100g: Number(ingredient.caloriesPer100g),
+				})),
+			})),
+		};
 		if (isEdit) {
-			updateCooking.mutate({ id: cookingId, ...data });
+			updateCooking.mutate({ id: cookingId, ...transformedData });
 			return;
 		}
-		createCooking.mutate(data);
+		createCooking.mutate(transformedData);
 	};
 
 	const addExistingRecipe = async (recipe: Recipe) => {

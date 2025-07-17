@@ -40,7 +40,7 @@ import { api } from "@/trpc/react";
 
 const formSchema = z.object({
 	name: z.string().min(1, { message: "Required" }),
-	caloriesPer100g: requiredNumberInputSchema(z.coerce.number().nonnegative()),
+	caloriesPer100g: requiredNumberInputSchema(),
 	category: z.enum(ingredientCategories),
 });
 
@@ -86,7 +86,11 @@ export default function EditIngredientDialog({
 	const onSubmit = (data: FormValues) => {
 		if (!ingredient) return;
 		const id = ingredient.id;
-		updateIngredient.mutate({ id, ...data });
+		updateIngredient.mutate({
+			id,
+			...data,
+			caloriesPer100g: Number(data.caloriesPer100g),
+		});
 	};
 
 	const onDelete = () => {

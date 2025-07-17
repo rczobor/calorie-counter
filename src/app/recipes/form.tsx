@@ -42,12 +42,15 @@ const formSchema = z.object({
 			caloriesPer100g: z
 				.string()
 				.min(1, { message: "Required" })
-				.pipe(z.coerce.number().min(0))
-				.or(z.number().min(0)),
+				.refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+					message: "Must be a valid number greater than or equal to 0",
+				}),
 			quantityGrams: z
 				.string()
 				.min(1, { message: "Required" })
-				.pipe(z.coerce.number().min(0)),
+				.refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+					message: "Must be a valid number greater than or equal to 0",
+				}),
 		}),
 	),
 	name: z.string().min(1, { message: "Required" }),
@@ -107,18 +110,26 @@ export default function RecipeForm({ id }: { id?: number }) {
 			ingredients: recipe.recipesToIngredients.map((recipesToIngredient) => ({
 				id: recipesToIngredient.ingredient.id,
 				name: recipesToIngredient.ingredient.name,
-				caloriesPer100g: recipesToIngredient.ingredient.caloriesPer100g,
+				caloriesPer100g: recipesToIngredient.ingredient.caloriesPer100g.toString(),
 				quantityGrams: recipesToIngredient.quantityGrams.toString(),
 			})),
 		});
 	}, [form, isEdit, recipe]);
 
 	const onSubmit = (data: FormValues) => {
+		const transformedData = {
+			...data,
+			ingredients: data.ingredients.map(ingredient => ({
+				id: ingredient.id,
+				quantityGrams: Number(ingredient.quantityGrams),
+			})),
+		};
+		
 		if (isEdit) {
-			updateRecipe.mutate({ id, ...data });
+			updateRecipe.mutate({ id, ...transformedData });
 			return;
 		}
-		createRecipe.mutate(data);
+		createRecipe.mutate(transformedData);
 	};
 
 	const onDelete = () => {
@@ -228,8 +239,8 @@ function IngredientSearch() {
 							fieldArray.append({
 								id: ingredient.id,
 								name: ingredient.name,
-								caloriesPer100g: ingredient.caloriesPer100g,
-								quantityGrams: "" as unknown as number,
+								caloriesPer100g: ingredient.caloriesPer100g.toString(),
+								quantityGrams: "",
 							});
 						}}
 					/>
@@ -247,8 +258,8 @@ function IngredientSearch() {
 						fieldArray.append({
 							id: ingredient.id,
 							name: ingredient.name,
-							caloriesPer100g: ingredient.caloriesPer100g,
-							quantityGrams: "" as unknown as number,
+							caloriesPer100g: ingredient.caloriesPer100g.toString(),
+							quantityGrams: "",
 						})
 					}
 				/>

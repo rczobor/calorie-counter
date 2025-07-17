@@ -37,7 +37,7 @@ import PersonaRemainingCaloriesCell from "./remaining-calories-cell";
 
 const formSchema = z.object({
 	name: z.string().min(1, { message: "Required" }),
-	calories: requiredNumberInputSchema(z.coerce.number().nonnegative()),
+	calories: requiredNumberInputSchema(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -57,7 +57,11 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
 	const router = useRouter();
 
 	const onSubmit = async (values: FormValues) => {
-		await mutateAsync({ personaId, ...values });
+		await mutateAsync({ 
+			personaId, 
+			name: values.name,
+			calories: Number(values.calories)
+		});
 		form.reset();
 		void utils.persona.getPersonaCalories.invalidate({
 			personaId,
