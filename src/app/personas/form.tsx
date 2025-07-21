@@ -82,10 +82,17 @@ export default function PersonaForm({ id }: { id?: number }) {
 
 	const onSubmit = (data: FormValues) => {
 		if (isEdit) {
-			updatePersona.mutate({ id, ...data, targetDailyCalories: Number(data.targetDailyCalories) });
+			updatePersona.mutate({
+				id,
+				...data,
+				targetDailyCalories: Number(data.targetDailyCalories),
+			});
 			return;
 		}
-		createPersona.mutate({ ...data, targetDailyCalories: Number(data.targetDailyCalories) });
+		createPersona.mutate({
+			...data,
+			targetDailyCalories: Number(data.targetDailyCalories),
+		});
 	};
 
 	const onDelete = () => {

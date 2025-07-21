@@ -57,10 +57,10 @@ const ActionButtonCell = ({ personaId }: { personaId: number }) => {
 	const router = useRouter();
 
 	const onSubmit = async (values: FormValues) => {
-		await mutateAsync({ 
-			personaId, 
+		await mutateAsync({
+			personaId,
 			name: values.name,
-			calories: Number(values.calories)
+			calories: Number(values.calories),
 		});
 		form.reset();
 		void utils.persona.getPersonaCalories.invalidate({

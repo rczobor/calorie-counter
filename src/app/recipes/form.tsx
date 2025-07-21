@@ -42,13 +42,13 @@ const formSchema = z.object({
 			caloriesPer100g: z
 				.string()
 				.min(1, { error: "Required" })
-				.refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+				.refine((val) => !Number.isNaN(Number(val)) && Number(val) >= 0, {
 					error: "Must be a valid number greater than or equal to 0",
 				}),
 			quantityGrams: z
 				.string()
 				.min(1, { error: "Required" })
-				.refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+				.refine((val) => !Number.isNaN(Number(val)) && Number(val) >= 0, {
 					error: "Must be a valid number greater than or equal to 0",
 				}),
 		}),
@@ -110,7 +110,8 @@ export default function RecipeForm({ id }: { id?: number }) {
 			ingredients: recipe.recipesToIngredients.map((recipesToIngredient) => ({
 				id: recipesToIngredient.ingredient.id,
 				name: recipesToIngredient.ingredient.name,
-				caloriesPer100g: recipesToIngredient.ingredient.caloriesPer100g.toString(),
+				caloriesPer100g:
+					recipesToIngredient.ingredient.caloriesPer100g.toString(),
 				quantityGrams: recipesToIngredient.quantityGrams.toString(),
 			})),
 		});
@@ -119,12 +120,12 @@ export default function RecipeForm({ id }: { id?: number }) {
 	const onSubmit = (data: FormValues) => {
 		const transformedData = {
 			...data,
-			ingredients: data.ingredients.map(ingredient => ({
+			ingredients: data.ingredients.map((ingredient) => ({
 				id: ingredient.id,
 				quantityGrams: Number(ingredient.quantityGrams),
 			})),
 		};
-		
+
 		if (isEdit) {
 			updateRecipe.mutate({ id, ...transformedData });
 			return;

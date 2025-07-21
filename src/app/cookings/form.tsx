@@ -143,11 +143,13 @@ export default function CookingForm({ cookingId }: { cookingId?: number }) {
 			cookedRecipes: data.cookedRecipes.map((recipe) => ({
 				...recipe,
 				finalWeightGrams: Number(recipe.finalWeightGrams),
-				cookedRecipeIngredients: recipe.cookedRecipeIngredients.map((ingredient) => ({
-					...ingredient,
-					quantityGrams: Number(ingredient.quantityGrams),
-					caloriesPer100g: Number(ingredient.caloriesPer100g),
-				})),
+				cookedRecipeIngredients: recipe.cookedRecipeIngredients.map(
+					(ingredient) => ({
+						...ingredient,
+						quantityGrams: Number(ingredient.quantityGrams),
+						caloriesPer100g: Number(ingredient.caloriesPer100g),
+					}),
+				),
 			})),
 		};
 		if (isEdit) {
