@@ -235,7 +235,7 @@ function ConfiguredNutritionStudio() {
       }
     }
     return map;
-  }, [data.recipeVersions]);
+  }, [data]);
   const versionById = useMemo(
     () => new Map(data.recipeVersions.map((version) => [version._id, version])),
     [data.recipeVersions],
@@ -254,7 +254,7 @@ function ConfiguredNutritionStudio() {
       }
     }
     return map;
-  }, [data.recipeVersionIngredients]);
+  }, [data]);
   const versionOutputsByVersionId = useMemo(() => {
     const map = new Map<
       Id<"recipeVersions">,
@@ -269,7 +269,7 @@ function ConfiguredNutritionStudio() {
       }
     }
     return map;
-  }, [data.recipeVersionOutputs]);
+  }, [data]);
   const mealItemsByMealId = useMemo(() => {
     const map = new Map<Id<"meals">, typeof data.mealItems>();
     for (const item of data.mealItems) {
@@ -281,7 +281,7 @@ function ConfiguredNutritionStudio() {
       }
     }
     return map;
-  }, [data.mealItems]);
+  }, [data]);
   const peopleById = useMemo(
     () => new Map(data.people.map((person) => [person._id, person])),
     [data.people],

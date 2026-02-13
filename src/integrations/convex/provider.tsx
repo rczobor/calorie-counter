@@ -3,7 +3,12 @@ import { ConvexQueryClient } from '@convex-dev/react-query'
 import { convexUrl, isConvexConfigured } from './config'
 
 let convexQueryClient: ConvexQueryClient | null = null
-let hasWarnedMissingUrl = false
+
+if (!isConvexConfigured) {
+  console.warn(
+    'Missing VITE_CONVEX_URL. Convex hooks are disabled until it is set.',
+  )
+}
 
 function getConvexClient() {
   if (!convexQueryClient && convexUrl) {
@@ -18,12 +23,6 @@ export default function AppConvexProvider({
   children: React.ReactNode
 }) {
   if (!isConvexConfigured) {
-    if (!hasWarnedMissingUrl) {
-      hasWarnedMissingUrl = true
-      console.warn(
-        'Missing VITE_CONVEX_URL. Convex hooks are disabled until it is set.',
-      )
-    }
     return <>{children}</>
   }
 

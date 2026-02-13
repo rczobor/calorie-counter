@@ -1,7 +1,11 @@
 import { ClerkProvider } from '@clerk/clerk-react'
 import { clerkPublishableKey, isClerkConfigured } from './config'
 
-let hasWarnedMissingKey = false
+if (!isClerkConfigured) {
+  console.warn(
+    'Missing VITE_CLERK_PUBLISHABLE_KEY. Clerk auth UI is disabled until it is set.',
+  )
+}
 
 export default function AppClerkProvider({
   children,
@@ -9,12 +13,6 @@ export default function AppClerkProvider({
   children: React.ReactNode
 }) {
   if (!isClerkConfigured) {
-    if (!hasWarnedMissingKey) {
-      hasWarnedMissingKey = true
-      console.warn(
-        'Missing VITE_CLERK_PUBLISHABLE_KEY. Clerk auth UI is disabled until it is set.',
-      )
-    }
     return <>{children}</>
   }
 
