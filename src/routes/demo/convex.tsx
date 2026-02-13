@@ -15,7 +15,7 @@ export const Route = createFileRoute('/demo/convex')({
 function ConvexTodos() {
   if (!isConvexConfigured) {
     return (
-      <div className="p-6 text-sm text-slate-600">
+      <div className="p-6 text-sm text-muted-foreground">
         Add `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` in `.env.local` to
         enable this demo.
       </div>

@@ -1,0 +1,61 @@
+import { Monitor, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+const THEME_OPTIONS = [
+  { label: "Light", value: "light", icon: Sun },
+  { label: "Dark", value: "dark", icon: Moon },
+  { label: "System", value: "system", icon: Monitor },
+] as const;
+
+export default function ThemeSelector() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div
+        aria-hidden
+        className="h-8 w-39.5 rounded-md border border-border bg-muted/40"
+      />
+    );
+  }
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Theme selector"
+      className="inline-flex items-center gap-1 rounded-md border border-border bg-background/80 p-1"
+    >
+      {THEME_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        const isSelected = theme === option.value;
+
+        return (
+          <Button
+            key={option.value}
+            type="button"
+            size="xs"
+            variant={isSelected ? "secondary" : "ghost"}
+            aria-pressed={isSelected}
+            onClick={() => setTheme(option.value)}
+            className={cn(
+              "min-w-11.5 rounded-sm px-2 text-[11px] leading-none",
+              isSelected && "shadow-sm",
+            )}
+          >
+            <Icon className="size-3" />
+            {option.label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}

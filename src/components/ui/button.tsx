@@ -1,11 +1,11 @@
 import * as React from "react"
+import { Button as BaseButton } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
@@ -38,26 +38,48 @@ const buttonVariants = cva(
   }
 )
 
+type ButtonProps = React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+  }
+
 function Button({
   className,
   variant = "default",
   size = "default",
   asChild = false,
+  children,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot.Root : "button"
+}: ButtonProps) {
+  const buttonClassName = cn(buttonVariants({ variant, size, className }))
+
+  if (asChild) {
+    const child = React.Children.only(children) as React.ReactElement
+    const isNativeButton = typeof child.type === "string" && child.type === "button"
+
+    return (
+      <BaseButton
+        render={child}
+        nativeButton={isNativeButton}
+        data-slot="button"
+        data-variant={variant}
+        data-size={size}
+        className={buttonClassName}
+        {...props}
+      />
+    )
+  }
 
   return (
-    <Comp
+    <button
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={buttonClassName}
       {...props}
-    />
+    >
+      {children}
+    </button>
   )
 }
 

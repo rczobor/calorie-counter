@@ -9,7 +9,7 @@ export const Route = createFileRoute('/demo/clerk')({
 function App() {
   if (!isClerkConfigured) {
     return (
-      <div className="p-6 text-sm text-slate-600">
+      <div className="p-6 text-sm text-muted-foreground">
         Add `VITE_CLERK_PUBLISHABLE_KEY` in `.env.local` to enable this demo.
       </div>
     )

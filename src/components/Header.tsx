@@ -1,16 +1,17 @@
 import { Link } from '@tanstack/react-router'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import { DatabaseZap, Flame, ShieldCheck } from 'lucide-react'
+import ThemeSelector from './theme-selector'
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-sm supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-4">
           <Link to="/">
             <span
               data-display="true"
-              className="inline-flex items-center gap-2 text-lg text-slate-950"
+              className="inline-flex items-center gap-2 text-lg text-foreground"
             >
               <Flame className="h-5 w-5 text-amber-500" />
               Calorie Counter
@@ -19,30 +20,30 @@ export default function Header() {
           <nav className="hidden items-center gap-2 md:flex">
             <Link
               to="/"
-              className="rounded-md px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               activeProps={{
                 className:
-                  'rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-900',
+                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
               }}
             >
               Dashboard
             </Link>
             <Link
               to="/demo/clerk"
-              className="rounded-md px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               activeProps={{
                 className:
-                  'rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-900',
+                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
               }}
             >
               Auth
             </Link>
             <Link
               to="/demo/convex"
-              className="rounded-md px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               activeProps={{
                 className:
-                  'rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-900',
+                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
               }}
             >
               Convex
@@ -50,12 +51,13 @@ export default function Header() {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 sm:flex">
+          <ThemeSelector />
+          <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
             Shell mode
           </div>
-          <div className="hidden items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 sm:flex">
-            <DatabaseZap className="h-3.5 w-3.5 text-cyan-600" />
+          <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
+            <DatabaseZap className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
             Convex ready
           </div>
           <ClerkHeader />

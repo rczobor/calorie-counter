@@ -7,6 +7,7 @@ import Header from '../components/Header'
 import ClerkProvider from '../integrations/clerk/provider'
 
 import ConvexProvider from '../integrations/convex/provider'
+import { ThemeProvider } from '../components/theme-provider'
 
 import appCss from '../styles.css?url'
 
@@ -36,28 +37,35 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <ClerkProvider>
-          <ConvexProvider>
-            <Header />
-            {children}
-            <TanStackDevtools
-              config={{
-                position: 'bottom-right',
-              }}
-              plugins={[
-                {
-                  name: 'Tanstack Router',
-                  render: <TanStackRouterDevtoolsPanel />,
-                },
-              ]}
-            />
-          </ConvexProvider>
-        </ClerkProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ClerkProvider>
+            <ConvexProvider>
+              <Header />
+              {children}
+              <TanStackDevtools
+                config={{
+                  position: 'bottom-right',
+                }}
+                plugins={[
+                  {
+                    name: 'Tanstack Router',
+                    render: <TanStackRouterDevtoolsPanel />,
+                  },
+                ]}
+              />
+            </ConvexProvider>
+          </ClerkProvider>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>
