@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
-import { Flame, Plus, Target, Trash2 } from "lucide-react";
+import { Flame, Pencil, Plus, Target, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { api } from "../../convex/_generated/api";
@@ -18,7 +18,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { SearchablePicker } from "@/components/ui/searchable-picker";
-import { Select } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
 
 const EMPTY_MANAGEMENT_DATA = {
   people: [],
@@ -88,6 +88,9 @@ function MealDashboardPageContent() {
     Id<"cookedFoods"> | ""
   >("");
   const [itemWeight, setItemWeight] = useState("");
+  const [editingDraftItemIndex, setEditingDraftItemIndex] = useState<
+    number | null
+  >(null);
   const [mealItems, setMealItems] = useState<DraftMealItem[]>([]);
 
   const dataResult = useQuery(api.nutrition.getManagementData);
@@ -105,6 +108,18 @@ function MealDashboardPageContent() {
     () => data.people.filter((person) => person.active),
     [data.people],
   );
+  const effectiveSelectedPersonId = useMemo<Id<"people"> | "">(() => {
+    if (people.length === 0) {
+      return "";
+    }
+    const hasSelectedPerson = people.some(
+      (person) => person._id === selectedPersonId,
+    );
+    if (hasSelectedPerson) {
+      return selectedPersonId;
+    }
+    return people[0]._id;
+  }, [people, selectedPersonId]);
   const ingredients = useMemo(
     () => data.ingredients.filter((item) => !item.archived),
     [data.ingredients],
@@ -135,10 +150,14 @@ function MealDashboardPageContent() {
   }, [data.mealItems]);
 
   const selectedPerson = people.find(
-    (person) => person._id === selectedPersonId,
+    (person) => person._id === effectiveSelectedPersonId,
   );
+
   const mealsForSelection = data.meals.filter((meal) => {
-    if (selectedPersonId && meal.personId !== selectedPersonId) {
+    if (
+      effectiveSelectedPersonId &&
+      meal.personId !== effectiveSelectedPersonId
+    ) {
       return false;
     }
     if (getMealDateKey(meal) !== mealDate) {
@@ -195,7 +214,15 @@ function MealDashboardPageContent() {
     }
   }
 
-  const addItem = () => {
+  const resetDraftItemInputs = () => {
+    setItemSourceType("ingredient");
+    setItemIngredientId("");
+    setItemCookedFoodId("");
+    setItemWeight("");
+    setEditingDraftItemIndex(null);
+  };
+
+  const upsertDraftItem = () => {
     const parsedWeight = Number(itemWeight);
     if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
       return;
@@ -205,32 +232,92 @@ function MealDashboardPageContent() {
       if (!itemIngredientId) {
         return;
       }
-      setMealItems((current) => [
-        ...current,
-        {
-          sourceType: "ingredient",
-          ingredientId: itemIngredientId,
-          consumedWeightGrams: parsedWeight,
-        },
-      ]);
-      setItemIngredientId("");
-      setItemWeight("");
+      if (editingDraftItemIndex !== null) {
+        setMealItems((current) =>
+          current.map((item, index) =>
+            index === editingDraftItemIndex
+              ? {
+                  sourceType: "ingredient",
+                  ingredientId: itemIngredientId,
+                  consumedWeightGrams: parsedWeight,
+                }
+              : item,
+          ),
+        );
+      } else {
+        setMealItems((current) => [
+          ...current,
+          {
+            sourceType: "ingredient",
+            ingredientId: itemIngredientId,
+            consumedWeightGrams: parsedWeight,
+          },
+        ]);
+      }
+      resetDraftItemInputs();
       return;
     }
 
     if (!itemCookedFoodId) {
       return;
     }
-    setMealItems((current) => [
-      ...current,
-      {
-        sourceType: "cookedFood",
-        cookedFoodId: itemCookedFoodId,
-        consumedWeightGrams: parsedWeight,
-      },
-    ]);
-    setItemCookedFoodId("");
-    setItemWeight("");
+    if (editingDraftItemIndex !== null) {
+      setMealItems((current) =>
+        current.map((item, index) =>
+          index === editingDraftItemIndex
+            ? {
+                sourceType: "cookedFood",
+                cookedFoodId: itemCookedFoodId,
+                consumedWeightGrams: parsedWeight,
+              }
+            : item,
+        ),
+      );
+    } else {
+      setMealItems((current) => [
+        ...current,
+        {
+          sourceType: "cookedFood",
+          cookedFoodId: itemCookedFoodId,
+          consumedWeightGrams: parsedWeight,
+        },
+      ]);
+    }
+    resetDraftItemInputs();
+  };
+
+  const editDraftItem = (index: number) => {
+    const item = mealItems[index];
+    if (!item) {
+      return;
+    }
+    setEditingDraftItemIndex(index);
+    setItemSourceType(item.sourceType);
+    if (item.sourceType === "ingredient") {
+      setItemIngredientId(item.ingredientId ?? "");
+      setItemCookedFoodId("");
+    } else {
+      setItemCookedFoodId(item.cookedFoodId ?? "");
+      setItemIngredientId("");
+    }
+    setItemWeight(item.consumedWeightGrams.toString());
+  };
+
+  const removeDraftItem = (index: number) => {
+    setMealItems((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+
+    if (editingDraftItemIndex === null) {
+      return;
+    }
+    if (editingDraftItemIndex === index) {
+      resetDraftItemInputs();
+      return;
+    }
+    if (editingDraftItemIndex > index) {
+      setEditingDraftItemIndex(editingDraftItemIndex - 1);
+    }
   };
 
   const resetMealForm = () => {
@@ -238,10 +325,7 @@ function MealDashboardPageContent() {
     setMealNotes("");
     setEditingMealId(null);
     setMealItems([]);
-    setItemSourceType("ingredient");
-    setItemIngredientId("");
-    setItemCookedFoodId("");
-    setItemWeight("");
+    resetDraftItemInputs();
   };
 
   const editMeal = (mealId: Id<"meals">) => {
@@ -330,22 +414,41 @@ function MealDashboardPageContent() {
                 {editingMealId ? "Edit Meal" : "Create Meal"}
               </CardTitle>
               <CardDescription>
-                Remaining today: {remainingToday.toFixed(0)} kcal
+                Remaining today:{" "}
+                {selectedPerson ? `${remainingToday.toFixed(0)} kcal` : "--"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Select
-                  value={selectedPersonId}
-                  onValueChange={(value) =>
-                    setSelectedPersonId(value as Id<"people"> | "")
-                  }
-                  placeholder="Select person"
-                  options={people.map((person) => ({
-                    value: person._id,
-                    label: `${person.name} (${person.currentDailyGoalKcal.toFixed(0)} kcal)`,
-                  }))}
-                />
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    Person
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {people.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Add an active person in Manage before creating meals.
+                      </p>
+                    ) : (
+                      people.map((person) => (
+                        <Toggle
+                          key={person._id}
+                          variant="outline"
+                          size="lg"
+                          pressed={effectiveSelectedPersonId === person._id}
+                          onPressedChange={(pressed) => {
+                            if (pressed) {
+                              setSelectedPersonId(person._id);
+                            }
+                          }}
+                          className="h-9 rounded-full px-3 text-sm data-[state=on]:border-emerald-500/55 data-[state=on]:bg-emerald-500/15 data-[state=on]:text-foreground"
+                        >
+                          {person.name}
+                        </Toggle>
+                      ))
+                    )}
+                  </div>
+                </div>
                 <DatePicker value={mealDate} onChange={setMealDate} />
               </div>
 
@@ -362,19 +465,43 @@ function MealDashboardPageContent() {
 
               <div className="rounded-lg border border-border p-3">
                 <p className="text-sm font-medium text-foreground">Meal item</p>
-                <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                  <Select
-                    value={itemSourceType}
-                    onValueChange={(value) => {
-                      setItemSourceType(value as "ingredient" | "cookedFood");
-                      setItemIngredientId("");
-                      setItemCookedFoodId("");
-                    }}
-                    options={[
-                      { value: "ingredient", label: "Ingredient" },
-                      { value: "cookedFood", label: "Cooked food" },
-                    ]}
-                  />
+                <div className="mt-2">
+                  <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
+                    <Toggle
+                      variant="default"
+                      size="lg"
+                      pressed={itemSourceType === "ingredient"}
+                      onPressedChange={(pressed) => {
+                        if (!pressed) {
+                          return;
+                        }
+                        setItemSourceType("ingredient");
+                        setItemIngredientId("");
+                        setItemCookedFoodId("");
+                      }}
+                      className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
+                    >
+                      Ingredient
+                    </Toggle>
+                    <Toggle
+                      variant="default"
+                      size="lg"
+                      pressed={itemSourceType === "cookedFood"}
+                      onPressedChange={(pressed) => {
+                        if (!pressed) {
+                          return;
+                        }
+                        setItemSourceType("cookedFood");
+                        setItemIngredientId("");
+                        setItemCookedFoodId("");
+                      }}
+                      className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
+                    >
+                      Cooked food
+                    </Toggle>
+                  </div>
+                </div>
+                <div className="mt-3 grid items-start gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_auto]">
                   {itemSourceType === "ingredient" ? (
                     <SearchablePicker
                       value={itemIngredientId}
@@ -407,13 +534,34 @@ function MealDashboardPageContent() {
                     placeholder="grams"
                     value={itemWeight}
                     onChange={(event) => setItemWeight(event.target.value)}
+                    className="min-w-28"
                   />
-                  <Button variant="outline" onClick={addItem}>
+                  <Button variant="outline" onClick={upsertDraftItem}>
                     <Plus className="h-4 w-4" />
-                    Add
+                    {editingDraftItemIndex === null ? "Add" : "Update"}
                   </Button>
                 </div>
-                <div className="mt-3 space-y-1 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+                <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+                  {editingDraftItemIndex !== null ? (
+                    <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10">
+                      <p className="text-xs font-medium">
+                        Editing item #{editingDraftItemIndex + 1}
+                      </p>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={resetDraftItemInputs}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : null}
+                  {mealItems.length === 0 ? (
+                    <p className="px-1 py-0.5 text-xs text-muted-foreground">
+                      No draft items yet.
+                    </p>
+                  ) : null}
                   {mealItems.map((item, index) => {
                     const label =
                       item.sourceType === "ingredient"
@@ -424,10 +572,38 @@ function MealDashboardPageContent() {
                             item.cookedFoodId as Id<"cookedFoods">,
                           )?.name;
                     return (
-                      <p key={`draft-item-${index}`}>
-                        {item.sourceType}: {label ?? "Unknown"} -{" "}
-                        {item.consumedWeightGrams.toFixed(1)}g
-                      </p>
+                      <div
+                        key={`draft-item-${index}`}
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/65 bg-background/45 px-2 py-1.5"
+                      >
+                        <p className="min-w-0 pr-2 text-xs text-foreground">
+                          <span className="font-medium">
+                            {item.sourceType === "ingredient"
+                              ? "Ingredient"
+                              : "Cooked food"}
+                          </span>
+                          : {label ?? "Unknown"} -{" "}
+                          {item.consumedWeightGrams.toFixed(1)}g
+                        </p>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => editDraftItem(index)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => removeDraftItem(index)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -436,7 +612,7 @@ function MealDashboardPageContent() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={() => {
-                    if (!selectedPersonId || mealItems.length === 0) {
+                    if (!effectiveSelectedPersonId || mealItems.length === 0) {
                       return;
                     }
                     void runAction(
@@ -445,7 +621,7 @@ function MealDashboardPageContent() {
                         if (editingMealId) {
                           await updateMeal({
                             mealId: editingMealId,
-                            personId: selectedPersonId,
+                            personId: effectiveSelectedPersonId,
                             name: mealName.trim() || undefined,
                             eatenOn: mealDate,
                             notes: mealNotes.trim() || undefined,
@@ -453,7 +629,7 @@ function MealDashboardPageContent() {
                           });
                         } else {
                           await createMeal({
-                            personId: selectedPersonId,
+                            personId: effectiveSelectedPersonId,
                             name: mealName.trim() || undefined,
                             eatenOn: mealDate,
                             notes: mealNotes.trim() || undefined,
