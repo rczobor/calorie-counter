@@ -48,26 +48,6 @@ export default function Header() {
             >
               People
             </Link>
-            <Link
-              to="/demo/clerk"
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              activeProps={{
-                className:
-                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
-              }}
-            >
-              Auth
-            </Link>
-            <Link
-              to="/demo/convex"
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              activeProps={{
-                className:
-                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
-              }}
-            >
-              Convex
-            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-3">

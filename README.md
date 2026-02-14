@@ -16,8 +16,6 @@ A multi-person calorie tracking app built with TanStack Start + Convex, with opt
 - `/`: Meal dashboard for logging meals, editing entries, and tracking daily target/consumed/remaining calories.
 - `/people`: People management with daily goal updates and goal history.
 - `/manage`: Catalog/cooking management for food groups, ingredients, recipes, cook sessions, and cooked foods.
-- `/demo/convex`: Real-time Convex todo demo
-- `/demo/clerk`: Clerk auth demo
 
 ## Convex Domain Model
 
@@ -27,7 +25,6 @@ The Convex schema currently includes:
 - `recipes`, `recipeVersions`, `recipeVersionIngredients`
 - `cookSessions`, `cookedFoods`, `cookedFoodIngredients`
 - `meals`, `mealItems`
-- `todos` (demo route)
 
 Main backend logic lives in `convex/nutrition.ts`.
 
