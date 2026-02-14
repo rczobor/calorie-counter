@@ -18,6 +18,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { SearchablePicker } from "@/components/ui/searchable-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Toggle } from "@/components/ui/toggle";
 
 const EMPTY_MANAGEMENT_DATA = {
@@ -351,15 +352,96 @@ function MealDashboardPageContent() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_20%,#f9f4df_0%,#f6f6f4_50%,#eff5f1_100%)] px-4 py-10 sm:px-6 dark:bg-[radial-gradient(circle_at_20%_20%,#1b2230_0%,#101721_48%,#0a1018_100%)]">
-        <Card className="mx-auto max-w-3xl border-border bg-card/90">
-          <CardHeader>
-            <CardTitle>Loading Meal Dashboard</CardTitle>
-            <CardDescription>
-              Reading today’s nutrition state from Convex.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] dark:bg-[radial-gradient(circle_at_15%_10%,#1d2535_0%,#111a26_45%,#0a1119_100%)]">
+        <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
+            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
+              <Flame className="h-4 w-4" />
+              Meal Logging
+            </p>
+            <Skeleton className="mt-3 h-10 w-full max-w-[42rem]" />
+            <Skeleton className="mt-3 h-4 w-full max-w-[34rem]" />
+            <Skeleton className="mt-2 h-4 w-full max-w-[28rem]" />
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Card
+                key={`metric-skeleton-${index}`}
+                className="border-border/70 bg-card/90"
+              >
+                <CardHeader>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-2/3" />
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-16" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-9 w-20 rounded-full" />
+                      <Skeleton className="h-9 w-20 rounded-full" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-9 w-full" />
+                </div>
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <div className="rounded-lg border border-border p-3">
+                  <Skeleton className="h-4 w-24" />
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_auto]">
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-24" />
+                  </div>
+                  <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-28" />
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`meal-list-skeleton-${index}`}
+                    className="rounded-lg border border-border bg-muted/45 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <Skeleton className="h-4 w-40" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-14" />
+                        <Skeleton className="h-8 w-[4.5rem]" />
+                      </div>
+                    </div>
+                    <Skeleton className="mt-2 h-3 w-5/6" />
+                    <Skeleton className="mt-1 h-3 w-2/3" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </section>
       </main>
     );
   }

@@ -19,6 +19,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { SearchablePicker } from '@/components/ui/searchable-picker'
 import { Select } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 
 const EMPTY_MANAGEMENT_DATA = {
@@ -401,8 +402,144 @@ function ManagePageContent() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">Loading management data...</p>
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
+        <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
+            <Skeleton className="h-10 w-full max-w-[34rem]" />
+            <Skeleton className="mt-3 h-4 w-full max-w-[32rem]" />
+            <Skeleton className="mt-2 h-4 w-full max-w-[24rem]" />
+            <Skeleton className="mt-4 h-8 w-36" />
+          </div>
+
+          <div className="mt-6 grid gap-5 xl:grid-cols-2">
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FolderTree className="h-4 w-4 text-amber-700" />
+                  Food Groups
+                </CardTitle>
+                <CardDescription>Used to classify ingredients and cooked outputs.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-24" />
+                </div>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`group-skeleton-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-md bg-muted/45 px-3 py-2"
+                  >
+                    <Skeleton className="h-4 w-36" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-8 w-14" />
+                      <Skeleton className="h-8 w-[4.5rem]" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wheat className="h-4 w-4 text-amber-700" />
+                  Ingredients
+                </CardTitle>
+                <CardDescription>Edit mistakes quickly, archive old records, or delete unused ones.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <Skeleton key={`ingredient-input-skeleton-${index}`} className="h-9 w-full" />
+                  ))}
+                </div>
+                <Skeleton className="h-20 w-full" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-32" />
+                  <Skeleton className="h-9 w-24" />
+                </div>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`ingredient-row-skeleton-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-md bg-muted/45 px-3 py-2"
+                  >
+                    <Skeleton className="h-4 w-40" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-8 w-14" />
+                      <Skeleton className="h-8 w-[4.5rem]" />
+                      <Skeleton className="h-8 w-14" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpenText className="h-4 w-4 text-sky-700" />
+                  Recipes
+                </CardTitle>
+                <CardDescription>Edit current version directly for quick corrections.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-28" />
+                </div>
+                <Skeleton className="h-28 w-full" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-28" />
+                  <Skeleton className="h-9 w-20" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ChefHat className="h-4 w-4 text-rose-700" />
+                  Cooking Sessions and Cooked Foods
+                </CardTitle>
+                <CardDescription>Update measured weights when users correct mistakes.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-border p-3">
+                  <Skeleton className="h-4 w-20" />
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Skeleton className="h-9 w-[7.5rem]" />
+                    <Skeleton className="h-9 w-20" />
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <Skeleton className="h-4 w-28" />
+                  <div className="mt-2 space-y-3">
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
       </main>
     )
   }

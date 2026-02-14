@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const EMPTY_MANAGEMENT_DATA = {
   people: [],
@@ -133,8 +134,80 @@ function PeoplePageContent() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">Loading people...</p>
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_18%_5%,#fdf6e7_0%,#f5f6f4_52%,#e8f1ea_100%)] dark:bg-[radial-gradient(circle_at_18%_5%,#1d2535_0%,#111a26_50%,#0a1119_100%)]">
+        <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
+            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
+              <UserRound className="h-4 w-4" />
+              People and Daily Goals
+            </p>
+            <Skeleton className="mt-3 h-10 w-full max-w-[38rem]" />
+          </div>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-44" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-28" />
+                  <Skeleton className="h-9 w-20" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader>
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`people-row-skeleton-${index}`}
+                    className="rounded-lg border border-border bg-muted/45 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-3 w-44" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-14" />
+                        <Skeleton className="h-8 w-[4.5rem]" />
+                        <Skeleton className="h-8 w-14" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="mt-5 border-border/70 bg-card/90">
+            <CardHeader>
+              <Skeleton className="h-6 w-44" />
+              <Skeleton className="h-4 w-56" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={`history-row-skeleton-${index}`}
+                  className="flex items-center justify-between rounded-md bg-muted/45 px-3 py-2"
+                >
+                  <Skeleton className="h-4 w-44" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
       </main>
     )
   }
