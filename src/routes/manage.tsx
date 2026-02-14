@@ -29,7 +29,6 @@ const EMPTY_MANAGEMENT_DATA = {
   recipes: [],
   recipeVersions: [],
   recipeVersionIngredients: [],
-  recipeVersionOutputs: [],
   cookSessions: [],
   cookedFoods: [],
   cookedFoodIngredients: [],
@@ -38,17 +37,13 @@ const EMPTY_MANAGEMENT_DATA = {
 }
 
 type RecipeIngredientDraft = {
+  draftId: string
   ingredientId: Id<'ingredients'>
   plannedWeightGrams: number
 }
 
-type RecipeOutputDraft = {
-  name: string
-  groupIds: Id<'foodGroups'>[]
-  plannedFinishedWeightGrams?: number
-}
-
 type CookedFoodIngredientDraft = {
+  draftId: string
   ingredientId: Id<'ingredients'>
   rawWeightGrams: number
 }
@@ -98,14 +93,12 @@ function ManagePageContent() {
   const [recipeLineIngredientId, setRecipeLineIngredientId] = useState<
     Id<'ingredients'> | ''
   >('')
-  const [recipeLineWeight, setRecipeLineWeight] = useState('')
+  const [recipeLineAmount, setRecipeLineAmount] = useState('')
   const [recipeIngredientLines, setRecipeIngredientLines] = useState<
     RecipeIngredientDraft[]
   >([])
-  const [recipeOutputName, setRecipeOutputName] = useState('')
-  const [recipeOutputGroupId, setRecipeOutputGroupId] = useState<Id<'foodGroups'> | ''>('')
-  const [recipeOutputWeight, setRecipeOutputWeight] = useState('')
-  const [recipeOutputLines, setRecipeOutputLines] = useState<RecipeOutputDraft[]>([])
+  const [recipeIngredientAmountByDraftId, setRecipeIngredientAmountByDraftId] =
+    useState<Record<string, string>>({})
 
   const [editingSessionId, setEditingSessionId] = useState<Id<'cookSessions'> | null>(null)
   const [sessionLabel, setSessionLabel] = useState('')
@@ -133,6 +126,8 @@ function ManagePageContent() {
   const [cookedFoodIngredientLines, setCookedFoodIngredientLines] = useState<
     CookedFoodIngredientDraft[]
   >([])
+  const [cookedFoodIngredientWeightByDraftId, setCookedFoodIngredientWeightByDraftId] =
+    useState<Record<string, string>>({})
 
   const dataResult = useQuery(api.nutrition.getManagementData)
   const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<
@@ -221,18 +216,6 @@ function ManagePageContent() {
     }
     return map
   }, [data.recipeVersionIngredients])
-  const recipeOutputsByVersionId = useMemo(() => {
-    const map = new Map<Id<'recipeVersions'>, Doc<'recipeVersionOutputs'>[]>()
-    for (const line of data.recipeVersionOutputs) {
-      const bucket = map.get(line.recipeVersionId)
-      if (bucket) {
-        bucket.push(line)
-      } else {
-        map.set(line.recipeVersionId, [line])
-      }
-    }
-    return map
-  }, [data.recipeVersionOutputs])
   const cookedFoodIngredientsById = useMemo(() => {
     const map = new Map<Id<'cookedFoods'>, Doc<'cookedFoodIngredients'>[]>()
     for (const line of data.cookedFoodIngredients) {
@@ -246,7 +229,19 @@ function ManagePageContent() {
     return map
   }, [data.cookedFoodIngredients])
 
-  const ingredientById = new Map(ingredients.map((item) => [item._id, item]))
+  const ingredientById = useMemo(
+    () => new Map(ingredients.map((item) => [item._id, item])),
+    [ingredients],
+  )
+  const ingredientOptions = useMemo(
+    () =>
+      ingredients.map((item) => ({
+        value: item._id,
+        label: item.name,
+        keywords: `${item.brand ?? ''} ${item.kcalPer100g.toFixed(1)} kcal`,
+      })),
+    [ingredients],
+  )
 
   async function runAction(successText: string, action: () => Promise<unknown>) {
     try {
@@ -279,12 +274,9 @@ function ManagePageContent() {
     setRecipeInstructions('')
     setRecipeNotes('')
     setRecipeLineIngredientId('')
-    setRecipeLineWeight('')
+    setRecipeLineAmount('')
     setRecipeIngredientLines([])
-    setRecipeOutputName('')
-    setRecipeOutputGroupId('')
-    setRecipeOutputWeight('')
-    setRecipeOutputLines([])
+    setRecipeIngredientAmountByDraftId({})
   }
   const resetSessionForm = () => {
     setEditingSessionId(null)
@@ -304,37 +296,48 @@ function ManagePageContent() {
     setCookedFoodLineIngredientId('')
     setCookedFoodLineWeight('')
     setCookedFoodIngredientLines([])
+    setCookedFoodIngredientWeightByDraftId({})
   }
 
   const addRecipeIngredientLine = () => {
-    const parsed = Number(recipeLineWeight)
+    const ingredient = recipeLineIngredientId
+      ? ingredientById.get(recipeLineIngredientId)
+      : undefined
+    const parsed = Number(recipeLineAmount)
     if (!recipeLineIngredientId || !Number.isFinite(parsed) || parsed <= 0) {
       return
     }
-    setRecipeIngredientLines((current) => [
-      ...current,
-      { ingredientId: recipeLineIngredientId, plannedWeightGrams: parsed },
-    ])
-    setRecipeLineIngredientId('')
-    setRecipeLineWeight('')
-  }
-  const addRecipeOutputLine = () => {
-    if (!recipeOutputName.trim()) {
+    if (!canConvertRecipeAmountByIngredient(ingredient)) {
+      toast.error('Set grams per unit on this ingredient before using non-gram units.')
       return
     }
-    const parsed = Number(recipeOutputWeight)
-    setRecipeOutputLines((current) => [
+    const plannedWeightGrams = toRecipeWeightGrams(ingredient, parsed)
+    setRecipeIngredientLines((current) => [
       ...current,
       {
-        name: recipeOutputName.trim(),
-        groupIds: recipeOutputGroupId ? [recipeOutputGroupId] : [],
-        plannedFinishedWeightGrams:
-          Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
+        draftId: createRecipeIngredientDraftId(),
+        ingredientId: recipeLineIngredientId,
+        plannedWeightGrams,
       },
     ])
-    setRecipeOutputName('')
-    setRecipeOutputGroupId('')
-    setRecipeOutputWeight('')
+    setRecipeLineIngredientId('')
+    setRecipeLineAmount('')
+  }
+  const updateRecipeIngredientLine = (
+    draftId: string,
+    update: Partial<RecipeIngredientDraft>,
+  ) => {
+    setRecipeIngredientLines((current) =>
+      current.map((line) => (line.draftId === draftId ? { ...line, ...update } : line)),
+    )
+  }
+  const removeRecipeIngredientLine = (draftId: string) => {
+    setRecipeIngredientLines((current) => current.filter((line) => line.draftId !== draftId))
+    setRecipeIngredientAmountByDraftId((current) => {
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
   }
   const addCookedFoodIngredientLine = () => {
     const parsed = Number(cookedFoodLineWeight)
@@ -343,11 +346,58 @@ function ManagePageContent() {
     }
     setCookedFoodIngredientLines((current) => [
       ...current,
-      { ingredientId: cookedFoodLineIngredientId, rawWeightGrams: parsed },
+      {
+        draftId: createCookedFoodIngredientDraftId(),
+        ingredientId: cookedFoodLineIngredientId,
+        rawWeightGrams: parsed,
+      },
     ])
     setCookedFoodLineIngredientId('')
     setCookedFoodLineWeight('')
   }
+  const updateCookedFoodIngredientLine = (
+    draftId: string,
+    update: Partial<CookedFoodIngredientDraft>,
+  ) => {
+    setCookedFoodIngredientLines((current) =>
+      current.map((line) => (line.draftId === draftId ? { ...line, ...update } : line)),
+    )
+  }
+  const removeCookedFoodIngredientLine = (draftId: string) => {
+    setCookedFoodIngredientLines((current) => current.filter((line) => line.draftId !== draftId))
+    setCookedFoodIngredientWeightByDraftId((current) => {
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
+  }
+  const applyRecipeVersionToCookedFood = (recipeVersionId: Id<'recipeVersions'> | '') => {
+    setCookedFoodRecipeVersionId(recipeVersionId)
+    if (!recipeVersionId) {
+      return
+    }
+    const recipeVersion = recipeVersionById.get(recipeVersionId)
+    if (recipeVersion && cookedFoodName.trim() === '') {
+      setCookedFoodName(recipeVersion.name)
+    }
+    const recipeLines = recipeIngredientsByVersionId.get(recipeVersionId) ?? []
+    setCookedFoodIngredientLines(
+      recipeLines.map((line) => ({
+        draftId: createCookedFoodIngredientDraftId(),
+        ingredientId: line.ingredientId,
+        rawWeightGrams: line.plannedWeightGrams,
+      })),
+    )
+    setCookedFoodIngredientWeightByDraftId({})
+  }
+  const selectedRecipeLineIngredient = recipeLineIngredientId
+    ? ingredientById.get(recipeLineIngredientId)
+    : undefined
+  const recipeLineAmountUnit = getRecipeAmountUnit(selectedRecipeLineIngredient)
+  const recipeLineAmountUnitLabel = getRecipeAmountUnitLabel(recipeLineAmountUnit)
+  const recipeLineSupportsSelectedUnit = canConvertRecipeAmountByIngredient(
+    selectedRecipeLineIngredient,
+  )
 
   if (isLoading) {
     return (
@@ -697,53 +747,127 @@ function ManagePageContent() {
                     setRecipeLineIngredientId(value as Id<'ingredients'> | '')
                   }
                   placeholder="Search ingredient"
-                  options={ingredients.map((item) => ({
-                    value: item._id,
-                    label: item.name,
-                  }))}
+                  options={ingredientOptions}
                 />
                 <Input
                   type="number"
-                  placeholder="grams"
-                  value={recipeLineWeight}
-                  onChange={(event) => setRecipeLineWeight(event.target.value)}
+                  placeholder={recipeLineAmountUnitLabel}
+                  value={recipeLineAmount}
+                  onChange={(event) => setRecipeLineAmount(event.target.value)}
                 />
                 <Button variant="outline" onClick={addRecipeIngredientLine}>
                   Add ingredient
                 </Button>
               </div>
+              {selectedRecipeLineIngredient &&
+              !recipeLineSupportsSelectedUnit &&
+              selectedRecipeLineIngredient.defaultUnit !== 'g' ? (
+                <p className="text-xs text-amber-700">
+                  {selectedRecipeLineIngredient.name} uses{' '}
+                  {getRecipeAmountUnitLabel(selectedRecipeLineIngredient.defaultUnit)}. Add
+                  grams per unit on the ingredient first.
+                </p>
+              ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                <Input
-                  placeholder="Output name"
-                  value={recipeOutputName}
-                  onChange={(event) => setRecipeOutputName(event.target.value)}
-                />
-                <Select
-                  value={recipeOutputGroupId}
-                  onValueChange={(value) =>
-                    setRecipeOutputGroupId(value as Id<'foodGroups'> | '')
-                  }
-                  placeholder="Group"
-                  options={[
-                    { value: '', label: 'No group' },
-                    ...groups.map((group) => ({ value: group._id, label: group.name })),
-                  ]}
-                />
-                <Input
-                  type="number"
-                  placeholder="planned grams"
-                  value={recipeOutputWeight}
-                  onChange={(event) => setRecipeOutputWeight(event.target.value)}
-                />
-                <Button variant="outline" onClick={addRecipeOutputLine}>
-                  Add output
-                </Button>
-              </div>
-
-              <div className="rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
-                <p>Ingredients: {recipeIngredientLines.length}</p>
-                <p>Outputs: {recipeOutputLines.length}</p>
+              <div className="rounded-md border border-border/60 bg-muted/35 p-2.5">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-medium text-foreground">Recipe ingredients</p>
+                  <p className="text-xs text-muted-foreground">
+                    {recipeIngredientLines.length} line
+                    {recipeIngredientLines.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+                {recipeIngredientLines.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Add at least one ingredient line.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {recipeIngredientLines.map((line) => {
+                      const ingredient = ingredientById.get(line.ingredientId)
+                      const unit = getRecipeAmountUnit(ingredient)
+                      const unitLabel = getRecipeAmountUnitLabel(unit)
+                      const defaultValue = formatRecipeAmountForInput(
+                        toRecipeAmountValue(ingredient, line.plannedWeightGrams),
+                      )
+                      const displayedValue =
+                        recipeIngredientAmountByDraftId[line.draftId] ?? defaultValue
+                      return (
+                        <div
+                          key={line.draftId}
+                          className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1.35fr_1fr_auto]"
+                        >
+                          <SearchablePicker
+                            value={line.ingredientId}
+                            onValueChange={(value) => {
+                              const nextIngredientId = value as Id<'ingredients'>
+                              const nextIngredient = ingredientById.get(nextIngredientId)
+                              if (!canConvertRecipeAmountByIngredient(nextIngredient)) {
+                                toast.error(
+                                  'Set grams per unit on this ingredient before using non-gram units.',
+                                )
+                                return
+                              }
+                              updateRecipeIngredientLine(line.draftId, {
+                                ingredientId: nextIngredientId,
+                              })
+                              setRecipeIngredientAmountByDraftId((current) => {
+                                const next = { ...current }
+                                delete next[line.draftId]
+                                return next
+                              })
+                            }}
+                            placeholder="Search ingredient"
+                            options={ingredientOptions}
+                            className="space-y-1"
+                          />
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              value={displayedValue}
+                              placeholder={unitLabel}
+                              onChange={(event) => {
+                                const nextValue = event.target.value
+                                setRecipeIngredientAmountByDraftId((current) => ({
+                                  ...current,
+                                  [line.draftId]: nextValue,
+                                }))
+                                const parsed = Number(nextValue)
+                                if (!Number.isFinite(parsed) || parsed <= 0) {
+                                  return
+                                }
+                                updateRecipeIngredientLine(line.draftId, {
+                                  plannedWeightGrams: toRecipeWeightGrams(
+                                    ingredient,
+                                    parsed,
+                                  ),
+                                })
+                              }}
+                              onBlur={() => {
+                                setRecipeIngredientAmountByDraftId((current) => {
+                                  const next = { ...current }
+                                  delete next[line.draftId]
+                                  return next
+                                })
+                              }}
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              {getRecipeIngredientStoredHint(ingredient, line.plannedWeightGrams)}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeRecipeIngredientLine(line.draftId)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -757,8 +881,10 @@ function ManagePageContent() {
                           description: recipeDescription.trim() || undefined,
                           instructions: recipeInstructions.trim() || undefined,
                           notes: recipeNotes.trim() || undefined,
-                          plannedIngredients: recipeIngredientLines,
-                          plannedOutputs: recipeOutputLines,
+                          plannedIngredients: recipeIngredientLines.map((line) => ({
+                            ingredientId: line.ingredientId,
+                            plannedWeightGrams: line.plannedWeightGrams,
+                          })),
                         }
                         if (editingRecipeId) {
                           await updateRecipeCurrentVersion({
@@ -802,8 +928,6 @@ function ManagePageContent() {
                           }
                           const versionIngredients =
                             recipeIngredientsByVersionId.get(currentVersion._id) ?? []
-                          const versionOutputs =
-                            recipeOutputsByVersionId.get(currentVersion._id) ?? []
                           setEditingRecipeId(recipe._id)
                           setRecipeName(recipe.name)
                           setRecipeDescription(recipe.description ?? '')
@@ -811,17 +935,12 @@ function ManagePageContent() {
                           setRecipeNotes(currentVersion.notes ?? '')
                           setRecipeIngredientLines(
                             versionIngredients.map((line) => ({
+                              draftId: createRecipeIngredientDraftId(),
                               ingredientId: line.ingredientId,
                               plannedWeightGrams: line.plannedWeightGrams,
                             })),
                           )
-                          setRecipeOutputLines(
-                            versionOutputs.map((line) => ({
-                              name: line.name,
-                              groupIds: line.groupIds,
-                              plannedFinishedWeightGrams: line.plannedFinishedWeightGrams,
-                            })),
-                          )
+                          setRecipeIngredientAmountByDraftId({})
                         }}
                       >
                         Edit
@@ -1020,7 +1139,7 @@ function ManagePageContent() {
                   <SearchablePicker
                     value={cookedFoodRecipeVersionId}
                     onValueChange={(value) =>
-                      setCookedFoodRecipeVersionId(value as Id<'recipeVersions'> | '')
+                      applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
                     }
                     placeholder="Search recipe"
                     options={recipeVersionOptions}
@@ -1077,12 +1196,68 @@ function ManagePageContent() {
                   </Button>
                 </div>
                 <div className="mt-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
-                  {cookedFoodIngredientLines.map((line, index) => (
-                    <p key={`cooked-line-${index}`}>
-                      {ingredientById.get(line.ingredientId)?.name ?? 'Unknown'} -{' '}
-                      {line.rawWeightGrams.toFixed(1)}g
-                    </p>
-                  ))}
+                  {cookedFoodIngredientLines.length === 0 ? (
+                    <p>Add at least one ingredient line.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {cookedFoodIngredientLines.map((line) => {
+                        const displayedWeight =
+                          cookedFoodIngredientWeightByDraftId[line.draftId] ??
+                          formatRecipeAmountForInput(line.rawWeightGrams)
+                        return (
+                          <div
+                            key={line.draftId}
+                            className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1.35fr_1fr_auto]"
+                          >
+                            <SearchablePicker
+                              value={line.ingredientId}
+                              onValueChange={(value) =>
+                                updateCookedFoodIngredientLine(line.draftId, {
+                                  ingredientId: value as Id<'ingredients'>,
+                                })
+                              }
+                              placeholder="Search ingredient"
+                              options={ingredientOptions}
+                            />
+                            <Input
+                              type="number"
+                              value={displayedWeight}
+                              placeholder="raw grams"
+                              onChange={(event) => {
+                                const nextValue = event.target.value
+                                setCookedFoodIngredientWeightByDraftId((current) => ({
+                                  ...current,
+                                  [line.draftId]: nextValue,
+                                }))
+                                const parsed = Number(nextValue)
+                                if (!Number.isFinite(parsed) || parsed <= 0) {
+                                  return
+                                }
+                                updateCookedFoodIngredientLine(line.draftId, {
+                                  rawWeightGrams: parsed,
+                                })
+                              }}
+                              onBlur={() => {
+                                setCookedFoodIngredientWeightByDraftId((current) => {
+                                  const next = { ...current }
+                                  delete next[line.draftId]
+                                  return next
+                                })
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeCookedFoodIngredientLine(line.draftId)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
@@ -1106,7 +1281,10 @@ function ManagePageContent() {
                             groupIds: cookedFoodGroupId ? [cookedFoodGroupId] : [],
                             finishedWeightGrams: Number(cookedFoodFinishedWeight),
                             notes: cookedFoodNotes.trim() || undefined,
-                            ingredients: cookedFoodIngredientLines,
+                            ingredients: cookedFoodIngredientLines.map((line) => ({
+                              ingredientId: line.ingredientId,
+                              rawWeightGrams: line.rawWeightGrams,
+                            })),
                           }
                           if (editingCookedFoodId) {
                             await updateCookedFood({
@@ -1157,10 +1335,12 @@ function ManagePageContent() {
                             setCookedFoodNotes(food.notes ?? '')
                             setCookedFoodIngredientLines(
                               ingredientLines.map((line) => ({
+                                draftId: createCookedFoodIngredientDraftId(),
                                 ingredientId: line.ingredientId,
                                 rawWeightGrams: line.rawWeightGrams,
                               })),
                             )
+                            setCookedFoodIngredientWeightByDraftId({})
                           }}
                         >
                           Edit
@@ -1209,6 +1389,91 @@ function ManagePageContent() {
       </section>
     </main>
   )
+}
+
+function createRecipeIngredientDraftId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function createCookedFoodIngredientDraftId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function canConvertRecipeAmountByIngredient(ingredient: Doc<'ingredients'> | undefined) {
+  if (!ingredient) {
+    return false
+  }
+  if (ingredient.defaultUnit === 'g') {
+    return true
+  }
+  return Boolean(ingredient.gramsPerUnit && ingredient.gramsPerUnit > 0)
+}
+
+function getRecipeAmountUnit(ingredient: Doc<'ingredients'> | undefined) {
+  if (!ingredient) {
+    return 'g'
+  }
+  if (ingredient.defaultUnit === 'g') {
+    return 'g'
+  }
+  return canConvertRecipeAmountByIngredient(ingredient) ? ingredient.defaultUnit : 'g'
+}
+
+function getRecipeAmountUnitLabel(unit: 'g' | 'ml' | 'piece') {
+  if (unit === 'ml') {
+    return 'ml'
+  }
+  if (unit === 'piece') {
+    return 'pieces'
+  }
+  return 'grams'
+}
+
+function toRecipeWeightGrams(
+  ingredient: Doc<'ingredients'> | undefined,
+  amount: number,
+) {
+  if (!ingredient || ingredient.defaultUnit === 'g') {
+    return amount
+  }
+  if (ingredient.gramsPerUnit && ingredient.gramsPerUnit > 0) {
+    return amount * ingredient.gramsPerUnit
+  }
+  return amount
+}
+
+function toRecipeAmountValue(
+  ingredient: Doc<'ingredients'> | undefined,
+  weightGrams: number,
+) {
+  if (!ingredient || ingredient.defaultUnit === 'g') {
+    return weightGrams
+  }
+  if (ingredient.gramsPerUnit && ingredient.gramsPerUnit > 0) {
+    return weightGrams / ingredient.gramsPerUnit
+  }
+  return weightGrams
+}
+
+function formatRecipeAmountForInput(value: number) {
+  if (!Number.isFinite(value)) {
+    return ''
+  }
+  return Number(value.toFixed(3)).toString()
+}
+
+function getRecipeIngredientStoredHint(
+  ingredient: Doc<'ingredients'> | undefined,
+  weightGrams: number,
+) {
+  const storedText = `${weightGrams.toFixed(1)}g`
+  if (!ingredient || ingredient.defaultUnit === 'g') {
+    return `Stored: ${storedText}`
+  }
+  const amount = toRecipeAmountValue(ingredient, weightGrams)
+  const unit = getRecipeAmountUnit(ingredient)
+  const unitLabel = getRecipeAmountUnitLabel(unit)
+  return `${formatRecipeAmountForInput(amount)} ${unitLabel} (stored as ${storedText})`
 }
 
 function toLocalDateString(timestamp: number) {

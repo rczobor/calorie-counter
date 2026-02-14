@@ -28,7 +28,6 @@ const EMPTY_MANAGEMENT_DATA = {
   recipes: [],
   recipeVersions: [],
   recipeVersionIngredients: [],
-  recipeVersionOutputs: [],
   cookSessions: [],
   cookedFoods: [],
   cookedFoodIngredients: [],

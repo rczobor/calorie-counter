@@ -95,13 +95,6 @@ export default defineSchema({
     plannedWeightGrams: v.number(),
     notes: v.optional(v.string()),
   }).index('by_recipeVersion', ['recipeVersionId']),
-  recipeVersionOutputs: defineTable({
-    recipeVersionId: v.id('recipeVersions'),
-    name: v.string(),
-    groupIds: v.array(v.id('foodGroups')),
-    plannedFinishedWeightGrams: v.optional(v.number()),
-    sortOrder: v.number(),
-  }).index('by_recipeVersion', ['recipeVersionId']),
   cookSessions: defineTable({
     label: v.optional(v.string()),
     cookedAt: v.number(),

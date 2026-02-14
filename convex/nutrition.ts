@@ -30,12 +30,6 @@ const recipeIngredientValidator = v.object({
   notes: v.optional(v.string()),
 })
 
-const recipeOutputValidator = v.object({
-  name: v.string(),
-  groupIds: v.array(v.id('foodGroups')),
-  plannedFinishedWeightGrams: v.optional(v.number()),
-})
-
 const cookedFoodIngredientValidator = v.object({
   ingredientId: v.id('ingredients'),
   rawWeightGrams: v.number(),
@@ -235,7 +229,6 @@ export const getManagementData = query({
       recipes,
       recipeVersions,
       recipeVersionIngredients,
-      recipeVersionOutputs,
       cookSessions,
       cookedFoods,
       cookedFoodIngredients,
@@ -249,7 +242,6 @@ export const getManagementData = query({
       ctx.db.query('recipes').collect(),
       ctx.db.query('recipeVersions').collect(),
       ctx.db.query('recipeVersionIngredients').collect(),
-      ctx.db.query('recipeVersionOutputs').collect(),
       ctx.db.query('cookSessions').collect(),
       ctx.db.query('cookedFoods').collect(),
       ctx.db.query('cookedFoodIngredients').collect(),
@@ -267,9 +259,6 @@ export const getManagementData = query({
       recipes: recipes.sort((a, b) => b.createdAt - a.createdAt),
       recipeVersions: recipeVersions.sort((a, b) => b.createdAt - a.createdAt),
       recipeVersionIngredients,
-      recipeVersionOutputs: recipeVersionOutputs.sort(
-        (a, b) => a.sortOrder - b.sortOrder,
-      ),
       cookSessions: cookSessions.sort((a, b) => b.cookedAt - a.cookedAt),
       cookedFoods: cookedFoods.sort((a, b) => b.createdAt - a.createdAt),
       cookedFoodIngredients,
@@ -504,14 +493,12 @@ export const deleteFoodGroup = mutation({
     if (!group) {
       throw new Error('Group not found.')
     }
-    const [ingredients, outputs, cookedFoods] = await Promise.all([
+    const [ingredients, cookedFoods] = await Promise.all([
       ctx.db.query('ingredients').collect(),
-      ctx.db.query('recipeVersionOutputs').collect(),
       ctx.db.query('cookedFoods').collect(),
     ])
     const inUse =
       ingredients.some((item) => item.groupIds.includes(args.groupId)) ||
-      outputs.some((item) => item.groupIds.includes(args.groupId)) ||
       cookedFoods.some((item) => item.groupIds.includes(args.groupId))
     if (inUse) {
       throw new Error('Group is used by records. Archive instead or remove references first.')
@@ -629,7 +616,6 @@ export const createRecipe = mutation({
     notes: v.optional(v.string()),
     ownerUserId: v.optional(v.string()),
     plannedIngredients: v.array(recipeIngredientValidator),
-    plannedOutputs: v.array(recipeOutputValidator),
   },
   handler: async (ctx, args) => {
     assertNonEmpty(args.name, 'Recipe name')
@@ -638,15 +624,6 @@ export const createRecipe = mutation({
     }
     for (const line of args.plannedIngredients) {
       assertPositive(line.plannedWeightGrams, 'Planned ingredient weight')
-    }
-    for (const output of args.plannedOutputs) {
-      assertNonEmpty(output.name, 'Planned output name')
-      if (output.plannedFinishedWeightGrams !== undefined) {
-        assertPositive(
-          output.plannedFinishedWeightGrams,
-          'Planned finished output weight',
-        )
-      }
     }
 
     const ingredientDocs = await Promise.all(
@@ -676,8 +653,8 @@ export const createRecipe = mutation({
       createdAt: now,
     })
 
-    await Promise.all([
-      ...args.plannedIngredients.map((line) =>
+    await Promise.all(
+      args.plannedIngredients.map((line) =>
         ctx.db.insert('recipeVersionIngredients', {
           recipeVersionId: versionId,
           ingredientId: line.ingredientId,
@@ -685,16 +662,7 @@ export const createRecipe = mutation({
           notes: line.notes?.trim() || undefined,
         }),
       ),
-      ...args.plannedOutputs.map((output, index) =>
-        ctx.db.insert('recipeVersionOutputs', {
-          recipeVersionId: versionId,
-          name: output.name.trim(),
-          groupIds: output.groupIds,
-          plannedFinishedWeightGrams: output.plannedFinishedWeightGrams,
-          sortOrder: index,
-        }),
-      ),
-    ])
+    )
 
     return { recipeId, recipeVersionId: versionId }
   },
@@ -708,7 +676,6 @@ export const updateRecipeCurrentVersion = mutation({
     instructions: v.optional(v.string()),
     notes: v.optional(v.string()),
     plannedIngredients: v.array(recipeIngredientValidator),
-    plannedOutputs: v.array(recipeOutputValidator),
   },
   handler: async (ctx, args) => {
     const recipe = await ctx.db.get(args.recipeId)
@@ -721,15 +688,6 @@ export const updateRecipeCurrentVersion = mutation({
     }
     for (const line of args.plannedIngredients) {
       assertPositive(line.plannedWeightGrams, 'Planned ingredient weight')
-    }
-    for (const output of args.plannedOutputs) {
-      assertNonEmpty(output.name, 'Planned output name')
-      if (output.plannedFinishedWeightGrams !== undefined) {
-        assertPositive(
-          output.plannedFinishedWeightGrams,
-          'Planned finished output weight',
-        )
-      }
     }
 
     const versions = await ctx.db
@@ -751,39 +709,19 @@ export const updateRecipeCurrentVersion = mutation({
       notes: args.notes?.trim() || undefined,
     })
 
-    const [oldIngredients, oldOutputs] = await Promise.all([
-      ctx.db
-        .query('recipeVersionIngredients')
-        .withIndex('by_recipeVersion', (q) =>
-          q.eq('recipeVersionId', current._id),
-        )
-        .collect(),
-      ctx.db
-        .query('recipeVersionOutputs')
-        .withIndex('by_recipeVersion', (q) =>
-          q.eq('recipeVersionId', current._id),
-        )
-        .collect(),
-    ])
+    const oldIngredients = await ctx.db
+      .query('recipeVersionIngredients')
+      .withIndex('by_recipeVersion', (q) => q.eq('recipeVersionId', current._id))
+      .collect()
 
     await Promise.all([
       ...oldIngredients.map((line) => ctx.db.delete(line._id)),
-      ...oldOutputs.map((line) => ctx.db.delete(line._id)),
       ...args.plannedIngredients.map((line) =>
         ctx.db.insert('recipeVersionIngredients', {
           recipeVersionId: current._id,
           ingredientId: line.ingredientId,
           plannedWeightGrams: line.plannedWeightGrams,
           notes: line.notes?.trim() || undefined,
-        }),
-      ),
-      ...args.plannedOutputs.map((output, index) =>
-        ctx.db.insert('recipeVersionOutputs', {
-          recipeVersionId: current._id,
-          name: output.name.trim(),
-          groupIds: output.groupIds,
-          plannedFinishedWeightGrams: output.plannedFinishedWeightGrams,
-          sortOrder: index,
         }),
       ),
     ])
@@ -823,15 +761,9 @@ export const deleteRecipe = mutation({
       .withIndex('by_recipe', (q) => q.eq('recipeId', args.recipeId))
       .collect()
     const versionIds = new Set(versions.map((version) => version._id))
-    const [versionIngredients, versionOutputs] = await Promise.all([
-      ctx.db.query('recipeVersionIngredients').collect(),
-      ctx.db.query('recipeVersionOutputs').collect(),
-    ])
+    const versionIngredients = await ctx.db.query('recipeVersionIngredients').collect()
     await Promise.all([
       ...versionIngredients
-        .filter((line) => versionIds.has(line.recipeVersionId))
-        .map((line) => ctx.db.delete(line._id)),
-      ...versionOutputs
         .filter((line) => versionIds.has(line.recipeVersionId))
         .map((line) => ctx.db.delete(line._id)),
       ...versions.map((version) => ctx.db.delete(version._id)),
