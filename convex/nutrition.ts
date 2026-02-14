@@ -3,6 +3,7 @@ import {
   query,
   type DatabaseWriter,
   type MutationCtx,
+  type QueryCtx,
 } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { v } from 'convex/values'
@@ -53,6 +54,14 @@ function assertPositive(value: number, fieldName: string) {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`${fieldName} must be greater than 0.`)
   }
+}
+
+async function requireAuthenticatedUser(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) {
+    throw new Error('Authentication required.')
+  }
+  return identity
 }
 
 function toLocalDateString(timestamp: number) {
@@ -209,6 +218,7 @@ async function deleteCookedFoodWithChildren(ctx: MutationCtx, cookedFoodId: Id<'
 export const getManagementData = query({
   args: {},
   handler: async (ctx) => {
+    await requireAuthenticatedUser(ctx)
     const [
       people,
       personGoalHistory,
@@ -269,6 +279,7 @@ export const getPersonDailySummary = query({
     date: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const person = await ctx.db.get(args.personId)
     if (!person) {
       throw new Error('Person not found.')
@@ -312,6 +323,7 @@ export const createPerson = mutation({
     effectiveDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Name')
     assertPositive(args.currentDailyGoalKcal, 'Daily goal')
     const now = Date.now()
@@ -340,6 +352,7 @@ export const updatePerson = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const person = await ctx.db.get(args.personId)
     if (!person) {
       throw new Error('Person not found.')
@@ -360,6 +373,7 @@ export const updatePersonGoal = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertPositive(args.goalKcal, 'Goal')
     const person = await ctx.db.get(args.personId)
     if (!person) {
@@ -385,6 +399,7 @@ export const setPersonArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const person = await ctx.db.get(args.personId)
     if (!person) {
       throw new Error('Person not found.')
@@ -396,6 +411,7 @@ export const setPersonArchived = mutation({
 export const deletePerson = mutation({
   args: { personId: v.id('people') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const person = await ctx.db.get(args.personId)
     if (!person) {
       throw new Error('Person not found.')
@@ -425,6 +441,7 @@ export const createFoodGroup = mutation({
     appliesTo: groupScopeValidator,
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Group name')
     const now = Date.now()
     return await ctx.db.insert('foodGroups', {
@@ -443,6 +460,7 @@ export const updateFoodGroup = mutation({
     appliesTo: groupScopeValidator,
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Group name')
     const group = await ctx.db.get(args.groupId)
     if (!group) {
@@ -461,6 +479,7 @@ export const setFoodGroupArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const group = await ctx.db.get(args.groupId)
     if (!group) {
       throw new Error('Group not found.')
@@ -472,6 +491,7 @@ export const setFoodGroupArchived = mutation({
 export const deleteFoodGroup = mutation({
   args: { groupId: v.id('foodGroups') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const group = await ctx.db.get(args.groupId)
     if (!group) {
       throw new Error('Group not found.')
@@ -501,6 +521,7 @@ export const createIngredient = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Ingredient name')
     assertPositive(args.kcalPer100g, 'kcal/100g')
     if (args.gramsPerUnit !== undefined) {
@@ -533,6 +554,7 @@ export const updateIngredient = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const ingredient = await ctx.db.get(args.ingredientId)
     if (!ingredient) {
       throw new Error('Ingredient not found.')
@@ -560,6 +582,7 @@ export const setIngredientArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const ingredient = await ctx.db.get(args.ingredientId)
     if (!ingredient) {
       throw new Error('Ingredient not found.')
@@ -571,6 +594,7 @@ export const setIngredientArchived = mutation({
 export const deleteIngredient = mutation({
   args: { ingredientId: v.id('ingredients') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const ingredient = await ctx.db.get(args.ingredientId)
     if (!ingredient) {
       throw new Error('Ingredient not found.')
@@ -600,6 +624,7 @@ export const createRecipe = mutation({
     plannedIngredients: v.array(recipeIngredientValidator),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Recipe name')
     if (args.plannedIngredients.length === 0) {
       throw new Error('Recipe needs at least one ingredient.')
@@ -659,6 +684,7 @@ export const updateRecipeCurrentVersion = mutation({
     plannedIngredients: v.array(recipeIngredientValidator),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const recipe = await ctx.db.get(args.recipeId)
     if (!recipe) {
       throw new Error('Recipe not found.')
@@ -715,6 +741,7 @@ export const setRecipeArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const recipe = await ctx.db.get(args.recipeId)
     if (!recipe) {
       throw new Error('Recipe not found.')
@@ -726,6 +753,7 @@ export const setRecipeArchived = mutation({
 export const deleteRecipe = mutation({
   args: { recipeId: v.id('recipes') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const recipe = await ctx.db.get(args.recipeId)
     if (!recipe) {
       throw new Error('Recipe not found.')
@@ -761,6 +789,7 @@ export const createCookSession = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     if (args.cookedByPersonId) {
       const person = await ctx.db.get(args.cookedByPersonId)
       if (!person) {
@@ -789,6 +818,7 @@ export const updateCookSession = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const session = await ctx.db.get(args.sessionId)
     if (!session) {
       throw new Error('Cook session not found.')
@@ -814,6 +844,7 @@ export const setCookSessionArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const session = await ctx.db.get(args.sessionId)
     if (!session) {
       throw new Error('Cook session not found.')
@@ -825,6 +856,7 @@ export const setCookSessionArchived = mutation({
 export const deleteCookSession = mutation({
   args: { sessionId: v.id('cookSessions') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const session = await ctx.db.get(args.sessionId)
     if (!session) {
       throw new Error('Cook session not found.')
@@ -852,6 +884,7 @@ export const createCookedFood = mutation({
     ingredients: v.array(cookedFoodIngredientValidator),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Cooked food name')
     const session = await ctx.db.get(args.cookSessionId)
     if (!session) {
@@ -921,6 +954,7 @@ export const updateCookedFood = mutation({
     ingredients: v.array(cookedFoodIngredientValidator),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const cookedFood = await ctx.db.get(args.cookedFoodId)
     if (!cookedFood) {
       throw new Error('Cooked food not found.')
@@ -970,6 +1004,7 @@ export const setCookedFoodArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const cookedFood = await ctx.db.get(args.cookedFoodId)
     if (!cookedFood) {
       throw new Error('Cooked food not found.')
@@ -981,6 +1016,7 @@ export const setCookedFoodArchived = mutation({
 export const deleteCookedFood = mutation({
   args: { cookedFoodId: v.id('cookedFoods') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const cookedFood = await ctx.db.get(args.cookedFoodId)
     if (!cookedFood) {
       throw new Error('Cooked food not found.')
@@ -998,6 +1034,7 @@ export const createMeal = mutation({
     items: v.array(mealItemInputValidator),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const person = await ctx.db.get(args.personId)
     if (!person) {
       throw new Error('Person not found.')
@@ -1040,6 +1077,7 @@ export const updateMeal = mutation({
     items: v.array(mealItemInputValidator),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const meal = await ctx.db.get(args.mealId)
     if (!meal) {
       throw new Error('Meal not found.')
@@ -1083,6 +1121,7 @@ export const setMealArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const meal = await ctx.db.get(args.mealId)
     if (!meal) {
       throw new Error('Meal not found.')
@@ -1094,6 +1133,7 @@ export const setMealArchived = mutation({
 export const deleteMeal = mutation({
   args: { mealId: v.id('meals') },
   handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx)
     const meal = await ctx.db.get(args.mealId)
     if (!meal) {
       throw new Error('Meal not found.')

@@ -46,13 +46,30 @@ VITE_CLERK_PUBLISHABLE_KEY=
 
 Convex-backed routes require `VITE_CONVEX_URL` (and usually `CONVEX_DEPLOYMENT` for Convex tooling). Clerk UI requires `VITE_CLERK_PUBLISHABLE_KEY`. If env vars are missing, the app still renders and shows integration hints/fallback UI.
 
-3. Start Convex in a separate terminal.
+3. Create a Clerk JWT template for Convex.
+
+In Clerk Dashboard:
+- Go to `JWT Templates`
+- Create template named `convex`
+- Set audience to `convex`
+
+`convex/react-clerk` requests `getToken({ template: "convex" })`, so this template must exist.
+
+4. Configure Convex auth provider env for Clerk.
+
+```bash
+bunx convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-clerk-domain>
+```
+
+This value is used by `convex/auth.config.ts` and is required for signed-in users to access Convex queries/mutations.
+
+5. Start Convex in a separate terminal.
 
 ```bash
 bunx convex dev
 ```
 
-4. Start the app.
+6. Start the app.
 
 ```bash
 bun run dev

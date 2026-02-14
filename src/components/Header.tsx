@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
+import { SignedIn } from '@clerk/clerk-react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import { DatabaseZap, Flame, ShieldCheck } from 'lucide-react'
 import ThemeSelector from './theme-selector'
+import { isClerkConfigured } from '@/integrations/clerk/config'
 
 export default function Header() {
   return (
@@ -17,49 +19,57 @@ export default function Header() {
               Calorie Counter
             </span>
           </Link>
-          <nav className="hidden items-center gap-2 md:flex">
-            <Link
-              to="/"
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              activeProps={{
-                className:
-                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
-              }}
-            >
-              Meals
-            </Link>
-            <Link
-              to="/manage"
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              activeProps={{
-                className:
-                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
-              }}
-            >
-              Manage
-            </Link>
-            <Link
-              to="/people"
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              activeProps={{
-                className:
-                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
-              }}
-            >
-              People
-            </Link>
-          </nav>
+          {isClerkConfigured ? (
+            <SignedIn>
+              <nav className="hidden items-center gap-2 md:flex">
+                <Link
+                  to="/"
+                  className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  activeProps={{
+                    className:
+                      'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
+                  }}
+                >
+                  Meals
+                </Link>
+                <Link
+                  to="/manage"
+                  className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  activeProps={{
+                    className:
+                      'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
+                  }}
+                >
+                  Manage
+                </Link>
+                <Link
+                  to="/people"
+                  className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  activeProps={{
+                    className:
+                      'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
+                  }}
+                >
+                  People
+                </Link>
+              </nav>
+            </SignedIn>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           <ThemeSelector />
-          <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-            Shell mode
-          </div>
-          <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
-            <DatabaseZap className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-            Convex ready
-          </div>
+          {isClerkConfigured ? (
+            <SignedIn>
+              <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                Shell mode
+              </div>
+              <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
+                <DatabaseZap className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                Convex ready
+              </div>
+            </SignedIn>
+          ) : null}
           <ClerkHeader />
         </div>
       </div>
