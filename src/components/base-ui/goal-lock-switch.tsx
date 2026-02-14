@@ -17,9 +17,9 @@ export function GoalLockSwitch({
       <Switch.Root
         checked={checked}
         onCheckedChange={onCheckedChange}
-        className="relative inline-flex h-7 w-12 cursor-pointer items-center rounded-full border border-border bg-muted p-1 transition-colors data-checked:border-emerald-900/15 data-checked:bg-emerald-500"
+        className="relative inline-flex h-7 w-12 cursor-pointer items-center rounded-full border border-border bg-muted p-1 transition-colors data-[checked]:border-emerald-900/15 data-[checked]:bg-emerald-500"
       >
-        <Switch.Thumb className="size-5 rounded-full bg-background shadow-sm transition-transform data-checked:translate-x-5" />
+        <Switch.Thumb className="size-5 rounded-full bg-background shadow-sm transition-transform data-[checked]:translate-x-5" />
       </Switch.Root>
     </label>
   );

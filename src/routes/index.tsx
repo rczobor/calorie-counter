@@ -79,8 +79,8 @@ export const Route = createFileRoute("/")({
 function NutritionStudio() {
   if (!isConvexConfigured) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_20%,#f9f4df_0%,#f6f6f4_50%,#eff5f1_100%)] px-4 py-10 dark:bg-[radial-gradient(circle_at_20%_20%,#1f2937_0%,#111827_55%,#0b1220_100%)] sm:px-6">
-        <Card className="mx-auto max-w-3xl border-amber-200 bg-card/95">
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_20%,#f9f4df_0%,#f6f6f4_50%,#eff5f1_100%)] px-4 py-10 dark:bg-[linear-gradient(180deg,#0b1220_0%,#0d1729_52%,#0f1d31_100%)] sm:px-6">
+        <Card className="mx-auto max-w-3xl border-border bg-card/95 dark:border-white/10">
           <CardHeader>
             <CardTitle>Connect Convex First</CardTitle>
             <CardDescription>
@@ -464,7 +464,7 @@ function ConfiguredNutritionStudio() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_20%,#f9f4df_0%,#f6f6f4_50%,#eff5f1_100%)] px-4 py-10 dark:bg-[radial-gradient(circle_at_20%_20%,#1f2937_0%,#111827_55%,#0b1220_100%)] sm:px-6">
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_20%,#f9f4df_0%,#f6f6f4_50%,#eff5f1_100%)] px-4 py-10 dark:bg-[linear-gradient(180deg,#0b1220_0%,#0d1729_52%,#0f1d31_100%)] sm:px-6">
         <Card className="mx-auto max-w-3xl border-border bg-card/95">
           <CardHeader>
             <CardTitle>Loading Nutrition Studio</CardTitle>
@@ -478,12 +478,12 @@ function ConfiguredNutritionStudio() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] pb-12 dark:bg-[radial-gradient(circle_at_15%_10%,#1b2435_0%,#121a29_50%,#0a101b_100%)]">
+    <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] pb-12 dark:bg-[linear-gradient(180deg,#0b1220_0%,#0d1729_52%,#0f1d31_100%)]">
       <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
-        <div className="rounded-2xl border border-amber-200/80 bg-card/90 p-6 shadow-sm">
+        <div className="rounded-2xl border border-amber-200/80 bg-card/90 p-6 shadow-sm dark:border-white/12 dark:bg-slate-900/62 dark:shadow-[0_26px_56px_-44px_rgba(15,23,42,0.95)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
+              <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700 dark:text-amber-200/85">
                 <Flame className="h-4 w-4" />
                 Nutrition Studio
               </p>
@@ -496,25 +496,25 @@ function ConfiguredNutritionStudio() {
               </p>
             </div>
 
-            <label className="inline-flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground/90">
+            <label className="inline-flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground/90 dark:border-white/20 dark:bg-slate-950/75 dark:text-slate-100">
               Show archived
               <Switch.Root
                 checked={showArchived}
                 onCheckedChange={setShowArchived}
-                className="relative inline-flex h-6 w-11 items-center rounded-full bg-muted p-1 transition-colors data-checked:bg-emerald-500"
+                className="relative inline-flex h-6 w-11 items-center rounded-full border border-border bg-muted p-1 transition-colors data-[checked]:border-emerald-300/45 data-[checked]:bg-emerald-500 dark:border-slate-500/75 dark:bg-slate-800 data-[checked]:dark:border-emerald-300/55 data-[checked]:dark:bg-emerald-500"
               >
-                <Switch.Thumb className="size-4 rounded-full bg-background transition-transform data-checked:translate-x-5" />
+                <Switch.Thumb className="size-4 rounded-full bg-background shadow-sm transition-transform data-[checked]:translate-x-5 dark:bg-slate-100" />
               </Switch.Root>
             </label>
           </div>
 
           {statusMessage ? (
-            <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-400/35 dark:bg-emerald-500/12 dark:text-emerald-200">
               {statusMessage}
             </p>
           ) : null}
           {errorMessage ? (
-            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-400/35 dark:bg-red-500/10 dark:text-red-200">
               {errorMessage}
             </p>
           ) : null}
@@ -544,10 +544,10 @@ function ConfiguredNutritionStudio() {
         </div>
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <Card className="border-border/80 bg-card/95">
+          <Card className="border-border/80 bg-card/95 dark:border-white/10 dark:bg-slate-950/55">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
-                <UserRound className="h-4 w-4 text-emerald-700" />
+                <UserRound className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
                 People and Goal History
               </CardTitle>
               <CardDescription>
@@ -591,13 +591,13 @@ function ConfiguredNutritionStudio() {
                 Add person
               </Button>
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Update goal
                 </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-[1.4fr_1fr]">
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={goalPersonId}
                     onChange={(event) =>
                       setGoalPersonId(event.target.value as Id<"people"> | "")
@@ -646,11 +646,11 @@ function ConfiguredNutritionStudio() {
                 </Button>
               </div>
 
-              <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border p-3">
+              <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/20">
                 {visiblePeople.map((person) => (
                   <div
                     key={person._id}
-                    className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-md bg-muted/40 dark:bg-slate-900/55 px-3 py-2 text-sm"
                   >
                     <span>{person.name}</span>
                     <span className="font-medium text-foreground/90">
@@ -662,10 +662,10 @@ function ConfiguredNutritionStudio() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 bg-card/95">
+          <Card className="border-border/80 bg-card/95 dark:border-white/10 dark:bg-slate-950/55">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
-                <Wheat className="h-4 w-4 text-amber-700" />
+                <Wheat className="h-4 w-4 text-amber-700 dark:text-amber-300" />
                 Groups and Ingredients
               </CardTitle>
               <CardDescription>
@@ -674,7 +674,7 @@ function ConfiguredNutritionStudio() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Create group
                 </p>
@@ -685,7 +685,7 @@ function ConfiguredNutritionStudio() {
                     onChange={(event) => setGroupName(event.target.value)}
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={groupScope}
                     onChange={(event) =>
                       setGroupScope(event.target.value as GroupScope)
@@ -712,7 +712,7 @@ function ConfiguredNutritionStudio() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Create ingredient
                 </p>
@@ -734,7 +734,7 @@ function ConfiguredNutritionStudio() {
                     onChange={(event) => setIngredientKcal(event.target.value)}
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={ingredientUnit}
                     onChange={(event) =>
                       setIngredientUnit(event.target.value as UnitType)
@@ -753,7 +753,7 @@ function ConfiguredNutritionStudio() {
                     }
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={ingredientGroupId}
                     onChange={(event) =>
                       setIngredientGroupId(
@@ -805,11 +805,11 @@ function ConfiguredNutritionStudio() {
                 </Button>
               </div>
 
-              <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border p-3">
+              <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/20">
                 {visibleIngredients.map((ingredient) => (
                   <div
                     key={ingredient._id}
-                    className="rounded-md bg-muted/40 px-3 py-2 text-sm"
+                    className="rounded-md bg-muted/40 dark:bg-slate-900/55 px-3 py-2 text-sm"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">
@@ -835,10 +835,10 @@ function ConfiguredNutritionStudio() {
         </div>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <Card className="border-border/80 bg-card/95">
+          <Card className="border-border/80 bg-card/95 dark:border-white/10 dark:bg-slate-950/55">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
-                <BookOpenText className="h-4 w-4 text-sky-700" />
+                <BookOpenText className="h-4 w-4 text-sky-700 dark:text-sky-300" />
                 Recipe Plans and Versions
               </CardTitle>
               <CardDescription>
@@ -870,13 +870,13 @@ function ConfiguredNutritionStudio() {
                 onChange={(event) => setRecipeNotes(event.target.value)}
               />
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Planned ingredient
                 </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={recipeLineIngredientId}
                     onChange={(event) =>
                       setRecipeLineIngredientId(
@@ -911,7 +911,7 @@ function ConfiguredNutritionStudio() {
                 />
               </div>
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Planned output
                 </p>
@@ -924,7 +924,7 @@ function ConfiguredNutritionStudio() {
                     }
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={recipeOutputGroupId}
                     onChange={(event) =>
                       setRecipeOutputGroupId(
@@ -953,7 +953,7 @@ function ConfiguredNutritionStudio() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Draft lines: {recipeIngredientLines.length} ingredients,{" "}
                   {recipeOutputLines.length} outputs
@@ -999,13 +999,13 @@ function ConfiguredNutritionStudio() {
                 Create recipe plan
               </Button>
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Create next version from current
                 </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={versionRecipeId}
                     onChange={(event) =>
                       setVersionRecipeId(
@@ -1036,10 +1036,10 @@ function ConfiguredNutritionStudio() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 bg-card/95">
+          <Card className="border-border/80 bg-card/95 dark:border-white/10 dark:bg-slate-950/55">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
-                <ChefHat className="h-4 w-4 text-rose-700" />
+                <ChefHat className="h-4 w-4 text-rose-700 dark:text-rose-300" />
                 Cooking Sessions and Cooked Foods
               </CardTitle>
               <CardDescription>
@@ -1048,7 +1048,7 @@ function ConfiguredNutritionStudio() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Create cook session
                 </p>
@@ -1059,7 +1059,7 @@ function ConfiguredNutritionStudio() {
                     onChange={(event) => setSessionLabel(event.target.value)}
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={sessionPersonId}
                     onChange={(event) =>
                       setSessionPersonId(
@@ -1100,13 +1100,13 @@ function ConfiguredNutritionStudio() {
                 </Button>
               </div>
 
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
                 <p className="text-sm font-medium text-foreground">
                   Create cooked food
                 </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={cookedFoodSessionId}
                     onChange={(event) =>
                       setCookedFoodSessionId(
@@ -1127,7 +1127,7 @@ function ConfiguredNutritionStudio() {
                     onChange={(event) => setCookedFoodName(event.target.value)}
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={cookedFoodGroupId}
                     onChange={(event) =>
                       setCookedFoodGroupId(
@@ -1151,7 +1151,7 @@ function ConfiguredNutritionStudio() {
                     }
                   />
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={cookedFoodRecipeVersionId}
                     onChange={(event) =>
                       setCookedFoodRecipeVersionId(
@@ -1184,7 +1184,7 @@ function ConfiguredNutritionStudio() {
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={cookedFoodIngredientId}
                     onChange={(event) =>
                       setCookedFoodIngredientId(
@@ -1215,7 +1215,7 @@ function ConfiguredNutritionStudio() {
                   </Button>
                 </div>
 
-                <div className="mt-3 space-y-1 rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                <div className="mt-3 space-y-1 rounded-md bg-muted/40 dark:bg-slate-900/55 p-2 text-xs text-muted-foreground">
                   {cookedFoodIngredients.map((line, index) => (
                     <p key={`cooked-line-${line.ingredientId}-${index}`}>
                       {ingredientById.get(line.ingredientId)?.name ?? "Missing"}{" "}
@@ -1260,11 +1260,11 @@ function ConfiguredNutritionStudio() {
                 </Button>
               </div>
 
-              <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border p-3">
+              <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/20">
                 {data.cookedFoods.map((food) => (
                   <div
                     key={food._id}
-                    className="rounded-md bg-muted/40 px-3 py-2 text-sm"
+                    className="rounded-md bg-muted/40 dark:bg-slate-900/55 px-3 py-2 text-sm"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">
@@ -1289,10 +1289,10 @@ function ConfiguredNutritionStudio() {
           </Card>
         </div>
 
-        <Card className="mt-5 border-border/80 bg-card/95">
+        <Card className="mt-5 border-border/80 bg-card/95 dark:border-white/10 dark:bg-slate-950/55">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
-              <Target className="h-4 w-4 text-indigo-700" />
+              <Target className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
               Meals and Consumption Logs
             </CardTitle>
             <CardDescription>
@@ -1303,7 +1303,7 @@ function ConfiguredNutritionStudio() {
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <select
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                 value={mealPersonId}
                 onChange={(event) =>
                   setMealPersonId(event.target.value as Id<"people"> | "")
@@ -1333,13 +1333,13 @@ function ConfiguredNutritionStudio() {
               />
             </div>
 
-            <div className="rounded-lg border border-border p-3">
+            <div className="rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/35">
               <p className="text-sm font-medium text-foreground">
                 Add meal item
               </p>
               <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_1.4fr_1fr_auto]">
                 <select
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                   value={mealItemSourceType}
                   onChange={(event) => {
                     setMealItemSourceType(event.target.value as MealSourceType);
@@ -1353,7 +1353,7 @@ function ConfiguredNutritionStudio() {
 
                 {mealItemSourceType === "ingredient" ? (
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={mealIngredientId}
                     onChange={(event) =>
                       setMealIngredientId(
@@ -1370,7 +1370,7 @@ function ConfiguredNutritionStudio() {
                   </select>
                 ) : (
                   <select
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:border-white/12 dark:bg-input/55"
                     value={mealCookedFoodId}
                     onChange={(event) =>
                       setMealCookedFoodId(
@@ -1399,7 +1399,7 @@ function ConfiguredNutritionStudio() {
                 </Button>
               </div>
 
-              <div className="mt-3 space-y-1 rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+              <div className="mt-3 space-y-1 rounded-md bg-muted/40 dark:bg-slate-900/55 p-2 text-xs text-muted-foreground">
                 {mealItems.map((item, index) => {
                   const label =
                     item.sourceType === "ingredient"
@@ -1449,7 +1449,7 @@ function ConfiguredNutritionStudio() {
               Save meal log
             </Button>
 
-            <div className="max-h-64 space-y-2 overflow-auto rounded-lg border border-border p-3">
+            <div className="max-h-64 space-y-2 overflow-auto rounded-lg border border-border p-3 dark:border-white/10 dark:bg-slate-950/20">
               {data.meals.map((meal) => {
                 const mealItemsForMeal = mealItemsByMealId.get(meal._id) ?? [];
                 const totalCalories = mealItemsForMeal.reduce(
@@ -1459,7 +1459,7 @@ function ConfiguredNutritionStudio() {
                 return (
                   <div
                     key={meal._id}
-                    className="rounded-md bg-muted/40 px-3 py-2 text-sm"
+                    className="rounded-md bg-muted/40 dark:bg-slate-900/55 px-3 py-2 text-sm"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">
@@ -1495,7 +1495,7 @@ function SummaryBadge({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
+    <div className="rounded-xl border border-border bg-muted/40 dark:border-white/10 dark:bg-slate-900/50 px-4 py-3">
       <p className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
         {label}
