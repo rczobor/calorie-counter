@@ -19,38 +19,27 @@ const mealSourceValidator = v.union(
 )
 
 export default defineSchema({
-  products: defineTable({
-    title: v.string(),
-    imageId: v.string(),
-    price: v.number(),
-  }),
   people: defineTable({
     name: v.string(),
     notes: v.optional(v.string()),
     currentDailyGoalKcal: v.number(),
     active: v.boolean(),
     createdAt: v.number(),
-  })
-    .index('by_name', ['name'])
-    .index('by_createdAt', ['createdAt']),
+  }),
   personGoalHistory: defineTable({
     personId: v.id('people'),
     effectiveDate: v.string(),
     goalKcal: v.number(),
     reason: v.optional(v.string()),
     createdAt: v.number(),
-  })
-    .index('by_person_effectiveDate', ['personId', 'effectiveDate'])
-    .index('by_person_createdAt', ['personId', 'createdAt']),
+  }).index('by_person_createdAt', ['personId', 'createdAt']),
   foodGroups: defineTable({
     name: v.string(),
-    slug: v.string(),
+    slug: v.optional(v.string()),
     appliesTo: groupScopeValidator,
     archived: v.boolean(),
     createdAt: v.number(),
-  })
-    .index('by_name', ['name'])
-    .index('by_createdAt', ['createdAt']),
+  }),
   ingredients: defineTable({
     name: v.string(),
     brand: v.optional(v.string()),
@@ -61,9 +50,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     archived: v.boolean(),
     createdAt: v.number(),
-  })
-    .index('by_name', ['name'])
-    .index('by_createdAt', ['createdAt']),
+  }),
   recipes: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
@@ -71,9 +58,7 @@ export default defineSchema({
     archived: v.boolean(),
     latestVersionNumber: v.number(),
     createdAt: v.number(),
-  })
-    .index('by_name', ['name'])
-    .index('by_createdAt', ['createdAt']),
+  }),
   recipeVersions: defineTable({
     recipeId: v.id('recipes'),
     versionNumber: v.number(),
@@ -82,9 +67,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     isCurrent: v.boolean(),
     createdAt: v.number(),
-  })
-    .index('by_recipe', ['recipeId'])
-    .index('by_recipe_version', ['recipeId', 'versionNumber']),
+  }).index('by_recipe', ['recipeId']),
   recipeVersionIngredients: defineTable({
     recipeVersionId: v.id('recipeVersions'),
     ingredientId: v.id('ingredients'),
@@ -98,9 +81,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     createdAt: v.number(),
-  })
-    .index('by_cookedAt', ['cookedAt'])
-    .index('by_createdAt', ['createdAt']),
+  }),
   cookedFoods: defineTable({
     cookSessionId: v.id('cookSessions'),
     name: v.string(),
@@ -114,9 +95,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     createdAt: v.number(),
-  })
-    .index('by_session', ['cookSessionId'])
-    .index('by_createdAt', ['createdAt']),
+  }).index('by_session', ['cookSessionId']),
   cookedFoodIngredients: defineTable({
     cookedFoodId: v.id('cookedFoods'),
     ingredientId: v.id('ingredients'),
@@ -132,9 +111,7 @@ export default defineSchema({
     notes: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     createdAt: v.number(),
-  })
-    .index('by_person_eatenOn', ['personId', 'eatenOn'])
-    .index('by_createdAt', ['createdAt']),
+  }).index('by_person_eatenOn', ['personId', 'eatenOn']),
   mealItems: defineTable({
     mealId: v.id('meals'),
     sourceType: mealSourceValidator,

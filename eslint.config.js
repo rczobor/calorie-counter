@@ -6,7 +6,14 @@ import tseslint from 'typescript-eslint'
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'convex/_generated/**', 'src/routeTree.gen.ts'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '.output/**',
+      '.vercel/**',
+      'convex/_generated/**',
+      'src/routeTree.gen.ts',
+    ],
   },
   {
     files: ['**/*.{js,mjs,cjs,jsx,ts,tsx}'],

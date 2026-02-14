@@ -76,24 +76,12 @@ function normalizeDate(value: string | undefined, fallbackDate: number) {
 
 function mealDateKey(meal: {
   eatenOn?: string
-  eatenAt?: number
   createdAt: number
 }) {
   if (meal.eatenOn) {
     return meal.eatenOn
   }
-  if (meal.eatenAt) {
-    return toLocalDateString(meal.eatenAt)
-  }
   return toLocalDateString(meal.createdAt)
-}
-
-function toSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 async function buildCookedFoodNutrition(
@@ -439,12 +427,8 @@ export const createFoodGroup = mutation({
   handler: async (ctx, args) => {
     assertNonEmpty(args.name, 'Group name')
     const now = Date.now()
-    const trimmedName = args.name.trim()
-    const slugBase = toSlug(trimmedName)
-    const suffix = Math.random().toString(36).slice(2, 7)
     return await ctx.db.insert('foodGroups', {
-      name: trimmedName,
-      slug: slugBase ? `${slugBase}-${suffix}` : suffix,
+      name: args.name.trim(),
       appliesTo: args.appliesTo,
       archived: false,
       createdAt: now,
@@ -467,7 +451,6 @@ export const updateFoodGroup = mutation({
     await ctx.db.patch(args.groupId, {
       name: args.name.trim(),
       appliesTo: args.appliesTo,
-      slug: toSlug(args.name) || group.slug,
     })
   },
 })
@@ -614,7 +597,6 @@ export const createRecipe = mutation({
     description: v.optional(v.string()),
     instructions: v.optional(v.string()),
     notes: v.optional(v.string()),
-    ownerUserId: v.optional(v.string()),
     plannedIngredients: v.array(recipeIngredientValidator),
   },
   handler: async (ctx, args) => {
@@ -637,7 +619,6 @@ export const createRecipe = mutation({
     const recipeId = await ctx.db.insert('recipes', {
       name: args.name.trim(),
       description: args.description?.trim() || undefined,
-      ownerUserId: args.ownerUserId?.trim() || undefined,
       archived: false,
       latestVersionNumber: 1,
       createdAt: now,

@@ -852,14 +852,10 @@ function toLocalDateString(timestamp: number) {
 
 function getMealDateKey(meal: {
   eatenOn?: string;
-  eatenAt?: number;
   createdAt: number;
 }) {
   if (meal.eatenOn) {
     return meal.eatenOn;
-  }
-  if (meal.eatenAt) {
-    return toLocalDateString(meal.eatenAt);
   }
   return toLocalDateString(meal.createdAt);
 }
