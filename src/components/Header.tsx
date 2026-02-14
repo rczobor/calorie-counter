@@ -26,7 +26,27 @@ export default function Header() {
                   'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
               }}
             >
-              Dashboard
+              Meals
+            </Link>
+            <Link
+              to="/manage"
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              activeProps={{
+                className:
+                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
+              }}
+            >
+              Manage
+            </Link>
+            <Link
+              to="/people"
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              activeProps={{
+                className:
+                  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground',
+              }}
+            >
+              People
             </Link>
             <Link
               to="/demo/clerk"

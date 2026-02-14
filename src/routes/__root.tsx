@@ -8,6 +8,7 @@ import ClerkProvider from '../integrations/clerk/provider'
 
 import ConvexProvider from '../integrations/convex/provider'
 import { ThemeProvider } from '../components/theme-provider'
+import { Toaster } from '../components/ui/sonner'
 
 import appCss from '../styles.css?url'
 
@@ -52,6 +53,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <ConvexProvider>
               <Header />
               {children}
+              <Toaster />
               <TanStackDevtools
                 config={{
                   position: 'bottom-right',

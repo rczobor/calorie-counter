@@ -107,6 +107,7 @@ export default defineSchema({
     cookedAt: v.number(),
     cookedByPersonId: v.optional(v.id('people')),
     notes: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index('by_cookedAt', ['cookedAt'])
@@ -122,6 +123,7 @@ export default defineSchema({
     totalCalories: v.number(),
     kcalPer100g: v.number(),
     notes: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index('by_session', ['cookSessionId'])
@@ -136,11 +138,13 @@ export default defineSchema({
   meals: defineTable({
     personId: v.id('people'),
     name: v.optional(v.string()),
-    eatenAt: v.number(),
+    eatenOn: v.optional(v.string()),
+    eatenAt: v.optional(v.number()),
     notes: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
     createdAt: v.number(),
   })
-    .index('by_person_eatenAt', ['personId', 'eatenAt'])
+    .index('by_person_eatenOn', ['personId', 'eatenOn'])
     .index('by_createdAt', ['createdAt']),
   mealItems: defineTable({
     mealId: v.id('meals'),
