@@ -14,6 +14,7 @@ type DatePickerProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
 };
@@ -61,6 +62,7 @@ export function DatePicker({
   value,
   onChange,
   placeholder = "Pick a date",
+  ariaLabel,
   className,
   disabled,
 }: DatePickerProps) {
@@ -77,6 +79,7 @@ export function DatePicker({
               "data-[empty=true]:text-muted-foreground justify-start text-left font-normal",
               className,
             )}
+            aria-label={ariaLabel ?? placeholder}
             disabled={disabled}
           />
         }

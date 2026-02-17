@@ -253,6 +253,17 @@ function ManagePageContent() {
     }
   }
 
+  const confirmAndRunAction = (
+    message: string,
+    successText: string,
+    action: () => Promise<unknown>,
+  ) => {
+    if (!window.confirm(message)) {
+      return
+    }
+    void runAction(successText, action)
+  }
+
   const resetGroupForm = () => {
     setEditingGroupId(null)
     setGroupName('')
@@ -576,11 +587,13 @@ function ManagePageContent() {
             <CardContent className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                 <Input
+                  aria-label='Group name'
                   placeholder="Group name"
                   value={groupName}
                   onChange={(event) => setGroupName(event.target.value)}
                 />
                 <Select
+                  ariaLabel='Group scope'
                   value={groupScope}
                   onValueChange={(value) =>
                     setGroupScope(value as 'ingredient' | 'cookedFood' | 'both')
@@ -658,7 +671,7 @@ function ManagePageContent() {
                         size="sm"
                         variant="destructive"
                         onClick={() =>
-                          void runAction('Group deleted.', async () => {
+                          confirmAndRunAction('Delete this group permanently?', 'Group deleted.', async () => {
                             await deleteFoodGroup({ groupId: group._id })
                             if (editingGroupId === group._id) {
                               resetGroupForm()
@@ -686,22 +699,26 @@ function ManagePageContent() {
             <CardContent className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input
+                  aria-label='Ingredient name'
                   placeholder="Ingredient name"
                   value={ingredientName}
                   onChange={(event) => setIngredientName(event.target.value)}
                 />
                 <Input
+                  aria-label='Ingredient brand'
                   placeholder="Brand"
                   value={ingredientBrand}
                   onChange={(event) => setIngredientBrand(event.target.value)}
                 />
                 <Input
                   type="number"
+                  aria-label='Ingredient calories per 100 grams'
                   placeholder="kcal / 100g"
                   value={ingredientKcal}
                   onChange={(event) => setIngredientKcal(event.target.value)}
                 />
                 <Select
+                  ariaLabel='Ingredient default unit'
                   value={ingredientUnit}
                   onValueChange={(value) =>
                     setIngredientUnit(value as 'g' | 'ml' | 'piece')
@@ -714,11 +731,13 @@ function ManagePageContent() {
                 />
                 <Input
                   type="number"
+                  aria-label='Ingredient grams per unit'
                   placeholder="grams per unit"
                   value={ingredientGramsPerUnit}
                   onChange={(event) => setIngredientGramsPerUnit(event.target.value)}
                 />
                 <Select
+                  ariaLabel='Ingredient group'
                   value={ingredientGroupId}
                   onValueChange={(value) =>
                     setIngredientGroupId(value as Id<'foodGroups'> | '')
@@ -731,6 +750,7 @@ function ManagePageContent() {
                 />
               </div>
               <Textarea
+                aria-label='Ingredient notes'
                 placeholder="Notes"
                 value={ingredientNotes}
                 onChange={(event) => setIngredientNotes(event.target.value)}
@@ -826,7 +846,7 @@ function ManagePageContent() {
                         size="sm"
                         variant="destructive"
                         onClick={() =>
-                          void runAction('Ingredient deleted.', async () => {
+                          confirmAndRunAction('Delete this ingredient permanently?', 'Ingredient deleted.', async () => {
                             await deleteIngredient({ ingredientId: ingredient._id })
                             if (editingIngredientId === ingredient._id) {
                               resetIngredientForm()
@@ -856,22 +876,26 @@ function ManagePageContent() {
             <CardContent className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input
+                  aria-label='Recipe name'
                   placeholder="Recipe name"
                   value={recipeName}
                   onChange={(event) => setRecipeName(event.target.value)}
                 />
                 <Input
+                  aria-label='Recipe description'
                   placeholder="Description"
                   value={recipeDescription}
                   onChange={(event) => setRecipeDescription(event.target.value)}
                 />
               </div>
               <Textarea
+                aria-label='Recipe instructions'
                 placeholder="Instructions"
                 value={recipeInstructions}
                 onChange={(event) => setRecipeInstructions(event.target.value)}
               />
               <Input
+                aria-label='Recipe version notes'
                 placeholder="Version notes"
                 value={recipeNotes}
                 onChange={(event) => setRecipeNotes(event.target.value)}
@@ -883,11 +907,13 @@ function ManagePageContent() {
                   onValueChange={(value) =>
                     setRecipeLineIngredientId(value as Id<'ingredients'> | '')
                   }
+                  ariaLabel='Recipe ingredient search'
                   placeholder="Search ingredient"
                   options={ingredientOptions}
                 />
                 <Input
                   type="number"
+                  aria-label='Recipe ingredient amount'
                   placeholder={recipeLineAmountUnitLabel}
                   value={recipeLineAmount}
                   onChange={(event) => setRecipeLineAmount(event.target.value)}
@@ -954,6 +980,7 @@ function ManagePageContent() {
                                 return next
                               })
                             }}
+                            ariaLabel='Recipe line ingredient search'
                             placeholder="Search ingredient"
                             options={ingredientOptions}
                             className="space-y-1"
@@ -961,6 +988,7 @@ function ManagePageContent() {
                           <div className="space-y-1">
                             <Input
                               type="number"
+                              aria-label='Recipe line amount'
                               value={displayedValue}
                               placeholder={unitLabel}
                               onChange={(event) => {
@@ -1103,7 +1131,7 @@ function ManagePageContent() {
                         size="sm"
                         variant="destructive"
                         onClick={() =>
-                          void runAction('Recipe deleted.', async () => {
+                          confirmAndRunAction('Delete this recipe permanently?', 'Recipe deleted.', async () => {
                             await deleteRecipe({ recipeId: recipe._id })
                             if (editingRecipeId === recipe._id) {
                               resetRecipeForm()
@@ -1133,12 +1161,18 @@ function ManagePageContent() {
                 <p className="text-sm font-medium text-foreground">Session</p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <Input
+                    aria-label='Session label'
                     placeholder="Session label"
                     value={sessionLabel}
                     onChange={(event) => setSessionLabel(event.target.value)}
                   />
-                  <DatePicker value={sessionDate} onChange={setSessionDate} />
+                  <DatePicker
+                    value={sessionDate}
+                    onChange={setSessionDate}
+                    ariaLabel='Session date'
+                  />
                   <Select
+                    ariaLabel='Session person'
                     value={sessionPersonId}
                     onValueChange={(value) =>
                       setSessionPersonId(value as Id<'people'> | '')
@@ -1153,6 +1187,7 @@ function ManagePageContent() {
                     ]}
                   />
                   <Input
+                    aria-label='Session notes'
                     placeholder="Session notes"
                     value={sessionNotes}
                     onChange={(event) => setSessionNotes(event.target.value)}
@@ -1238,7 +1273,7 @@ function ManagePageContent() {
                           size="sm"
                           variant="destructive"
                           onClick={() =>
-                            void runAction('Session deleted.', async () => {
+                            confirmAndRunAction('Delete this session permanently?', 'Session deleted.', async () => {
                               await deleteCookSession({ sessionId: session._id })
                               if (editingSessionId === session._id) {
                                 resetSessionForm()
@@ -1258,6 +1293,7 @@ function ManagePageContent() {
                 <p className="text-sm font-medium text-foreground">Cooked food</p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <Select
+                    ariaLabel='Cooked food session'
                     value={cookedFoodSessionId}
                     onValueChange={(value) =>
                       setCookedFoodSessionId(value as Id<'cookSessions'> | '')
@@ -1269,6 +1305,7 @@ function ManagePageContent() {
                     }))}
                   />
                   <Input
+                    aria-label='Cooked food name'
                     placeholder="Cooked food name"
                     value={cookedFoodName}
                     onChange={(event) => setCookedFoodName(event.target.value)}
@@ -1278,10 +1315,12 @@ function ManagePageContent() {
                     onValueChange={(value) =>
                       applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
                     }
+                    ariaLabel='Cooked food recipe search'
                     placeholder="Search recipe"
                     options={recipeVersionOptions}
                   />
                   <Select
+                    ariaLabel='Cooked food group'
                     value={cookedFoodGroupId}
                     onValueChange={(value) =>
                       setCookedFoodGroupId(value as Id<'foodGroups'> | '')
@@ -1297,6 +1336,7 @@ function ManagePageContent() {
                   />
                   <Input
                     type="number"
+                    aria-label='Finished cooked food weight'
                     placeholder="Finished grams"
                     value={cookedFoodFinishedWeight}
                     onChange={(event) =>
@@ -1304,6 +1344,7 @@ function ManagePageContent() {
                     }
                   />
                   <Input
+                    aria-label='Cooked food notes'
                     placeholder="Notes"
                     value={cookedFoodNotes}
                     onChange={(event) => setCookedFoodNotes(event.target.value)}
@@ -1316,6 +1357,7 @@ function ManagePageContent() {
                     onValueChange={(value) =>
                       setCookedFoodLineIngredientId(value as Id<'ingredients'> | '')
                     }
+                    ariaLabel='Cooked food ingredient search'
                     placeholder="Search ingredient"
                     options={ingredients.map((item) => ({
                       value: item._id,
@@ -1324,6 +1366,7 @@ function ManagePageContent() {
                   />
                   <Input
                     type="number"
+                    aria-label='Cooked food raw grams'
                     placeholder="raw grams"
                     value={cookedFoodLineWeight}
                     onChange={(event) => setCookedFoodLineWeight(event.target.value)}
@@ -1353,11 +1396,13 @@ function ManagePageContent() {
                                   ingredientId: value as Id<'ingredients'>,
                                 })
                               }
+                              ariaLabel='Cooked food line ingredient search'
                               placeholder="Search ingredient"
                               options={ingredientOptions}
                             />
                             <Input
                               type="number"
+                              aria-label='Cooked food line raw grams'
                               value={displayedWeight}
                               placeholder="raw grams"
                               onChange={(event) => {
@@ -1505,7 +1550,7 @@ function ManagePageContent() {
                           size="sm"
                           variant="destructive"
                           onClick={() =>
-                            void runAction('Cooked food deleted.', async () => {
+                            confirmAndRunAction('Delete this cooked food permanently?', 'Cooked food deleted.', async () => {
                               await deleteCookedFood({ cookedFoodId: food._id })
                               if (editingCookedFoodId === food._id) {
                                 resetCookedFoodForm()

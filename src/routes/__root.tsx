@@ -99,7 +99,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             <CardTitle>Authentication setup required</CardTitle>
             <CardDescription>
               Add `VITE_CLERK_PUBLISHABLE_KEY` to
-              `/Users/hu901191/calorie-counter/.env.local` to sign in and access
+              your project `.env.local` to sign in and access
               data.
             </CardDescription>
           </CardHeader>

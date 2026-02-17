@@ -56,8 +56,8 @@ function MealDashboardPage() {
           <CardHeader>
             <CardTitle>Connect Convex First</CardTitle>
             <CardDescription>
-              Add `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` in
-              `/Users/hu901191/calorie-counter/.env.local`, then reload.
+              Add `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` in your
+              project `.env.local`, then reload.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -214,6 +214,17 @@ function MealDashboardPageContent() {
       toast.error(toErrorMessage(error));
     }
   }
+
+  const confirmAndRunAction = (
+    message: string,
+    successText: string,
+    action: () => Promise<unknown>,
+  ) => {
+    if (!window.confirm(message)) {
+      return;
+    }
+    void runAction(successText, action);
+  };
 
   const resetDraftItemInputs = () => {
     setItemSourceType("ingredient");
@@ -531,15 +542,21 @@ function MealDashboardPageContent() {
                     )}
                   </div>
                 </div>
-                <DatePicker value={mealDate} onChange={setMealDate} />
+                <DatePicker
+                  value={mealDate}
+                  onChange={setMealDate}
+                  ariaLabel="Meal date"
+                />
               </div>
 
               <Input
+                aria-label="Meal name"
                 placeholder="Meal name (optional)"
                 value={mealName}
                 onChange={(event) => setMealName(event.target.value)}
               />
               <Input
+                aria-label="Meal notes"
                 placeholder="Meal notes"
                 value={mealNotes}
                 onChange={(event) => setMealNotes(event.target.value)}
@@ -590,6 +607,7 @@ function MealDashboardPageContent() {
                       onValueChange={(value) =>
                         setItemIngredientId(value as Id<"ingredients"> | "")
                       }
+                      ariaLabel="Ingredient search"
                       placeholder="Search ingredients"
                       options={ingredients.map((item) => ({
                         value: item._id,
@@ -603,6 +621,7 @@ function MealDashboardPageContent() {
                       onValueChange={(value) =>
                         setItemCookedFoodId(value as Id<"cookedFoods"> | "")
                       }
+                      ariaLabel="Cooked food search"
                       placeholder="Search cooked foods"
                       options={cookedFoods.map((item) => ({
                         value: item._id,
@@ -613,6 +632,7 @@ function MealDashboardPageContent() {
                   )}
                   <Input
                     type="number"
+                    aria-label="Consumed grams"
                     placeholder="grams"
                     value={itemWeight}
                     onChange={(event) => setItemWeight(event.target.value)}
@@ -803,12 +823,16 @@ function MealDashboardPageContent() {
                           size="sm"
                           variant="destructive"
                           onClick={() =>
-                            void runAction("Meal deleted.", async () => {
+                            confirmAndRunAction(
+                              "Delete this meal permanently?",
+                              "Meal deleted.",
+                              async () => {
                               await deleteMeal({ mealId: meal._id });
                               if (editingMealId === meal._id) {
                                 resetMealForm();
                               }
-                            })
+                              },
+                            )
                           }
                         >
                           <Trash2 className="h-3.5 w-3.5" />

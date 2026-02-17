@@ -112,6 +112,17 @@ function PeoplePageContent() {
     }
   }
 
+  const confirmAndRunAction = (
+    message: string,
+    successText: string,
+    action: () => Promise<unknown>,
+  ) => {
+    if (!window.confirm(message)) {
+      return
+    }
+    void runAction(successText, action)
+  }
+
   const resetForm = () => {
     setEditingPersonId(null)
     setName('')
@@ -233,22 +244,26 @@ function PeoplePageContent() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Input
+                aria-label="Person name"
                 placeholder="Name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
               <Input
                 type="number"
+                aria-label="Daily calorie goal"
                 placeholder="Daily kcal goal"
                 value={goal}
                 onChange={(event) => setGoal(event.target.value)}
               />
               <Input
+                aria-label="Person notes"
                 placeholder="Notes"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
               />
               <Input
+                aria-label="Goal change reason"
                 placeholder="Reason for goal change (optional)"
                 value={goalReason}
                 onChange={(event) => setGoalReason(event.target.value)}
@@ -358,7 +373,7 @@ function PeoplePageContent() {
                           size="sm"
                           variant="destructive"
                           onClick={() =>
-                            void runAction('Person deleted.', async () => {
+                            confirmAndRunAction('Delete this person permanently?', 'Person deleted.', async () => {
                               await deletePerson({ personId: person._id })
                               if (editingPersonId === person._id) {
                                 resetForm()

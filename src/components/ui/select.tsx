@@ -17,6 +17,7 @@ type SelectProps<Value extends string = string> = {
   value?: Value | null
   onValueChange?: (value: Value | null) => void
   placeholder?: string
+  ariaLabel?: string
   className?: string
   size?: 'sm' | 'default'
 } & Omit<
@@ -29,6 +30,7 @@ function Select<Value extends string = string>({
   value = null,
   onValueChange,
   placeholder,
+  ariaLabel,
   className,
   size = 'default',
   ...rootProps
@@ -44,7 +46,7 @@ function Select<Value extends string = string>({
       onValueChange={(nextValue) => onValueChange?.((nextValue ?? null) as Value | null)}
       {...rootProps}
     >
-      <SelectTrigger className={className} size={size}>
+      <SelectTrigger className={className} size={size} aria-label={ariaLabel ?? placeholder}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
