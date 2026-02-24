@@ -31,9 +31,26 @@ const recipeIngredientValidator = v.object({
   notes: v.optional(v.string()),
 })
 
-const cookedFoodIngredientValidator = v.object({
-  ingredientId: v.id('ingredients'),
-  rawWeightGrams: v.number(),
+const cookedFoodIngredientValidator = v.union(
+  v.object({
+    sourceType: v.literal('ingredient'),
+    ingredientId: v.id('ingredients'),
+    rawWeightGrams: v.number(),
+  }),
+  v.object({
+    sourceType: v.literal('custom'),
+    name: v.string(),
+    kcalPer100g: v.number(),
+    rawWeightGrams: v.number(),
+    saveToCatalog: v.optional(v.boolean()),
+  }),
+)
+
+const cookedFoodRecipeDraftValidator = v.object({
+  name: v.string(),
+  description: v.optional(v.string()),
+  instructions: v.optional(v.string()),
+  notes: v.optional(v.string()),
 })
 
 const mealItemInputValidator = v.object({
@@ -111,42 +128,100 @@ function mealDateKey(meal: {
 async function buildCookedFoodNutrition(
   db: DatabaseWriter,
   ownerUserId: string,
-  ingredients: {
-    ingredientId: Id<'ingredients'>
-    rawWeightGrams: number
-  }[],
+  ingredients: Array<
+    | {
+        sourceType: 'ingredient'
+        ingredientId: Id<'ingredients'>
+        rawWeightGrams: number
+      }
+    | {
+        sourceType: 'custom'
+        name: string
+        kcalPer100g: number
+        rawWeightGrams: number
+        saveToCatalog?: boolean
+      }
+  >,
   finishedWeightGrams: number,
+  options?: {
+    persistAllCustomIngredients?: boolean
+  },
 ) {
   assertPositive(finishedWeightGrams, 'Finished weight')
   if (ingredients.length === 0) {
     throw new Error('At least one ingredient is required.')
   }
 
-  const ingredientDocs = await Promise.all(
-    ingredients.map((item) => db.get(item.ingredientId)),
-  )
-  if (ingredientDocs.some((item) => !item || item.ownerUserId !== ownerUserId)) {
-    throw new Error('One or more ingredients are missing.')
-  }
-
+  const now = Date.now()
+  const createdIngredientByKey = new Map<string, Id<'ingredients'>>()
+  const persistAllCustomIngredients = options?.persistAllCustomIngredients ?? false
   let totalRawWeightGrams = 0
   let totalCalories = 0
-  const ingredientSnapshots = ingredients.map((line, index) => {
+  const ingredientSnapshots: Array<{
+    ingredientId?: Id<'ingredients'>
+    ingredientNameSnapshot: string
+    rawWeightGrams: number
+    ingredientKcalPer100gSnapshot: number
+    ingredientCaloriesSnapshot: number
+  }> = []
+  for (const line of ingredients) {
     assertPositive(line.rawWeightGrams, 'Raw ingredient weight')
-    const ingredient = ingredientDocs[index]
-    if (!ingredient) {
-      throw new Error('Ingredient not found.')
+    if (line.sourceType === 'ingredient') {
+      const ingredient = await db.get(line.ingredientId)
+      if (!ingredient || ingredient.ownerUserId !== ownerUserId) {
+        throw new Error('One or more ingredients are missing.')
+      }
+      const ingredientCalories = (line.rawWeightGrams * ingredient.kcalPer100g) / 100
+      totalRawWeightGrams += line.rawWeightGrams
+      totalCalories += ingredientCalories
+      ingredientSnapshots.push({
+        ingredientId: ingredient._id,
+        ingredientNameSnapshot: ingredient.name,
+        rawWeightGrams: line.rawWeightGrams,
+        ingredientKcalPer100gSnapshot: ingredient.kcalPer100g,
+        ingredientCaloriesSnapshot: ingredientCalories,
+      })
+      continue
     }
-    const ingredientCalories = (line.rawWeightGrams * ingredient.kcalPer100g) / 100
+
+    assertNonEmpty(line.name, 'Custom ingredient name')
+    assertPositive(line.kcalPer100g, 'Custom ingredient kcal/100g')
+    const ingredientName = line.name.trim()
+    const shouldSaveToCatalog = persistAllCustomIngredients || Boolean(line.saveToCatalog)
+    let savedIngredientId: Id<'ingredients'> | undefined
+    if (shouldSaveToCatalog) {
+      const dedupeKey = `${ingredientName.toLowerCase()}::${line.kcalPer100g.toFixed(6)}`
+      const cachedId = createdIngredientByKey.get(dedupeKey)
+      if (cachedId) {
+        savedIngredientId = cachedId
+      } else {
+        savedIngredientId = await db.insert('ingredients', {
+          ownerUserId,
+          name: ingredientName,
+          brand: undefined,
+          kcalPer100g: line.kcalPer100g,
+          defaultUnit: 'g',
+          gramsPerUnit: undefined,
+          groupIds: [],
+          notes: undefined,
+          archived: false,
+          createdAt: now,
+        })
+        createdIngredientByKey.set(dedupeKey, savedIngredientId)
+      }
+    }
+
+    const ingredientCalories = (line.rawWeightGrams * line.kcalPer100g) / 100
     totalRawWeightGrams += line.rawWeightGrams
     totalCalories += ingredientCalories
-    return {
-      ingredientId: ingredient._id,
+    ingredientSnapshots.push({
+      ingredientId: savedIngredientId,
+      ingredientNameSnapshot: ingredientName,
       rawWeightGrams: line.rawWeightGrams,
-      ingredientKcalPer100gSnapshot: ingredient.kcalPer100g,
+      ingredientKcalPer100gSnapshot: line.kcalPer100g,
       ingredientCaloriesSnapshot: ingredientCalories,
-    }
-  })
+    })
+  }
 
   return {
     totalRawWeightGrams,
@@ -215,11 +290,29 @@ async function buildMealItemSnapshots(
   )
 }
 
+async function touchCookSession(
+  ctx: MutationCtx,
+  ownerUserId: string,
+  sessionId: Id<'cookSessions'>,
+  updatedAt = Date.now(),
+) {
+  const session = await ctx.db.get(sessionId)
+  if (!session || session.ownerUserId !== ownerUserId) {
+    return
+  }
+  await ctx.db.patch(sessionId, { updatedAt })
+}
+
 async function deleteCookedFoodWithChildren(
   ctx: MutationCtx,
   ownerUserId: string,
   cookedFoodId: Id<'cookedFoods'>,
 ) {
+  const cookedFood = assertOwnedOrThrow(
+    await ctx.db.get(cookedFoodId),
+    ownerUserId,
+    'Cooked food not found.',
+  )
   const mealRefs = await ctx.db
     .query('mealItems')
     .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
@@ -239,6 +332,7 @@ async function deleteCookedFoodWithChildren(
   )
 
   await ctx.db.delete(cookedFoodId)
+  return cookedFood.cookSessionId
 }
 
 export const getManagementData = query({
@@ -319,7 +413,9 @@ export const getManagementData = query({
       recipes: recipes.sort((a, b) => b.createdAt - a.createdAt),
       recipeVersions: recipeVersions.sort((a, b) => b.createdAt - a.createdAt),
       recipeVersionIngredients,
-      cookSessions: cookSessions.sort((a, b) => b.cookedAt - a.cookedAt),
+      cookSessions: cookSessions.sort(
+        (a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt),
+      ),
       cookedFoods: cookedFoods.sort((a, b) => b.createdAt - a.createdAt),
       cookedFoodIngredients,
       meals: meals.sort((a, b) => {
@@ -943,6 +1039,7 @@ export const createCookSession = mutation({
       cookedByPersonId: args.cookedByPersonId,
       notes: args.notes?.trim() || undefined,
       archived: false,
+      updatedAt: now,
       createdAt: now,
     })
   },
@@ -975,6 +1072,7 @@ export const updateCookSession = mutation({
       cookedAt: args.cookedAt ?? session.cookedAt,
       cookedByPersonId: args.cookedByPersonId,
       notes: args.notes?.trim() || undefined,
+      updatedAt: Date.now(),
     })
   },
 })
@@ -1031,6 +1129,8 @@ export const createCookedFood = mutation({
     name: v.string(),
     recipeId: v.optional(v.id('recipes')),
     recipeVersionId: v.optional(v.id('recipeVersions')),
+    saveAsRecipe: v.optional(v.boolean()),
+    recipeDraft: v.optional(cookedFoodRecipeDraftValidator),
     groupIds: v.array(v.id('foodGroups')),
     finishedWeightGrams: v.number(),
     notes: v.optional(v.string()),
@@ -1044,19 +1144,24 @@ export const createCookedFood = mutation({
       ownerUserId,
       'Cook session not found.',
     )
-    if (args.recipeId) {
-      assertOwnedOrThrow(
-        await ctx.db.get(args.recipeId),
-        ownerUserId,
-        'Recipe not found.',
-      )
+    if (args.saveAsRecipe && (args.recipeId || args.recipeVersionId)) {
+      throw new Error('Cannot select an existing recipe while saving as a new recipe.')
     }
-    if (args.recipeVersionId) {
-      assertOwnedOrThrow(
-        await ctx.db.get(args.recipeVersionId),
-        ownerUserId,
-        'Recipe version not found.',
-      )
+    if (!args.saveAsRecipe) {
+      if (args.recipeId) {
+        assertOwnedOrThrow(
+          await ctx.db.get(args.recipeId),
+          ownerUserId,
+          'Recipe not found.',
+        )
+      }
+      if (args.recipeVersionId) {
+        assertOwnedOrThrow(
+          await ctx.db.get(args.recipeVersionId),
+          ownerUserId,
+          'Recipe version not found.',
+        )
+      }
     }
     const groups = await Promise.all(args.groupIds.map((groupId) => ctx.db.get(groupId)))
     if (groups.some((group) => !group || group.ownerUserId !== ownerUserId)) {
@@ -1068,15 +1173,62 @@ export const createCookedFood = mutation({
       ownerUserId,
       args.ingredients,
       args.finishedWeightGrams,
+      {
+        persistAllCustomIngredients: Boolean(args.saveAsRecipe),
+      },
     )
 
     const now = Date.now()
+    let linkedRecipeId = args.recipeId
+    let linkedRecipeVersionId = args.recipeVersionId
+    if (args.saveAsRecipe) {
+      const recipeName = args.recipeDraft?.name?.trim() || args.name.trim()
+      assertNonEmpty(recipeName, 'Recipe name')
+      const recipeLines = nutrition.ingredientSnapshots.map((snapshot) => ({
+        ingredientId: snapshot.ingredientId,
+        plannedWeightGrams: snapshot.rawWeightGrams,
+      }))
+      if (recipeLines.some((line) => !line.ingredientId)) {
+        throw new Error('Unable to save recipe because one or more ingredients are not persisted.')
+      }
+
+      linkedRecipeId = await ctx.db.insert('recipes', {
+        ownerUserId,
+        name: recipeName,
+        description: args.recipeDraft?.description?.trim() || undefined,
+        archived: false,
+        latestVersionNumber: 1,
+        createdAt: now,
+      })
+      linkedRecipeVersionId = await ctx.db.insert('recipeVersions', {
+        ownerUserId,
+        recipeId: linkedRecipeId,
+        versionNumber: 1,
+        name: recipeName,
+        instructions: args.recipeDraft?.instructions?.trim() || undefined,
+        notes: args.recipeDraft?.notes?.trim() || undefined,
+        isCurrent: true,
+        createdAt: now,
+      })
+      await Promise.all(
+        recipeLines.map((line) =>
+          ctx.db.insert('recipeVersionIngredients', {
+            ownerUserId,
+            recipeVersionId: linkedRecipeVersionId as Id<'recipeVersions'>,
+            ingredientId: line.ingredientId as Id<'ingredients'>,
+            plannedWeightGrams: line.plannedWeightGrams,
+            notes: undefined,
+          }),
+        ),
+      )
+    }
+
     const cookedFoodId = await ctx.db.insert('cookedFoods', {
       ownerUserId,
       cookSessionId: args.cookSessionId,
       name: args.name.trim(),
-      recipeId: args.recipeId,
-      recipeVersionId: args.recipeVersionId,
+      recipeId: linkedRecipeId,
+      recipeVersionId: linkedRecipeVersionId,
       groupIds: args.groupIds,
       finishedWeightGrams: args.finishedWeightGrams,
       totalRawWeightGrams: nutrition.totalRawWeightGrams,
@@ -1093,6 +1245,7 @@ export const createCookedFood = mutation({
           ownerUserId,
           cookedFoodId,
           ingredientId: snapshot.ingredientId,
+          ingredientNameSnapshot: snapshot.ingredientNameSnapshot,
           rawWeightGrams: snapshot.rawWeightGrams,
           ingredientKcalPer100gSnapshot: snapshot.ingredientKcalPer100gSnapshot,
           ingredientCaloriesSnapshot: snapshot.ingredientCaloriesSnapshot,
@@ -1100,6 +1253,7 @@ export const createCookedFood = mutation({
       ),
     )
 
+    await touchCookSession(ctx, ownerUserId, args.cookSessionId, now)
     return cookedFoodId
   },
 })
@@ -1118,7 +1272,7 @@ export const updateCookedFood = mutation({
   },
   handler: async (ctx, args) => {
     const ownerUserId = await requireAuthenticatedUserId(ctx)
-    assertOwnedOrThrow(
+    const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
       ownerUserId,
       'Cooked food not found.',
@@ -1154,6 +1308,7 @@ export const updateCookedFood = mutation({
       args.ingredients,
       args.finishedWeightGrams,
     )
+    const now = Date.now()
     await ctx.db.patch(args.cookedFoodId, {
       cookSessionId: args.cookSessionId,
       name: args.name.trim(),
@@ -1179,12 +1334,17 @@ export const updateCookedFood = mutation({
           ownerUserId,
           cookedFoodId: args.cookedFoodId,
           ingredientId: snapshot.ingredientId,
+          ingredientNameSnapshot: snapshot.ingredientNameSnapshot,
           rawWeightGrams: snapshot.rawWeightGrams,
           ingredientKcalPer100gSnapshot: snapshot.ingredientKcalPer100gSnapshot,
           ingredientCaloriesSnapshot: snapshot.ingredientCaloriesSnapshot,
         }),
       ),
     )
+    await touchCookSession(ctx, ownerUserId, args.cookSessionId, now)
+    if (cookedFood.cookSessionId !== args.cookSessionId) {
+      await touchCookSession(ctx, ownerUserId, cookedFood.cookSessionId, now)
+    }
   },
 })
 
@@ -1195,12 +1355,13 @@ export const setCookedFoodArchived = mutation({
   },
   handler: async (ctx, args) => {
     const ownerUserId = await requireAuthenticatedUserId(ctx)
-    assertOwnedOrThrow(
+    const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
       ownerUserId,
       'Cooked food not found.',
     )
     await ctx.db.patch(args.cookedFoodId, { archived: args.archived })
+    await touchCookSession(ctx, ownerUserId, cookedFood.cookSessionId)
   },
 })
 
@@ -1208,12 +1369,12 @@ export const deleteCookedFood = mutation({
   args: { cookedFoodId: v.id('cookedFoods') },
   handler: async (ctx, args) => {
     const ownerUserId = await requireAuthenticatedUserId(ctx)
-    assertOwnedOrThrow(
-      await ctx.db.get(args.cookedFoodId),
+    const sessionId = await deleteCookedFoodWithChildren(
+      ctx,
       ownerUserId,
-      'Cooked food not found.',
+      args.cookedFoodId,
     )
-    await deleteCookedFoodWithChildren(ctx, ownerUserId, args.cookedFoodId)
+    await touchCookSession(ctx, ownerUserId, sessionId)
   },
 })
 

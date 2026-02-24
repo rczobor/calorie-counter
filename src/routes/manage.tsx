@@ -20,7 +20,9 @@ import { Input } from '@/components/ui/input'
 import { SearchablePicker } from '@/components/ui/searchable-picker'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { Toggle } from '@/components/ui/toggle'
 
 const EMPTY_MANAGEMENT_DATA = {
   people: [],
@@ -43,11 +45,25 @@ type RecipeIngredientDraft = {
   plannedWeightGrams: number
 }
 
-type CookedFoodIngredientDraft = {
+type ExistingCookedFoodIngredientDraft = {
   draftId: string
+  sourceType: 'ingredient'
   ingredientId: Id<'ingredients'>
   rawWeightGrams: number
 }
+
+type CustomCookedFoodIngredientDraft = {
+  draftId: string
+  sourceType: 'custom'
+  name: string
+  kcalPer100g: number
+  rawWeightGrams: number
+  saveToCatalog: boolean
+}
+
+type CookedFoodIngredientDraft =
+  | ExistingCookedFoodIngredientDraft
+  | CustomCookedFoodIngredientDraft
 
 export const Route = createFileRoute('/manage')({
   ssr: false,
@@ -119,15 +135,31 @@ function ManagePageContent() {
   const [cookedFoodRecipeVersionId, setCookedFoodRecipeVersionId] = useState<
     Id<'recipeVersions'> | ''
   >('')
+  const [saveCookedFoodAsRecipe, setSaveCookedFoodAsRecipe] = useState(false)
+  const [cookedFoodRecipeDraftName, setCookedFoodRecipeDraftName] = useState('')
+  const [cookedFoodRecipeDraftDescription, setCookedFoodRecipeDraftDescription] =
+    useState('')
+  const [cookedFoodRecipeDraftInstructions, setCookedFoodRecipeDraftInstructions] =
+    useState('')
+  const [cookedFoodRecipeDraftNotes, setCookedFoodRecipeDraftNotes] = useState('')
   const [cookedFoodNotes, setCookedFoodNotes] = useState('')
+  const [cookedFoodLineSourceType, setCookedFoodLineSourceType] = useState<
+    'ingredient' | 'custom'
+  >('ingredient')
   const [cookedFoodLineIngredientId, setCookedFoodLineIngredientId] = useState<
     Id<'ingredients'> | ''
   >('')
+  const [cookedFoodLineCustomName, setCookedFoodLineCustomName] = useState('')
+  const [cookedFoodLineCustomKcal, setCookedFoodLineCustomKcal] = useState('')
+  const [cookedFoodLineCustomSaveToCatalog, setCookedFoodLineCustomSaveToCatalog] =
+    useState(false)
   const [cookedFoodLineWeight, setCookedFoodLineWeight] = useState('')
   const [cookedFoodIngredientLines, setCookedFoodIngredientLines] = useState<
     CookedFoodIngredientDraft[]
   >([])
   const [cookedFoodIngredientWeightByDraftId, setCookedFoodIngredientWeightByDraftId] =
+    useState<Record<string, string>>({})
+  const [cookedFoodIngredientKcalByDraftId, setCookedFoodIngredientKcalByDraftId] =
     useState<Record<string, string>>({})
 
   const dataResult = useQuery(api.nutrition.getManagementData)
@@ -234,6 +266,10 @@ function ManagePageContent() {
     () => new Map(ingredients.map((item) => [item._id, item])),
     [ingredients],
   )
+  const ingredientByIdAll = useMemo(
+    () => new Map(data.ingredients.map((item) => [item._id, item])),
+    [data.ingredients],
+  )
   const ingredientOptions = useMemo(
     () =>
       ingredients.map((item) => ({
@@ -242,6 +278,28 @@ function ManagePageContent() {
         keywords: `${item.brand ?? ''} ${item.kcalPer100g.toFixed(1)} kcal`,
       })),
     [ingredients],
+  )
+  const ingredientOptionsAll = useMemo(
+    () =>
+      data.ingredients.map((item) => ({
+        value: item._id,
+        label: item.archived ? `${item.name} (archived)` : item.name,
+        keywords: `${item.brand ?? ''} ${item.kcalPer100g.toFixed(1)} kcal`,
+      })),
+    [data.ingredients],
+  )
+  const sessionOptions = useMemo(
+    () =>
+      cookSessions.map((session) => ({
+        value: session._id,
+        label: formatCookSessionOptionLabel(session),
+        keywords: [
+          session.label ?? '',
+          toLocalDateString(session.cookedAt),
+          toLocalDateString(getCookSessionModifiedAt(session)),
+        ].join(' '),
+      })),
+    [cookSessions],
   )
 
   async function runAction(successText: string, action: () => Promise<unknown>) {
@@ -304,11 +362,21 @@ function ManagePageContent() {
     setCookedFoodGroupId('')
     setCookedFoodFinishedWeight('')
     setCookedFoodRecipeVersionId('')
+    setSaveCookedFoodAsRecipe(false)
+    setCookedFoodRecipeDraftName('')
+    setCookedFoodRecipeDraftDescription('')
+    setCookedFoodRecipeDraftInstructions('')
+    setCookedFoodRecipeDraftNotes('')
     setCookedFoodNotes('')
+    setCookedFoodLineSourceType('ingredient')
     setCookedFoodLineIngredientId('')
+    setCookedFoodLineCustomName('')
+    setCookedFoodLineCustomKcal('')
+    setCookedFoodLineCustomSaveToCatalog(false)
     setCookedFoodLineWeight('')
     setCookedFoodIngredientLines([])
     setCookedFoodIngredientWeightByDraftId({})
+    setCookedFoodIngredientKcalByDraftId({})
   }
 
   const addRecipeIngredientLine = () => {
@@ -353,26 +421,53 @@ function ManagePageContent() {
   }
   const addCookedFoodIngredientLine = () => {
     const parsed = Number(cookedFoodLineWeight)
-    if (!cookedFoodLineIngredientId || !Number.isFinite(parsed) || parsed <= 0) {
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return
+    }
+    if (cookedFoodLineSourceType === 'ingredient') {
+      if (!cookedFoodLineIngredientId) {
+        return
+      }
+      setCookedFoodIngredientLines((current) => [
+        ...current,
+        {
+          draftId: createCookedFoodIngredientDraftId(),
+          sourceType: 'ingredient',
+          ingredientId: cookedFoodLineIngredientId,
+          rawWeightGrams: parsed,
+        },
+      ])
+      setCookedFoodLineIngredientId('')
+      setCookedFoodLineWeight('')
+      return
+    }
+
+    const parsedKcal = Number(cookedFoodLineCustomKcal)
+    if (!cookedFoodLineCustomName.trim() || !Number.isFinite(parsedKcal) || parsedKcal <= 0) {
       return
     }
     setCookedFoodIngredientLines((current) => [
       ...current,
       {
         draftId: createCookedFoodIngredientDraftId(),
-        ingredientId: cookedFoodLineIngredientId,
+        sourceType: 'custom',
+        name: cookedFoodLineCustomName.trim(),
+        kcalPer100g: parsedKcal,
         rawWeightGrams: parsed,
+        saveToCatalog: cookedFoodLineCustomSaveToCatalog,
       },
     ])
-    setCookedFoodLineIngredientId('')
+    setCookedFoodLineCustomName('')
+    setCookedFoodLineCustomKcal('')
+    setCookedFoodLineCustomSaveToCatalog(false)
     setCookedFoodLineWeight('')
   }
   const updateCookedFoodIngredientLine = (
     draftId: string,
-    update: Partial<CookedFoodIngredientDraft>,
+    updater: (line: CookedFoodIngredientDraft) => CookedFoodIngredientDraft,
   ) => {
     setCookedFoodIngredientLines((current) =>
-      current.map((line) => (line.draftId === draftId ? { ...line, ...update } : line)),
+      current.map((line) => (line.draftId === draftId ? updater(line) : line)),
     )
   }
   const removeCookedFoodIngredientLine = (draftId: string) => {
@@ -382,9 +477,17 @@ function ManagePageContent() {
       delete next[draftId]
       return next
     })
+    setCookedFoodIngredientKcalByDraftId((current) => {
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
   }
   const applyRecipeVersionToCookedFood = (recipeVersionId: Id<'recipeVersions'> | '') => {
     setCookedFoodRecipeVersionId(recipeVersionId)
+    if (recipeVersionId) {
+      setSaveCookedFoodAsRecipe(false)
+    }
     if (!recipeVersionId) {
       return
     }
@@ -396,12 +499,18 @@ function ManagePageContent() {
     setCookedFoodIngredientLines(
       recipeLines.map((line) => ({
         draftId: createCookedFoodIngredientDraftId(),
+        sourceType: 'ingredient',
         ingredientId: line.ingredientId,
         rawWeightGrams: line.plannedWeightGrams,
       })),
     )
     setCookedFoodIngredientWeightByDraftId({})
+    setCookedFoodIngredientKcalByDraftId({})
   }
+
+  const resolvedCookedFoodSessionId =
+    cookedFoodSessionId || (editingCookedFoodId ? '' : (cookSessions[0]?._id ?? ''))
+
   const selectedRecipeLineIngredient = recipeLineIngredientId
     ? ingredientById.get(recipeLineIngredientId)
     : undefined
@@ -1208,13 +1317,15 @@ function ManagePageContent() {
                               cookedByPersonId: sessionPersonId || undefined,
                               notes: sessionNotes.trim() || undefined,
                             })
+                            setCookedFoodSessionId(editingSessionId)
                           } else {
-                            await createCookSession({
+                            const sessionId = await createCookSession({
                               label: sessionLabel.trim() || undefined,
                               cookedAt,
                               cookedByPersonId: sessionPersonId || undefined,
                               notes: sessionNotes.trim() || undefined,
                             })
+                            setCookedFoodSessionId(sessionId)
                           }
                           resetSessionForm()
                         },
@@ -1235,7 +1346,7 @@ function ManagePageContent() {
                       key={session._id}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 px-3 py-2 text-sm"
                     >
-                      <span>{session.label ?? toLocalDateString(session.cookedAt)}</span>
+                      <span>{formatCookSessionOptionLabel(session)}</span>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -1292,17 +1403,14 @@ function ManagePageContent() {
               <div className="rounded-lg border border-border p-3">
                 <p className="text-sm font-medium text-foreground">Cooked food</p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  <Select
-                    ariaLabel='Cooked food session'
-                    value={cookedFoodSessionId}
+                  <SearchablePicker
+                    ariaLabel='Cooked food session search'
+                    value={resolvedCookedFoodSessionId}
                     onValueChange={(value) =>
                       setCookedFoodSessionId(value as Id<'cookSessions'> | '')
                     }
-                    placeholder="Session"
-                    options={cookSessions.map((session) => ({
-                      value: session._id,
-                      label: session.label ?? toLocalDateString(session.cookedAt),
-                    }))}
+                    placeholder="Search session"
+                    options={sessionOptions}
                   />
                   <Input
                     aria-label='Cooked food name'
@@ -1310,15 +1418,21 @@ function ManagePageContent() {
                     value={cookedFoodName}
                     onChange={(event) => setCookedFoodName(event.target.value)}
                   />
-                  <SearchablePicker
-                    value={cookedFoodRecipeVersionId}
-                    onValueChange={(value) =>
-                      applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
-                    }
-                    ariaLabel='Cooked food recipe search'
-                    placeholder="Search recipe"
-                    options={recipeVersionOptions}
-                  />
+                  {editingCookedFoodId || !saveCookedFoodAsRecipe ? (
+                    <SearchablePicker
+                      value={cookedFoodRecipeVersionId}
+                      onValueChange={(value) =>
+                        applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
+                      }
+                      ariaLabel='Cooked food recipe search'
+                      placeholder="Search recipe"
+                      options={recipeVersionOptions}
+                    />
+                  ) : (
+                    <div className="rounded-md border border-emerald-400/35 bg-emerald-500/8 px-3 py-2 text-xs text-foreground">
+                      New recipe will be created from these ingredient lines.
+                    </div>
+                  )}
                   <Select
                     ariaLabel='Cooked food group'
                     value={cookedFoodGroupId}
@@ -1350,31 +1464,154 @@ function ManagePageContent() {
                     onChange={(event) => setCookedFoodNotes(event.target.value)}
                   />
                 </div>
+                {!editingCookedFoodId ? (
+                  <div className="mt-3 rounded-md bg-muted/35 p-3">
+                    <label className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
+                      Save this cooked food as a reusable recipe
+                      <Switch
+                        checked={saveCookedFoodAsRecipe}
+                        onCheckedChange={(checked) => {
+                          const nextChecked = Boolean(checked)
+                          setSaveCookedFoodAsRecipe(nextChecked)
+                          if (nextChecked) {
+                            setCookedFoodRecipeVersionId('')
+                            if (!cookedFoodRecipeDraftName.trim() && cookedFoodName.trim()) {
+                              setCookedFoodRecipeDraftName(cookedFoodName.trim())
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                    {saveCookedFoodAsRecipe ? (
+                      <div className="mt-3 space-y-3">
+                        <Input
+                          aria-label='Recipe name from cooked food'
+                          placeholder={cookedFoodName.trim() || 'Recipe name'}
+                          value={cookedFoodRecipeDraftName}
+                          onChange={(event) =>
+                            setCookedFoodRecipeDraftName(event.target.value)
+                          }
+                        />
+                        <Input
+                          aria-label='Recipe description from cooked food'
+                          placeholder="Description (optional)"
+                          value={cookedFoodRecipeDraftDescription}
+                          onChange={(event) =>
+                            setCookedFoodRecipeDraftDescription(event.target.value)
+                          }
+                        />
+                        <Textarea
+                          aria-label='Recipe instructions from cooked food'
+                          placeholder="Instructions (optional)"
+                          value={cookedFoodRecipeDraftInstructions}
+                          onChange={(event) =>
+                            setCookedFoodRecipeDraftInstructions(event.target.value)
+                          }
+                        />
+                        <Input
+                          aria-label='Recipe notes from cooked food'
+                          placeholder="Notes (optional)"
+                          value={cookedFoodRecipeDraftNotes}
+                          onChange={(event) =>
+                            setCookedFoodRecipeDraftNotes(event.target.value)
+                          }
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
-                  <SearchablePicker
-                    value={cookedFoodLineIngredientId}
-                    onValueChange={(value) =>
-                      setCookedFoodLineIngredientId(value as Id<'ingredients'> | '')
-                    }
-                    ariaLabel='Cooked food ingredient search'
-                    placeholder="Search ingredient"
-                    options={ingredients.map((item) => ({
-                      value: item._id,
-                      label: item.name,
-                    }))}
-                  />
-                  <Input
-                    type="number"
-                    aria-label='Cooked food raw grams'
-                    placeholder="raw grams"
-                    value={cookedFoodLineWeight}
-                    onChange={(event) => setCookedFoodLineWeight(event.target.value)}
-                  />
-                  <Button variant="outline" onClick={addCookedFoodIngredientLine}>
-                    Add ingredient
-                  </Button>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-medium text-foreground">Add ingredient line</p>
+                  <div className="inline-flex gap-1 rounded-full bg-muted/60 p-1">
+                    <Toggle
+                      size="sm"
+                      variant="default"
+                      className="rounded-full px-3 text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                      pressed={cookedFoodLineSourceType === 'ingredient'}
+                      onPressedChange={(pressed) => {
+                        if (pressed) {
+                          setCookedFoodLineSourceType('ingredient')
+                        }
+                      }}
+                    >
+                      Existing
+                    </Toggle>
+                    <Toggle
+                      size="sm"
+                      variant="default"
+                      className="rounded-full px-3 text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                      pressed={cookedFoodLineSourceType === 'custom'}
+                      onPressedChange={(pressed) => {
+                        if (pressed) {
+                          setCookedFoodLineSourceType('custom')
+                        }
+                      }}
+                    >
+                      New
+                    </Toggle>
+                  </div>
                 </div>
+
+                {cookedFoodLineSourceType === 'ingredient' ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
+                    <SearchablePicker
+                      value={cookedFoodLineIngredientId}
+                      onValueChange={(value) =>
+                        setCookedFoodLineIngredientId(value as Id<'ingredients'> | '')
+                      }
+                      ariaLabel='Cooked food ingredient search'
+                      placeholder="Search ingredient"
+                      options={ingredientOptions}
+                    />
+                    <Input
+                      type="number"
+                      aria-label='Cooked food raw grams'
+                      placeholder="raw grams"
+                      value={cookedFoodLineWeight}
+                      onChange={(event) => setCookedFoodLineWeight(event.target.value)}
+                    />
+                    <Button onClick={addCookedFoodIngredientLine}>
+                      Add ingredient
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1.2fr_0.8fr_0.8fr_auto_auto]">
+                    <Input
+                      aria-label='New cooked food ingredient name'
+                      placeholder="Ingredient name"
+                      value={cookedFoodLineCustomName}
+                      onChange={(event) => setCookedFoodLineCustomName(event.target.value)}
+                    />
+                    <Input
+                      type="number"
+                      aria-label='New cooked food ingredient kcal per 100g'
+                      placeholder="kcal / 100g"
+                      value={cookedFoodLineCustomKcal}
+                      onChange={(event) => setCookedFoodLineCustomKcal(event.target.value)}
+                    />
+                    <Input
+                      type="number"
+                      aria-label='New cooked food ingredient raw grams'
+                      placeholder="raw grams"
+                      value={cookedFoodLineWeight}
+                      onChange={(event) => setCookedFoodLineWeight(event.target.value)}
+                    />
+                    <label className="flex items-center gap-2 rounded-md bg-muted/35 px-3 text-xs text-foreground">
+                      Save for later
+                      <Switch
+                        size="sm"
+                        checked={cookedFoodLineCustomSaveToCatalog}
+                        onCheckedChange={(checked) =>
+                          setCookedFoodLineCustomSaveToCatalog(Boolean(checked))
+                        }
+                      />
+                    </label>
+                    <Button onClick={addCookedFoodIngredientLine}>
+                      Add ingredient
+                    </Button>
+                  </div>
+                )}
                 <div className="mt-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
                   {cookedFoodIngredientLines.length === 0 ? (
                     <p>Add at least one ingredient line.</p>
@@ -1384,21 +1621,130 @@ function ManagePageContent() {
                         const displayedWeight =
                           cookedFoodIngredientWeightByDraftId[line.draftId] ??
                           formatRecipeAmountForInput(line.rawWeightGrams)
+                        const displayedKcal =
+                          line.sourceType === 'custom'
+                            ? cookedFoodIngredientKcalByDraftId[line.draftId] ??
+                              formatRecipeAmountForInput(line.kcalPer100g)
+                            : ''
+                        if (line.sourceType === 'ingredient') {
+                          return (
+                            <div
+                              key={line.draftId}
+                              className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1.35fr_1fr_auto]"
+                            >
+                              <SearchablePicker
+                                value={line.ingredientId}
+                                onValueChange={(value) =>
+                                  updateCookedFoodIngredientLine(line.draftId, (current) => {
+                                    if (current.sourceType !== 'ingredient') {
+                                      return current
+                                    }
+                                    return {
+                                      ...current,
+                                      ingredientId: value as Id<'ingredients'>,
+                                    }
+                                  })
+                                }
+                                ariaLabel='Cooked food line ingredient search'
+                                placeholder="Search ingredient"
+                                options={ingredientOptionsAll}
+                              />
+                              <Input
+                                type="number"
+                                aria-label='Cooked food line raw grams'
+                                value={displayedWeight}
+                                placeholder="raw grams"
+                                onChange={(event) => {
+                                  const nextValue = event.target.value
+                                  setCookedFoodIngredientWeightByDraftId((current) => ({
+                                    ...current,
+                                    [line.draftId]: nextValue,
+                                  }))
+                                  const parsed = Number(nextValue)
+                                  if (!Number.isFinite(parsed) || parsed <= 0) {
+                                    return
+                                  }
+                                  updateCookedFoodIngredientLine(line.draftId, (current) => {
+                                    if (current.sourceType !== 'ingredient') {
+                                      return current
+                                    }
+                                    return {
+                                      ...current,
+                                      rawWeightGrams: parsed,
+                                    }
+                                  })
+                                }}
+                                onBlur={() => {
+                                  setCookedFoodIngredientWeightByDraftId((current) => {
+                                    const next = { ...current }
+                                    delete next[line.draftId]
+                                    return next
+                                  })
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeCookedFoodIngredientLine(line.draftId)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          )
+                        }
                         return (
                           <div
                             key={line.draftId}
-                            className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1.35fr_1fr_auto]"
+                            className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1fr_0.8fr_0.8fr_auto_auto]"
                           >
-                            <SearchablePicker
-                              value={line.ingredientId}
-                              onValueChange={(value) =>
-                                updateCookedFoodIngredientLine(line.draftId, {
-                                  ingredientId: value as Id<'ingredients'>,
+                            <Input
+                              aria-label='Cooked food custom ingredient name'
+                              value={line.name}
+                              onChange={(event) =>
+                                updateCookedFoodIngredientLine(line.draftId, (current) => {
+                                  if (current.sourceType !== 'custom') {
+                                    return current
+                                  }
+                                  return {
+                                    ...current,
+                                    name: event.target.value,
+                                  }
                                 })
                               }
-                              ariaLabel='Cooked food line ingredient search'
-                              placeholder="Search ingredient"
-                              options={ingredientOptions}
+                            />
+                            <Input
+                              type="number"
+                              aria-label='Cooked food custom ingredient kcal per 100g'
+                              value={displayedKcal}
+                              placeholder="kcal / 100g"
+                              onChange={(event) => {
+                                const nextValue = event.target.value
+                                setCookedFoodIngredientKcalByDraftId((current) => ({
+                                  ...current,
+                                  [line.draftId]: nextValue,
+                                }))
+                                const parsed = Number(nextValue)
+                                if (!Number.isFinite(parsed) || parsed <= 0) {
+                                  return
+                                }
+                                updateCookedFoodIngredientLine(line.draftId, (current) => {
+                                  if (current.sourceType !== 'custom') {
+                                    return current
+                                  }
+                                  return {
+                                    ...current,
+                                    kcalPer100g: parsed,
+                                  }
+                                })
+                              }}
+                              onBlur={() => {
+                                setCookedFoodIngredientKcalByDraftId((current) => {
+                                  const next = { ...current }
+                                  delete next[line.draftId]
+                                  return next
+                                })
+                              }}
                             />
                             <Input
                               type="number"
@@ -1415,8 +1761,14 @@ function ManagePageContent() {
                                 if (!Number.isFinite(parsed) || parsed <= 0) {
                                   return
                                 }
-                                updateCookedFoodIngredientLine(line.draftId, {
-                                  rawWeightGrams: parsed,
+                                updateCookedFoodIngredientLine(line.draftId, (current) => {
+                                  if (current.sourceType !== 'custom') {
+                                    return current
+                                  }
+                                  return {
+                                    ...current,
+                                    rawWeightGrams: parsed,
+                                  }
                                 })
                               }}
                               onBlur={() => {
@@ -1427,6 +1779,24 @@ function ManagePageContent() {
                                 })
                               }}
                             />
+                            <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 text-xs">
+                              Save for later
+                              <Switch
+                                size="sm"
+                                checked={line.saveToCatalog}
+                                onCheckedChange={(checked) =>
+                                  updateCookedFoodIngredientLine(line.draftId, (current) => {
+                                    if (current.sourceType !== 'custom') {
+                                      return current
+                                    }
+                                    return {
+                                      ...current,
+                                      saveToCatalog: Boolean(checked),
+                                    }
+                                  })
+                                }
+                              />
+                            </label>
                             <Button
                               type="button"
                               variant="outline"
@@ -1444,10 +1814,32 @@ function ManagePageContent() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     onClick={() => {
-                      if (!cookedFoodSessionId) {
+                      if (!resolvedCookedFoodSessionId) {
+                        toast.error('Select a session before saving cooked food.')
                         return
                       }
-                      const recipeVersion = cookedFoodRecipeVersionId
+                      if (cookedFoodIngredientLines.length === 0) {
+                        toast.error('Add at least one ingredient line.')
+                        return
+                      }
+                      const finishedWeight = Number(cookedFoodFinishedWeight)
+                      if (!Number.isFinite(finishedWeight) || finishedWeight <= 0) {
+                        toast.error('Finished grams must be greater than 0.')
+                        return
+                      }
+                      if (
+                        !editingCookedFoodId &&
+                        saveCookedFoodAsRecipe &&
+                        !(
+                          cookedFoodRecipeDraftName.trim() ||
+                          cookedFoodName.trim()
+                        )
+                      ) {
+                        toast.error('Recipe name is required when saving as recipe.')
+                        return
+                      }
+                      const recipeVersion =
+                        !saveCookedFoodAsRecipe && cookedFoodRecipeVersionId
                         ? recipeVersionById.get(cookedFoodRecipeVersionId)
                         : undefined
                       void runAction(
@@ -1456,17 +1848,28 @@ function ManagePageContent() {
                           : 'Cooked food created.',
                         async () => {
                           const payload = {
-                            cookSessionId: cookedFoodSessionId,
+                            cookSessionId: resolvedCookedFoodSessionId,
                             name: cookedFoodName,
                             recipeId: recipeVersion?.recipeId,
                             recipeVersionId: cookedFoodRecipeVersionId || undefined,
                             groupIds: cookedFoodGroupId ? [cookedFoodGroupId] : [],
-                            finishedWeightGrams: Number(cookedFoodFinishedWeight),
+                            finishedWeightGrams: finishedWeight,
                             notes: cookedFoodNotes.trim() || undefined,
-                            ingredients: cookedFoodIngredientLines.map((line) => ({
-                              ingredientId: line.ingredientId,
-                              rawWeightGrams: line.rawWeightGrams,
-                            })),
+                            ingredients: cookedFoodIngredientLines.map((line) =>
+                              line.sourceType === 'ingredient'
+                                ? {
+                                    sourceType: 'ingredient' as const,
+                                    ingredientId: line.ingredientId,
+                                    rawWeightGrams: line.rawWeightGrams,
+                                  }
+                                : {
+                                    sourceType: 'custom' as const,
+                                    name: line.name,
+                                    kcalPer100g: line.kcalPer100g,
+                                    rawWeightGrams: line.rawWeightGrams,
+                                    saveToCatalog: line.saveToCatalog,
+                                  },
+                            ),
                           }
                           if (editingCookedFoodId) {
                             await updateCookedFood({
@@ -1474,7 +1877,22 @@ function ManagePageContent() {
                               ...payload,
                             })
                           } else {
-                            await createCookedFood(payload)
+                            await createCookedFood({
+                              ...payload,
+                              saveAsRecipe: saveCookedFoodAsRecipe || undefined,
+                              recipeDraft: saveCookedFoodAsRecipe
+                                ? {
+                                    name:
+                                      cookedFoodRecipeDraftName.trim() ||
+                                      cookedFoodName.trim(),
+                                    description:
+                                      cookedFoodRecipeDraftDescription.trim() || undefined,
+                                    instructions:
+                                      cookedFoodRecipeDraftInstructions.trim() || undefined,
+                                    notes: cookedFoodRecipeDraftNotes.trim() || undefined,
+                                  }
+                                : undefined,
+                            })
                           }
                           resetCookedFoodForm()
                         },
@@ -1514,15 +1932,47 @@ function ManagePageContent() {
                               food.finishedWeightGrams.toString(),
                             )
                             setCookedFoodRecipeVersionId(food.recipeVersionId ?? '')
+                            setSaveCookedFoodAsRecipe(false)
+                            setCookedFoodRecipeDraftName('')
+                            setCookedFoodRecipeDraftDescription('')
+                            setCookedFoodRecipeDraftInstructions('')
+                            setCookedFoodRecipeDraftNotes('')
                             setCookedFoodNotes(food.notes ?? '')
                             setCookedFoodIngredientLines(
-                              ingredientLines.map((line) => ({
-                                draftId: createCookedFoodIngredientDraftId(),
-                                ingredientId: line.ingredientId,
-                                rawWeightGrams: line.rawWeightGrams,
-                              })),
+                              ingredientLines.map((line) => {
+                                const ingredientNameFromLink = line.ingredientId
+                                  ? ingredientByIdAll.get(line.ingredientId)?.name
+                                  : undefined
+                                if (line.ingredientId) {
+                                  return {
+                                    draftId: createCookedFoodIngredientDraftId(),
+                                    sourceType: 'ingredient' as const,
+                                    ingredientId: line.ingredientId,
+                                    rawWeightGrams: line.rawWeightGrams,
+                                  }
+                                }
+                                return {
+                                  draftId: createCookedFoodIngredientDraftId(),
+                                  sourceType: 'custom' as const,
+                                  name:
+                                    (line as { ingredientNameSnapshot?: string })
+                                      .ingredientNameSnapshot ??
+                                    ingredientNameFromLink ??
+                                    'Custom ingredient',
+                                  kcalPer100g: line.ingredientKcalPer100gSnapshot,
+                                  rawWeightGrams: line.rawWeightGrams,
+                                  saveToCatalog: false,
+                                }
+                              }),
                             )
                             setCookedFoodIngredientWeightByDraftId({})
+                            setCookedFoodIngredientKcalByDraftId({})
+                            setCookedFoodLineSourceType('ingredient')
+                            setCookedFoodLineIngredientId('')
+                            setCookedFoodLineCustomName('')
+                            setCookedFoodLineCustomKcal('')
+                            setCookedFoodLineCustomSaveToCatalog(false)
+                            setCookedFoodLineWeight('')
                           }}
                         >
                           Edit
@@ -1672,6 +2122,21 @@ function toTimestampFromDate(value: string) {
     return Date.now()
   }
   return new Date(year, month - 1, day, 12, 0, 0, 0).getTime()
+}
+
+function formatCookSessionOptionLabel(session: Doc<'cookSessions'>) {
+  const cookedDate = toLocalDateString(session.cookedAt)
+  if (!session.label?.trim()) {
+    return cookedDate
+  }
+  return `${cookedDate} • ${session.label.trim()}`
+}
+
+function getCookSessionModifiedAt(session: Doc<'cookSessions'>) {
+  return (
+    (session as Doc<'cookSessions'> & { updatedAt?: number }).updatedAt ??
+    session.createdAt
+  )
 }
 
 function toErrorMessage(error: unknown) {

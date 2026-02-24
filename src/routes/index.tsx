@@ -370,9 +370,9 @@ function MealDashboardPageContent() {
               <Flame className="h-4 w-4" />
               Meal Logging
             </p>
-            <Skeleton className="mt-3 h-10 w-full max-w-[42rem]" />
-            <Skeleton className="mt-3 h-4 w-full max-w-[34rem]" />
-            <Skeleton className="mt-2 h-4 w-full max-w-[28rem]" />
+            <Skeleton className="mt-3 h-10 w-full max-w-2xl" />
+            <Skeleton className="mt-3 h-4 w-full max-w-136" />
+            <Skeleton className="mt-2 h-4 w-full max-w-md" />
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -442,7 +442,7 @@ function MealDashboardPageContent() {
                       <Skeleton className="h-4 w-40" />
                       <div className="flex gap-2">
                         <Skeleton className="h-8 w-14" />
-                        <Skeleton className="h-8 w-[4.5rem]" />
+                        <Skeleton className="h-8 w-18" />
                       </div>
                     </div>
                     <Skeleton className="mt-2 h-3 w-5/6" />
@@ -874,10 +874,7 @@ function toLocalDateString(timestamp: number) {
   return `${year}-${month}-${day}`;
 }
 
-function getMealDateKey(meal: {
-  eatenOn?: string;
-  createdAt: number;
-}) {
+function getMealDateKey(meal: { eatenOn?: string; createdAt: number }) {
   if (meal.eatenOn) {
     return meal.eatenOn;
   }

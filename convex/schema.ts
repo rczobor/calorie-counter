@@ -94,6 +94,7 @@ export default defineSchema({
     cookedByPersonId: v.optional(v.id('people')),
     notes: v.optional(v.string()),
     archived: v.optional(v.boolean()),
+    updatedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
@@ -119,7 +120,8 @@ export default defineSchema({
   cookedFoodIngredients: defineTable({
     ownerUserId: v.optional(v.string()),
     cookedFoodId: v.id('cookedFoods'),
-    ingredientId: v.id('ingredients'),
+    ingredientId: v.optional(v.id('ingredients')),
+    ingredientNameSnapshot: v.optional(v.string()),
     rawWeightGrams: v.number(),
     ingredientKcalPer100gSnapshot: v.number(),
     ingredientCaloriesSnapshot: v.number(),
