@@ -180,23 +180,28 @@ function MealDashboardPageContent() {
       );
     }, 0);
 
-  const draftCalories = mealItems.reduce((sum, item) => {
+  const getDraftItemCalories = (item: DraftMealItem) => {
     if (item.sourceType === "ingredient" && item.ingredientId) {
       const ingredient = ingredientById.get(item.ingredientId);
       if (!ingredient) {
-        return sum;
+        return 0;
       }
-      return sum + (item.consumedWeightGrams * ingredient.kcalPer100g) / 100;
+      return (item.consumedWeightGrams * ingredient.kcalPer100g) / 100;
     }
     if (item.sourceType === "cookedFood" && item.cookedFoodId) {
       const cookedFood = cookedFoodById.get(item.cookedFoodId);
       if (!cookedFood) {
-        return sum;
+        return 0;
       }
-      return sum + (item.consumedWeightGrams * cookedFood.kcalPer100g) / 100;
+      return (item.consumedWeightGrams * cookedFood.kcalPer100g) / 100;
     }
-    return sum;
-  }, 0);
+    return 0;
+  };
+
+  const draftCalories = mealItems.reduce(
+    (sum, item) => sum + getDraftItemCalories(item),
+    0,
+  );
 
   const remainingToday = selectedPerson
     ? selectedPerson.currentDailyGoalKcal - consumedToday
@@ -665,6 +670,7 @@ function MealDashboardPageContent() {
                     </p>
                   ) : null}
                   {mealItems.map((item, index) => {
+                    const itemCalories = getDraftItemCalories(item);
                     const label =
                       item.sourceType === "ingredient"
                         ? ingredientById.get(
@@ -685,7 +691,8 @@ function MealDashboardPageContent() {
                               : "Cooked food"}
                           </span>
                           : {label ?? "Unknown"} -{" "}
-                          {item.consumedWeightGrams.toFixed(1)}g
+                          {item.consumedWeightGrams.toFixed(1)}g (
+                          +{itemCalories.toFixed(0)} kcal)
                         </p>
                         <div className="flex shrink-0 items-center gap-1">
                           <Button
