@@ -1814,6 +1814,8 @@ function ManagePageContent() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     onClick={() => {
+                      const resolvedCookedFoodName =
+                        cookedFoodName.trim() || toLocalDateString(Date.now())
                       if (!resolvedCookedFoodSessionId) {
                         toast.error('Select a session before saving cooked food.')
                         return
@@ -1830,10 +1832,7 @@ function ManagePageContent() {
                       if (
                         !editingCookedFoodId &&
                         saveCookedFoodAsRecipe &&
-                        !(
-                          cookedFoodRecipeDraftName.trim() ||
-                          cookedFoodName.trim()
-                        )
+                        !(cookedFoodRecipeDraftName.trim() || resolvedCookedFoodName)
                       ) {
                         toast.error('Recipe name is required when saving as recipe.')
                         return
@@ -1849,7 +1848,7 @@ function ManagePageContent() {
                         async () => {
                           const payload = {
                             cookSessionId: resolvedCookedFoodSessionId,
-                            name: cookedFoodName,
+                            name: resolvedCookedFoodName,
                             recipeId: recipeVersion?.recipeId,
                             recipeVersionId: cookedFoodRecipeVersionId || undefined,
                             groupIds: cookedFoodGroupId ? [cookedFoodGroupId] : [],
@@ -1884,7 +1883,7 @@ function ManagePageContent() {
                                 ? {
                                     name:
                                       cookedFoodRecipeDraftName.trim() ||
-                                      cookedFoodName.trim(),
+                                      resolvedCookedFoodName,
                                     description:
                                       cookedFoodRecipeDraftDescription.trim() || undefined,
                                     instructions:
