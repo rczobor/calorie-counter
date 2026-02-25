@@ -1,3 +1,4 @@
+import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useMemo, useState } from 'react'
@@ -15,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -143,6 +145,159 @@ function PeoplePageContent() {
     setGoalReason('')
   }
 
+  const peopleTableRows = useMemo<PersonTableRow[]>(
+    () =>
+      visiblePeople.map((person) => {
+        const consumedKcal = dailyConsumedByPersonId.get(person._id) ?? 0
+        return {
+          id: person._id,
+          person,
+          name: person.name,
+          notes: person.notes ?? '',
+          status: person.active ? 'Active' : 'Archived',
+          goalKcal: person.currentDailyGoalKcal,
+          consumedKcal,
+          remainingKcal: person.currentDailyGoalKcal - consumedKcal,
+        }
+      }),
+    [dailyConsumedByPersonId, visiblePeople],
+  )
+
+  const peopleColumns: ColumnDef<PersonTableRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Name',
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          {row.original.notes ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{row.original.notes}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'goalKcal',
+      header: 'Goal',
+      cell: ({ row }) => `${row.original.goalKcal.toFixed(0)} kcal`,
+    },
+    {
+      accessorKey: 'consumedKcal',
+      header: 'Consumed',
+      cell: ({ row }) => `${row.original.consumedKcal.toFixed(0)} kcal`,
+    },
+    {
+      accessorKey: 'remainingKcal',
+      header: 'Left Today',
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-1">
+          <Target className="h-3 w-3" />
+          <span
+            className={
+              row.original.remainingKcal < 0 ? 'text-destructive' : 'text-foreground'
+            }
+          >
+            {row.original.remainingKcal.toFixed(0)} kcal
+          </span>
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const person = row.original.person
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => startEdit(person._id)}>
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  person.active ? 'Person archived.' : 'Person restored.',
+                  async () => {
+                    await setPersonArchived({
+                      personId: person._id,
+                      archived: person.active,
+                    })
+                  },
+                )
+              }
+            >
+              {person.active ? 'Archive' : 'Unarchive'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() =>
+                confirmAndRunAction('Delete this person permanently?', 'Person deleted.', async () => {
+                  await deletePerson({ personId: person._id })
+                  if (editingPersonId === person._id) {
+                    resetForm()
+                  }
+                })
+              }
+            >
+              Delete
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  const personNameById = useMemo(
+    () => new Map(data.people.map((person) => [person._id, person.name])),
+    [data.people],
+  )
+
+  const goalHistoryRows = useMemo<GoalHistoryTableRow[]>(
+    () =>
+      data.personGoalHistory.map((entry) => ({
+        id: entry._id,
+        personName: personNameById.get(entry.personId) ?? 'Unknown',
+        effectiveDate: entry.effectiveDate,
+        goalKcal: entry.goalKcal,
+        reason: entry.reason ?? '',
+      })),
+    [data.personGoalHistory, personNameById],
+  )
+
+  const goalHistoryColumns: ColumnDef<GoalHistoryTableRow>[] = [
+    {
+      accessorKey: 'personName',
+      header: 'Person',
+    },
+    {
+      accessorKey: 'effectiveDate',
+      header: 'Effective Date',
+    },
+    {
+      accessorKey: 'goalKcal',
+      header: 'Goal',
+      cell: ({ row }) => `${row.original.goalKcal.toFixed(0)} kcal`,
+    },
+    {
+      accessorKey: 'reason',
+      header: 'Reason',
+      cell: ({ row }) => (
+        <span className="max-w-80 whitespace-normal text-muted-foreground">
+          {row.original.reason || '—'}
+        </span>
+      ),
+    },
+  ]
+
   if (isLoading) {
     return (
       <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_18%_5%,#fdf6e7_0%,#f5f6f4_52%,#e8f1ea_100%)] dark:bg-[radial-gradient(circle_at_18%_5%,#1d2535_0%,#111a26_50%,#0a1119_100%)]">
@@ -155,7 +310,7 @@ function PeoplePageContent() {
             <Skeleton className="mt-3 h-10 w-full max-w-[38rem]" />
           </div>
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
             <Card className="border-border/70 bg-card/90">
               <CardHeader>
                 <Skeleton className="h-6 w-32" />
@@ -236,7 +391,7 @@ function PeoplePageContent() {
           </h1>
         </div>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <CardTitle>{editingPersonId ? 'Edit person' : 'Create person'}</CardTitle>
@@ -314,80 +469,26 @@ function PeoplePageContent() {
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <CardTitle>People</CardTitle>
-              <CardDescription className="flex items-center justify-between">
-                <span>Today: {today}</span>
-                <label className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(event) => setShowArchived(event.target.checked)}
-                  />
-                  Show archived
-                </label>
-              </CardDescription>
+              <CardDescription>Today: {today}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {visiblePeople.map((person) => {
-                const consumed = dailyConsumedByPersonId.get(person._id) ?? 0
-                const remaining = person.currentDailyGoalKcal - consumed
-                return (
-                  <div
-                    key={person._id}
-                    className="rounded-lg border border-border bg-muted/45 p-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{person.name}</p>
-                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Target className="h-3 w-3" />
-                          {remaining.toFixed(0)} kcal left today (
-                          {consumed.toFixed(0)}/{person.currentDailyGoalKcal.toFixed(0)})
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEdit(person._id)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void runAction(
-                              person.active ? 'Person archived.' : 'Person restored.',
-                              async () => {
-                                await setPersonArchived({
-                                  personId: person._id,
-                                  archived: person.active,
-                                })
-                              },
-                            )
-                          }
-                        >
-                          {person.active ? 'Archive' : 'Unarchive'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            confirmAndRunAction('Delete this person permanently?', 'Person deleted.', async () => {
-                              await deletePerson({ personId: person._id })
-                              if (editingPersonId === person._id) {
-                                resetForm()
-                              }
-                            })
-                          }
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+            <CardContent>
+              <DataTable
+                columns={peopleColumns}
+                data={peopleTableRows}
+                searchColumnId="name"
+                searchPlaceholder="Search people by name"
+                emptyText="No people found."
+                toolbarActions={
+                  <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={showArchived}
+                      onChange={(event) => setShowArchived(event.target.checked)}
+                    />
+                    Show archived
+                  </label>
+                }
+              />
             </CardContent>
           </Card>
         </div>
@@ -397,26 +498,38 @@ function PeoplePageContent() {
             <CardTitle>Goal Change History</CardTitle>
             <CardDescription>Effective-dated records per person.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {data.personGoalHistory.slice(0, 30).map((entry) => {
-              const person = data.people.find((item) => item._id === entry.personId)
-              return (
-                <div
-                  key={entry._id}
-                  className="flex items-center justify-between rounded-md bg-muted/45 px-3 py-2 text-sm"
-                >
-                  <span>
-                    {person?.name ?? 'Unknown'} - {entry.effectiveDate}
-                  </span>
-                  <span className="text-foreground/90">{entry.goalKcal.toFixed(0)} kcal</span>
-                </div>
-              )
-            })}
+          <CardContent>
+            <DataTable
+              columns={goalHistoryColumns}
+              data={goalHistoryRows}
+              searchColumnId="personName"
+              searchPlaceholder="Search history by person"
+              emptyText="No goal history found."
+            />
           </CardContent>
         </Card>
       </section>
     </main>
   )
+}
+
+type PersonTableRow = {
+  id: Id<'people'>
+  person: Doc<'people'>
+  name: string
+  notes: string
+  status: 'Active' | 'Archived'
+  goalKcal: number
+  consumedKcal: number
+  remainingKcal: number
+}
+
+type GoalHistoryTableRow = {
+  id: Id<'personGoalHistory'>
+  personName: string
+  effectiveDate: string
+  goalKcal: number
+  reason: string
 }
 
 function toLocalDateString(timestamp: number) {
