@@ -1,3 +1,4 @@
+import { type ColumnDef } from "@tanstack/react-table";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -7,6 +8,16 @@ import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { isConvexConfigured } from "@/integrations/convex/config";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { SearchablePicker } from "@/components/ui/searchable-picker";
@@ -41,6 +53,24 @@ type DraftMealItem = {
   ingredientId?: Id<"ingredients">;
   cookedFoodId?: Id<"cookedFoods">;
   consumedWeightGrams: number;
+};
+
+type MealTableRow = {
+  id: Id<"meals">;
+  meal: Doc<"meals">;
+  mealName: string;
+  personName: string;
+  totalCalories: number;
+  itemCount: number;
+  itemSummary: string;
+  notes: string;
+  status: "Active" | "Archived";
+};
+
+type PendingConfirmation = {
+  message: string;
+  successText: string;
+  action: () => Promise<unknown>;
 };
 
 export const Route = createFileRoute("/")({
@@ -93,6 +123,9 @@ function MealDashboardPageContent() {
     number | null
   >(null);
   const [mealItems, setMealItems] = useState<DraftMealItem[]>([]);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation | null>(null);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
   const dataResult = useQuery(api.nutrition.getManagementData);
   const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<
@@ -153,6 +186,10 @@ function MealDashboardPageContent() {
   const selectedPerson = people.find(
     (person) => person._id === effectiveSelectedPersonId,
   );
+  const personById = useMemo(
+    () => new Map(data.people.map((person) => [person._id, person.name])),
+    [data.people],
+  );
 
   const mealsForSelection = data.meals.filter((meal) => {
     if (
@@ -208,6 +245,138 @@ function MealDashboardPageContent() {
     : 0;
   const remainingAfterDraft = remainingToday - draftCalories;
 
+  const mealTableRows = useMemo<MealTableRow[]>(
+    () =>
+      mealsForSelection.map((meal) => {
+        const itemRows = mealItemsByMealId.get(meal._id) ?? [];
+        const totalCalories = itemRows.reduce(
+          (sum, row) => sum + row.caloriesSnapshot,
+          0,
+        );
+        const itemNames = itemRows.map((row) =>
+          row.sourceType === "ingredient"
+            ? ingredientById.get(row.ingredientId as Id<"ingredients">)?.name ??
+              "Unknown ingredient"
+            : cookedFoodById.get(row.cookedFoodId as Id<"cookedFoods">)?.name ??
+              "Unknown cooked food",
+        );
+
+        return {
+          id: meal._id,
+          meal,
+          mealName: meal.name?.trim() || "Meal",
+          personName: personById.get(meal.personId) ?? "Unknown",
+          totalCalories,
+          itemCount: itemRows.length,
+          itemSummary:
+            itemNames.length > 0
+              ? itemNames.slice(0, 3).join(", ")
+              : "No items",
+          notes: meal.notes ?? "",
+          status: meal.archived ? "Archived" : "Active",
+        };
+      }),
+    [
+      cookedFoodById,
+      ingredientById,
+      mealItemsByMealId,
+      mealsForSelection,
+      personById,
+    ],
+  );
+
+  const mealColumns: ColumnDef<MealTableRow>[] = [
+    {
+      accessorKey: "mealName",
+      header: "Meal",
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.mealName}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {row.original.personName}
+          </p>
+          {row.original.notes ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Note: {row.original.notes}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "totalCalories",
+      header: "Calories",
+      cell: ({ row }) => `${row.original.totalCalories.toFixed(0)} kcal`,
+    },
+    {
+      accessorKey: "itemCount",
+      header: "Items",
+      cell: ({ row }) => (
+        <div className="max-w-72 whitespace-normal text-xs text-muted-foreground">
+          <p className="text-sm text-foreground">{row.original.itemCount}</p>
+          <p>{row.original.itemSummary}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const meal = row.original.meal;
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => editMeal(meal._id)}>
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  meal.archived ? "Meal restored." : "Meal archived.",
+                  async () => {
+                    await setMealArchived({
+                      mealId: meal._id,
+                      archived: !meal.archived,
+                    });
+                  },
+                )
+              }
+            >
+              {meal.archived ? "Unarchive" : "Archive"}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              aria-label={`Delete ${meal.name?.trim() || "meal"}`}
+              onClick={() =>
+                confirmAndRunAction(
+                  "Delete this meal permanently?",
+                  "Meal deleted.",
+                  async () => {
+                    await deleteMeal({ mealId: meal._id });
+                    if (editingMealId === meal._id) {
+                      resetMealForm();
+                    }
+                  },
+                )
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
   async function runAction(
     successText: string,
     action: () => Promise<unknown>,
@@ -225,9 +394,28 @@ function MealDashboardPageContent() {
     successText: string,
     action: () => Promise<unknown>,
   ) => {
-    if (!window.confirm(message)) {
+    setPendingConfirmation({
+      message,
+      successText,
+      action,
+    });
+    setIsConfirmDialogOpen(true);
+  };
+
+  const handleConfirmDialogOpenChange = (open: boolean) => {
+    setIsConfirmDialogOpen(open);
+    if (!open) {
+      setPendingConfirmation(null);
+    }
+  };
+
+  const confirmPendingAction = () => {
+    if (!pendingConfirmation) {
       return;
     }
+    const { successText, action } = pendingConfirmation;
+    setIsConfirmDialogOpen(false);
+    setPendingConfirmation(null);
     void runAction(successText, action);
   };
 
@@ -394,7 +582,7 @@ function MealDashboardPageContent() {
             ))}
           </div>
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
             <Card className="border-border/70 bg-card/90">
               <CardHeader>
                 <Skeleton className="h-6 w-40" />
@@ -463,8 +651,9 @@ function MealDashboardPageContent() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] dark:bg-[radial-gradient(circle_at_15%_10%,#1d2535_0%,#111a26_45%,#0a1119_100%)]">
-      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <>
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] dark:bg-[radial-gradient(circle_at_15%_10%,#1d2535_0%,#111a26_45%,#0a1119_100%)]">
+        <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
         <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
           <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
             <Flame className="h-4 w-4" />
@@ -505,7 +694,7 @@ function MealDashboardPageContent() {
           </Card>
         </div>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <CardTitle>
@@ -764,112 +953,58 @@ function MealDashboardPageContent() {
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <CardTitle>Meals for {mealDate}</CardTitle>
-              <CardDescription className="flex items-center justify-between gap-2">
-                <span>{selectedPerson?.name ?? "All people"}</span>
-                <label className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={showArchivedMeals}
-                    onChange={(event) =>
-                      setShowArchivedMeals(event.target.checked)
-                    }
-                  />
-                  Show archived
-                </label>
-              </CardDescription>
+              <CardDescription>{selectedPerson?.name ?? "All people"}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {mealsForSelection.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No meals for this selection.
-                </p>
-              ) : null}
-              {mealsForSelection.map((meal) => {
-                const itemRows = mealItemsByMealId.get(meal._id) ?? [];
-                const totalCalories = itemRows.reduce(
-                  (sum, row) => sum + row.caloriesSnapshot,
-                  0,
-                );
-                return (
-                  <div
-                    key={meal._id}
-                    className="rounded-lg border border-border bg-muted/45 p-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {meal.name ?? "Meal"} - {totalCalories.toFixed(0)} kcal
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => editMeal(meal._id)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void runAction(
-                              meal.archived
-                                ? "Meal restored."
-                                : "Meal archived.",
-                              async () => {
-                                await setMealArchived({
-                                  mealId: meal._id,
-                                  archived: !meal.archived,
-                                });
-                              },
-                            )
-                          }
-                        >
-                          {meal.archived ? "Unarchive" : "Archive"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            confirmAndRunAction(
-                              "Delete this meal permanently?",
-                              "Meal deleted.",
-                              async () => {
-                              await deleteMeal({ mealId: meal._id });
-                              if (editingMealId === meal._id) {
-                                resetMealForm();
-                              }
-                              },
-                            )
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                      {itemRows.map((row) => (
-                        <p key={row._id}>
-                          {row.sourceType === "ingredient"
-                            ? ingredientById.get(
-                                row.ingredientId as Id<"ingredients">,
-                              )?.name
-                            : cookedFoodById.get(
-                                row.cookedFoodId as Id<"cookedFoods">,
-                              )?.name}
-                          {" - "}
-                          {row.consumedWeightGrams.toFixed(1)}g (
-                          {row.caloriesSnapshot.toFixed(0)} kcal)
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            <CardContent>
+              <DataTable
+                columns={mealColumns}
+                data={mealTableRows}
+                searchColumnId="mealName"
+                searchPlaceholder="Search meals by name"
+                emptyText="No meals for this selection."
+                toolbarActions={
+                  <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={showArchivedMeals}
+                      onChange={(event) =>
+                        setShowArchivedMeals(event.target.checked)
+                      }
+                    />
+                    Show archived
+                  </label>
+                }
+              />
             </CardContent>
           </Card>
         </div>
-      </section>
-    </main>
+        </section>
+      </main>
+      <AlertDialog
+        open={isConfirmDialogOpen}
+        onOpenChange={handleConfirmDialogOpenChange}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingConfirmation?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="gap-2"
+              variant="destructive"
+              onClick={confirmPendingAction}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

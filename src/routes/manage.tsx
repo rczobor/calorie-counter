@@ -1,12 +1,23 @@
+import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useMemo, useState } from 'react'
-import { BookOpenText, ChefHat, FolderTree, Wheat } from 'lucide-react'
+import { BookOpenText, ChefHat, FolderTree, Trash2, Wheat } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import { isConvexConfigured } from '@/integrations/convex/config'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -15,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { SearchablePicker } from '@/components/ui/searchable-picker'
@@ -65,6 +77,55 @@ type CookedFoodIngredientDraft =
   | ExistingCookedFoodIngredientDraft
   | CustomCookedFoodIngredientDraft
 
+type FoodGroupTableRow = {
+  id: Id<'foodGroups'>
+  group: Doc<'foodGroups'>
+  name: string
+  appliesTo: 'ingredient' | 'cookedFood' | 'both'
+  status: 'Active' | 'Archived'
+}
+
+type IngredientTableRow = {
+  id: Id<'ingredients'>
+  ingredient: Doc<'ingredients'>
+  name: string
+  brand: string
+  kcalPer100g: number
+  defaultUnit: 'g' | 'ml' | 'piece'
+  status: 'Active' | 'Archived'
+}
+
+type RecipeTableRow = {
+  id: Id<'recipes'>
+  recipe: Doc<'recipes'>
+  name: string
+  latestVersionNumber: number
+  status: 'Active' | 'Archived'
+}
+
+type SessionTableRow = {
+  id: Id<'cookSessions'>
+  session: Doc<'cookSessions'>
+  label: string
+  cookedAt: string
+  status: 'Active' | 'Archived'
+}
+
+type CookedFoodTableRow = {
+  id: Id<'cookedFoods'>
+  food: Doc<'cookedFoods'>
+  name: string
+  kcalPer100g: number
+  sessionLabel: string
+  status: 'Active' | 'Archived'
+}
+
+type PendingConfirmation = {
+  message: string
+  successText: string
+  action: () => Promise<unknown>
+}
+
 export const Route = createFileRoute('/manage')({
   ssr: false,
   component: ManagePage,
@@ -84,6 +145,9 @@ function ManagePage() {
 
 function ManagePageContent() {
   const [showArchived, setShowArchived] = useState(false)
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation | null>(null)
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
 
   const [editingGroupId, setEditingGroupId] = useState<Id<'foodGroups'> | null>(null)
   const [groupName, setGroupName] = useState('')
@@ -316,9 +380,28 @@ function ManagePageContent() {
     successText: string,
     action: () => Promise<unknown>,
   ) => {
-    if (!window.confirm(message)) {
+    setPendingConfirmation({
+      message,
+      successText,
+      action,
+    })
+    setIsConfirmDialogOpen(true)
+  }
+
+  const handleConfirmDialogOpenChange = (open: boolean) => {
+    setIsConfirmDialogOpen(open)
+    if (!open) {
+      setPendingConfirmation(null)
+    }
+  }
+
+  const confirmPendingAction = () => {
+    if (!pendingConfirmation) {
       return
     }
+    const { successText, action } = pendingConfirmation
+    setIsConfirmDialogOpen(false)
+    setPendingConfirmation(null)
     void runAction(successText, action)
   }
 
@@ -378,6 +461,528 @@ function ManagePageContent() {
     setCookedFoodIngredientWeightByDraftId({})
     setCookedFoodIngredientKcalByDraftId({})
   }
+
+  const foodGroupRows = useMemo<FoodGroupTableRow[]>(
+    () =>
+      groups.map((group) => ({
+        id: group._id,
+        group,
+        name: group.name,
+        appliesTo: group.appliesTo,
+        status: group.archived ? 'Archived' : 'Active',
+      })),
+    [groups],
+  )
+
+  const foodGroupColumns: ColumnDef<FoodGroupTableRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Name',
+    },
+    {
+      accessorKey: 'appliesTo',
+      header: 'Scope',
+      cell: ({ row }) => row.original.appliesTo,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const group = row.original.group
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditingGroupId(group._id)
+                setGroupName(group.name)
+                setGroupScope(group.appliesTo)
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  group.archived ? 'Group restored.' : 'Group archived.',
+                  async () => {
+                    await setFoodGroupArchived({
+                      groupId: group._id,
+                      archived: !group.archived,
+                    })
+                  },
+                )
+              }
+            >
+              {group.archived ? 'Unarchive' : 'Archive'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              aria-label={`Delete ${group.name}`}
+              onClick={() =>
+                confirmAndRunAction('Delete this group permanently?', 'Group deleted.', async () => {
+                  await deleteFoodGroup({ groupId: group._id })
+                  if (editingGroupId === group._id) {
+                    resetGroupForm()
+                  }
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  const ingredientRows = useMemo<IngredientTableRow[]>(
+    () =>
+      ingredients.map((ingredient) => ({
+        id: ingredient._id,
+        ingredient,
+        name: ingredient.name,
+        brand: ingredient.brand ?? '',
+        kcalPer100g: ingredient.kcalPer100g,
+        defaultUnit: ingredient.defaultUnit,
+        status: ingredient.archived ? 'Archived' : 'Active',
+      })),
+    [ingredients],
+  )
+
+  const ingredientColumns: ColumnDef<IngredientTableRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Ingredient',
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          {row.original.brand ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{row.original.brand}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'kcalPer100g',
+      header: 'kcal/100g',
+      cell: ({ row }) => row.original.kcalPer100g.toFixed(1),
+    },
+    {
+      accessorKey: 'defaultUnit',
+      header: 'Unit',
+      cell: ({ row }) => row.original.defaultUnit,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const ingredient = row.original.ingredient
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditingIngredientId(ingredient._id)
+                setIngredientName(ingredient.name)
+                setIngredientBrand(ingredient.brand ?? '')
+                setIngredientKcal(ingredient.kcalPer100g.toString())
+                setIngredientUnit(ingredient.defaultUnit)
+                setIngredientGramsPerUnit(ingredient.gramsPerUnit?.toString() ?? '')
+                setIngredientGroupId(ingredient.groupIds[0] ?? '')
+                setIngredientNotes(ingredient.notes ?? '')
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  ingredient.archived ? 'Ingredient restored.' : 'Ingredient archived.',
+                  async () => {
+                    await setIngredientArchived({
+                      ingredientId: ingredient._id,
+                      archived: !ingredient.archived,
+                    })
+                  },
+                )
+              }
+            >
+              {ingredient.archived ? 'Unarchive' : 'Archive'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              aria-label={`Delete ${ingredient.name}`}
+              onClick={() =>
+                confirmAndRunAction('Delete this ingredient permanently?', 'Ingredient deleted.', async () => {
+                  await deleteIngredient({ ingredientId: ingredient._id })
+                  if (editingIngredientId === ingredient._id) {
+                    resetIngredientForm()
+                  }
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  const recipeRows = useMemo<RecipeTableRow[]>(
+    () =>
+      recipes.map((recipe) => ({
+        id: recipe._id,
+        recipe,
+        name: recipe.name,
+        latestVersionNumber: recipe.latestVersionNumber,
+        status: recipe.archived ? 'Archived' : 'Active',
+      })),
+    [recipes],
+  )
+
+  const recipeColumns: ColumnDef<RecipeTableRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Recipe',
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            v{row.original.latestVersionNumber}
+          </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const recipe = row.original.recipe
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const currentVersion = recipeVersionByRecipeId.get(recipe._id)
+                if (!currentVersion) {
+                  return
+                }
+                const versionIngredients =
+                  recipeIngredientsByVersionId.get(currentVersion._id) ?? []
+                setEditingRecipeId(recipe._id)
+                setRecipeName(recipe.name)
+                setRecipeDescription(recipe.description ?? '')
+                setRecipeInstructions(currentVersion.instructions ?? '')
+                setRecipeNotes(currentVersion.notes ?? '')
+                setRecipeIngredientLines(
+                  versionIngredients.map((line) => ({
+                    draftId: createRecipeIngredientDraftId(),
+                    ingredientId: line.ingredientId,
+                    plannedWeightGrams: line.plannedWeightGrams,
+                  })),
+                )
+                setRecipeIngredientAmountByDraftId({})
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  recipe.archived ? 'Recipe restored.' : 'Recipe archived.',
+                  async () => {
+                    await setRecipeArchived({
+                      recipeId: recipe._id,
+                      archived: !recipe.archived,
+                    })
+                  },
+                )
+              }
+            >
+              {recipe.archived ? 'Unarchive' : 'Archive'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              aria-label={`Delete ${recipe.name}`}
+              onClick={() =>
+                confirmAndRunAction('Delete this recipe permanently?', 'Recipe deleted.', async () => {
+                  await deleteRecipe({ recipeId: recipe._id })
+                  if (editingRecipeId === recipe._id) {
+                    resetRecipeForm()
+                  }
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  const sessionRows = useMemo<SessionTableRow[]>(
+    () =>
+      cookSessions.map((session) => ({
+        id: session._id,
+        session,
+        label: session.label?.trim() || 'Unnamed session',
+        cookedAt: toLocalDateString(session.cookedAt),
+        status: session.archived ? 'Archived' : 'Active',
+      })),
+    [cookSessions],
+  )
+
+  const sessionColumns: ColumnDef<SessionTableRow>[] = [
+    {
+      accessorKey: 'label',
+      header: 'Session',
+    },
+    {
+      accessorKey: 'cookedAt',
+      header: 'Date',
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const session = row.original.session
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditingSessionId(session._id)
+                setSessionLabel(session.label ?? '')
+                setSessionDate(toLocalDateString(session.cookedAt))
+                setSessionPersonId(session.cookedByPersonId ?? '')
+                setSessionNotes(session.notes ?? '')
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  session.archived ? 'Session restored.' : 'Session archived.',
+                  async () => {
+                    await setCookSessionArchived({
+                      sessionId: session._id,
+                      archived: !session.archived,
+                    })
+                  },
+                )
+              }
+            >
+              {session.archived ? 'Unarchive' : 'Archive'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              aria-label={`Delete ${session.label?.trim() || 'session'}`}
+              onClick={() =>
+                confirmAndRunAction('Delete this session permanently?', 'Session deleted.', async () => {
+                  await deleteCookSession({ sessionId: session._id })
+                  if (editingSessionId === session._id) {
+                    resetSessionForm()
+                  }
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
+
+  const cookSessionById = useMemo(
+    () => new Map(data.cookSessions.map((session) => [session._id, session])),
+    [data.cookSessions],
+  )
+
+  const cookedFoodRows = useMemo<CookedFoodTableRow[]>(
+    () =>
+      cookedFoods.map((food) => ({
+        id: food._id,
+        food,
+        name: food.name,
+        kcalPer100g: food.kcalPer100g,
+        sessionLabel:
+          cookSessionById.get(food.cookSessionId)?.label?.trim() || 'Session',
+        status: food.archived ? 'Archived' : 'Active',
+      })),
+    [cookSessionById, cookedFoods],
+  )
+
+  const cookedFoodColumns: ColumnDef<CookedFoodTableRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Cooked Food',
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{row.original.sessionLabel}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'kcalPer100g',
+      header: 'kcal/100g',
+      cell: ({ row }) => row.original.kcalPer100g.toFixed(1),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const food = row.original.food
+        return (
+          <div className="flex min-w-max items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const ingredientLines = cookedFoodIngredientsById.get(food._id) ?? []
+                setEditingCookedFoodId(food._id)
+                setCookedFoodSessionId(food.cookSessionId)
+                setCookedFoodName(food.name)
+                setCookedFoodGroupId(food.groupIds[0] ?? '')
+                setCookedFoodFinishedWeight(food.finishedWeightGrams.toString())
+                setCookedFoodRecipeVersionId(food.recipeVersionId ?? '')
+                setSaveCookedFoodAsRecipe(false)
+                setCookedFoodRecipeDraftName('')
+                setCookedFoodRecipeDraftDescription('')
+                setCookedFoodRecipeDraftInstructions('')
+                setCookedFoodRecipeDraftNotes('')
+                setCookedFoodNotes(food.notes ?? '')
+                setCookedFoodIngredientLines(
+                  ingredientLines.map((line) => {
+                    const ingredientNameFromLink = line.ingredientId
+                      ? ingredientByIdAll.get(line.ingredientId)?.name
+                      : undefined
+                    if (line.ingredientId) {
+                      return {
+                        draftId: createCookedFoodIngredientDraftId(),
+                        sourceType: 'ingredient' as const,
+                        ingredientId: line.ingredientId,
+                        rawWeightGrams: line.rawWeightGrams,
+                      }
+                    }
+                    return {
+                      draftId: createCookedFoodIngredientDraftId(),
+                      sourceType: 'custom' as const,
+                      name:
+                        (line as { ingredientNameSnapshot?: string }).ingredientNameSnapshot ??
+                        ingredientNameFromLink ??
+                        'Custom ingredient',
+                      kcalPer100g: line.ingredientKcalPer100gSnapshot,
+                      rawWeightGrams: line.rawWeightGrams,
+                      saveToCatalog: false,
+                    }
+                  }),
+                )
+                setCookedFoodIngredientWeightByDraftId({})
+                setCookedFoodIngredientKcalByDraftId({})
+                setCookedFoodLineSourceType('ingredient')
+                setCookedFoodLineIngredientId('')
+                setCookedFoodLineCustomName('')
+                setCookedFoodLineCustomKcal('')
+                setCookedFoodLineCustomSaveToCatalog(false)
+                setCookedFoodLineWeight('')
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void runAction(
+                  food.archived ? 'Cooked food restored.' : 'Cooked food archived.',
+                  async () => {
+                    await setCookedFoodArchived({
+                      cookedFoodId: food._id,
+                      archived: !food.archived,
+                    })
+                  },
+                )
+              }
+            >
+              {food.archived ? 'Unarchive' : 'Archive'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              aria-label={`Delete ${food.name}`}
+              onClick={() =>
+                confirmAndRunAction('Delete this cooked food permanently?', 'Cooked food deleted.', async () => {
+                  await deleteCookedFood({ cookedFoodId: food._id })
+                  if (editingCookedFoodId === food._id) {
+                    resetCookedFoodForm()
+                  }
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
 
   const addRecipeIngredientLine = () => {
     const ingredient = recipeLineIngredientId
@@ -531,7 +1136,7 @@ function ManagePageContent() {
             <Skeleton className="mt-4 h-8 w-36" />
           </div>
 
-          <div className="mt-6 grid gap-5 xl:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
             <Card className="border-border/70 bg-card/90">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -597,7 +1202,7 @@ function ManagePageContent() {
             </Card>
           </div>
 
-          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
             <Card className="border-border/70 bg-card/90">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -665,8 +1270,9 @@ function ManagePageContent() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
-      <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+    <>
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
+        <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
         <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
           <h1 data-display="true" className="text-4xl text-foreground">
             Catalog and Cooking Management
@@ -684,7 +1290,7 @@ function ManagePageContent() {
           </label>
         </div>
 
-        <div className="mt-6 grid gap-5 xl:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -738,62 +1344,13 @@ function ManagePageContent() {
                   {editingGroupId ? 'Save' : 'Create'}
                 </Button>
               </div>
-              <div className="space-y-2">
-                {groups.map((group) => (
-                  <div
-                    key={group._id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {group.name} ({group.appliesTo})
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingGroupId(group._id)
-                          setGroupName(group.name)
-                          setGroupScope(group.appliesTo)
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          void runAction(
-                            group.archived ? 'Group restored.' : 'Group archived.',
-                            async () => {
-                              await setFoodGroupArchived({
-                                groupId: group._id,
-                                archived: !group.archived,
-                              })
-                            },
-                          )
-                        }
-                      >
-                        {group.archived ? 'Unarchive' : 'Archive'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          confirmAndRunAction('Delete this group permanently?', 'Group deleted.', async () => {
-                            await deleteFoodGroup({ groupId: group._id })
-                            if (editingGroupId === group._id) {
-                              resetGroupForm()
-                            }
-                          })
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <DataTable
+                columns={foodGroupColumns}
+                data={foodGroupRows}
+                searchColumnId="name"
+                searchPlaceholder="Search groups by name"
+                emptyText="No food groups found."
+              />
             </CardContent>
           </Card>
 
@@ -904,76 +1461,18 @@ function ManagePageContent() {
                 ) : null}
               </div>
 
-              <div className="max-h-52 space-y-2 overflow-auto">
-                {ingredients.map((ingredient) => (
-                  <div
-                    key={ingredient._id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {ingredient.name} ({ingredient.kcalPer100g.toFixed(1)} kcal)
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingIngredientId(ingredient._id)
-                          setIngredientName(ingredient.name)
-                          setIngredientBrand(ingredient.brand ?? '')
-                          setIngredientKcal(ingredient.kcalPer100g.toString())
-                          setIngredientUnit(ingredient.defaultUnit)
-                          setIngredientGramsPerUnit(
-                            ingredient.gramsPerUnit?.toString() ?? '',
-                          )
-                          setIngredientGroupId(ingredient.groupIds[0] ?? '')
-                          setIngredientNotes(ingredient.notes ?? '')
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          void runAction(
-                            ingredient.archived
-                              ? 'Ingredient restored.'
-                              : 'Ingredient archived.',
-                            async () => {
-                              await setIngredientArchived({
-                                ingredientId: ingredient._id,
-                                archived: !ingredient.archived,
-                              })
-                            },
-                          )
-                        }
-                      >
-                        {ingredient.archived ? 'Unarchive' : 'Archive'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          confirmAndRunAction('Delete this ingredient permanently?', 'Ingredient deleted.', async () => {
-                            await deleteIngredient({ ingredientId: ingredient._id })
-                            if (editingIngredientId === ingredient._id) {
-                              resetIngredientForm()
-                            }
-                          })
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <DataTable
+                columns={ingredientColumns}
+                data={ingredientRows}
+                searchColumnId="name"
+                searchPlaceholder="Search ingredients by name"
+                emptyText="No ingredients found."
+              />
             </CardContent>
           </Card>
         </div>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1182,78 +1681,13 @@ function ManagePageContent() {
                 ) : null}
               </div>
 
-              <div className="max-h-52 space-y-2 overflow-auto">
-                {recipes.map((recipe) => (
-                  <div
-                    key={recipe._id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {recipe.name} (v{recipe.latestVersionNumber})
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const currentVersion = recipeVersionByRecipeId.get(recipe._id)
-                          if (!currentVersion) {
-                            return
-                          }
-                          const versionIngredients =
-                            recipeIngredientsByVersionId.get(currentVersion._id) ?? []
-                          setEditingRecipeId(recipe._id)
-                          setRecipeName(recipe.name)
-                          setRecipeDescription(recipe.description ?? '')
-                          setRecipeInstructions(currentVersion.instructions ?? '')
-                          setRecipeNotes(currentVersion.notes ?? '')
-                          setRecipeIngredientLines(
-                            versionIngredients.map((line) => ({
-                              draftId: createRecipeIngredientDraftId(),
-                              ingredientId: line.ingredientId,
-                              plannedWeightGrams: line.plannedWeightGrams,
-                            })),
-                          )
-                          setRecipeIngredientAmountByDraftId({})
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          void runAction(
-                            recipe.archived ? 'Recipe restored.' : 'Recipe archived.',
-                            async () => {
-                              await setRecipeArchived({
-                                recipeId: recipe._id,
-                                archived: !recipe.archived,
-                              })
-                            },
-                          )
-                        }
-                      >
-                        {recipe.archived ? 'Unarchive' : 'Archive'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          confirmAndRunAction('Delete this recipe permanently?', 'Recipe deleted.', async () => {
-                            await deleteRecipe({ recipeId: recipe._id })
-                            if (editingRecipeId === recipe._id) {
-                              resetRecipeForm()
-                            }
-                          })
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <DataTable
+                columns={recipeColumns}
+                data={recipeRows}
+                searchColumnId="name"
+                searchPlaceholder="Search recipes by name"
+                emptyText="No recipes found."
+              />
             </CardContent>
           </Card>
 
@@ -1340,63 +1774,14 @@ function ManagePageContent() {
                     </Button>
                   ) : null}
                 </div>
-                <div className="mt-3 max-h-36 space-y-2 overflow-auto">
-                  {cookSessions.map((session) => (
-                    <div
-                      key={session._id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 px-3 py-2 text-sm"
-                    >
-                      <span>{formatCookSessionOptionLabel(session)}</span>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingSessionId(session._id)
-                            setSessionLabel(session.label ?? '')
-                            setSessionDate(toLocalDateString(session.cookedAt))
-                            setSessionPersonId(session.cookedByPersonId ?? '')
-                            setSessionNotes(session.notes ?? '')
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void runAction(
-                              session.archived
-                                ? 'Session restored.'
-                                : 'Session archived.',
-                              async () => {
-                                await setCookSessionArchived({
-                                  sessionId: session._id,
-                                  archived: !session.archived,
-                                })
-                              },
-                            )
-                          }
-                        >
-                          {session.archived ? 'Unarchive' : 'Archive'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            confirmAndRunAction('Delete this session permanently?', 'Session deleted.', async () => {
-                              await deleteCookSession({ sessionId: session._id })
-                              if (editingSessionId === session._id) {
-                                resetSessionForm()
-                              }
-                            })
-                          }
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="mt-3">
+                  <DataTable
+                    columns={sessionColumns}
+                    data={sessionRows}
+                    searchColumnId="label"
+                    searchPlaceholder="Search sessions by label"
+                    emptyText="No sessions found."
+                  />
                 </div>
               </div>
 
@@ -1907,118 +2292,46 @@ function ManagePageContent() {
                   ) : null}
                 </div>
 
-                <div className="mt-3 max-h-44 space-y-2 overflow-auto">
-                  {cookedFoods.map((food) => (
-                    <div
-                      key={food._id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 px-3 py-2 text-sm"
-                    >
-                      <span>
-                        {food.name} ({food.kcalPer100g.toFixed(1)} kcal/100g)
-                      </span>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const ingredientLines =
-                              cookedFoodIngredientsById.get(food._id) ?? []
-                            setEditingCookedFoodId(food._id)
-                            setCookedFoodSessionId(food.cookSessionId)
-                            setCookedFoodName(food.name)
-                            setCookedFoodGroupId(food.groupIds[0] ?? '')
-                            setCookedFoodFinishedWeight(
-                              food.finishedWeightGrams.toString(),
-                            )
-                            setCookedFoodRecipeVersionId(food.recipeVersionId ?? '')
-                            setSaveCookedFoodAsRecipe(false)
-                            setCookedFoodRecipeDraftName('')
-                            setCookedFoodRecipeDraftDescription('')
-                            setCookedFoodRecipeDraftInstructions('')
-                            setCookedFoodRecipeDraftNotes('')
-                            setCookedFoodNotes(food.notes ?? '')
-                            setCookedFoodIngredientLines(
-                              ingredientLines.map((line) => {
-                                const ingredientNameFromLink = line.ingredientId
-                                  ? ingredientByIdAll.get(line.ingredientId)?.name
-                                  : undefined
-                                if (line.ingredientId) {
-                                  return {
-                                    draftId: createCookedFoodIngredientDraftId(),
-                                    sourceType: 'ingredient' as const,
-                                    ingredientId: line.ingredientId,
-                                    rawWeightGrams: line.rawWeightGrams,
-                                  }
-                                }
-                                return {
-                                  draftId: createCookedFoodIngredientDraftId(),
-                                  sourceType: 'custom' as const,
-                                  name:
-                                    (line as { ingredientNameSnapshot?: string })
-                                      .ingredientNameSnapshot ??
-                                    ingredientNameFromLink ??
-                                    'Custom ingredient',
-                                  kcalPer100g: line.ingredientKcalPer100gSnapshot,
-                                  rawWeightGrams: line.rawWeightGrams,
-                                  saveToCatalog: false,
-                                }
-                              }),
-                            )
-                            setCookedFoodIngredientWeightByDraftId({})
-                            setCookedFoodIngredientKcalByDraftId({})
-                            setCookedFoodLineSourceType('ingredient')
-                            setCookedFoodLineIngredientId('')
-                            setCookedFoodLineCustomName('')
-                            setCookedFoodLineCustomKcal('')
-                            setCookedFoodLineCustomSaveToCatalog(false)
-                            setCookedFoodLineWeight('')
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void runAction(
-                              food.archived
-                                ? 'Cooked food restored.'
-                                : 'Cooked food archived.',
-                              async () => {
-                                await setCookedFoodArchived({
-                                  cookedFoodId: food._id,
-                                  archived: !food.archived,
-                                })
-                              },
-                            )
-                          }
-                        >
-                          {food.archived ? 'Unarchive' : 'Archive'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            confirmAndRunAction('Delete this cooked food permanently?', 'Cooked food deleted.', async () => {
-                              await deleteCookedFood({ cookedFoodId: food._id })
-                              if (editingCookedFoodId === food._id) {
-                                resetCookedFoodForm()
-                              }
-                            })
-                          }
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="mt-3">
+                  <DataTable
+                    columns={cookedFoodColumns}
+                    data={cookedFoodRows}
+                    searchColumnId="name"
+                    searchPlaceholder="Search cooked foods by name"
+                    emptyText="No cooked foods found."
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      </section>
-    </main>
+        </section>
+      </main>
+      <AlertDialog
+        open={isConfirmDialogOpen}
+        onOpenChange={handleConfirmDialogOpenChange}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingConfirmation?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="gap-2"
+              variant="destructive"
+              onClick={confirmPendingAction}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

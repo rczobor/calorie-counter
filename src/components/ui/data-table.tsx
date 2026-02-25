@@ -68,7 +68,7 @@ export function DataTable<TData, TValue>({
     : undefined;
 
   return (
-    <div className={cn("min-w-0 space-y-3", className)}>
+    <div className={cn("min-w-0 w-full max-w-full space-y-3", className)}>
       {searchColumn || toolbarActions ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {searchColumn ? (
@@ -91,7 +91,7 @@ export function DataTable<TData, TValue>({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-md border">
+      <div className="w-full max-w-full overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

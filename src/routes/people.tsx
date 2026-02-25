@@ -2,12 +2,22 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useMemo, useState } from 'react'
-import { Target, UserRound } from 'lucide-react'
+import { Target, Trash2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import { isConvexConfigured } from '@/integrations/convex/config'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -35,6 +45,12 @@ const EMPTY_MANAGEMENT_DATA = {
   mealItems: [],
 }
 
+type PendingConfirmation = {
+  message: string
+  successText: string
+  action: () => Promise<unknown>
+}
+
 export const Route = createFileRoute('/people')({
   ssr: false,
   component: PeoplePage,
@@ -59,6 +75,9 @@ function PeoplePageContent() {
   const [notes, setNotes] = useState('')
   const [goalReason, setGoalReason] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation | null>(null)
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
 
   const dataResult = useQuery(api.nutrition.getManagementData)
   const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<
@@ -119,9 +138,28 @@ function PeoplePageContent() {
     successText: string,
     action: () => Promise<unknown>,
   ) => {
-    if (!window.confirm(message)) {
+    setPendingConfirmation({
+      message,
+      successText,
+      action,
+    })
+    setIsConfirmDialogOpen(true)
+  }
+
+  const handleConfirmDialogOpenChange = (open: boolean) => {
+    setIsConfirmDialogOpen(open)
+    if (!open) {
+      setPendingConfirmation(null)
+    }
+  }
+
+  const confirmPendingAction = () => {
+    if (!pendingConfirmation) {
       return
     }
+    const { successText, action } = pendingConfirmation
+    setIsConfirmDialogOpen(false)
+    setPendingConfirmation(null)
     void runAction(successText, action)
   }
 
@@ -239,6 +277,7 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant="destructive"
+              aria-label={`Delete ${person.name}`}
               onClick={() =>
                 confirmAndRunAction('Delete this person permanently?', 'Person deleted.', async () => {
                   await deletePerson({ personId: person._id })
@@ -248,7 +287,7 @@ function PeoplePageContent() {
                 })
               }
             >
-              Delete
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         )
@@ -379,8 +418,9 @@ function PeoplePageContent() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_18%_5%,#fdf6e7_0%,#f5f6f4_52%,#e8f1ea_100%)] dark:bg-[radial-gradient(circle_at_18%_5%,#1d2535_0%,#111a26_50%,#0a1119_100%)]">
-      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <>
+      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_18%_5%,#fdf6e7_0%,#f5f6f4_52%,#e8f1ea_100%)] dark:bg-[radial-gradient(circle_at_18%_5%,#1d2535_0%,#111a26_50%,#0a1119_100%)]">
+        <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
         <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
           <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
             <UserRound className="h-4 w-4" />
@@ -508,8 +548,33 @@ function PeoplePageContent() {
             />
           </CardContent>
         </Card>
-      </section>
-    </main>
+        </section>
+      </main>
+      <AlertDialog
+        open={isConfirmDialogOpen}
+        onOpenChange={handleConfirmDialogOpenChange}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingConfirmation?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="gap-2"
+              variant="destructive"
+              onClick={confirmPendingAction}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
