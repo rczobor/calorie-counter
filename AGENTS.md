@@ -33,6 +33,26 @@ For auth to Convex, Clerk must expose a JWT template named `convex` (audience `c
   - `src/routeTree.gen.ts`
 - Keep `components.json` conventions intact when adding shadcn components.
 
+## Convex Migrations
+
+When schema/validator changes may conflict with existing production data, use expand-migrate-contract:
+
+1. Expand:
+   - Deploy compatibility code first.
+   - Run `bunx convex deploy`.
+2. Migrate:
+   - Run one-off migration functions on prod.
+   - Example: `bunx convex run --prod <module:function> '{}'`.
+   - Important: new migration functions are not runnable until after they are deployed.
+3. Contract:
+   - Remove temporary compatibility code and one-off migration functions.
+   - Run `bunx convex deploy` again.
+
+Migration conventions:
+- Prefer `internalMutation`/`internalAction` for one-off migrations.
+- Make migrations idempotent when practical.
+- Remove migration code after successful production execution.
+
 ## Codebase Map
 
 - `src/components/ui/*`: Shared UI primitives (shadcn-style components).
