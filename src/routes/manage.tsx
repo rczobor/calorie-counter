@@ -31,7 +31,10 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Toggle } from "@/components/ui/toggle";
+import {
+  CustomIngredientSwitchRow,
+  IngredientLineModeToggle,
+} from "@/components/nutrition/ingredient-line-controls";
 import {
   NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
@@ -181,7 +184,7 @@ function ManagePageContent() {
   const [recipeLineCustomIgnoreCalories, setRecipeLineCustomIgnoreCalories] =
     useState(false);
   const [recipeLineCustomSaveToCatalog, setRecipeLineCustomSaveToCatalog] =
-    useState(false);
+    useState(true);
   const [recipeLineAmount, setRecipeLineAmount] = useState("");
   const [recipeLineUnit, setRecipeLineUnit] = useState<NutritionUnit>("g");
   const [recipeIngredientLines, setRecipeIngredientLines] = useState<
@@ -332,7 +335,7 @@ function ManagePageContent() {
     setRecipeLineCustomName("");
     setRecipeLineCustomKcal("");
     setRecipeLineCustomIgnoreCalories(false);
-    setRecipeLineCustomSaveToCatalog(false);
+    setRecipeLineCustomSaveToCatalog(true);
     setRecipeLineAmount("");
     setRecipeLineUnit("g");
     setRecipeIngredientLines([]);
@@ -810,7 +813,7 @@ function ManagePageContent() {
     setRecipeLineCustomName("");
     setRecipeLineCustomKcal("");
     setRecipeLineCustomIgnoreCalories(false);
-    setRecipeLineCustomSaveToCatalog(false);
+    setRecipeLineCustomSaveToCatalog(true);
     setRecipeLineAmount("");
   };
 
@@ -1431,34 +1434,10 @@ function ManagePageContent() {
                   <p className="text-xs font-medium text-foreground">
                     Add ingredient line
                   </p>
-                  <div className="inline-flex gap-1 rounded-full border border-border/70 bg-muted/40 p-1">
-                    <Toggle
-                      size="sm"
-                      variant="default"
-                      className="rounded-full border border-transparent px-3 text-muted-foreground transition-colors hover:text-foreground data-[state=on]:border-primary/60 data-[state=on]:bg-primary data-[state=on]:font-semibold data-[state=on]:text-primary-foreground data-[state=on]:shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
-                      pressed={recipeLineMode === "ingredient"}
-                      onPressedChange={(pressed) => {
-                        if (pressed) {
-                          setRecipeLineMode("ingredient");
-                        }
-                      }}
-                    >
-                      Existing
-                    </Toggle>
-                    <Toggle
-                      size="sm"
-                      variant="default"
-                      className="rounded-full border border-transparent px-3 text-muted-foreground transition-colors hover:text-foreground data-[state=on]:border-primary/60 data-[state=on]:bg-primary data-[state=on]:font-semibold data-[state=on]:text-primary-foreground data-[state=on]:shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
-                      pressed={recipeLineMode === "custom"}
-                      onPressedChange={(pressed) => {
-                        if (pressed) {
-                          setRecipeLineMode("custom");
-                        }
-                      }}
-                    >
-                      New
-                    </Toggle>
-                  </div>
+                  <IngredientLineModeToggle
+                    value={recipeLineMode}
+                    onValueChange={setRecipeLineMode}
+                  />
                 </div>
 
                 {recipeLineMode === "ingredient" ? (
@@ -1558,24 +1537,12 @@ function ManagePageContent() {
                     <Button variant="outline" onClick={addRecipeIngredientLine}>
                       Add
                     </Button>
-                    <label className="col-span-full flex items-center gap-3 text-xs text-muted-foreground">
-                      Ignore calories
-                      <Switch
-                        size="sm"
-                        checked={recipeLineCustomIgnoreCalories}
-                        onCheckedChange={(checked) =>
-                          setRecipeLineCustomIgnoreCalories(Boolean(checked))
-                        }
-                      />
-                      Save to ingredient catalog
-                      <Switch
-                        size="sm"
-                        checked={recipeLineCustomSaveToCatalog}
-                        onCheckedChange={(checked) =>
-                          setRecipeLineCustomSaveToCatalog(Boolean(checked))
-                        }
-                      />
-                    </label>
+                    <CustomIngredientSwitchRow
+                      ignoreCalories={recipeLineCustomIgnoreCalories}
+                      onIgnoreCaloriesChange={setRecipeLineCustomIgnoreCalories}
+                      saveToCatalog={recipeLineCustomSaveToCatalog}
+                      onSaveToCatalogChange={setRecipeLineCustomSaveToCatalog}
+                    />
                   </div>
                 )}
 

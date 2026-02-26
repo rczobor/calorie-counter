@@ -32,8 +32,11 @@ import { Input } from "@/components/ui/input";
 import { SearchablePicker } from "@/components/ui/searchable-picker";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
+import {
+  CustomIngredientSwitchRow,
+  IngredientLineModeToggle,
+} from "@/components/nutrition/ingredient-line-controls";
 import {
   formatKcalPer100,
   getKcalPer100,
@@ -163,7 +166,7 @@ function MealDashboardPageContent() {
   const [itemCustomKcalPer100, setItemCustomKcalPer100] = useState("");
   const [itemCustomIgnoreCalories, setItemCustomIgnoreCalories] =
     useState(false);
-  const [itemCustomSaveToCatalog, setItemCustomSaveToCatalog] = useState(false);
+  const [itemCustomSaveToCatalog, setItemCustomSaveToCatalog] = useState(true);
   const [itemWeight, setItemWeight] = useState("");
   const [editingDraftItemIndex, setEditingDraftItemIndex] = useState<
     number | null
@@ -594,7 +597,7 @@ function MealDashboardPageContent() {
     setItemCustomName("");
     setItemCustomKcalPer100("");
     setItemCustomIgnoreCalories(false);
-    setItemCustomSaveToCatalog(false);
+    setItemCustomSaveToCatalog(true);
     setItemWeight("");
     setEditingDraftItemIndex(null);
   };
@@ -640,17 +643,17 @@ function MealDashboardPageContent() {
         return;
       }
       const parsedKcal = Number(itemCustomKcalPer100);
-      if (itemCustomIgnoreCalories) {
-        if (!Number.isFinite(parsedKcal) || parsedKcal < 0) {
-          return;
-        }
-      } else if (!Number.isFinite(parsedKcal) || parsedKcal <= 0) {
+      if (!itemCustomIgnoreCalories && (!Number.isFinite(parsedKcal) || parsedKcal <= 0)) {
         return;
       }
+      const kcalPer100 =
+        itemCustomIgnoreCalories && (!Number.isFinite(parsedKcal) || parsedKcal < 0)
+          ? 0
+          : parsedKcal;
       upsertDraft({
         sourceType: "custom",
         name: itemCustomName.trim(),
-        kcalPer100: parsedKcal,
+        kcalPer100,
         ignoreCalories: itemCustomIgnoreCalories,
         consumedWeightGrams: parsedAmount,
         saveToCatalog: itemCustomSaveToCatalog,
@@ -1014,37 +1017,17 @@ function MealDashboardPageContent() {
                 <div className="mt-3 space-y-3">
                   {itemSourceType === "ingredient" ? (
                     <>
-                      <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
-                        <Toggle
-                          variant="default"
-                          size="lg"
-                          pressed={itemIngredientMode === "catalog"}
-                          onPressedChange={(pressed) => {
-                            if (!pressed) {
-                              return;
-                            }
-                            setItemIngredientMode("catalog");
-                          }}
-                          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
-                        >
-                          Catalog ingredient
-                        </Toggle>
-                        <Toggle
-                          variant="default"
-                          size="lg"
-                          pressed={itemIngredientMode === "custom"}
-                          onPressedChange={(pressed) => {
-                            if (!pressed) {
-                              return;
-                            }
-                            setItemIngredientMode("custom");
+                      <IngredientLineModeToggle
+                        value={itemIngredientMode}
+                        onValueChange={(value) => {
+                          setItemIngredientMode(value);
+                          if (value === "custom") {
                             setItemIngredientId("");
-                          }}
-                          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
-                        >
-                          New ingredient
-                        </Toggle>
-                      </div>
+                          }
+                        }}
+                        existingLabel="Catalog ingredient"
+                        customLabel="New ingredient"
+                      />
 
                       {itemIngredientMode === "catalog" ? (
                         <>
@@ -1085,41 +1068,30 @@ function MealDashboardPageContent() {
                         </>
                       ) : (
                         <>
-                          <div className="grid gap-3 md:grid-cols-2">
+                          <div
+                            className={`grid gap-3 ${
+                              itemCustomIgnoreCalories
+                                ? "sm:grid-cols-[1.2fr_0.9fr_auto]"
+                                : "sm:grid-cols-[1.2fr_0.9fr_0.9fr_auto]"
+                            }`}
+                          >
                             <Input
                               aria-label="Custom ingredient name"
                               placeholder="Ingredient name"
                               value={itemCustomName}
                               onChange={(event) => setItemCustomName(event.target.value)}
                             />
-                            <Input
-                              type="number"
-                              aria-label="Custom ingredient kcal per 100"
-                              placeholder="kcal / 100g"
-                              value={itemCustomKcalPer100}
-                              onChange={(event) =>
-                                setItemCustomKcalPer100(event.target.value)
-                              }
-                            />
-                            <label className="flex items-center justify-between rounded-md border border-border/70 bg-background/55 px-3 py-2 text-xs text-muted-foreground">
-                              Ignore calories for this ingredient
-                              <Switch
-                                checked={itemCustomIgnoreCalories}
-                                onCheckedChange={setItemCustomIgnoreCalories}
+                            {itemCustomIgnoreCalories ? null : (
+                              <Input
+                                type="number"
+                                aria-label="Custom ingredient kcal per 100"
+                                placeholder="kcal / 100g"
+                                value={itemCustomKcalPer100}
+                                onChange={(event) =>
+                                  setItemCustomKcalPer100(event.target.value)
+                                }
                               />
-                            </label>
-                          </div>
-                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <input
-                              type="checkbox"
-                              checked={itemCustomSaveToCatalog}
-                              onChange={(event) =>
-                                setItemCustomSaveToCatalog(event.target.checked)
-                              }
-                            />
-                            Save this ingredient to catalog
-                          </label>
-                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            )}
                             <Input
                               type="number"
                               aria-label="Custom ingredient grams"
@@ -1128,9 +1100,14 @@ function MealDashboardPageContent() {
                               onChange={(event) => setItemWeight(event.target.value)}
                             />
                             <Button variant="outline" onClick={upsertDraftItem}>
-                              <Plus className="h-4 w-4" />
                               {editingDraftItemIndex === null ? "Add" : "Update"}
                             </Button>
+                            <CustomIngredientSwitchRow
+                              ignoreCalories={itemCustomIgnoreCalories}
+                              onIgnoreCaloriesChange={setItemCustomIgnoreCalories}
+                              saveToCatalog={itemCustomSaveToCatalog}
+                              onSaveToCatalogChange={setItemCustomSaveToCatalog}
+                            />
                           </div>
                         </>
                       )}

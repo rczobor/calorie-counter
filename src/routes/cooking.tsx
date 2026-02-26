@@ -33,7 +33,10 @@ import { SearchablePicker } from '@/components/ui/searchable-picker'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Toggle } from '@/components/ui/toggle'
+import {
+  CustomIngredientSwitchRow,
+  IngredientLineModeToggle,
+} from '@/components/nutrition/ingredient-line-controls'
 import {
   NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
@@ -168,7 +171,7 @@ function CookingPageContent() {
   const [cookedFoodLineCustomIgnoreCalories, setCookedFoodLineCustomIgnoreCalories] =
     useState(false)
   const [cookedFoodLineCustomSaveToCatalog, setCookedFoodLineCustomSaveToCatalog] =
-    useState(false)
+    useState(true)
   const [cookedFoodLineReferenceAmount, setCookedFoodLineReferenceAmount] = useState('')
   const [cookedFoodLineReferenceUnit, setCookedFoodLineReferenceUnit] =
     useState<NutritionUnit>('g')
@@ -394,7 +397,7 @@ function CookingPageContent() {
     setCookedFoodLineCustomKcal('')
     setCookedFoodLineCustomBasisUnit('g')
     setCookedFoodLineCustomIgnoreCalories(false)
-    setCookedFoodLineCustomSaveToCatalog(false)
+    setCookedFoodLineCustomSaveToCatalog(true)
     setCookedFoodLineReferenceAmount('')
     setCookedFoodLineReferenceUnit('g')
     setCookedFoodLineCountedAmount('')
@@ -478,7 +481,7 @@ function CookingPageContent() {
     setCookedFoodLineCustomKcal('')
     setCookedFoodLineCustomBasisUnit('g')
     setCookedFoodLineCustomIgnoreCalories(false)
-    setCookedFoodLineCustomSaveToCatalog(false)
+    setCookedFoodLineCustomSaveToCatalog(true)
     setCookedFoodLineReferenceAmount('')
     setCookedFoodLineCountedAmount('')
   }
@@ -715,7 +718,7 @@ function CookingPageContent() {
                 setCookedFoodLineCustomKcal('')
                 setCookedFoodLineCustomBasisUnit('g')
                 setCookedFoodLineCustomIgnoreCalories(false)
-                setCookedFoodLineCustomSaveToCatalog(false)
+                setCookedFoodLineCustomSaveToCatalog(true)
                 setCookedFoodLineReferenceAmount('')
                 setCookedFoodLineReferenceUnit('g')
                 setCookedFoodLineCountedAmount('')
@@ -1007,34 +1010,10 @@ function CookingPageContent() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-medium text-foreground">Add ingredient line</p>
-                  <div className="inline-flex gap-1 rounded-full bg-muted/60 p-1">
-                    <Toggle
-                      size="sm"
-                      variant="default"
-                      className="rounded-full px-3 text-muted-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
-                      pressed={cookedFoodLineMode === 'ingredient'}
-                      onPressedChange={(pressed) => {
-                        if (pressed) {
-                          setCookedFoodLineMode('ingredient')
-                        }
-                      }}
-                    >
-                      Existing
-                    </Toggle>
-                    <Toggle
-                      size="sm"
-                      variant="default"
-                      className="rounded-full px-3 text-muted-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm"
-                      pressed={cookedFoodLineMode === 'custom'}
-                      onPressedChange={(pressed) => {
-                        if (pressed) {
-                          setCookedFoodLineMode('custom')
-                        }
-                      }}
-                    >
-                      New
-                    </Toggle>
-                  </div>
+                  <IngredientLineModeToggle
+                    value={cookedFoodLineMode}
+                    onValueChange={setCookedFoodLineMode}
+                  />
                 </div>
 
                 {cookedFoodLineMode === 'ingredient' ? (
@@ -1074,88 +1053,90 @@ function CookingPageContent() {
                         setCookedFoodLineCountedAmount(event.target.value)
                       }
                     />
-                    <Button onClick={addCookedFoodIngredientLine}>Add</Button>
+                    <Button variant="outline" onClick={addCookedFoodIngredientLine}>
+                      Add
+                    </Button>
                   </div>
                 ) : (
-                  <div
-                    className={`grid gap-3 ${
-                      cookedFoodLineCustomIgnoreCalories
-                        ? 'sm:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto]'
-                        : 'sm:grid-cols-[1.2fr_0.6fr_0.6fr_0.8fr_0.8fr_0.8fr_auto]'
-                    }`}
-                  >
-                    <Input
-                      aria-label="Custom ingredient name"
-                      placeholder="Ingredient"
-                      value={cookedFoodLineCustomName}
-                      onChange={(event) =>
-                        setCookedFoodLineCustomName(event.target.value)
-                      }
-                    />
-                    {cookedFoodLineCustomIgnoreCalories ? null : (
-                      <>
-                        <Input
-                          type="number"
-                          aria-label="Custom kcal per 100"
-                          placeholder="kcal/100"
-                          value={cookedFoodLineCustomKcal}
-                          onChange={(event) => setCookedFoodLineCustomKcal(event.target.value)}
-                        />
-                        <Select
-                          ariaLabel="Custom kcal basis"
-                          value={cookedFoodLineCustomBasisUnit}
-                          onValueChange={(value) =>
-                            setCookedFoodLineCustomBasisUnit((value as NutritionUnit | null) ?? 'g')
-                          }
-                          options={NUTRITION_UNIT_OPTIONS}
-                        />
-                      </>
-                    )}
-                    <Input
-                      type="number"
-                      aria-label="Custom reference amount"
-                      placeholder="Reference amount"
-                      value={cookedFoodLineReferenceAmount}
-                      onChange={(event) =>
-                        setCookedFoodLineReferenceAmount(event.target.value)
-                      }
-                    />
-                    <Select
-                      ariaLabel="Custom reference unit"
-                      value={cookedFoodLineReferenceUnit}
-                      onValueChange={(value) =>
-                        setCookedFoodLineReferenceUnit((value as NutritionUnit | null) ?? 'g')
-                      }
-                      options={NUTRITION_UNIT_OPTIONS}
-                    />
-                    <Input
-                      type="number"
-                      aria-label="Custom counted amount"
-                      placeholder="Counted amount"
-                      value={cookedFoodLineCountedAmount}
-                      onChange={(event) =>
-                        setCookedFoodLineCountedAmount(event.target.value)
-                      }
-                    />
-                    <Button onClick={addCookedFoodIngredientLine}>Add</Button>
-                    <label className="col-span-full flex items-center gap-3 text-xs text-muted-foreground">
-                      Ignore calories
-                      <Switch
-                        size="sm"
-                        checked={cookedFoodLineCustomIgnoreCalories}
-                        onCheckedChange={(checked) =>
-                          setCookedFoodLineCustomIgnoreCalories(Boolean(checked))
+                  <div className="space-y-3">
+                    <div
+                      className={`grid gap-3 ${
+                        cookedFoodLineCustomIgnoreCalories
+                          ? 'sm:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)]'
+                          : 'sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]'
+                      }`}
+                    >
+                      <Input
+                        aria-label="Custom ingredient name"
+                        placeholder="Ingredient"
+                        value={cookedFoodLineCustomName}
+                        onChange={(event) =>
+                          setCookedFoodLineCustomName(event.target.value)
                         }
                       />
-                      Save to ingredient catalog
-                      <Switch
-                        size="sm"
-                        checked={cookedFoodLineCustomSaveToCatalog}
-                        onCheckedChange={(checked) =>
-                          setCookedFoodLineCustomSaveToCatalog(Boolean(checked))
+                      {cookedFoodLineCustomIgnoreCalories ? null : (
+                        <>
+                          <Input
+                            type="number"
+                            aria-label="Custom kcal per 100"
+                            placeholder="kcal/100"
+                            value={cookedFoodLineCustomKcal}
+                            onChange={(event) =>
+                              setCookedFoodLineCustomKcal(event.target.value)
+                            }
+                          />
+                          <Select
+                            ariaLabel="Custom kcal basis"
+                            value={cookedFoodLineCustomBasisUnit}
+                            onValueChange={(value) =>
+                              setCookedFoodLineCustomBasisUnit(
+                                (value as NutritionUnit | null) ?? 'g',
+                              )
+                            }
+                            options={NUTRITION_UNIT_OPTIONS}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                      <Input
+                        type="number"
+                        aria-label="Custom reference amount"
+                        placeholder="Reference amount"
+                        value={cookedFoodLineReferenceAmount}
+                        onChange={(event) =>
+                          setCookedFoodLineReferenceAmount(event.target.value)
                         }
                       />
-                    </label>
+                      <Select
+                        ariaLabel="Custom reference unit"
+                        value={cookedFoodLineReferenceUnit}
+                        onValueChange={(value) =>
+                          setCookedFoodLineReferenceUnit(
+                            (value as NutritionUnit | null) ?? 'g',
+                          )
+                        }
+                        options={NUTRITION_UNIT_OPTIONS}
+                      />
+                      <Input
+                        type="number"
+                        aria-label="Custom counted amount"
+                        placeholder="Counted amount"
+                        value={cookedFoodLineCountedAmount}
+                        onChange={(event) =>
+                          setCookedFoodLineCountedAmount(event.target.value)
+                        }
+                      />
+                      <Button variant="outline" onClick={addCookedFoodIngredientLine}>
+                        Add
+                      </Button>
+                    </div>
+                    <CustomIngredientSwitchRow
+                      ignoreCalories={cookedFoodLineCustomIgnoreCalories}
+                      onIgnoreCaloriesChange={setCookedFoodLineCustomIgnoreCalories}
+                      saveToCatalog={cookedFoodLineCustomSaveToCatalog}
+                      onSaveToCatalogChange={setCookedFoodLineCustomSaveToCatalog}
+                    />
                   </div>
                 )}
 
