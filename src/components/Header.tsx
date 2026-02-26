@@ -8,6 +8,7 @@ import { isClerkConfigured } from '@/integrations/clerk/config'
 const NAV_ITEMS = [
   { to: '/', label: 'Meals' },
   { to: '/manage', label: 'Manage' },
+  { to: '/cooking', label: 'Cooking' },
   { to: '/people', label: 'People' },
 ] as const
 

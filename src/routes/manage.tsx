@@ -1,13 +1,13 @@
-import { type ColumnDef } from '@tanstack/react-table'
-import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
-import { useMemo, useState } from 'react'
-import { BookOpenText, ChefHat, FolderTree, Trash2, Wheat } from 'lucide-react'
-import { toast } from 'sonner'
+import { type ColumnDef } from "@tanstack/react-table";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery } from "convex/react";
+import { useMemo, useState } from "react";
+import { BookOpenText, FolderTree, Trash2, Wheat } from "lucide-react";
+import { toast } from "sonner";
 
-import { api } from '../../convex/_generated/api'
-import type { Doc, Id } from '../../convex/_generated/dataModel'
-import { isConvexConfigured } from '@/integrations/convex/config'
+import { api } from "../../convex/_generated/api";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { isConvexConfigured } from "@/integrations/convex/config";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,24 +17,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { DataTable } from '@/components/ui/data-table'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Input } from '@/components/ui/input'
-import { SearchablePicker } from '@/components/ui/searchable-picker'
-import { Select } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import { Toggle } from '@/components/ui/toggle'
+} from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Toggle } from "@/components/ui/toggle";
+import {
+  NUTRITION_UNIT_OPTIONS,
+  type NutritionUnit,
+  formatKcalPer100,
+  getKcalPer100,
+  toErrorMessage,
+} from "@/lib/nutrition";
 
 const EMPTY_MANAGEMENT_DATA = {
   people: [],
@@ -49,329 +53,225 @@ const EMPTY_MANAGEMENT_DATA = {
   cookedFoodIngredients: [],
   meals: [],
   mealItems: [],
-}
-
-type RecipeIngredientDraft = {
-  draftId: string
-  ingredientId: Id<'ingredients'>
-  plannedWeightGrams: number
-}
-
-type ExistingCookedFoodIngredientDraft = {
-  draftId: string
-  sourceType: 'ingredient'
-  ingredientId: Id<'ingredients'>
-  rawWeightGrams: number
-}
-
-type CustomCookedFoodIngredientDraft = {
-  draftId: string
-  sourceType: 'custom'
-  name: string
-  kcalPer100g: number
-  rawWeightGrams: number
-  saveToCatalog: boolean
-}
-
-type CookedFoodIngredientDraft =
-  | ExistingCookedFoodIngredientDraft
-  | CustomCookedFoodIngredientDraft
-
-type FoodGroupTableRow = {
-  id: Id<'foodGroups'>
-  group: Doc<'foodGroups'>
-  name: string
-  appliesTo: 'ingredient' | 'cookedFood' | 'both'
-  status: 'Active' | 'Archived'
-}
-
-type IngredientTableRow = {
-  id: Id<'ingredients'>
-  ingredient: Doc<'ingredients'>
-  name: string
-  brand: string
-  kcalPer100g: number
-  defaultUnit: 'g' | 'ml' | 'piece'
-  status: 'Active' | 'Archived'
-}
-
-type RecipeTableRow = {
-  id: Id<'recipes'>
-  recipe: Doc<'recipes'>
-  name: string
-  latestVersionNumber: number
-  status: 'Active' | 'Archived'
-}
-
-type SessionTableRow = {
-  id: Id<'cookSessions'>
-  session: Doc<'cookSessions'>
-  label: string
-  cookedAt: string
-  status: 'Active' | 'Archived'
-}
-
-type CookedFoodTableRow = {
-  id: Id<'cookedFoods'>
-  food: Doc<'cookedFoods'>
-  name: string
-  kcalPer100g: number
-  sessionLabel: string
-  status: 'Active' | 'Archived'
-}
+};
 
 type PendingConfirmation = {
-  message: string
-  successText: string
-  action: () => Promise<unknown>
-}
+  message: string;
+  successText: string;
+  action: () => Promise<unknown>;
+};
 
-export const Route = createFileRoute('/manage')({
+type FoodGroupTableRow = {
+  id: Id<"foodGroups">;
+  group: Doc<"foodGroups">;
+  name: string;
+  appliesTo: "ingredient" | "cookedFood";
+  status: "Active" | "Archived";
+};
+
+type IngredientTableRow = {
+  id: Id<"ingredients">;
+  ingredient: Doc<"ingredients">;
+  name: string;
+  brand: string;
+  kcalPer100: number;
+  ignoreCalories: boolean;
+  status: "Active" | "Archived";
+};
+
+type RecipeTableRow = {
+  id: Id<"recipes">;
+  recipe: Doc<"recipes">;
+  name: string;
+  latestVersionNumber: number;
+  status: "Active" | "Archived";
+};
+
+type RecipeIngredientPickerRow = {
+  id: Id<"ingredients">;
+  name: string;
+  brand: string;
+  kcalPer100: number;
+  ignoreCalories: boolean;
+};
+
+type ExistingRecipeIngredientDraft = {
+  draftId: string;
+  sourceType: "ingredient";
+  ingredientId: Id<"ingredients">;
+  referenceAmount: number;
+  referenceUnit: NutritionUnit;
+};
+
+type CustomRecipeIngredientDraft = {
+  draftId: string;
+  sourceType: "custom";
+  name: string;
+  kcalPer100: number;
+  ignoreCalories: boolean;
+  referenceAmount: number;
+  referenceUnit: NutritionUnit;
+  saveToCatalog: boolean;
+};
+
+type RecipeIngredientDraft =
+  | ExistingRecipeIngredientDraft
+  | CustomRecipeIngredientDraft;
+
+export const Route = createFileRoute("/manage")({
   ssr: false,
   component: ManagePage,
-})
+});
 
 function ManagePage() {
   if (!isConvexConfigured) {
     return (
       <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">Convex configuration is missing.</p>
+        <p className="text-sm text-muted-foreground">
+          Convex configuration is missing.
+        </p>
       </main>
-    )
+    );
   }
 
-  return <ManagePageContent />
+  return <ManagePageContent />;
 }
 
 function ManagePageContent() {
-  const [showArchived, setShowArchived] = useState(false)
+  const [showArchived, setShowArchived] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] =
-    useState<PendingConfirmation | null>(null)
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+    useState<PendingConfirmation | null>(null);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
-  const [editingGroupId, setEditingGroupId] = useState<Id<'foodGroups'> | null>(null)
-  const [groupName, setGroupName] = useState('')
-  const [groupScope, setGroupScope] = useState<'ingredient' | 'cookedFood' | 'both'>(
-    'both',
-  )
-
-  const [editingIngredientId, setEditingIngredientId] = useState<Id<'ingredients'> | null>(
+  const [editingGroupId, setEditingGroupId] = useState<Id<"foodGroups"> | null>(
     null,
-  )
-  const [ingredientName, setIngredientName] = useState('')
-  const [ingredientBrand, setIngredientBrand] = useState('')
-  const [ingredientKcal, setIngredientKcal] = useState('')
-  const [ingredientUnit, setIngredientUnit] = useState<'g' | 'ml' | 'piece'>('g')
-  const [ingredientGramsPerUnit, setIngredientGramsPerUnit] = useState('')
-  const [ingredientGroupId, setIngredientGroupId] = useState<Id<'foodGroups'> | ''>('')
-  const [ingredientNotes, setIngredientNotes] = useState('')
+  );
+  const [groupName, setGroupName] = useState("");
+  const [groupScope, setGroupScope] = useState<"ingredient" | "cookedFood">(
+    "ingredient",
+  );
 
-  const [editingRecipeId, setEditingRecipeId] = useState<Id<'recipes'> | null>(null)
-  const [recipeName, setRecipeName] = useState('')
-  const [recipeDescription, setRecipeDescription] = useState('')
-  const [recipeInstructions, setRecipeInstructions] = useState('')
-  const [recipeNotes, setRecipeNotes] = useState('')
+  const [editingIngredientId, setEditingIngredientId] =
+    useState<Id<"ingredients"> | null>(null);
+  const [ingredientName, setIngredientName] = useState("");
+  const [ingredientBrand, setIngredientBrand] = useState("");
+  const [ingredientKcal, setIngredientKcal] = useState("");
+  const [ingredientIgnoreCalories, setIngredientIgnoreCalories] =
+    useState(false);
+  const [ingredientGroupId, setIngredientGroupId] = useState<
+    Id<"foodGroups"> | ""
+  >("");
+  const [ingredientNotes, setIngredientNotes] = useState("");
+
+  const [editingRecipeId, setEditingRecipeId] = useState<Id<"recipes"> | null>(
+    null,
+  );
+  const [recipeName, setRecipeName] = useState("");
+  const [recipeDescription, setRecipeDescription] = useState("");
+  const [recipeInstructions, setRecipeInstructions] = useState("");
+  const [recipeNotes, setRecipeNotes] = useState("");
+  const [recipeLineMode, setRecipeLineMode] = useState<"ingredient" | "custom">(
+    "ingredient",
+  );
   const [recipeLineIngredientId, setRecipeLineIngredientId] = useState<
-    Id<'ingredients'> | ''
-  >('')
-  const [recipeLineAmount, setRecipeLineAmount] = useState('')
+    Id<"ingredients"> | ""
+  >("");
+  const [recipeLineCustomName, setRecipeLineCustomName] = useState("");
+  const [recipeLineCustomKcal, setRecipeLineCustomKcal] = useState("");
+  const [recipeLineCustomIgnoreCalories, setRecipeLineCustomIgnoreCalories] =
+    useState(false);
+  const [recipeLineCustomSaveToCatalog, setRecipeLineCustomSaveToCatalog] =
+    useState(false);
+  const [recipeLineAmount, setRecipeLineAmount] = useState("");
+  const [recipeLineUnit, setRecipeLineUnit] = useState<NutritionUnit>("g");
   const [recipeIngredientLines, setRecipeIngredientLines] = useState<
     RecipeIngredientDraft[]
-  >([])
-  const [recipeIngredientAmountByDraftId, setRecipeIngredientAmountByDraftId] =
-    useState<Record<string, string>>({})
+  >([]);
+  const [recipeLineAmountDraftById, setRecipeLineAmountDraftById] = useState<
+    Record<string, string>
+  >({});
+  const [recipeLineKcalDraftById, setRecipeLineKcalDraftById] = useState<
+    Record<string, string>
+  >({});
 
-  const [editingSessionId, setEditingSessionId] = useState<Id<'cookSessions'> | null>(null)
-  const [sessionLabel, setSessionLabel] = useState('')
-  const [sessionDate, setSessionDate] = useState(() => toLocalDateString(Date.now()))
-  const [sessionPersonId, setSessionPersonId] = useState<Id<'people'> | ''>('')
-  const [sessionNotes, setSessionNotes] = useState('')
-
-  const [editingCookedFoodId, setEditingCookedFoodId] = useState<Id<'cookedFoods'> | null>(
-    null,
-  )
-  const [cookedFoodSessionId, setCookedFoodSessionId] = useState<
-    Id<'cookSessions'> | ''
-  >('')
-  const [cookedFoodName, setCookedFoodName] = useState('')
-  const [cookedFoodGroupId, setCookedFoodGroupId] = useState<Id<'foodGroups'> | ''>('')
-  const [cookedFoodFinishedWeight, setCookedFoodFinishedWeight] = useState('')
-  const [cookedFoodRecipeVersionId, setCookedFoodRecipeVersionId] = useState<
-    Id<'recipeVersions'> | ''
-  >('')
-  const [saveCookedFoodAsRecipe, setSaveCookedFoodAsRecipe] = useState(false)
-  const [cookedFoodRecipeDraftName, setCookedFoodRecipeDraftName] = useState('')
-  const [cookedFoodRecipeDraftDescription, setCookedFoodRecipeDraftDescription] =
-    useState('')
-  const [cookedFoodRecipeDraftInstructions, setCookedFoodRecipeDraftInstructions] =
-    useState('')
-  const [cookedFoodRecipeDraftNotes, setCookedFoodRecipeDraftNotes] = useState('')
-  const [cookedFoodNotes, setCookedFoodNotes] = useState('')
-  const [cookedFoodLineSourceType, setCookedFoodLineSourceType] = useState<
-    'ingredient' | 'custom'
-  >('ingredient')
-  const [cookedFoodLineIngredientId, setCookedFoodLineIngredientId] = useState<
-    Id<'ingredients'> | ''
-  >('')
-  const [cookedFoodLineCustomName, setCookedFoodLineCustomName] = useState('')
-  const [cookedFoodLineCustomKcal, setCookedFoodLineCustomKcal] = useState('')
-  const [cookedFoodLineCustomSaveToCatalog, setCookedFoodLineCustomSaveToCatalog] =
-    useState(false)
-  const [cookedFoodLineWeight, setCookedFoodLineWeight] = useState('')
-  const [cookedFoodIngredientLines, setCookedFoodIngredientLines] = useState<
-    CookedFoodIngredientDraft[]
-  >([])
-  const [cookedFoodIngredientWeightByDraftId, setCookedFoodIngredientWeightByDraftId] =
-    useState<Record<string, string>>({})
-  const [cookedFoodIngredientKcalByDraftId, setCookedFoodIngredientKcalByDraftId] =
-    useState<Record<string, string>>({})
-
-  const dataResult = useQuery(api.nutrition.getManagementData)
+  const dataResult = useQuery(api.nutrition.getManagementData);
   const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<
     typeof dataResult
-  >
-  const isLoading = dataResult === undefined
+  >;
+  const isLoading = dataResult === undefined;
 
-  const createFoodGroup = useMutation(api.nutrition.createFoodGroup)
-  const updateFoodGroup = useMutation(api.nutrition.updateFoodGroup)
-  const setFoodGroupArchived = useMutation(api.nutrition.setFoodGroupArchived)
-  const deleteFoodGroup = useMutation(api.nutrition.deleteFoodGroup)
+  const createFoodGroup = useMutation(api.nutrition.createFoodGroup);
+  const updateFoodGroup = useMutation(api.nutrition.updateFoodGroup);
+  const setFoodGroupArchived = useMutation(api.nutrition.setFoodGroupArchived);
+  const deleteFoodGroup = useMutation(api.nutrition.deleteFoodGroup);
 
-  const createIngredient = useMutation(api.nutrition.createIngredient)
-  const updateIngredient = useMutation(api.nutrition.updateIngredient)
-  const setIngredientArchived = useMutation(api.nutrition.setIngredientArchived)
-  const deleteIngredient = useMutation(api.nutrition.deleteIngredient)
+  const createIngredient = useMutation(api.nutrition.createIngredient);
+  const updateIngredient = useMutation(api.nutrition.updateIngredient);
+  const setIngredientArchived = useMutation(
+    api.nutrition.setIngredientArchived,
+  );
+  const deleteIngredient = useMutation(api.nutrition.deleteIngredient);
 
-  const createRecipe = useMutation(api.nutrition.createRecipe)
+  const createRecipe = useMutation(api.nutrition.createRecipe);
   const updateRecipeCurrentVersion = useMutation(
     api.nutrition.updateRecipeCurrentVersion,
-  )
-  const setRecipeArchived = useMutation(api.nutrition.setRecipeArchived)
-  const deleteRecipe = useMutation(api.nutrition.deleteRecipe)
+  );
+  const setRecipeArchived = useMutation(api.nutrition.setRecipeArchived);
+  const deleteRecipe = useMutation(api.nutrition.deleteRecipe);
 
-  const createCookSession = useMutation(api.nutrition.createCookSession)
-  const updateCookSession = useMutation(api.nutrition.updateCookSession)
-  const setCookSessionArchived = useMutation(api.nutrition.setCookSessionArchived)
-  const deleteCookSession = useMutation(api.nutrition.deleteCookSession)
-
-  const createCookedFood = useMutation(api.nutrition.createCookedFood)
-  const updateCookedFood = useMutation(api.nutrition.updateCookedFood)
-  const setCookedFoodArchived = useMutation(api.nutrition.setCookedFoodArchived)
-  const deleteCookedFood = useMutation(api.nutrition.deleteCookedFood)
-
-  const people = data.people.filter((person) => person.active)
-  const groups = data.foodGroups.filter((group) => (showArchived ? true : !group.archived))
+  const groups = data.foodGroups
+    .filter((group) => (showArchived ? true : !group.archived))
+    .filter(
+      (group) =>
+        group.appliesTo === "ingredient" || group.appliesTo === "cookedFood",
+    );
   const ingredients = data.ingredients.filter((item) =>
     showArchived ? true : !item.archived,
-  )
-  const recipes = data.recipes.filter((item) => (showArchived ? true : !item.archived))
-  const cookSessions = data.cookSessions.filter((item) =>
+  );
+  const recipes = data.recipes.filter((item) =>
     showArchived ? true : !item.archived,
-  )
-  const cookedFoods = data.cookedFoods.filter((item) =>
-    showArchived ? true : !item.archived,
-  )
-
-  const recipeVersionByRecipeId = useMemo(() => {
-    const map = new Map<Id<'recipes'>, Doc<'recipeVersions'>>()
-    for (const version of data.recipeVersions) {
-      if (version.isCurrent && !map.has(version.recipeId)) {
-        map.set(version.recipeId, version)
-      }
-    }
-    return map
-  }, [data.recipeVersions])
-  const recipeVersionById = useMemo(
-    () => new Map(data.recipeVersions.map((version) => [version._id, version])),
-    [data.recipeVersions],
-  )
-  const recipeVersionOptions = useMemo(
-    () =>
-      recipes.flatMap((recipe) => {
-        const version = recipeVersionByRecipeId.get(recipe._id)
-        if (!version) {
-          return []
-        }
-        return [
-          {
-            value: version._id as string,
-            label: `${recipe.name} (v${version.versionNumber})`,
-          },
-        ]
-      }),
-    [recipes, recipeVersionByRecipeId],
-  )
-  const recipeIngredientsByVersionId = useMemo(() => {
-    const map = new Map<Id<'recipeVersions'>, Doc<'recipeVersionIngredients'>[]>()
-    for (const line of data.recipeVersionIngredients) {
-      const bucket = map.get(line.recipeVersionId)
-      if (bucket) {
-        bucket.push(line)
-      } else {
-        map.set(line.recipeVersionId, [line])
-      }
-    }
-    return map
-  }, [data.recipeVersionIngredients])
-  const cookedFoodIngredientsById = useMemo(() => {
-    const map = new Map<Id<'cookedFoods'>, Doc<'cookedFoodIngredients'>[]>()
-    for (const line of data.cookedFoodIngredients) {
-      const bucket = map.get(line.cookedFoodId)
-      if (bucket) {
-        bucket.push(line)
-      } else {
-        map.set(line.cookedFoodId, [line])
-      }
-    }
-    return map
-  }, [data.cookedFoodIngredients])
+  );
 
   const ingredientById = useMemo(
-    () => new Map(ingredients.map((item) => [item._id, item])),
-    [ingredients],
-  )
-  const ingredientByIdAll = useMemo(
     () => new Map(data.ingredients.map((item) => [item._id, item])),
     [data.ingredients],
-  )
-  const ingredientOptions = useMemo(
-    () =>
-      ingredients.map((item) => ({
-        value: item._id,
-        label: item.name,
-        keywords: `${item.brand ?? ''} ${item.kcalPer100g.toFixed(1)} kcal`,
-      })),
-    [ingredients],
-  )
-  const ingredientOptionsAll = useMemo(
-    () =>
-      data.ingredients.map((item) => ({
-        value: item._id,
-        label: item.archived ? `${item.name} (archived)` : item.name,
-        keywords: `${item.brand ?? ''} ${item.kcalPer100g.toFixed(1)} kcal`,
-      })),
-    [data.ingredients],
-  )
-  const sessionOptions = useMemo(
-    () =>
-      cookSessions.map((session) => ({
-        value: session._id,
-        label: formatCookSessionOptionLabel(session),
-        keywords: [
-          session.label ?? '',
-          toLocalDateString(session.cookedAt),
-          toLocalDateString(getCookSessionModifiedAt(session)),
-        ].join(' '),
-      })),
-    [cookSessions],
-  )
+  );
 
-  async function runAction(successText: string, action: () => Promise<unknown>) {
+  const recipeVersionByRecipeId = useMemo(() => {
+    const map = new Map<Id<"recipes">, Doc<"recipeVersions">>();
+    for (const version of data.recipeVersions) {
+      if (version.isCurrent && !map.has(version.recipeId)) {
+        map.set(version.recipeId, version);
+      }
+    }
+    return map;
+  }, [data.recipeVersions]);
+
+  const recipeIngredientsByVersionId = useMemo(() => {
+    const map = new Map<
+      Id<"recipeVersions">,
+      Doc<"recipeVersionIngredients">[]
+    >();
+    for (const line of data.recipeVersionIngredients) {
+      const bucket = map.get(line.recipeVersionId);
+      if (bucket) {
+        bucket.push(line);
+      } else {
+        map.set(line.recipeVersionId, [line]);
+      }
+    }
+    return map;
+  }, [data.recipeVersionIngredients]);
+
+  async function runAction(
+    successText: string,
+    action: () => Promise<unknown>,
+  ) {
     try {
-      await action()
-      toast.success(successText)
+      await action();
+      toast.success(successText);
     } catch (error) {
-      toast.error(toErrorMessage(error))
+      toast.error(toErrorMessage(error));
     }
   }
 
@@ -384,83 +284,61 @@ function ManagePageContent() {
       message,
       successText,
       action,
-    })
-    setIsConfirmDialogOpen(true)
-  }
+    });
+    setIsConfirmDialogOpen(true);
+  };
 
   const handleConfirmDialogOpenChange = (open: boolean) => {
-    setIsConfirmDialogOpen(open)
+    setIsConfirmDialogOpen(open);
     if (!open) {
-      setPendingConfirmation(null)
+      setPendingConfirmation(null);
     }
-  }
+  };
 
   const confirmPendingAction = () => {
     if (!pendingConfirmation) {
-      return
+      return;
     }
-    const { successText, action } = pendingConfirmation
-    setIsConfirmDialogOpen(false)
-    setPendingConfirmation(null)
-    void runAction(successText, action)
-  }
+    const { successText, action } = pendingConfirmation;
+    setIsConfirmDialogOpen(false);
+    setPendingConfirmation(null);
+    void runAction(successText, action);
+  };
 
   const resetGroupForm = () => {
-    setEditingGroupId(null)
-    setGroupName('')
-    setGroupScope('both')
-  }
+    setEditingGroupId(null);
+    setGroupName("");
+    setGroupScope("ingredient");
+  };
+
   const resetIngredientForm = () => {
-    setEditingIngredientId(null)
-    setIngredientName('')
-    setIngredientBrand('')
-    setIngredientKcal('')
-    setIngredientUnit('g')
-    setIngredientGramsPerUnit('')
-    setIngredientGroupId('')
-    setIngredientNotes('')
-  }
+    setEditingIngredientId(null);
+    setIngredientName("");
+    setIngredientBrand("");
+    setIngredientKcal("");
+    setIngredientIgnoreCalories(false);
+    setIngredientGroupId("");
+    setIngredientNotes("");
+  };
+
   const resetRecipeForm = () => {
-    setEditingRecipeId(null)
-    setRecipeName('')
-    setRecipeDescription('')
-    setRecipeInstructions('')
-    setRecipeNotes('')
-    setRecipeLineIngredientId('')
-    setRecipeLineAmount('')
-    setRecipeIngredientLines([])
-    setRecipeIngredientAmountByDraftId({})
-  }
-  const resetSessionForm = () => {
-    setEditingSessionId(null)
-    setSessionLabel('')
-    setSessionDate(toLocalDateString(Date.now()))
-    setSessionPersonId('')
-    setSessionNotes('')
-  }
-  const resetCookedFoodForm = () => {
-    setEditingCookedFoodId(null)
-    setCookedFoodSessionId('')
-    setCookedFoodName('')
-    setCookedFoodGroupId('')
-    setCookedFoodFinishedWeight('')
-    setCookedFoodRecipeVersionId('')
-    setSaveCookedFoodAsRecipe(false)
-    setCookedFoodRecipeDraftName('')
-    setCookedFoodRecipeDraftDescription('')
-    setCookedFoodRecipeDraftInstructions('')
-    setCookedFoodRecipeDraftNotes('')
-    setCookedFoodNotes('')
-    setCookedFoodLineSourceType('ingredient')
-    setCookedFoodLineIngredientId('')
-    setCookedFoodLineCustomName('')
-    setCookedFoodLineCustomKcal('')
-    setCookedFoodLineCustomSaveToCatalog(false)
-    setCookedFoodLineWeight('')
-    setCookedFoodIngredientLines([])
-    setCookedFoodIngredientWeightByDraftId({})
-    setCookedFoodIngredientKcalByDraftId({})
-  }
+    setEditingRecipeId(null);
+    setRecipeName("");
+    setRecipeDescription("");
+    setRecipeInstructions("");
+    setRecipeNotes("");
+    setRecipeLineMode("ingredient");
+    setRecipeLineIngredientId("");
+    setRecipeLineCustomName("");
+    setRecipeLineCustomKcal("");
+    setRecipeLineCustomIgnoreCalories(false);
+    setRecipeLineCustomSaveToCatalog(false);
+    setRecipeLineAmount("");
+    setRecipeLineUnit("g");
+    setRecipeIngredientLines([]);
+    setRecipeLineAmountDraftById({});
+    setRecipeLineKcalDraftById({});
+  };
 
   const foodGroupRows = useMemo<FoodGroupTableRow[]>(
     () =>
@@ -468,43 +346,49 @@ function ManagePageContent() {
         id: group._id,
         group,
         name: group.name,
-        appliesTo: group.appliesTo,
-        status: group.archived ? 'Archived' : 'Active',
+        appliesTo: (group as { appliesTo: "ingredient" | "cookedFood" })
+          .appliesTo,
+        status: group.archived ? "Archived" : "Active",
       })),
     [groups],
-  )
+  );
 
   const foodGroupColumns: ColumnDef<FoodGroupTableRow>[] = [
     {
-      accessorKey: 'name',
-      header: 'Name',
+      accessorKey: "name",
+      header: "Name",
     },
     {
-      accessorKey: 'appliesTo',
-      header: 'Scope',
+      accessorKey: "appliesTo",
+      header: "Scope",
       cell: ({ row }) => row.original.appliesTo,
     },
     {
-      accessorKey: 'status',
-      header: 'Status',
+      accessorKey: "status",
+      header: "Status",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+        <span className="text-xs text-muted-foreground">
+          {row.original.status}
+        </span>
       ),
     },
     {
-      id: 'actions',
+      id: "actions",
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
-        const group = row.original.group
+        const group = row.original.group;
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                setEditingGroupId(group._id)
-                setGroupName(group.name)
-                setGroupScope(group.appliesTo)
+                setEditingGroupId(group._id);
+                setGroupName(group.name);
+                setGroupScope(
+                  (group as { appliesTo: "ingredient" | "cookedFood" })
+                    .appliesTo,
+                );
               }}
             >
               Edit
@@ -514,38 +398,42 @@ function ManagePageContent() {
               variant="outline"
               onClick={() =>
                 void runAction(
-                  group.archived ? 'Group restored.' : 'Group archived.',
+                  group.archived ? "Group restored." : "Group archived.",
                   async () => {
                     await setFoodGroupArchived({
                       groupId: group._id,
                       archived: !group.archived,
-                    })
+                    });
                   },
                 )
               }
             >
-              {group.archived ? 'Unarchive' : 'Archive'}
+              {group.archived ? "Unarchive" : "Archive"}
             </Button>
             <Button
               size="sm"
               variant="destructive"
               aria-label={`Delete ${group.name}`}
               onClick={() =>
-                confirmAndRunAction('Delete this group permanently?', 'Group deleted.', async () => {
-                  await deleteFoodGroup({ groupId: group._id })
-                  if (editingGroupId === group._id) {
-                    resetGroupForm()
-                  }
-                })
+                confirmAndRunAction(
+                  "Delete this group permanently?",
+                  "Group deleted.",
+                  async () => {
+                    await deleteFoodGroup({ groupId: group._id });
+                    if (editingGroupId === group._id) {
+                      resetGroupForm();
+                    }
+                  },
+                )
               }
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        )
+        );
       },
     },
-  ]
+  ];
 
   const ingredientRows = useMemo<IngredientTableRow[]>(
     () =>
@@ -553,63 +441,72 @@ function ManagePageContent() {
         id: ingredient._id,
         ingredient,
         name: ingredient.name,
-        brand: ingredient.brand ?? '',
-        kcalPer100g: ingredient.kcalPer100g,
-        defaultUnit: ingredient.defaultUnit,
-        status: ingredient.archived ? 'Archived' : 'Active',
+        brand: ingredient.brand ?? "",
+        kcalPer100: getKcalPer100(ingredient),
+        ignoreCalories: Boolean(
+          (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
+        ),
+        status: ingredient.archived ? "Archived" : "Active",
       })),
     [ingredients],
-  )
+  );
 
   const ingredientColumns: ColumnDef<IngredientTableRow>[] = [
     {
-      accessorKey: 'name',
-      header: 'Ingredient',
+      accessorKey: "name",
+      header: "Ingredient",
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
           {row.original.brand ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{row.original.brand}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {row.original.brand}
+            </p>
           ) : null}
         </div>
       ),
     },
     {
-      accessorKey: 'kcalPer100g',
-      header: 'kcal/100g',
-      cell: ({ row }) => row.original.kcalPer100g.toFixed(1),
+      accessorKey: "kcalPer100",
+      header: "kcal/100",
+      cell: ({ row }) => formatKcalPer100(row.original.kcalPer100),
     },
     {
-      accessorKey: 'defaultUnit',
-      header: 'Unit',
-      cell: ({ row }) => row.original.defaultUnit,
+      accessorKey: "ignoreCalories",
+      header: "Calories",
+      cell: ({ row }) => (row.original.ignoreCalories ? "Ignored" : "Counted"),
     },
     {
-      accessorKey: 'status',
-      header: 'Status',
+      accessorKey: "status",
+      header: "Status",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+        <span className="text-xs text-muted-foreground">
+          {row.original.status}
+        </span>
       ),
     },
     {
-      id: 'actions',
+      id: "actions",
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
-        const ingredient = row.original.ingredient
+        const ingredient = row.original.ingredient;
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                setEditingIngredientId(ingredient._id)
-                setIngredientName(ingredient.name)
-                setIngredientBrand(ingredient.brand ?? '')
-                setIngredientKcal(ingredient.kcalPer100g.toString())
-                setIngredientUnit(ingredient.defaultUnit)
-                setIngredientGramsPerUnit(ingredient.gramsPerUnit?.toString() ?? '')
-                setIngredientGroupId(ingredient.groupIds[0] ?? '')
-                setIngredientNotes(ingredient.notes ?? '')
+                setEditingIngredientId(ingredient._id);
+                setIngredientName(ingredient.name);
+                setIngredientBrand(ingredient.brand ?? "");
+                setIngredientKcal(formatKcalPer100(getKcalPer100(ingredient)));
+                setIngredientIgnoreCalories(
+                  Boolean(
+                    (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
+                  ),
+                );
+                setIngredientGroupId(ingredient.groupIds[0] ?? "");
+                setIngredientNotes(ingredient.notes ?? "");
               }}
             >
               Edit
@@ -619,38 +516,105 @@ function ManagePageContent() {
               variant="outline"
               onClick={() =>
                 void runAction(
-                  ingredient.archived ? 'Ingredient restored.' : 'Ingredient archived.',
+                  ingredient.archived
+                    ? "Ingredient restored."
+                    : "Ingredient archived.",
                   async () => {
                     await setIngredientArchived({
                       ingredientId: ingredient._id,
                       archived: !ingredient.archived,
-                    })
+                    });
                   },
                 )
               }
             >
-              {ingredient.archived ? 'Unarchive' : 'Archive'}
+              {ingredient.archived ? "Unarchive" : "Archive"}
             </Button>
             <Button
               size="sm"
               variant="destructive"
               aria-label={`Delete ${ingredient.name}`}
               onClick={() =>
-                confirmAndRunAction('Delete this ingredient permanently?', 'Ingredient deleted.', async () => {
-                  await deleteIngredient({ ingredientId: ingredient._id })
-                  if (editingIngredientId === ingredient._id) {
-                    resetIngredientForm()
-                  }
-                })
+                confirmAndRunAction(
+                  "Delete this ingredient permanently?",
+                  "Ingredient deleted.",
+                  async () => {
+                    await deleteIngredient({ ingredientId: ingredient._id });
+                    if (editingIngredientId === ingredient._id) {
+                      resetIngredientForm();
+                    }
+                  },
+                )
               }
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        )
+        );
       },
     },
-  ]
+  ];
+
+  const recipeIngredientRows = useMemo<RecipeIngredientPickerRow[]>(
+    () =>
+      ingredients.map((ingredient) => ({
+        id: ingredient._id,
+        name: ingredient.name,
+        brand: ingredient.brand ?? "",
+        kcalPer100: getKcalPer100(ingredient),
+        ignoreCalories: Boolean(
+          (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
+        ),
+      })),
+    [ingredients],
+  );
+
+  const recipeIngredientColumns: ColumnDef<RecipeIngredientPickerRow>[] = [
+    {
+      id: "name",
+      accessorFn: (row) => `${row.name} ${row.brand}`.trim(),
+      header: "Ingredient",
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          {row.original.brand ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {row.original.brand}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "kcalPer100",
+      header: "kcal/100",
+      cell: ({ row }) => formatKcalPer100(row.original.kcalPer100),
+    },
+    {
+      accessorKey: "ignoreCalories",
+      header: "Calories",
+      cell: ({ row }) => (row.original.ignoreCalories ? "Ignored" : "Counted"),
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Select</div>,
+      cell: ({ row }) => {
+        const isSelected = row.original.id === recipeLineIngredientId;
+        return (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              variant={isSelected ? "default" : "outline"}
+              onClick={() => setRecipeLineIngredientId(row.original.id)}
+            >
+              {isSelected ? "Selected" : "Use"}
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
 
   const recipeRows = useMemo<RecipeTableRow[]>(
     () =>
@@ -659,15 +623,15 @@ function ManagePageContent() {
         recipe,
         name: recipe.name,
         latestVersionNumber: recipe.latestVersionNumber,
-        status: recipe.archived ? 'Archived' : 'Active',
+        status: recipe.archived ? "Archived" : "Active",
       })),
     [recipes],
-  )
+  );
 
   const recipeColumns: ColumnDef<RecipeTableRow>[] = [
     {
-      accessorKey: 'name',
-      header: 'Recipe',
+      accessorKey: "name",
+      header: "Recipe",
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
@@ -678,42 +642,71 @@ function ManagePageContent() {
       ),
     },
     {
-      accessorKey: 'status',
-      header: 'Status',
+      accessorKey: "status",
+      header: "Status",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
+        <span className="text-xs text-muted-foreground">
+          {row.original.status}
+        </span>
       ),
     },
     {
-      id: 'actions',
+      id: "actions",
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
-        const recipe = row.original.recipe
+        const recipe = row.original.recipe;
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                const currentVersion = recipeVersionByRecipeId.get(recipe._id)
+                const currentVersion = recipeVersionByRecipeId.get(recipe._id);
                 if (!currentVersion) {
-                  return
+                  return;
                 }
                 const versionIngredients =
-                  recipeIngredientsByVersionId.get(currentVersion._id) ?? []
-                setEditingRecipeId(recipe._id)
-                setRecipeName(recipe.name)
-                setRecipeDescription(recipe.description ?? '')
-                setRecipeInstructions(currentVersion.instructions ?? '')
-                setRecipeNotes(currentVersion.notes ?? '')
+                  recipeIngredientsByVersionId.get(currentVersion._id) ?? [];
+                setEditingRecipeId(recipe._id);
+                setRecipeName(recipe.name);
+                setRecipeDescription(recipe.description ?? "");
+                setRecipeInstructions(currentVersion.instructions ?? "");
+                setRecipeNotes(currentVersion.notes ?? "");
+                setRecipeLineAmountDraftById({});
+                setRecipeLineKcalDraftById({});
                 setRecipeIngredientLines(
-                  versionIngredients.map((line) => ({
-                    draftId: createRecipeIngredientDraftId(),
-                    ingredientId: line.ingredientId,
-                    plannedWeightGrams: line.plannedWeightGrams,
-                  })),
-                )
-                setRecipeIngredientAmountByDraftId({})
+                  versionIngredients.map((line) => {
+                    const sourceType = line.sourceType;
+                    const referenceAmount = line.referenceAmount;
+                    const referenceUnit = line.referenceUnit;
+                    if (sourceType === "custom" || !line.ingredientId) {
+                      return {
+                        draftId: createDraftId(),
+                        sourceType: "custom" as const,
+                        name:
+                          (line as { ingredientNameSnapshot?: string })
+                            .ingredientNameSnapshot ?? "Custom ingredient",
+                        kcalPer100:
+                          (line as { kcalPer100Snapshot?: number })
+                            .kcalPer100Snapshot ?? 0,
+                        ignoreCalories: Boolean(
+                          (line as { ignoreCaloriesSnapshot?: boolean })
+                            .ignoreCaloriesSnapshot,
+                        ),
+                        referenceAmount,
+                        referenceUnit,
+                        saveToCatalog: false,
+                      };
+                    }
+                    return {
+                      draftId: createDraftId(),
+                      sourceType: "ingredient" as const,
+                      ingredientId: line.ingredientId,
+                      referenceAmount,
+                      referenceUnit,
+                    };
+                  }),
+                );
               }}
             >
               Edit
@@ -723,446 +716,552 @@ function ManagePageContent() {
               variant="outline"
               onClick={() =>
                 void runAction(
-                  recipe.archived ? 'Recipe restored.' : 'Recipe archived.',
+                  recipe.archived ? "Recipe restored." : "Recipe archived.",
                   async () => {
                     await setRecipeArchived({
                       recipeId: recipe._id,
                       archived: !recipe.archived,
-                    })
+                    });
                   },
                 )
               }
             >
-              {recipe.archived ? 'Unarchive' : 'Archive'}
+              {recipe.archived ? "Unarchive" : "Archive"}
             </Button>
             <Button
               size="sm"
               variant="destructive"
               aria-label={`Delete ${recipe.name}`}
               onClick={() =>
-                confirmAndRunAction('Delete this recipe permanently?', 'Recipe deleted.', async () => {
-                  await deleteRecipe({ recipeId: recipe._id })
-                  if (editingRecipeId === recipe._id) {
-                    resetRecipeForm()
-                  }
-                })
-              }
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )
-      },
-    },
-  ]
-
-  const sessionRows = useMemo<SessionTableRow[]>(
-    () =>
-      cookSessions.map((session) => ({
-        id: session._id,
-        session,
-        label: session.label?.trim() || 'Unnamed session',
-        cookedAt: toLocalDateString(session.cookedAt),
-        status: session.archived ? 'Archived' : 'Active',
-      })),
-    [cookSessions],
-  )
-
-  const sessionColumns: ColumnDef<SessionTableRow>[] = [
-    {
-      accessorKey: 'label',
-      header: 'Session',
-    },
-    {
-      accessorKey: 'cookedAt',
-      header: 'Date',
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: () => <div className="text-right">Actions</div>,
-      cell: ({ row }) => {
-        const session = row.original.session
-        return (
-          <div className="flex min-w-max items-center justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setEditingSessionId(session._id)
-                setSessionLabel(session.label ?? '')
-                setSessionDate(toLocalDateString(session.cookedAt))
-                setSessionPersonId(session.cookedByPersonId ?? '')
-                setSessionNotes(session.notes ?? '')
-              }}
-            >
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                void runAction(
-                  session.archived ? 'Session restored.' : 'Session archived.',
+                confirmAndRunAction(
+                  "Delete this recipe permanently?",
+                  "Recipe deleted.",
                   async () => {
-                    await setCookSessionArchived({
-                      sessionId: session._id,
-                      archived: !session.archived,
-                    })
+                    await deleteRecipe({ recipeId: recipe._id });
+                    if (editingRecipeId === recipe._id) {
+                      resetRecipeForm();
+                    }
                   },
                 )
               }
             >
-              {session.archived ? 'Unarchive' : 'Archive'}
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              aria-label={`Delete ${session.label?.trim() || 'session'}`}
-              onClick={() =>
-                confirmAndRunAction('Delete this session permanently?', 'Session deleted.', async () => {
-                  await deleteCookSession({ sessionId: session._id })
-                  if (editingSessionId === session._id) {
-                    resetSessionForm()
-                  }
-                })
-              }
-            >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        )
+        );
       },
     },
-  ]
-
-  const cookSessionById = useMemo(
-    () => new Map(data.cookSessions.map((session) => [session._id, session])),
-    [data.cookSessions],
-  )
-
-  const cookedFoodRows = useMemo<CookedFoodTableRow[]>(
-    () =>
-      cookedFoods.map((food) => ({
-        id: food._id,
-        food,
-        name: food.name,
-        kcalPer100g: food.kcalPer100g,
-        sessionLabel:
-          cookSessionById.get(food.cookSessionId)?.label?.trim() || 'Session',
-        status: food.archived ? 'Archived' : 'Active',
-      })),
-    [cookSessionById, cookedFoods],
-  )
-
-  const cookedFoodColumns: ColumnDef<CookedFoodTableRow>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Cooked Food',
-      cell: ({ row }) => (
-        <div className="max-w-56 whitespace-normal">
-          <p className="font-medium text-foreground">{row.original.name}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{row.original.sessionLabel}</p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'kcalPer100g',
-      header: 'kcal/100g',
-      cell: ({ row }) => row.original.kcalPer100g.toFixed(1),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: () => <div className="text-right">Actions</div>,
-      cell: ({ row }) => {
-        const food = row.original.food
-        return (
-          <div className="flex min-w-max items-center justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const ingredientLines = cookedFoodIngredientsById.get(food._id) ?? []
-                setEditingCookedFoodId(food._id)
-                setCookedFoodSessionId(food.cookSessionId)
-                setCookedFoodName(food.name)
-                setCookedFoodGroupId(food.groupIds[0] ?? '')
-                setCookedFoodFinishedWeight(food.finishedWeightGrams.toString())
-                setCookedFoodRecipeVersionId(food.recipeVersionId ?? '')
-                setSaveCookedFoodAsRecipe(false)
-                setCookedFoodRecipeDraftName('')
-                setCookedFoodRecipeDraftDescription('')
-                setCookedFoodRecipeDraftInstructions('')
-                setCookedFoodRecipeDraftNotes('')
-                setCookedFoodNotes(food.notes ?? '')
-                setCookedFoodIngredientLines(
-                  ingredientLines.map((line) => {
-                    const ingredientNameFromLink = line.ingredientId
-                      ? ingredientByIdAll.get(line.ingredientId)?.name
-                      : undefined
-                    if (line.ingredientId) {
-                      return {
-                        draftId: createCookedFoodIngredientDraftId(),
-                        sourceType: 'ingredient' as const,
-                        ingredientId: line.ingredientId,
-                        rawWeightGrams: line.rawWeightGrams,
-                      }
-                    }
-                    return {
-                      draftId: createCookedFoodIngredientDraftId(),
-                      sourceType: 'custom' as const,
-                      name:
-                        (line as { ingredientNameSnapshot?: string }).ingredientNameSnapshot ??
-                        ingredientNameFromLink ??
-                        'Custom ingredient',
-                      kcalPer100g: line.ingredientKcalPer100gSnapshot,
-                      rawWeightGrams: line.rawWeightGrams,
-                      saveToCatalog: false,
-                    }
-                  }),
-                )
-                setCookedFoodIngredientWeightByDraftId({})
-                setCookedFoodIngredientKcalByDraftId({})
-                setCookedFoodLineSourceType('ingredient')
-                setCookedFoodLineIngredientId('')
-                setCookedFoodLineCustomName('')
-                setCookedFoodLineCustomKcal('')
-                setCookedFoodLineCustomSaveToCatalog(false)
-                setCookedFoodLineWeight('')
-              }}
-            >
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                void runAction(
-                  food.archived ? 'Cooked food restored.' : 'Cooked food archived.',
-                  async () => {
-                    await setCookedFoodArchived({
-                      cookedFoodId: food._id,
-                      archived: !food.archived,
-                    })
-                  },
-                )
-              }
-            >
-              {food.archived ? 'Unarchive' : 'Archive'}
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              aria-label={`Delete ${food.name}`}
-              onClick={() =>
-                confirmAndRunAction('Delete this cooked food permanently?', 'Cooked food deleted.', async () => {
-                  await deleteCookedFood({ cookedFoodId: food._id })
-                  if (editingCookedFoodId === food._id) {
-                    resetCookedFoodForm()
-                  }
-                })
-              }
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )
-      },
-    },
-  ]
+  ];
 
   const addRecipeIngredientLine = () => {
-    const ingredient = recipeLineIngredientId
-      ? ingredientById.get(recipeLineIngredientId)
-      : undefined
-    const parsed = Number(recipeLineAmount)
-    if (!recipeLineIngredientId || !Number.isFinite(parsed) || parsed <= 0) {
-      return
+    const parsedAmount = Number(recipeLineAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return;
     }
-    if (!canConvertRecipeAmountByIngredient(ingredient)) {
-      toast.error('Set grams per unit on this ingredient before using non-gram units.')
-      return
+
+    if (recipeLineMode === "ingredient") {
+      if (!recipeLineIngredientId) {
+        return;
+      }
+      setRecipeIngredientLines((current) => [
+        ...current,
+        {
+          draftId: createDraftId(),
+          sourceType: "ingredient",
+          ingredientId: recipeLineIngredientId,
+          referenceAmount: parsedAmount,
+          referenceUnit: recipeLineUnit,
+        },
+      ]);
+      setRecipeLineIngredientId("");
+      setRecipeLineAmount("");
+      return;
     }
-    const plannedWeightGrams = toRecipeWeightGrams(ingredient, parsed)
+
+    const parsedKcal = Number(recipeLineCustomKcal);
+    if (!recipeLineCustomName.trim()) {
+      return;
+    }
+    if (
+      !recipeLineCustomIgnoreCalories &&
+      (!Number.isFinite(parsedKcal) || parsedKcal <= 0)
+    ) {
+      return;
+    }
+    const kcalPer100 =
+      recipeLineCustomIgnoreCalories &&
+      (!Number.isFinite(parsedKcal) || parsedKcal < 0)
+        ? 0
+        : parsedKcal;
+
     setRecipeIngredientLines((current) => [
       ...current,
       {
-        draftId: createRecipeIngredientDraftId(),
-        ingredientId: recipeLineIngredientId,
-        plannedWeightGrams,
+        draftId: createDraftId(),
+        sourceType: "custom",
+        name: recipeLineCustomName.trim(),
+        kcalPer100: kcalPer100,
+        ignoreCalories: recipeLineCustomIgnoreCalories,
+        referenceAmount: parsedAmount,
+        referenceUnit: recipeLineUnit,
+        saveToCatalog: recipeLineCustomSaveToCatalog,
       },
-    ])
-    setRecipeLineIngredientId('')
-    setRecipeLineAmount('')
-  }
+    ]);
+    setRecipeLineCustomName("");
+    setRecipeLineCustomKcal("");
+    setRecipeLineCustomIgnoreCalories(false);
+    setRecipeLineCustomSaveToCatalog(false);
+    setRecipeLineAmount("");
+  };
+
+  const removeRecipeIngredientLine = (draftId: string) => {
+    setRecipeIngredientLines((current) =>
+      current.filter((line) => line.draftId !== draftId),
+    );
+    setRecipeLineAmountDraftById((current) => {
+      if (!(draftId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[draftId];
+      return next;
+    });
+    setRecipeLineKcalDraftById((current) => {
+      if (!(draftId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[draftId];
+      return next;
+    });
+  };
+
   const updateRecipeIngredientLine = (
     draftId: string,
-    update: Partial<RecipeIngredientDraft>,
+    updater: (line: RecipeIngredientDraft) => RecipeIngredientDraft,
   ) => {
     setRecipeIngredientLines((current) =>
-      current.map((line) => (line.draftId === draftId ? { ...line, ...update } : line)),
-    )
-  }
-  const removeRecipeIngredientLine = (draftId: string) => {
-    setRecipeIngredientLines((current) => current.filter((line) => line.draftId !== draftId))
-    setRecipeIngredientAmountByDraftId((current) => {
-      const next = { ...current }
-      delete next[draftId]
-      return next
-    })
-  }
-  const addCookedFoodIngredientLine = () => {
-    const parsed = Number(cookedFoodLineWeight)
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return
-    }
-    if (cookedFoodLineSourceType === 'ingredient') {
-      if (!cookedFoodLineIngredientId) {
-        return
-      }
-      setCookedFoodIngredientLines((current) => [
-        ...current,
-        {
-          draftId: createCookedFoodIngredientDraftId(),
-          sourceType: 'ingredient',
-          ingredientId: cookedFoodLineIngredientId,
-          rawWeightGrams: parsed,
-        },
-      ])
-      setCookedFoodLineIngredientId('')
-      setCookedFoodLineWeight('')
-      return
-    }
-
-    const parsedKcal = Number(cookedFoodLineCustomKcal)
-    if (!cookedFoodLineCustomName.trim() || !Number.isFinite(parsedKcal) || parsedKcal <= 0) {
-      return
-    }
-    setCookedFoodIngredientLines((current) => [
-      ...current,
-      {
-        draftId: createCookedFoodIngredientDraftId(),
-        sourceType: 'custom',
-        name: cookedFoodLineCustomName.trim(),
-        kcalPer100g: parsedKcal,
-        rawWeightGrams: parsed,
-        saveToCatalog: cookedFoodLineCustomSaveToCatalog,
-      },
-    ])
-    setCookedFoodLineCustomName('')
-    setCookedFoodLineCustomKcal('')
-    setCookedFoodLineCustomSaveToCatalog(false)
-    setCookedFoodLineWeight('')
-  }
-  const updateCookedFoodIngredientLine = (
-    draftId: string,
-    updater: (line: CookedFoodIngredientDraft) => CookedFoodIngredientDraft,
-  ) => {
-    setCookedFoodIngredientLines((current) =>
       current.map((line) => (line.draftId === draftId ? updater(line) : line)),
-    )
-  }
-  const removeCookedFoodIngredientLine = (draftId: string) => {
-    setCookedFoodIngredientLines((current) => current.filter((line) => line.draftId !== draftId))
-    setCookedFoodIngredientWeightByDraftId((current) => {
-      const next = { ...current }
-      delete next[draftId]
-      return next
-    })
-    setCookedFoodIngredientKcalByDraftId((current) => {
-      const next = { ...current }
-      delete next[draftId]
-      return next
-    })
-  }
-  const applyRecipeVersionToCookedFood = (recipeVersionId: Id<'recipeVersions'> | '') => {
-    setCookedFoodRecipeVersionId(recipeVersionId)
-    if (recipeVersionId) {
-      setSaveCookedFoodAsRecipe(false)
-    }
-    if (!recipeVersionId) {
-      return
-    }
-    const recipeVersion = recipeVersionById.get(recipeVersionId)
-    if (recipeVersion && cookedFoodName.trim() === '') {
-      setCookedFoodName(recipeVersion.name)
-    }
-    const recipeLines = recipeIngredientsByVersionId.get(recipeVersionId) ?? []
-    setCookedFoodIngredientLines(
-      recipeLines.map((line) => ({
-        draftId: createCookedFoodIngredientDraftId(),
-        sourceType: 'ingredient',
-        ingredientId: line.ingredientId,
-        rawWeightGrams: line.plannedWeightGrams,
-      })),
-    )
-    setCookedFoodIngredientWeightByDraftId({})
-    setCookedFoodIngredientKcalByDraftId({})
-  }
+    );
+  };
 
-  const resolvedCookedFoodSessionId =
-    cookedFoodSessionId || (editingCookedFoodId ? '' : (cookSessions[0]?._id ?? ''))
+  const updateCustomRecipeIngredientLine = (
+    draftId: string,
+    updater: (line: CustomRecipeIngredientDraft) => CustomRecipeIngredientDraft,
+  ) => {
+    updateRecipeIngredientLine(draftId, (line) =>
+      line.sourceType === "custom" ? updater(line) : line,
+    );
+  };
 
-  const selectedRecipeLineIngredient = recipeLineIngredientId
-    ? ingredientById.get(recipeLineIngredientId)
-    : undefined
-  const recipeLineAmountUnit = getRecipeAmountUnit(selectedRecipeLineIngredient)
-  const recipeLineAmountUnitLabel = getRecipeAmountUnitLabel(recipeLineAmountUnit)
-  const recipeLineSupportsSelectedUnit = canConvertRecipeAmountByIngredient(
-    selectedRecipeLineIngredient,
-  )
+  const updateRecipeIngredientLineAmount = (
+    draftId: string,
+    nextAmount: number,
+  ) => {
+    updateRecipeIngredientLine(draftId, (line) => ({
+      ...line,
+      referenceAmount: nextAmount,
+    }));
+  };
+
+  const updateRecipeIngredientLineUnit = (
+    draftId: string,
+    nextUnit: NutritionUnit,
+  ) => {
+    updateRecipeIngredientLine(draftId, (line) => ({
+      ...line,
+      referenceUnit: nextUnit,
+    }));
+  };
+
+  const commitRecipeIngredientLineAmount = (draftId: string) => {
+    const rawValue = recipeLineAmountDraftById[draftId];
+    if (rawValue !== undefined) {
+      const parsedAmount = Number(rawValue);
+      if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+        updateRecipeIngredientLineAmount(draftId, parsedAmount);
+      }
+    }
+    setRecipeLineAmountDraftById((current) => {
+      if (!(draftId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[draftId];
+      return next;
+    });
+  };
+
+  const commitRecipeIngredientLineKcal = (draftId: string) => {
+    const rawValue = recipeLineKcalDraftById[draftId];
+    if (rawValue !== undefined) {
+      const parsedKcal = Number(rawValue);
+      updateCustomRecipeIngredientLine(draftId, (line) => {
+        if (line.ignoreCalories) {
+          return {
+            ...line,
+            kcalPer100:
+              Number.isFinite(parsedKcal) && parsedKcal >= 0 ? parsedKcal : 0,
+          };
+        }
+        if (Number.isFinite(parsedKcal) && parsedKcal > 0) {
+          return { ...line, kcalPer100: parsedKcal };
+        }
+        return line;
+      });
+    }
+    setRecipeLineKcalDraftById((current) => {
+      if (!(draftId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[draftId];
+      return next;
+    });
+  };
+
+  const recipeLineEditorColumns: ColumnDef<RecipeIngredientDraft>[] = [
+    {
+      id: "name",
+      header: () => <div className="w-[220px]">Name</div>,
+      cell: ({ row }) => {
+        const line = row.original;
+        const label =
+          line.sourceType === "ingredient"
+            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
+            : line.name;
+
+        if (line.sourceType === "custom") {
+          return (
+            <div className="w-[220px]">
+              <Input
+                aria-label={`${label || "Custom ingredient"} name`}
+                className="h-8 text-sm"
+                placeholder="Ingredient"
+                value={line.name}
+                onChange={(event) =>
+                  updateCustomRecipeIngredientLine(
+                    line.draftId,
+                    (customLine) => ({
+                      ...customLine,
+                      name: event.target.value,
+                    }),
+                  )
+                }
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex h-8 w-[220px] items-center truncate text-sm text-foreground">
+            {label}
+          </div>
+        );
+      },
+    },
+    {
+      id: "kcalPer100",
+      header: () => <div className="w-[120px]">kcal/100</div>,
+      cell: ({ row }) => {
+        const line = row.original;
+        const label =
+          line.sourceType === "ingredient"
+            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
+            : line.name;
+
+        if (line.sourceType === "custom") {
+          return (
+            <Input
+              type="number"
+              min={line.ignoreCalories ? "0" : "1"}
+              step="1"
+              aria-label={`${label || "Custom ingredient"} kcal per 100`}
+              placeholder="kcal/100"
+              disabled={line.ignoreCalories}
+              className="h-8 w-[120px]"
+              value={
+                recipeLineKcalDraftById[line.draftId] ??
+                line.kcalPer100.toString()
+              }
+              onChange={(event) =>
+                setRecipeLineKcalDraftById((current) => ({
+                  ...current,
+                  [line.draftId]: event.target.value,
+                }))
+              }
+              onBlur={() => commitRecipeIngredientLineKcal(line.draftId)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+          );
+        }
+
+        return (
+          <span className="block w-[120px] text-sm text-foreground">
+            {formatKcalPer100(
+              getKcalPer100(ingredientById.get(line.ingredientId) ?? {}),
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      id: "amount",
+      header: () => <div className="w-[120px]">Amount</div>,
+      cell: ({ row }) => {
+        const line = row.original;
+        const label =
+          line.sourceType === "ingredient"
+            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
+            : line.name;
+
+        return (
+          <Input
+            type="number"
+            min="0.01"
+            step="0.01"
+            aria-label={`${label} amount`}
+            className="h-8 w-[120px]"
+            value={
+              recipeLineAmountDraftById[line.draftId] ??
+              line.referenceAmount.toString()
+            }
+            onChange={(event) =>
+              setRecipeLineAmountDraftById((current) => ({
+                ...current,
+                [line.draftId]: event.target.value,
+              }))
+            }
+            onBlur={() => commitRecipeIngredientLineAmount(line.draftId)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        );
+      },
+    },
+    {
+      id: "unit",
+      header: () => <div className="w-[130px]">Unit</div>,
+      cell: ({ row }) => {
+        const line = row.original;
+        const label =
+          line.sourceType === "ingredient"
+            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
+            : line.name;
+
+        return (
+          <Select
+            ariaLabel={`${label} unit`}
+            className="w-[130px]"
+            value={line.referenceUnit}
+            onValueChange={(value) =>
+              updateRecipeIngredientLineUnit(
+                line.draftId,
+                (value as NutritionUnit | null) ?? "g",
+              )
+            }
+            options={NUTRITION_UNIT_OPTIONS}
+          />
+        );
+      },
+    },
+    {
+      id: "ignore",
+      header: () => <div className="w-[90px] text-center">Ignore</div>,
+      cell: ({ row }) => {
+        const line = row.original;
+        const label =
+          line.sourceType === "ingredient"
+            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
+            : line.name;
+
+        if (line.sourceType !== "custom") {
+          return (
+            <span className="block w-[90px] text-center text-xs text-muted-foreground">
+              -
+            </span>
+          );
+        }
+
+        return (
+          <div className="flex w-[90px] justify-center">
+            <Switch
+              size="sm"
+              aria-label={`${label || "Custom ingredient"} ignore calories`}
+              checked={line.ignoreCalories}
+              onCheckedChange={(checked) =>
+                updateCustomRecipeIngredientLine(
+                  line.draftId,
+                  (customLine) => ({
+                    ...customLine,
+                    ignoreCalories: Boolean(checked),
+                  }),
+                )
+              }
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: "save",
+      header: () => <div className="w-[90px] text-center">Save</div>,
+      cell: ({ row }) => {
+        const line = row.original;
+        const label =
+          line.sourceType === "ingredient"
+            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
+            : line.name;
+
+        if (line.sourceType !== "custom") {
+          return (
+            <span className="block w-[90px] text-center text-xs text-muted-foreground">
+              -
+            </span>
+          );
+        }
+
+        return (
+          <div className="flex w-[90px] justify-center">
+            <Switch
+              size="sm"
+              aria-label={`${label || "Custom ingredient"} save to ingredient catalog`}
+              checked={line.saveToCatalog}
+              onCheckedChange={(checked) =>
+                updateCustomRecipeIngredientLine(
+                  line.draftId,
+                  (customLine) => ({
+                    ...customLine,
+                    saveToCatalog: Boolean(checked),
+                  }),
+                )
+              }
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: () => <div className="w-[120px] text-right">Action</div>,
+      cell: ({ row }) => (
+        <div className="flex w-[120px] justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => removeRecipeIngredientLine(row.original.draftId)}
+          >
+            Remove
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   if (isLoading) {
     return (
+      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
+        <p className="text-sm text-muted-foreground">
+          Loading management data…
+        </p>
+      </main>
+    );
+  }
+
+  return (
+    <>
       <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
-        <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+        <section className="mx-auto flex w-full max-w-7xl flex-col px-4 py-8 sm:px-6">
           <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
-            <Skeleton className="h-10 w-full max-w-[34rem]" />
-            <Skeleton className="mt-3 h-4 w-full max-w-[32rem]" />
-            <Skeleton className="mt-2 h-4 w-full max-w-[24rem]" />
-            <Skeleton className="mt-4 h-8 w-36" />
+            <h1 data-display="true" className="text-4xl text-foreground">
+              Catalog Management
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Manage food groups, ingredients, and recipes.
+            </p>
+            <label className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+              />
+              Show archived records
+            </label>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="order-2 mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
             <Card className="border-border/70 bg-card/90">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FolderTree className="h-4 w-4 text-amber-700" />
                   Food Groups
                 </CardTitle>
-                <CardDescription>Used to classify ingredients and cooked outputs.</CardDescription>
+                <CardDescription>
+                  Used to classify ingredients and cooked foods.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-24" />
-                </div>
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={`group-skeleton-${index}`}
-                    className="flex items-center justify-between gap-3 rounded-md bg-muted/45 px-3 py-2"
+                  <Input
+                    aria-label="Group name"
+                    placeholder="Group name"
+                    value={groupName}
+                    onChange={(event) => setGroupName(event.target.value)}
+                  />
+                  <Select
+                    ariaLabel="Group scope"
+                    value={groupScope}
+                    onValueChange={(value) =>
+                      setGroupScope(
+                        (value as "ingredient" | "cookedFood" | null) ??
+                          "ingredient",
+                      )
+                    }
+                    options={[
+                      { value: "ingredient", label: "Ingredient only" },
+                      { value: "cookedFood", label: "Cooked food only" },
+                    ]}
+                  />
+                  <Button
+                    onClick={() =>
+                      void runAction(
+                        editingGroupId ? "Group updated." : "Group created.",
+                        async () => {
+                          if (editingGroupId) {
+                            await updateFoodGroup({
+                              groupId: editingGroupId,
+                              name: groupName,
+                              appliesTo: groupScope,
+                            });
+                          } else {
+                            await createFoodGroup({
+                              name: groupName,
+                              appliesTo: groupScope,
+                            });
+                          }
+                          resetGroupForm();
+                        },
+                      )
+                    }
                   >
-                    <Skeleton className="h-4 w-36" />
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-14" />
-                      <Skeleton className="h-8 w-[4.5rem]" />
-                    </div>
-                  </div>
-                ))}
+                    {editingGroupId ? "Save" : "Create"}
+                  </Button>
+                </div>
+                <DataTable
+                  columns={foodGroupColumns}
+                  data={foodGroupRows}
+                  searchColumnId="name"
+                  searchPlaceholder="Search groups by name"
+                  emptyText="No food groups found."
+                />
               </CardContent>
             </Card>
 
@@ -1172,751 +1271,175 @@ function ManagePageContent() {
                   <Wheat className="h-4 w-4 text-amber-700" />
                   Ingredients
                 </CardTitle>
-                <CardDescription>Edit mistakes quickly, archive old records, or delete unused ones.</CardDescription>
+                <CardDescription>
+                  Store kcal/100g and whether calories are ignored for this
+                  ingredient.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <Skeleton key={`ingredient-input-skeleton-${index}`} className="h-9 w-full" />
-                  ))}
+                  <Input
+                    aria-label="Ingredient name"
+                    placeholder="Ingredient name"
+                    value={ingredientName}
+                    onChange={(event) => setIngredientName(event.target.value)}
+                  />
+                  <Input
+                    aria-label="Ingredient brand"
+                    placeholder="Brand"
+                    value={ingredientBrand}
+                    onChange={(event) => setIngredientBrand(event.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    aria-label="Ingredient kcal per 100"
+                    placeholder="kcal / 100g"
+                    value={ingredientKcal}
+                    onChange={(event) => setIngredientKcal(event.target.value)}
+                  />
+                  <Select
+                    ariaLabel="Ingredient group"
+                    value={ingredientGroupId}
+                    onValueChange={(value) =>
+                      setIngredientGroupId(
+                        (value as Id<"foodGroups"> | "" | null) ?? "",
+                      )
+                    }
+                    placeholder="Group (optional)"
+                    options={[
+                      { value: "", label: "No group" },
+                      ...groups
+                        .filter((group) => group.appliesTo === "ingredient")
+                        .map((group) => ({
+                          value: group._id,
+                          label: group.name,
+                        })),
+                    ]}
+                  />
+                  <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+                    Ignore calories
+                    <Switch
+                      checked={ingredientIgnoreCalories}
+                      onCheckedChange={(checked) =>
+                        setIngredientIgnoreCalories(Boolean(checked))
+                      }
+                    />
+                  </label>
                 </div>
-                <Skeleton className="h-20 w-full" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-9 w-32" />
-                  <Skeleton className="h-9 w-24" />
-                </div>
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={`ingredient-row-skeleton-${index}`}
-                    className="flex items-center justify-between gap-3 rounded-md bg-muted/45 px-3 py-2"
+                <Textarea
+                  aria-label="Ingredient notes"
+                  placeholder="Notes"
+                  value={ingredientNotes}
+                  onChange={(event) => setIngredientNotes(event.target.value)}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() =>
+                      void runAction(
+                        editingIngredientId
+                          ? "Ingredient updated."
+                          : "Ingredient created.",
+                        async () => {
+                          const payload = {
+                            name: ingredientName,
+                            brand: ingredientBrand.trim() || undefined,
+                            kcalPer100: Number(ingredientKcal),
+                            ignoreCalories: ingredientIgnoreCalories,
+                            groupIds: ingredientGroupId
+                              ? [ingredientGroupId]
+                              : [],
+                            notes: ingredientNotes.trim() || undefined,
+                          };
+                          if (editingIngredientId) {
+                            await updateIngredient({
+                              ingredientId: editingIngredientId,
+                              ...payload,
+                            });
+                          } else {
+                            await createIngredient(payload);
+                          }
+                          resetIngredientForm();
+                        },
+                      )
+                    }
                   >
-                    <Skeleton className="h-4 w-40" />
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-14" />
-                      <Skeleton className="h-8 w-[4.5rem]" />
-                      <Skeleton className="h-8 w-14" />
-                    </div>
-                  </div>
-                ))}
+                    {editingIngredientId ? "Save ingredient" : "Add ingredient"}
+                  </Button>
+                  {editingIngredientId ? (
+                    <Button variant="outline" onClick={resetIngredientForm}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
+
+                <DataTable
+                  columns={ingredientColumns}
+                  data={ingredientRows}
+                  searchColumnId="name"
+                  searchPlaceholder="Search ingredients by name"
+                  emptyText="No ingredients found."
+                />
               </CardContent>
             </Card>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="order-1 mt-6 grid grid-cols-1 gap-5">
             <Card className="border-border/70 bg-card/90">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpenText className="h-4 w-4 text-sky-700" />
                   Recipes
                 </CardTitle>
-                <CardDescription>Edit current version directly for quick corrections.</CardDescription>
+                <CardDescription>
+                  Build recipe lines with existing or inline ingredients. Inline
+                  lines can be optionally saved to catalog.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-9 w-full" />
-                <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-28" />
-                </div>
-                <Skeleton className="h-28 w-full" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-9 w-28" />
-                  <Skeleton className="h-9 w-20" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ChefHat className="h-4 w-4 text-rose-700" />
-                  Cooking Sessions and Cooked Foods
-                </CardTitle>
-                <CardDescription>Update measured weights when users correct mistakes.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border border-border p-3">
-                  <Skeleton className="h-4 w-20" />
-                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <Skeleton className="h-9 w-[7.5rem]" />
-                    <Skeleton className="h-9 w-20" />
-                  </div>
-                </div>
-                <div className="rounded-lg border border-border p-3">
-                  <Skeleton className="h-4 w-28" />
-                  <div className="mt-2 space-y-3">
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      </main>
-    )
-  }
-
-  return (
-    <>
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
-        <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
-        <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
-          <h1 data-display="true" className="text-4xl text-foreground">
-            Catalog and Cooking Management
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Infrequently edited data lives here: ingredients, recipes, sessions, cooked foods.
-          </p>
-          <label className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(event) => setShowArchived(event.target.checked)}
-            />
-            Show archived records
-          </label>
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FolderTree className="h-4 w-4 text-amber-700" />
-                Food Groups
-              </CardTitle>
-              <CardDescription>Used to classify ingredients and cooked outputs.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                <Input
-                  aria-label='Group name'
-                  placeholder="Group name"
-                  value={groupName}
-                  onChange={(event) => setGroupName(event.target.value)}
-                />
-                <Select
-                  ariaLabel='Group scope'
-                  value={groupScope}
-                  onValueChange={(value) =>
-                    setGroupScope(value as 'ingredient' | 'cookedFood' | 'both')
-                  }
-                  options={[
-                    { value: 'both', label: 'Both' },
-                    { value: 'ingredient', label: 'Ingredient only' },
-                    { value: 'cookedFood', label: 'Cooked food only' },
-                  ]}
-                />
-                <Button
-                  onClick={() =>
-                    void runAction(
-                      editingGroupId ? 'Group updated.' : 'Group created.',
-                      async () => {
-                        if (editingGroupId) {
-                          await updateFoodGroup({
-                            groupId: editingGroupId,
-                            name: groupName,
-                            appliesTo: groupScope,
-                          })
-                        } else {
-                          await createFoodGroup({
-                            name: groupName,
-                            appliesTo: groupScope,
-                          })
-                        }
-                        resetGroupForm()
-                      },
-                    )
-                  }
-                >
-                  {editingGroupId ? 'Save' : 'Create'}
-                </Button>
-              </div>
-              <DataTable
-                columns={foodGroupColumns}
-                data={foodGroupRows}
-                searchColumnId="name"
-                searchPlaceholder="Search groups by name"
-                emptyText="No food groups found."
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wheat className="h-4 w-4 text-amber-700" />
-                Ingredients
-              </CardTitle>
-              <CardDescription>Edit mistakes quickly, archive old records, or delete unused ones.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  aria-label='Ingredient name'
-                  placeholder="Ingredient name"
-                  value={ingredientName}
-                  onChange={(event) => setIngredientName(event.target.value)}
-                />
-                <Input
-                  aria-label='Ingredient brand'
-                  placeholder="Brand"
-                  value={ingredientBrand}
-                  onChange={(event) => setIngredientBrand(event.target.value)}
-                />
-                <Input
-                  type="number"
-                  aria-label='Ingredient calories per 100 grams'
-                  placeholder="kcal / 100g"
-                  value={ingredientKcal}
-                  onChange={(event) => setIngredientKcal(event.target.value)}
-                />
-                <Select
-                  ariaLabel='Ingredient default unit'
-                  value={ingredientUnit}
-                  onValueChange={(value) =>
-                    setIngredientUnit(value as 'g' | 'ml' | 'piece')
-                  }
-                  options={[
-                    { value: 'g', label: 'Gram' },
-                    { value: 'ml', label: 'Milliliter' },
-                    { value: 'piece', label: 'Piece' },
-                  ]}
-                />
-                <Input
-                  type="number"
-                  aria-label='Ingredient grams per unit'
-                  placeholder="grams per unit"
-                  value={ingredientGramsPerUnit}
-                  onChange={(event) => setIngredientGramsPerUnit(event.target.value)}
-                />
-                <Select
-                  ariaLabel='Ingredient group'
-                  value={ingredientGroupId}
-                  onValueChange={(value) =>
-                    setIngredientGroupId(value as Id<'foodGroups'> | '')
-                  }
-                  placeholder="Group (optional)"
-                  options={[
-                    { value: '', label: 'No group' },
-                    ...groups.map((group) => ({ value: group._id, label: group.name })),
-                  ]}
-                />
-              </div>
-              <Textarea
-                aria-label='Ingredient notes'
-                placeholder="Notes"
-                value={ingredientNotes}
-                onChange={(event) => setIngredientNotes(event.target.value)}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() =>
-                    void runAction(
-                      editingIngredientId ? 'Ingredient updated.' : 'Ingredient created.',
-                      async () => {
-                        const payload = {
-                          name: ingredientName,
-                          brand: ingredientBrand.trim() || undefined,
-                          kcalPer100g: Number(ingredientKcal),
-                          defaultUnit: ingredientUnit,
-                          gramsPerUnit:
-                            ingredientGramsPerUnit.trim() === ''
-                              ? undefined
-                              : Number(ingredientGramsPerUnit),
-                          groupIds: ingredientGroupId ? [ingredientGroupId] : [],
-                          notes: ingredientNotes.trim() || undefined,
-                        }
-                        if (editingIngredientId) {
-                          await updateIngredient({
-                            ingredientId: editingIngredientId,
-                            ...payload,
-                          })
-                        } else {
-                          await createIngredient(payload)
-                        }
-                        resetIngredientForm()
-                      },
-                    )
-                  }
-                >
-                  {editingIngredientId ? 'Save ingredient' : 'Add ingredient'}
-                </Button>
-                {editingIngredientId ? (
-                  <Button variant="outline" onClick={resetIngredientForm}>
-                    Cancel
-                  </Button>
-                ) : null}
-              </div>
-
-              <DataTable
-                columns={ingredientColumns}
-                data={ingredientRows}
-                searchColumnId="name"
-                searchPlaceholder="Search ingredients by name"
-                emptyText="No ingredients found."
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpenText className="h-4 w-4 text-sky-700" />
-                Recipes
-              </CardTitle>
-              <CardDescription>Edit current version directly for quick corrections.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  aria-label='Recipe name'
-                  placeholder="Recipe name"
-                  value={recipeName}
-                  onChange={(event) => setRecipeName(event.target.value)}
-                />
-                <Input
-                  aria-label='Recipe description'
-                  placeholder="Description"
-                  value={recipeDescription}
-                  onChange={(event) => setRecipeDescription(event.target.value)}
-                />
-              </div>
-              <Textarea
-                aria-label='Recipe instructions'
-                placeholder="Instructions"
-                value={recipeInstructions}
-                onChange={(event) => setRecipeInstructions(event.target.value)}
-              />
-              <Input
-                aria-label='Recipe version notes'
-                placeholder="Version notes"
-                value={recipeNotes}
-                onChange={(event) => setRecipeNotes(event.target.value)}
-              />
-
-              <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
-                <SearchablePicker
-                  value={recipeLineIngredientId}
-                  onValueChange={(value) =>
-                    setRecipeLineIngredientId(value as Id<'ingredients'> | '')
-                  }
-                  ariaLabel='Recipe ingredient search'
-                  placeholder="Search ingredient"
-                  options={ingredientOptions}
-                />
-                <Input
-                  type="number"
-                  aria-label='Recipe ingredient amount'
-                  placeholder={recipeLineAmountUnitLabel}
-                  value={recipeLineAmount}
-                  onChange={(event) => setRecipeLineAmount(event.target.value)}
-                />
-                <Button variant="outline" onClick={addRecipeIngredientLine}>
-                  Add ingredient
-                </Button>
-              </div>
-              {selectedRecipeLineIngredient &&
-              !recipeLineSupportsSelectedUnit &&
-              selectedRecipeLineIngredient.defaultUnit !== 'g' ? (
-                <p className="text-xs text-amber-700">
-                  {selectedRecipeLineIngredient.name} uses{' '}
-                  {getRecipeAmountUnitLabel(selectedRecipeLineIngredient.defaultUnit)}. Add
-                  grams per unit on the ingredient first.
-                </p>
-              ) : null}
-
-              <div className="rounded-md border border-border/60 bg-muted/35 p-2.5">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-medium text-foreground">Recipe ingredients</p>
-                  <p className="text-xs text-muted-foreground">
-                    {recipeIngredientLines.length} line
-                    {recipeIngredientLines.length === 1 ? '' : 's'}
-                  </p>
-                </div>
-                {recipeIngredientLines.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Add at least one ingredient line.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {recipeIngredientLines.map((line) => {
-                      const ingredient = ingredientById.get(line.ingredientId)
-                      const unit = getRecipeAmountUnit(ingredient)
-                      const unitLabel = getRecipeAmountUnitLabel(unit)
-                      const defaultValue = formatRecipeAmountForInput(
-                        toRecipeAmountValue(ingredient, line.plannedWeightGrams),
-                      )
-                      const displayedValue =
-                        recipeIngredientAmountByDraftId[line.draftId] ?? defaultValue
-                      return (
-                        <div
-                          key={line.draftId}
-                          className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1.35fr_1fr_auto]"
-                        >
-                          <SearchablePicker
-                            value={line.ingredientId}
-                            onValueChange={(value) => {
-                              const nextIngredientId = value as Id<'ingredients'>
-                              const nextIngredient = ingredientById.get(nextIngredientId)
-                              if (!canConvertRecipeAmountByIngredient(nextIngredient)) {
-                                toast.error(
-                                  'Set grams per unit on this ingredient before using non-gram units.',
-                                )
-                                return
-                              }
-                              updateRecipeIngredientLine(line.draftId, {
-                                ingredientId: nextIngredientId,
-                              })
-                              setRecipeIngredientAmountByDraftId((current) => {
-                                const next = { ...current }
-                                delete next[line.draftId]
-                                return next
-                              })
-                            }}
-                            ariaLabel='Recipe line ingredient search'
-                            placeholder="Search ingredient"
-                            options={ingredientOptions}
-                            className="space-y-1"
-                          />
-                          <div className="space-y-1">
-                            <Input
-                              type="number"
-                              aria-label='Recipe line amount'
-                              value={displayedValue}
-                              placeholder={unitLabel}
-                              onChange={(event) => {
-                                const nextValue = event.target.value
-                                setRecipeIngredientAmountByDraftId((current) => ({
-                                  ...current,
-                                  [line.draftId]: nextValue,
-                                }))
-                                const parsed = Number(nextValue)
-                                if (!Number.isFinite(parsed) || parsed <= 0) {
-                                  return
-                                }
-                                updateRecipeIngredientLine(line.draftId, {
-                                  plannedWeightGrams: toRecipeWeightGrams(
-                                    ingredient,
-                                    parsed,
-                                  ),
-                                })
-                              }}
-                              onBlur={() => {
-                                setRecipeIngredientAmountByDraftId((current) => {
-                                  const next = { ...current }
-                                  delete next[line.draftId]
-                                  return next
-                                })
-                              }}
-                            />
-                            <p className="text-[11px] text-muted-foreground">
-                              {getRecipeIngredientStoredHint(ingredient, line.plannedWeightGrams)}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeRecipeIngredientLine(line.draftId)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() =>
-                    void runAction(
-                      editingRecipeId ? 'Recipe updated.' : 'Recipe created.',
-                      async () => {
-                        const payload = {
-                          name: recipeName,
-                          description: recipeDescription.trim() || undefined,
-                          instructions: recipeInstructions.trim() || undefined,
-                          notes: recipeNotes.trim() || undefined,
-                          plannedIngredients: recipeIngredientLines.map((line) => ({
-                            ingredientId: line.ingredientId,
-                            plannedWeightGrams: line.plannedWeightGrams,
-                          })),
-                        }
-                        if (editingRecipeId) {
-                          await updateRecipeCurrentVersion({
-                            recipeId: editingRecipeId,
-                            ...payload,
-                          })
-                        } else {
-                          await createRecipe(payload)
-                        }
-                        resetRecipeForm()
-                      },
-                    )
-                  }
-                >
-                  {editingRecipeId ? 'Save recipe' : 'Create recipe'}
-                </Button>
-                {editingRecipeId ? (
-                  <Button variant="outline" onClick={resetRecipeForm}>
-                    Cancel
-                  </Button>
-                ) : null}
-              </div>
-
-              <DataTable
-                columns={recipeColumns}
-                data={recipeRows}
-                searchColumnId="name"
-                searchPlaceholder="Search recipes by name"
-                emptyText="No recipes found."
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ChefHat className="h-4 w-4 text-rose-700" />
-                Cooking Sessions and Cooked Foods
-              </CardTitle>
-              <CardDescription>Update measured weights when users correct mistakes.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-border p-3">
-                <p className="text-sm font-medium text-foreground">Session</p>
-                <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <Input
-                    aria-label='Session label'
-                    placeholder="Session label"
-                    value={sessionLabel}
-                    onChange={(event) => setSessionLabel(event.target.value)}
-                  />
-                  <DatePicker
-                    value={sessionDate}
-                    onChange={setSessionDate}
-                    ariaLabel='Session date'
-                  />
-                  <Select
-                    ariaLabel='Session person'
-                    value={sessionPersonId}
-                    onValueChange={(value) =>
-                      setSessionPersonId(value as Id<'people'> | '')
-                    }
-                    placeholder="Cooked by"
-                    options={[
-                      { value: '', label: 'No person' },
-                      ...people.map((person) => ({
-                        value: person._id,
-                        label: person.name,
-                      })),
-                    ]}
+                    aria-label="Recipe name"
+                    placeholder="Recipe name"
+                    value={recipeName}
+                    onChange={(event) => setRecipeName(event.target.value)}
                   />
                   <Input
-                    aria-label='Session notes'
-                    placeholder="Session notes"
-                    value={sessionNotes}
-                    onChange={(event) => setSessionNotes(event.target.value)}
-                  />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    onClick={() =>
-                      void runAction(
-                        editingSessionId ? 'Session updated.' : 'Session created.',
-                        async () => {
-                          const cookedAt = toTimestampFromDate(sessionDate)
-                          if (editingSessionId) {
-                            await updateCookSession({
-                              sessionId: editingSessionId,
-                              label: sessionLabel.trim() || undefined,
-                              cookedAt,
-                              cookedByPersonId: sessionPersonId || undefined,
-                              notes: sessionNotes.trim() || undefined,
-                            })
-                            setCookedFoodSessionId(editingSessionId)
-                          } else {
-                            const sessionId = await createCookSession({
-                              label: sessionLabel.trim() || undefined,
-                              cookedAt,
-                              cookedByPersonId: sessionPersonId || undefined,
-                              notes: sessionNotes.trim() || undefined,
-                            })
-                            setCookedFoodSessionId(sessionId)
-                          }
-                          resetSessionForm()
-                        },
-                      )
-                    }
-                  >
-                    {editingSessionId ? 'Save session' : 'Create session'}
-                  </Button>
-                  {editingSessionId ? (
-                    <Button variant="outline" onClick={resetSessionForm}>
-                      Cancel
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="mt-3">
-                  <DataTable
-                    columns={sessionColumns}
-                    data={sessionRows}
-                    searchColumnId="label"
-                    searchPlaceholder="Search sessions by label"
-                    emptyText="No sessions found."
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border p-3">
-                <p className="text-sm font-medium text-foreground">Cooked food</p>
-                <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  <SearchablePicker
-                    ariaLabel='Cooked food session search'
-                    value={resolvedCookedFoodSessionId}
-                    onValueChange={(value) =>
-                      setCookedFoodSessionId(value as Id<'cookSessions'> | '')
-                    }
-                    placeholder="Search session"
-                    options={sessionOptions}
-                  />
-                  <Input
-                    aria-label='Cooked food name'
-                    placeholder="Cooked food name"
-                    value={cookedFoodName}
-                    onChange={(event) => setCookedFoodName(event.target.value)}
-                  />
-                  {editingCookedFoodId || !saveCookedFoodAsRecipe ? (
-                    <SearchablePicker
-                      value={cookedFoodRecipeVersionId}
-                      onValueChange={(value) =>
-                        applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
-                      }
-                      ariaLabel='Cooked food recipe search'
-                      placeholder="Search recipe"
-                      options={recipeVersionOptions}
-                    />
-                  ) : (
-                    <div className="rounded-md border border-emerald-400/35 bg-emerald-500/8 px-3 py-2 text-xs text-foreground">
-                      New recipe will be created from these ingredient lines.
-                    </div>
-                  )}
-                  <Select
-                    ariaLabel='Cooked food group'
-                    value={cookedFoodGroupId}
-                    onValueChange={(value) =>
-                      setCookedFoodGroupId(value as Id<'foodGroups'> | '')
-                    }
-                    placeholder="Group"
-                    options={[
-                      { value: '', label: 'No group' },
-                      ...groups.map((group) => ({
-                        value: group._id,
-                        label: group.name,
-                      })),
-                    ]}
-                  />
-                  <Input
-                    type="number"
-                    aria-label='Finished cooked food weight'
-                    placeholder="Finished grams"
-                    value={cookedFoodFinishedWeight}
+                    aria-label="Recipe description"
+                    placeholder="Description"
+                    value={recipeDescription}
                     onChange={(event) =>
-                      setCookedFoodFinishedWeight(event.target.value)
+                      setRecipeDescription(event.target.value)
                     }
                   />
-                  <Input
-                    aria-label='Cooked food notes'
-                    placeholder="Notes"
-                    value={cookedFoodNotes}
-                    onChange={(event) => setCookedFoodNotes(event.target.value)}
-                  />
                 </div>
-                {!editingCookedFoodId ? (
-                  <div className="mt-3 rounded-md bg-muted/35 p-3">
-                    <label className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
-                      Save this cooked food as a reusable recipe
-                      <Switch
-                        checked={saveCookedFoodAsRecipe}
-                        onCheckedChange={(checked) => {
-                          const nextChecked = Boolean(checked)
-                          setSaveCookedFoodAsRecipe(nextChecked)
-                          if (nextChecked) {
-                            setCookedFoodRecipeVersionId('')
-                            if (!cookedFoodRecipeDraftName.trim() && cookedFoodName.trim()) {
-                              setCookedFoodRecipeDraftName(cookedFoodName.trim())
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                    {saveCookedFoodAsRecipe ? (
-                      <div className="mt-3 space-y-3">
-                        <Input
-                          aria-label='Recipe name from cooked food'
-                          placeholder={cookedFoodName.trim() || 'Recipe name'}
-                          value={cookedFoodRecipeDraftName}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftName(event.target.value)
-                          }
-                        />
-                        <Input
-                          aria-label='Recipe description from cooked food'
-                          placeholder="Description (optional)"
-                          value={cookedFoodRecipeDraftDescription}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftDescription(event.target.value)
-                          }
-                        />
-                        <Textarea
-                          aria-label='Recipe instructions from cooked food'
-                          placeholder="Instructions (optional)"
-                          value={cookedFoodRecipeDraftInstructions}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftInstructions(event.target.value)
-                          }
-                        />
-                        <Input
-                          aria-label='Recipe notes from cooked food'
-                          placeholder="Notes (optional)"
-                          value={cookedFoodRecipeDraftNotes}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftNotes(event.target.value)
-                          }
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                <Textarea
+                  aria-label="Recipe instructions"
+                  placeholder="Instructions"
+                  value={recipeInstructions}
+                  onChange={(event) =>
+                    setRecipeInstructions(event.target.value)
+                  }
+                />
+                <Input
+                  aria-label="Recipe version notes"
+                  placeholder="Version notes"
+                  value={recipeNotes}
+                  onChange={(event) => setRecipeNotes(event.target.value)}
+                />
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-medium text-foreground">Add ingredient line</p>
-                  <div className="inline-flex gap-1 rounded-full bg-muted/60 p-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-medium text-foreground">
+                    Add ingredient line
+                  </p>
+                  <div className="inline-flex gap-1 rounded-full border border-border/70 bg-muted/40 p-1">
                     <Toggle
                       size="sm"
                       variant="default"
-                      className="rounded-full px-3 text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
-                      pressed={cookedFoodLineSourceType === 'ingredient'}
+                      className="rounded-full border border-transparent px-3 text-muted-foreground transition-colors hover:text-foreground data-[state=on]:border-primary/60 data-[state=on]:bg-primary data-[state=on]:font-semibold data-[state=on]:text-primary-foreground data-[state=on]:shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                      pressed={recipeLineMode === "ingredient"}
                       onPressedChange={(pressed) => {
                         if (pressed) {
-                          setCookedFoodLineSourceType('ingredient')
+                          setRecipeLineMode("ingredient");
                         }
                       }}
                     >
@@ -1925,11 +1448,11 @@ function ManagePageContent() {
                     <Toggle
                       size="sm"
                       variant="default"
-                      className="rounded-full px-3 text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
-                      pressed={cookedFoodLineSourceType === 'custom'}
+                      className="rounded-full border border-transparent px-3 text-muted-foreground transition-colors hover:text-foreground data-[state=on]:border-primary/60 data-[state=on]:bg-primary data-[state=on]:font-semibold data-[state=on]:text-primary-foreground data-[state=on]:shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                      pressed={recipeLineMode === "custom"}
                       onPressedChange={(pressed) => {
                         if (pressed) {
-                          setCookedFoodLineSourceType('custom')
+                          setRecipeLineMode("custom");
                         }
                       }}
                     >
@@ -1938,375 +1461,216 @@ function ManagePageContent() {
                   </div>
                 </div>
 
-                {cookedFoodLineSourceType === 'ingredient' ? (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
-                    <SearchablePicker
-                      value={cookedFoodLineIngredientId}
-                      onValueChange={(value) =>
-                        setCookedFoodLineIngredientId(value as Id<'ingredients'> | '')
-                      }
-                      ariaLabel='Cooked food ingredient search'
-                      placeholder="Search ingredient"
-                      options={ingredientOptions}
+                {recipeLineMode === "ingredient" ? (
+                  <div className="space-y-3">
+                    <DataTable
+                      columns={recipeIngredientColumns}
+                      data={recipeIngredientRows}
+                      searchColumnId="name"
+                      searchPlaceholder="Search ingredients by name or brand"
+                      emptyText="No ingredients found."
                     />
-                    <Input
-                      type="number"
-                      aria-label='Cooked food raw grams'
-                      placeholder="raw grams"
-                      value={cookedFoodLineWeight}
-                      onChange={(event) => setCookedFoodLineWeight(event.target.value)}
-                    />
-                    <Button onClick={addCookedFoodIngredientLine}>
-                      Add ingredient
-                    </Button>
+                    <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr_1fr_auto]">
+                      <Input
+                        aria-label="Selected recipe ingredient"
+                        value={
+                          recipeLineIngredientId
+                            ? (ingredientById.get(recipeLineIngredientId)
+                                ?.name ?? "Unknown ingredient")
+                            : ""
+                        }
+                        placeholder="Select ingredient from table"
+                        readOnly
+                      />
+                      <Input
+                        type="number"
+                        aria-label="Recipe reference amount"
+                        placeholder="Amount"
+                        value={recipeLineAmount}
+                        onChange={(event) =>
+                          setRecipeLineAmount(event.target.value)
+                        }
+                      />
+                      <Select
+                        ariaLabel="Recipe reference unit"
+                        value={recipeLineUnit}
+                        onValueChange={(value) =>
+                          setRecipeLineUnit(
+                            (value as NutritionUnit | null) ?? "g",
+                          )
+                        }
+                        options={NUTRITION_UNIT_OPTIONS}
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={addRecipeIngredientLine}
+                      >
+                        Add
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[1.2fr_0.8fr_0.8fr_auto_auto]">
+                  <div
+                    className={`grid gap-3 ${
+                      recipeLineCustomIgnoreCalories
+                        ? "sm:grid-cols-[1.2fr_0.7fr_0.7fr_auto]"
+                        : "sm:grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr_auto]"
+                    }`}
+                  >
                     <Input
-                      aria-label='New cooked food ingredient name'
-                      placeholder="Ingredient name"
-                      value={cookedFoodLineCustomName}
-                      onChange={(event) => setCookedFoodLineCustomName(event.target.value)}
+                      aria-label="Recipe custom ingredient name"
+                      placeholder="Ingredient"
+                      value={recipeLineCustomName}
+                      onChange={(event) =>
+                        setRecipeLineCustomName(event.target.value)
+                      }
                     />
+                    {recipeLineCustomIgnoreCalories ? null : (
+                      <Input
+                        type="number"
+                        aria-label="Recipe custom kcal per 100"
+                        placeholder="kcal/100"
+                        value={recipeLineCustomKcal}
+                        onChange={(event) =>
+                          setRecipeLineCustomKcal(event.target.value)
+                        }
+                      />
+                    )}
                     <Input
                       type="number"
-                      aria-label='New cooked food ingredient kcal per 100g'
-                      placeholder="kcal / 100g"
-                      value={cookedFoodLineCustomKcal}
-                      onChange={(event) => setCookedFoodLineCustomKcal(event.target.value)}
+                      aria-label="Recipe custom reference amount"
+                      placeholder="Amount"
+                      value={recipeLineAmount}
+                      onChange={(event) =>
+                        setRecipeLineAmount(event.target.value)
+                      }
                     />
-                    <Input
-                      type="number"
-                      aria-label='New cooked food ingredient raw grams'
-                      placeholder="raw grams"
-                      value={cookedFoodLineWeight}
-                      onChange={(event) => setCookedFoodLineWeight(event.target.value)}
+                    <Select
+                      ariaLabel="Recipe custom reference unit"
+                      value={recipeLineUnit}
+                      onValueChange={(value) =>
+                        setRecipeLineUnit(
+                          (value as NutritionUnit | null) ?? "g",
+                        )
+                      }
+                      options={NUTRITION_UNIT_OPTIONS}
                     />
-                    <label className="flex items-center gap-2 rounded-md bg-muted/35 px-3 text-xs text-foreground">
-                      Save for later
+                    <Button variant="outline" onClick={addRecipeIngredientLine}>
+                      Add
+                    </Button>
+                    <label className="col-span-full flex items-center gap-3 text-xs text-muted-foreground">
+                      Ignore calories
                       <Switch
                         size="sm"
-                        checked={cookedFoodLineCustomSaveToCatalog}
+                        checked={recipeLineCustomIgnoreCalories}
                         onCheckedChange={(checked) =>
-                          setCookedFoodLineCustomSaveToCatalog(Boolean(checked))
+                          setRecipeLineCustomIgnoreCalories(Boolean(checked))
+                        }
+                      />
+                      Save to ingredient catalog
+                      <Switch
+                        size="sm"
+                        checked={recipeLineCustomSaveToCatalog}
+                        onCheckedChange={(checked) =>
+                          setRecipeLineCustomSaveToCatalog(Boolean(checked))
                         }
                       />
                     </label>
-                    <Button onClick={addCookedFoodIngredientLine}>
-                      Add ingredient
-                    </Button>
                   </div>
                 )}
-                <div className="mt-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
-                  {cookedFoodIngredientLines.length === 0 ? (
-                    <p>Add at least one ingredient line.</p>
+
+                <div className="rounded-md border border-border/60 bg-muted/35 p-2.5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-medium text-foreground">
+                      Recipe ingredients
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {recipeIngredientLines.length} line
+                      {recipeIngredientLines.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  {recipeIngredientLines.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Add at least one ingredient line.
+                    </p>
                   ) : (
-                    <div className="space-y-2">
-                      {cookedFoodIngredientLines.map((line) => {
-                        const displayedWeight =
-                          cookedFoodIngredientWeightByDraftId[line.draftId] ??
-                          formatRecipeAmountForInput(line.rawWeightGrams)
-                        const displayedKcal =
-                          line.sourceType === 'custom'
-                            ? cookedFoodIngredientKcalByDraftId[line.draftId] ??
-                              formatRecipeAmountForInput(line.kcalPer100g)
-                            : ''
-                        if (line.sourceType === 'ingredient') {
-                          return (
-                            <div
-                              key={line.draftId}
-                              className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1.35fr_1fr_auto]"
-                            >
-                              <SearchablePicker
-                                value={line.ingredientId}
-                                onValueChange={(value) =>
-                                  updateCookedFoodIngredientLine(line.draftId, (current) => {
-                                    if (current.sourceType !== 'ingredient') {
-                                      return current
-                                    }
-                                    return {
-                                      ...current,
-                                      ingredientId: value as Id<'ingredients'>,
-                                    }
-                                  })
-                                }
-                                ariaLabel='Cooked food line ingredient search'
-                                placeholder="Search ingredient"
-                                options={ingredientOptionsAll}
-                              />
-                              <Input
-                                type="number"
-                                aria-label='Cooked food line raw grams'
-                                value={displayedWeight}
-                                placeholder="raw grams"
-                                onChange={(event) => {
-                                  const nextValue = event.target.value
-                                  setCookedFoodIngredientWeightByDraftId((current) => ({
-                                    ...current,
-                                    [line.draftId]: nextValue,
-                                  }))
-                                  const parsed = Number(nextValue)
-                                  if (!Number.isFinite(parsed) || parsed <= 0) {
-                                    return
-                                  }
-                                  updateCookedFoodIngredientLine(line.draftId, (current) => {
-                                    if (current.sourceType !== 'ingredient') {
-                                      return current
-                                    }
-                                    return {
-                                      ...current,
-                                      rawWeightGrams: parsed,
-                                    }
-                                  })
-                                }}
-                                onBlur={() => {
-                                  setCookedFoodIngredientWeightByDraftId((current) => {
-                                    const next = { ...current }
-                                    delete next[line.draftId]
-                                    return next
-                                  })
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeCookedFoodIngredientLine(line.draftId)}
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          )
-                        }
-                        return (
-                          <div
-                            key={line.draftId}
-                            className="grid gap-2 rounded-md bg-background/80 p-2 sm:grid-cols-[1fr_0.8fr_0.8fr_auto_auto]"
-                          >
-                            <Input
-                              aria-label='Cooked food custom ingredient name'
-                              value={line.name}
-                              onChange={(event) =>
-                                updateCookedFoodIngredientLine(line.draftId, (current) => {
-                                  if (current.sourceType !== 'custom') {
-                                    return current
-                                  }
-                                  return {
-                                    ...current,
-                                    name: event.target.value,
-                                  }
-                                })
-                              }
-                            />
-                            <Input
-                              type="number"
-                              aria-label='Cooked food custom ingredient kcal per 100g'
-                              value={displayedKcal}
-                              placeholder="kcal / 100g"
-                              onChange={(event) => {
-                                const nextValue = event.target.value
-                                setCookedFoodIngredientKcalByDraftId((current) => ({
-                                  ...current,
-                                  [line.draftId]: nextValue,
-                                }))
-                                const parsed = Number(nextValue)
-                                if (!Number.isFinite(parsed) || parsed <= 0) {
-                                  return
-                                }
-                                updateCookedFoodIngredientLine(line.draftId, (current) => {
-                                  if (current.sourceType !== 'custom') {
-                                    return current
-                                  }
-                                  return {
-                                    ...current,
-                                    kcalPer100g: parsed,
-                                  }
-                                })
-                              }}
-                              onBlur={() => {
-                                setCookedFoodIngredientKcalByDraftId((current) => {
-                                  const next = { ...current }
-                                  delete next[line.draftId]
-                                  return next
-                                })
-                              }}
-                            />
-                            <Input
-                              type="number"
-                              aria-label='Cooked food line raw grams'
-                              value={displayedWeight}
-                              placeholder="raw grams"
-                              onChange={(event) => {
-                                const nextValue = event.target.value
-                                setCookedFoodIngredientWeightByDraftId((current) => ({
-                                  ...current,
-                                  [line.draftId]: nextValue,
-                                }))
-                                const parsed = Number(nextValue)
-                                if (!Number.isFinite(parsed) || parsed <= 0) {
-                                  return
-                                }
-                                updateCookedFoodIngredientLine(line.draftId, (current) => {
-                                  if (current.sourceType !== 'custom') {
-                                    return current
-                                  }
-                                  return {
-                                    ...current,
-                                    rawWeightGrams: parsed,
-                                  }
-                                })
-                              }}
-                              onBlur={() => {
-                                setCookedFoodIngredientWeightByDraftId((current) => {
-                                  const next = { ...current }
-                                  delete next[line.draftId]
-                                  return next
-                                })
-                              }}
-                            />
-                            <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 text-xs">
-                              Save for later
-                              <Switch
-                                size="sm"
-                                checked={line.saveToCatalog}
-                                onCheckedChange={(checked) =>
-                                  updateCookedFoodIngredientLine(line.draftId, (current) => {
-                                    if (current.sourceType !== 'custom') {
-                                      return current
-                                    }
-                                    return {
-                                      ...current,
-                                      saveToCatalog: Boolean(checked),
-                                    }
-                                  })
-                                }
-                              />
-                            </label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeCookedFoodIngredientLine(line.draftId)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    <DataTable
+                      columns={recipeLineEditorColumns}
+                      data={recipeIngredientLines}
+                      emptyText="Add at least one ingredient line."
+                      className="[&_[data-slot=table]]:min-w-[980px] [&_[data-slot=table]]:table-auto"
+                    />
                   )}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+
+                <div className="flex flex-wrap gap-2">
                   <Button
-                    onClick={() => {
-                      const resolvedCookedFoodName =
-                        cookedFoodName.trim() || toLocalDateString(Date.now())
-                      if (!resolvedCookedFoodSessionId) {
-                        toast.error('Select a session before saving cooked food.')
-                        return
-                      }
-                      if (cookedFoodIngredientLines.length === 0) {
-                        toast.error('Add at least one ingredient line.')
-                        return
-                      }
-                      const finishedWeight = Number(cookedFoodFinishedWeight)
-                      if (!Number.isFinite(finishedWeight) || finishedWeight <= 0) {
-                        toast.error('Finished grams must be greater than 0.')
-                        return
-                      }
-                      if (
-                        !editingCookedFoodId &&
-                        saveCookedFoodAsRecipe &&
-                        !(cookedFoodRecipeDraftName.trim() || resolvedCookedFoodName)
-                      ) {
-                        toast.error('Recipe name is required when saving as recipe.')
-                        return
-                      }
-                      const recipeVersion =
-                        !saveCookedFoodAsRecipe && cookedFoodRecipeVersionId
-                        ? recipeVersionById.get(cookedFoodRecipeVersionId)
-                        : undefined
+                    onClick={() =>
                       void runAction(
-                        editingCookedFoodId
-                          ? 'Cooked food updated.'
-                          : 'Cooked food created.',
+                        editingRecipeId ? "Recipe updated." : "Recipe created.",
                         async () => {
-                          const payload = {
-                            cookSessionId: resolvedCookedFoodSessionId,
-                            name: resolvedCookedFoodName,
-                            recipeId: recipeVersion?.recipeId,
-                            recipeVersionId: cookedFoodRecipeVersionId || undefined,
-                            groupIds: cookedFoodGroupId ? [cookedFoodGroupId] : [],
-                            finishedWeightGrams: finishedWeight,
-                            notes: cookedFoodNotes.trim() || undefined,
-                            ingredients: cookedFoodIngredientLines.map((line) =>
-                              line.sourceType === 'ingredient'
+                          const ingredientLines = recipeIngredientLines.map(
+                            (line) =>
+                              line.sourceType === "ingredient"
                                 ? {
-                                    sourceType: 'ingredient' as const,
+                                    sourceType: "ingredient" as const,
                                     ingredientId: line.ingredientId,
-                                    rawWeightGrams: line.rawWeightGrams,
+                                    referenceAmount: line.referenceAmount,
+                                    referenceUnit: line.referenceUnit,
                                   }
                                 : {
-                                    sourceType: 'custom' as const,
+                                    sourceType: "custom" as const,
                                     name: line.name,
-                                    kcalPer100g: line.kcalPer100g,
-                                    rawWeightGrams: line.rawWeightGrams,
+                                    kcalPer100: line.kcalPer100,
+                                    ignoreCalories: line.ignoreCalories,
+                                    referenceAmount: line.referenceAmount,
+                                    referenceUnit: line.referenceUnit,
                                     saveToCatalog: line.saveToCatalog,
                                   },
-                            ),
-                          }
-                          if (editingCookedFoodId) {
-                            await updateCookedFood({
-                              cookedFoodId: editingCookedFoodId,
+                          );
+                          const payload = {
+                            name: recipeName,
+                            description: recipeDescription.trim() || undefined,
+                            instructions:
+                              recipeInstructions.trim() || undefined,
+                            notes: recipeNotes.trim() || undefined,
+                            ingredientLines,
+                          };
+                          if (editingRecipeId) {
+                            await updateRecipeCurrentVersion({
+                              recipeId: editingRecipeId,
                               ...payload,
-                            })
+                            });
                           } else {
-                            await createCookedFood({
-                              ...payload,
-                              saveAsRecipe: saveCookedFoodAsRecipe || undefined,
-                              recipeDraft: saveCookedFoodAsRecipe
-                                ? {
-                                    name:
-                                      cookedFoodRecipeDraftName.trim() ||
-                                      resolvedCookedFoodName,
-                                    description:
-                                      cookedFoodRecipeDraftDescription.trim() || undefined,
-                                    instructions:
-                                      cookedFoodRecipeDraftInstructions.trim() || undefined,
-                                    notes: cookedFoodRecipeDraftNotes.trim() || undefined,
-                                  }
-                                : undefined,
-                            })
+                            await createRecipe(payload);
                           }
-                          resetCookedFoodForm()
+                          resetRecipeForm();
                         },
                       )
-                    }}
+                    }
                   >
-                    {editingCookedFoodId ? 'Save cooked food' : 'Create cooked food'}
+                    {editingRecipeId ? "Save recipe" : "Create recipe"}
                   </Button>
-                  {editingCookedFoodId ? (
-                    <Button variant="outline" onClick={resetCookedFoodForm}>
+                  {editingRecipeId ? (
+                    <Button variant="outline" onClick={resetRecipeForm}>
                       Cancel
                     </Button>
                   ) : null}
                 </div>
 
-                <div className="mt-3">
-                  <DataTable
-                    columns={cookedFoodColumns}
-                    data={cookedFoodRows}
-                    searchColumnId="name"
-                    searchPlaceholder="Search cooked foods by name"
-                    emptyText="No cooked foods found."
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                <DataTable
+                  columns={recipeColumns}
+                  data={recipeRows}
+                  searchColumnId="name"
+                  searchPlaceholder="Search recipes by name"
+                  emptyText="No recipes found."
+                />
+              </CardContent>
+            </Card>
+          </div>
         </section>
       </main>
+
       <AlertDialog
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
@@ -2332,128 +1696,9 @@ function ManagePageContent() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }
 
-function createRecipeIngredientDraftId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function createCookedFoodIngredientDraftId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function canConvertRecipeAmountByIngredient(ingredient: Doc<'ingredients'> | undefined) {
-  if (!ingredient) {
-    return false
-  }
-  if (ingredient.defaultUnit === 'g') {
-    return true
-  }
-  return Boolean(ingredient.gramsPerUnit && ingredient.gramsPerUnit > 0)
-}
-
-function getRecipeAmountUnit(ingredient: Doc<'ingredients'> | undefined) {
-  if (!ingredient) {
-    return 'g'
-  }
-  if (ingredient.defaultUnit === 'g') {
-    return 'g'
-  }
-  return canConvertRecipeAmountByIngredient(ingredient) ? ingredient.defaultUnit : 'g'
-}
-
-function getRecipeAmountUnitLabel(unit: 'g' | 'ml' | 'piece') {
-  if (unit === 'ml') {
-    return 'ml'
-  }
-  if (unit === 'piece') {
-    return 'pieces'
-  }
-  return 'grams'
-}
-
-function toRecipeWeightGrams(
-  ingredient: Doc<'ingredients'> | undefined,
-  amount: number,
-) {
-  if (!ingredient || ingredient.defaultUnit === 'g') {
-    return amount
-  }
-  if (ingredient.gramsPerUnit && ingredient.gramsPerUnit > 0) {
-    return amount * ingredient.gramsPerUnit
-  }
-  return amount
-}
-
-function toRecipeAmountValue(
-  ingredient: Doc<'ingredients'> | undefined,
-  weightGrams: number,
-) {
-  if (!ingredient || ingredient.defaultUnit === 'g') {
-    return weightGrams
-  }
-  if (ingredient.gramsPerUnit && ingredient.gramsPerUnit > 0) {
-    return weightGrams / ingredient.gramsPerUnit
-  }
-  return weightGrams
-}
-
-function formatRecipeAmountForInput(value: number) {
-  if (!Number.isFinite(value)) {
-    return ''
-  }
-  return Number(value.toFixed(3)).toString()
-}
-
-function getRecipeIngredientStoredHint(
-  ingredient: Doc<'ingredients'> | undefined,
-  weightGrams: number,
-) {
-  const storedText = `${weightGrams.toFixed(1)}g`
-  if (!ingredient || ingredient.defaultUnit === 'g') {
-    return `Stored: ${storedText}`
-  }
-  const amount = toRecipeAmountValue(ingredient, weightGrams)
-  const unit = getRecipeAmountUnit(ingredient)
-  const unitLabel = getRecipeAmountUnitLabel(unit)
-  return `${formatRecipeAmountForInput(amount)} ${unitLabel} (stored as ${storedText})`
-}
-
-function toLocalDateString(timestamp: number) {
-  const date = new Date(timestamp)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function toTimestampFromDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) {
-    return Date.now()
-  }
-  return new Date(year, month - 1, day, 12, 0, 0, 0).getTime()
-}
-
-function formatCookSessionOptionLabel(session: Doc<'cookSessions'>) {
-  const cookedDate = toLocalDateString(session.cookedAt)
-  if (!session.label?.trim()) {
-    return cookedDate
-  }
-  return `${cookedDate} • ${session.label.trim()}`
-}
-
-function getCookSessionModifiedAt(session: Doc<'cookSessions'>) {
-  return (
-    (session as Doc<'cookSessions'> & { updatedAt?: number }).updatedAt ??
-    session.createdAt
-  )
-}
-
-function toErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Request failed.'
+function createDraftId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

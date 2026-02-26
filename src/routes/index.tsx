@@ -30,8 +30,16 @@ import { DataTable } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { SearchablePicker } from "@/components/ui/searchable-picker";
+import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
+import {
+  formatKcalPer100,
+  getKcalPer100,
+  toErrorMessage,
+  toLocalDateString,
+} from "@/lib/nutrition";
 
 const EMPTY_MANAGEMENT_DATA = {
   people: [],
@@ -48,11 +56,38 @@ const EMPTY_MANAGEMENT_DATA = {
   mealItems: [],
 };
 
-type DraftMealItem = {
-  sourceType: "ingredient" | "cookedFood";
-  ingredientId?: Id<"ingredients">;
-  cookedFoodId?: Id<"cookedFoods">;
+type ExistingIngredientMealItemDraft = {
+  sourceType: "ingredient";
+  ingredientId: Id<"ingredients">;
   consumedWeightGrams: number;
+};
+
+type CustomIngredientMealItemDraft = {
+  sourceType: "custom";
+  name: string;
+  kcalPer100: number;
+  ignoreCalories: boolean;
+  consumedWeightGrams: number;
+  saveToCatalog: boolean;
+};
+
+type CookedFoodMealItemDraft = {
+  sourceType: "cookedFood";
+  cookedFoodId: Id<"cookedFoods">;
+  consumedWeightGrams: number;
+};
+
+type DraftMealItem =
+  | ExistingIngredientMealItemDraft
+  | CustomIngredientMealItemDraft
+  | CookedFoodMealItemDraft;
+
+type IngredientSelectionRow = {
+  id: Id<"ingredients">;
+  ingredient: Doc<"ingredients">;
+  name: string;
+  kcalPer100: number;
+  ignoreCalories: boolean;
 };
 
 type MealTableRow = {
@@ -112,12 +147,23 @@ function MealDashboardPageContent() {
   const [itemSourceType, setItemSourceType] = useState<
     "ingredient" | "cookedFood"
   >("ingredient");
+  const [itemIngredientMode, setItemIngredientMode] = useState<
+    "catalog" | "custom"
+  >("catalog");
   const [itemIngredientId, setItemIngredientId] = useState<
     Id<"ingredients"> | ""
+  >("");
+  const [selectedCookSessionId, setSelectedCookSessionId] = useState<
+    Id<"cookSessions"> | ""
   >("");
   const [itemCookedFoodId, setItemCookedFoodId] = useState<
     Id<"cookedFoods"> | ""
   >("");
+  const [itemCustomName, setItemCustomName] = useState("");
+  const [itemCustomKcalPer100, setItemCustomKcalPer100] = useState("");
+  const [itemCustomIgnoreCalories, setItemCustomIgnoreCalories] =
+    useState(false);
+  const [itemCustomSaveToCatalog, setItemCustomSaveToCatalog] = useState(false);
   const [itemWeight, setItemWeight] = useState("");
   const [editingDraftItemIndex, setEditingDraftItemIndex] = useState<
     number | null
@@ -158,17 +204,51 @@ function MealDashboardPageContent() {
     () => data.ingredients.filter((item) => !item.archived),
     [data.ingredients],
   );
+  const cookSessions = useMemo(
+    () =>
+      data.cookSessions
+        .filter((session) => !session.archived)
+        .sort((a, b) => {
+          if (a.cookedAt === b.cookedAt) {
+            return (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt);
+          }
+          return b.cookedAt - a.cookedAt;
+        }),
+    [data.cookSessions],
+  );
+  const effectiveCookSessionId = useMemo<Id<"cookSessions"> | "">(() => {
+    if (cookSessions.length === 0) {
+      return "";
+    }
+    return cookSessions.some((session) => session._id === selectedCookSessionId)
+      ? selectedCookSessionId
+      : cookSessions[0]!._id;
+  }, [cookSessions, selectedCookSessionId]);
   const cookedFoods = useMemo(
-    () => data.cookedFoods.filter((item) => !item.archived),
-    [data.cookedFoods],
+    () =>
+      data.cookedFoods
+        .filter((item) => !item.archived)
+        .filter((item) =>
+          effectiveCookSessionId ? item.cookSessionId === effectiveCookSessionId : true,
+        )
+        .sort((a, b) => b.createdAt - a.createdAt),
+    [data.cookedFoods, effectiveCookSessionId],
   );
   const ingredientById = useMemo(
     () => new Map(ingredients.map((item) => [item._id, item])),
     [ingredients],
   );
   const cookedFoodById = useMemo(
-    () => new Map(cookedFoods.map((item) => [item._id, item])),
-    [cookedFoods],
+    () => new Map(data.cookedFoods.map((item) => [item._id, item])),
+    [data.cookedFoods],
+  );
+  const sessionOptions = useMemo(
+    () =>
+      cookSessions.map((session) => ({
+        value: session._id,
+        label: formatCookSessionLabel(session),
+      })),
+    [cookSessions],
   );
   const mealItemsByMealId = useMemo(() => {
     const map = new Map<Id<"meals">, Doc<"mealItems">[]>();
@@ -218,19 +298,31 @@ function MealDashboardPageContent() {
     }, 0);
 
   const getDraftItemCalories = (item: DraftMealItem) => {
-    if (item.sourceType === "ingredient" && item.ingredientId) {
+    if (item.sourceType === "ingredient") {
       const ingredient = ingredientById.get(item.ingredientId);
       if (!ingredient) {
         return 0;
       }
-      return (item.consumedWeightGrams * ingredient.kcalPer100g) / 100;
+      const ignored = Boolean(
+        (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
+      );
+      if (ignored) {
+        return 0;
+      }
+      return (item.consumedWeightGrams * getKcalPer100(ingredient)) / 100;
     }
-    if (item.sourceType === "cookedFood" && item.cookedFoodId) {
+    if (item.sourceType === "custom") {
+      if (item.ignoreCalories) {
+        return 0;
+      }
+      return (item.consumedWeightGrams * item.kcalPer100) / 100;
+    }
+    if (item.sourceType === "cookedFood") {
       const cookedFood = cookedFoodById.get(item.cookedFoodId);
       if (!cookedFood) {
         return 0;
       }
-      return (item.consumedWeightGrams * cookedFood.kcalPer100g) / 100;
+      return (item.consumedWeightGrams * getKcalPer100(cookedFood)) / 100;
     }
     return 0;
   };
@@ -256,9 +348,15 @@ function MealDashboardPageContent() {
         const itemNames = itemRows.map((row) =>
           row.sourceType === "ingredient"
             ? ingredientById.get(row.ingredientId as Id<"ingredients">)?.name ??
+              (row as { nameSnapshot?: string }).nameSnapshot ??
               "Unknown ingredient"
-            : cookedFoodById.get(row.cookedFoodId as Id<"cookedFoods">)?.name ??
-              "Unknown cooked food",
+            : row.sourceType === "custom"
+              ? (row as { nameSnapshot?: string }).nameSnapshot ??
+                "Custom ingredient"
+              : cookedFoodById.get(row.cookedFoodId as Id<"cookedFoods">)
+                    ?.name ??
+                (row as { nameSnapshot?: string }).nameSnapshot ??
+                "Unknown cooked food",
         );
 
         return {
@@ -377,6 +475,70 @@ function MealDashboardPageContent() {
     },
   ];
 
+  const ingredientSelectionRows = useMemo<IngredientSelectionRow[]>(
+    () =>
+      ingredients.map((ingredient) => ({
+        id: ingredient._id,
+        ingredient,
+        name: ingredient.name,
+        kcalPer100: getKcalPer100(ingredient),
+        ignoreCalories: Boolean(
+          (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
+        ),
+      })),
+    [ingredients],
+  );
+
+  const ingredientSelectionColumns: ColumnDef<IngredientSelectionRow>[] = [
+    {
+      accessorKey: "name",
+      header: "Ingredient",
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          {row.original.ingredient.brand ? (
+            <p className="text-xs text-muted-foreground">
+              {row.original.ingredient.brand}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "kcalPer100",
+      header: "kcal/100",
+      cell: ({ row }) => formatKcalPer100(row.original.kcalPer100),
+    },
+    {
+      accessorKey: "ignoreCalories",
+      header: "Calories",
+      cell: ({ row }) =>
+        row.original.ignoreCalories ? (
+          <span className="text-xs text-muted-foreground">Ignored</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Counted</span>
+        ),
+    },
+    {
+      id: "pick",
+      header: () => <div className="text-right">Pick</div>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant={itemIngredientId === row.original.id ? "default" : "outline"}
+            onClick={() => {
+              setItemIngredientMode("catalog");
+              setItemIngredientId(row.original.id);
+            }}
+          >
+            {itemIngredientId === row.original.id ? "Selected" : "Select"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   async function runAction(
     successText: string,
     action: () => Promise<unknown>,
@@ -419,76 +581,91 @@ function MealDashboardPageContent() {
     void runAction(successText, action);
   };
 
+  const selectedIngredient =
+    itemIngredientId && itemSourceType === "ingredient"
+      ? ingredientById.get(itemIngredientId)
+      : undefined;
+
   const resetDraftItemInputs = () => {
     setItemSourceType("ingredient");
+    setItemIngredientMode("catalog");
     setItemIngredientId("");
     setItemCookedFoodId("");
+    setItemCustomName("");
+    setItemCustomKcalPer100("");
+    setItemCustomIgnoreCalories(false);
+    setItemCustomSaveToCatalog(false);
     setItemWeight("");
     setEditingDraftItemIndex(null);
   };
 
+  const upsertDraft = (nextDraft: DraftMealItem) => {
+    if (editingDraftItemIndex !== null) {
+      setMealItems((current) =>
+        current.map((item, index) =>
+          index === editingDraftItemIndex ? nextDraft : item,
+        ),
+      );
+    } else {
+      setMealItems((current) => [...current, nextDraft]);
+    }
+    resetDraftItemInputs();
+  };
+
   const upsertDraftItem = () => {
-    const parsedWeight = Number(itemWeight);
-    if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
+    const parsedAmount = Number(itemWeight);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return;
     }
 
     if (itemSourceType === "ingredient") {
-      if (!itemIngredientId) {
+      if (itemIngredientMode === "catalog") {
+        if (!itemIngredientId) {
+          return;
+        }
+        const ingredient = ingredientById.get(itemIngredientId);
+        if (!ingredient) {
+          toast.error("Selected ingredient is not available.");
+          return;
+        }
+        upsertDraft({
+          sourceType: "ingredient",
+          ingredientId: itemIngredientId,
+          consumedWeightGrams: parsedAmount,
+        });
         return;
       }
-      if (editingDraftItemIndex !== null) {
-        setMealItems((current) =>
-          current.map((item, index) =>
-            index === editingDraftItemIndex
-              ? {
-                  sourceType: "ingredient",
-                  ingredientId: itemIngredientId,
-                  consumedWeightGrams: parsedWeight,
-                }
-              : item,
-          ),
-        );
-      } else {
-        setMealItems((current) => [
-          ...current,
-          {
-            sourceType: "ingredient",
-            ingredientId: itemIngredientId,
-            consumedWeightGrams: parsedWeight,
-          },
-        ]);
+
+      if (!itemCustomName.trim()) {
+        return;
       }
-      resetDraftItemInputs();
+      const parsedKcal = Number(itemCustomKcalPer100);
+      if (itemCustomIgnoreCalories) {
+        if (!Number.isFinite(parsedKcal) || parsedKcal < 0) {
+          return;
+        }
+      } else if (!Number.isFinite(parsedKcal) || parsedKcal <= 0) {
+        return;
+      }
+      upsertDraft({
+        sourceType: "custom",
+        name: itemCustomName.trim(),
+        kcalPer100: parsedKcal,
+        ignoreCalories: itemCustomIgnoreCalories,
+        consumedWeightGrams: parsedAmount,
+        saveToCatalog: itemCustomSaveToCatalog,
+      });
       return;
     }
 
     if (!itemCookedFoodId) {
       return;
     }
-    if (editingDraftItemIndex !== null) {
-      setMealItems((current) =>
-        current.map((item, index) =>
-          index === editingDraftItemIndex
-            ? {
-                sourceType: "cookedFood",
-                cookedFoodId: itemCookedFoodId,
-                consumedWeightGrams: parsedWeight,
-              }
-            : item,
-        ),
-      );
-    } else {
-      setMealItems((current) => [
-        ...current,
-        {
-          sourceType: "cookedFood",
-          cookedFoodId: itemCookedFoodId,
-          consumedWeightGrams: parsedWeight,
-        },
-      ]);
-    }
-    resetDraftItemInputs();
+    upsertDraft({
+      sourceType: "cookedFood",
+      cookedFoodId: itemCookedFoodId,
+      consumedWeightGrams: parsedAmount,
+    });
   };
 
   const editDraftItem = (index: number) => {
@@ -497,13 +674,33 @@ function MealDashboardPageContent() {
       return;
     }
     setEditingDraftItemIndex(index);
-    setItemSourceType(item.sourceType);
     if (item.sourceType === "ingredient") {
-      setItemIngredientId(item.ingredientId ?? "");
+      setItemSourceType("ingredient");
+      setItemIngredientMode("catalog");
+      setItemIngredientId(item.ingredientId);
       setItemCookedFoodId("");
-    } else {
-      setItemCookedFoodId(item.cookedFoodId ?? "");
+      setItemWeight(item.consumedWeightGrams.toString());
+      return;
+    }
+    if (item.sourceType === "custom") {
+      setItemSourceType("ingredient");
+      setItemIngredientMode("custom");
       setItemIngredientId("");
+      setItemCookedFoodId("");
+      setItemCustomName(item.name);
+      setItemCustomKcalPer100(item.kcalPer100.toString());
+      setItemCustomIgnoreCalories(item.ignoreCalories);
+      setItemCustomSaveToCatalog(item.saveToCatalog);
+      setItemWeight(item.consumedWeightGrams.toString());
+      return;
+    }
+    setItemSourceType("cookedFood");
+    setItemIngredientMode("catalog");
+    setItemCookedFoodId(item.cookedFoodId);
+    setItemIngredientId("");
+    const cookedFood = cookedFoodById.get(item.cookedFoodId);
+    if (cookedFood) {
+      setSelectedCookSessionId(cookedFood.cookSessionId);
     }
     setItemWeight(item.consumedWeightGrams.toString());
   };
@@ -545,12 +742,34 @@ function MealDashboardPageContent() {
     setMealNotes(meal.notes ?? "");
     setEditingMealId(meal._id);
     setMealItems(
-      itemRows.map((row) => ({
-        sourceType: row.sourceType,
-        ingredientId: row.ingredientId,
-        cookedFoodId: row.cookedFoodId,
-        consumedWeightGrams: row.consumedWeightGrams,
-      })),
+      itemRows.map((row) => {
+        if (row.sourceType === "ingredient" && row.ingredientId) {
+          return {
+            sourceType: "ingredient" as const,
+            ingredientId: row.ingredientId,
+            consumedWeightGrams: row.consumedWeightGrams,
+          };
+        }
+        if (row.sourceType === "cookedFood" && row.cookedFoodId) {
+          return {
+            sourceType: "cookedFood" as const,
+            cookedFoodId: row.cookedFoodId,
+            consumedWeightGrams: row.consumedWeightGrams,
+          };
+        }
+        return {
+          sourceType: "custom" as const,
+          name:
+            (row as { nameSnapshot?: string }).nameSnapshot ??
+            "Custom ingredient",
+          kcalPer100: (row as { kcalPer100Snapshot?: number }).kcalPer100Snapshot ?? 0,
+          ignoreCalories: Boolean(
+            (row as { ignoreCaloriesSnapshot?: boolean }).ignoreCaloriesSnapshot,
+          ),
+          consumedWeightGrams: row.consumedWeightGrams,
+          saveToCatalog: false,
+        };
+      }),
     );
   };
 
@@ -769,7 +988,6 @@ function MealDashboardPageContent() {
                           return;
                         }
                         setItemSourceType("ingredient");
-                        setItemIngredientId("");
                         setItemCookedFoodId("");
                       }}
                       className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
@@ -785,7 +1003,6 @@ function MealDashboardPageContent() {
                           return;
                         }
                         setItemSourceType("cookedFood");
-                        setItemIngredientId("");
                         setItemCookedFoodId("");
                       }}
                       className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
@@ -794,48 +1011,177 @@ function MealDashboardPageContent() {
                     </Toggle>
                   </div>
                 </div>
-                <div className="mt-3 grid items-start gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_auto]">
+                <div className="mt-3 space-y-3">
                   {itemSourceType === "ingredient" ? (
-                    <SearchablePicker
-                      value={itemIngredientId}
-                      onValueChange={(value) =>
-                        setItemIngredientId(value as Id<"ingredients"> | "")
-                      }
-                      ariaLabel="Ingredient search"
-                      placeholder="Search ingredients"
-                      options={ingredients.map((item) => ({
-                        value: item._id,
-                        label: item.name,
-                        keywords: `${item.brand ?? ""} ${item.kcalPer100g.toFixed(1)} kcal`,
-                      }))}
-                    />
+                    <>
+                      <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
+                        <Toggle
+                          variant="default"
+                          size="lg"
+                          pressed={itemIngredientMode === "catalog"}
+                          onPressedChange={(pressed) => {
+                            if (!pressed) {
+                              return;
+                            }
+                            setItemIngredientMode("catalog");
+                          }}
+                          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
+                        >
+                          Catalog ingredient
+                        </Toggle>
+                        <Toggle
+                          variant="default"
+                          size="lg"
+                          pressed={itemIngredientMode === "custom"}
+                          onPressedChange={(pressed) => {
+                            if (!pressed) {
+                              return;
+                            }
+                            setItemIngredientMode("custom");
+                            setItemIngredientId("");
+                          }}
+                          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
+                        >
+                          New ingredient
+                        </Toggle>
+                      </div>
+
+                      {itemIngredientMode === "catalog" ? (
+                        <>
+                          <DataTable
+                            columns={ingredientSelectionColumns}
+                            data={ingredientSelectionRows}
+                            searchColumnId="name"
+                            searchPlaceholder="Search ingredients"
+                            emptyText="No ingredients found."
+                          />
+                          {selectedIngredient ? (
+                            <p className="text-xs text-muted-foreground">
+                              Selected:{" "}
+                              <span className="font-medium text-foreground">
+                                {selectedIngredient.name}
+                              </span>
+                              {" · "}
+                              {formatKcalPer100(getKcalPer100(selectedIngredient))} kcal/100g
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Select an ingredient from the table.
+                            </p>
+                          )}
+                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <Input
+                              type="number"
+                              aria-label="Ingredient grams"
+                              placeholder="grams"
+                              value={itemWeight}
+                              onChange={(event) => setItemWeight(event.target.value)}
+                            />
+                            <Button variant="outline" onClick={upsertDraftItem}>
+                              <Plus className="h-4 w-4" />
+                              {editingDraftItemIndex === null ? "Add" : "Update"}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <Input
+                              aria-label="Custom ingredient name"
+                              placeholder="Ingredient name"
+                              value={itemCustomName}
+                              onChange={(event) => setItemCustomName(event.target.value)}
+                            />
+                            <Input
+                              type="number"
+                              aria-label="Custom ingredient kcal per 100"
+                              placeholder="kcal / 100g"
+                              value={itemCustomKcalPer100}
+                              onChange={(event) =>
+                                setItemCustomKcalPer100(event.target.value)
+                              }
+                            />
+                            <label className="flex items-center justify-between rounded-md border border-border/70 bg-background/55 px-3 py-2 text-xs text-muted-foreground">
+                              Ignore calories for this ingredient
+                              <Switch
+                                checked={itemCustomIgnoreCalories}
+                                onCheckedChange={setItemCustomIgnoreCalories}
+                              />
+                            </label>
+                          </div>
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={itemCustomSaveToCatalog}
+                              onChange={(event) =>
+                                setItemCustomSaveToCatalog(event.target.checked)
+                              }
+                            />
+                            Save this ingredient to catalog
+                          </label>
+                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <Input
+                              type="number"
+                              aria-label="Custom ingredient grams"
+                              placeholder="grams"
+                              value={itemWeight}
+                              onChange={(event) => setItemWeight(event.target.value)}
+                            />
+                            <Button variant="outline" onClick={upsertDraftItem}>
+                              <Plus className="h-4 w-4" />
+                              {editingDraftItemIndex === null ? "Add" : "Update"}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : (
-                    <SearchablePicker
-                      value={itemCookedFoodId}
-                      onValueChange={(value) =>
-                        setItemCookedFoodId(value as Id<"cookedFoods"> | "")
-                      }
-                      ariaLabel="Cooked food search"
-                      placeholder="Search cooked foods"
-                      options={cookedFoods.map((item) => ({
-                        value: item._id,
-                        label: item.name,
-                        keywords: `${item.kcalPer100g.toFixed(1)} kcal`,
-                      }))}
-                    />
+                    <>
+                      <Select
+                        value={effectiveCookSessionId}
+                        onValueChange={(value) =>
+                          {
+                            setSelectedCookSessionId(
+                              (value as Id<"cookSessions"> | null) ?? "",
+                            );
+                            setItemCookedFoodId("");
+                          }
+                        }
+                        options={sessionOptions}
+                        placeholder="Select cooking session"
+                        aria-label="Cooking session"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Cooked foods are filtered by session (latest first).
+                      </p>
+                      <SearchablePicker
+                        value={itemCookedFoodId}
+                        onValueChange={(value) =>
+                          setItemCookedFoodId(value as Id<"cookedFoods"> | "")
+                        }
+                        ariaLabel="Cooked food search"
+                        placeholder="Search cooked foods in selected session"
+                        options={cookedFoods.map((item) => ({
+                          value: item._id,
+                          label: item.name,
+                          keywords: `${formatKcalPer100(getKcalPer100(item))} kcal`,
+                        }))}
+                      />
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <Input
+                          type="number"
+                          aria-label="Consumed cooked food grams"
+                          placeholder="grams"
+                          value={itemWeight}
+                          onChange={(event) => setItemWeight(event.target.value)}
+                        />
+                        <Button variant="outline" onClick={upsertDraftItem}>
+                          <Plus className="h-4 w-4" />
+                          {editingDraftItemIndex === null ? "Add" : "Update"}
+                        </Button>
+                      </div>
+                    </>
                   )}
-                  <Input
-                    type="number"
-                    aria-label="Consumed grams"
-                    placeholder="grams"
-                    value={itemWeight}
-                    onChange={(event) => setItemWeight(event.target.value)}
-                    className="min-w-28"
-                  />
-                  <Button variant="outline" onClick={upsertDraftItem}>
-                    <Plus className="h-4 w-4" />
-                    {editingDraftItemIndex === null ? "Add" : "Update"}
-                  </Button>
                 </div>
                 <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
                   {editingDraftItemIndex !== null ? (
@@ -862,12 +1208,13 @@ function MealDashboardPageContent() {
                     const itemCalories = getDraftItemCalories(item);
                     const label =
                       item.sourceType === "ingredient"
-                        ? ingredientById.get(
-                            item.ingredientId as Id<"ingredients">,
-                          )?.name
-                        : cookedFoodById.get(
-                            item.cookedFoodId as Id<"cookedFoods">,
-                          )?.name;
+                        ? ingredientById.get(item.ingredientId)?.name ?? "Ingredient"
+                        : item.sourceType === "custom"
+                          ? item.name
+                          : cookedFoodById.get(item.cookedFoodId)?.name ??
+                            "Cooked food";
+                    const amountLabel =
+                      `${item.consumedWeightGrams.toFixed(1)} g`;
                     return (
                       <div
                         key={`draft-item-${index}`}
@@ -877,10 +1224,11 @@ function MealDashboardPageContent() {
                           <span className="font-medium">
                             {item.sourceType === "ingredient"
                               ? "Ingredient"
-                              : "Cooked food"}
+                              : item.sourceType === "custom"
+                                ? "Custom ingredient"
+                                : "Cooked food"}
                           </span>
-                          : {label ?? "Unknown"} -{" "}
-                          {item.consumedWeightGrams.toFixed(1)}g (
+                          : {label} - {amountLabel} (
                           +{itemCalories.toFixed(0)} kcal)
                         </p>
                         <div className="flex shrink-0 items-center gap-1">
@@ -1008,14 +1356,6 @@ function MealDashboardPageContent() {
   );
 }
 
-function toLocalDateString(timestamp: number) {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function getMealDateKey(meal: { eatenOn?: string; createdAt: number }) {
   if (meal.eatenOn) {
     return meal.eatenOn;
@@ -1023,9 +1363,11 @@ function getMealDateKey(meal: { eatenOn?: string; createdAt: number }) {
   return toLocalDateString(meal.createdAt);
 }
 
-function toErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "Request failed.";
+function formatCookSessionLabel(session: {
+  label?: string;
+  cookedAt: number;
+}) {
+  const cookedDate = toLocalDateString(session.cookedAt);
+  const label = session.label?.trim();
+  return label ? `${cookedDate} - ${label}` : cookedDate;
 }

@@ -1,21 +1,24 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-const unitValidator = v.union(
+const nutritionUnitValidator = v.union(
+  v.literal('pinch'),
+  v.literal('teaspoon'),
+  v.literal('tablespoon'),
+  v.literal('piece'),
   v.literal('g'),
   v.literal('ml'),
-  v.literal('piece'),
 )
 
 const groupScopeValidator = v.union(
   v.literal('ingredient'),
   v.literal('cookedFood'),
-  v.literal('both'),
 )
 
 const mealSourceValidator = v.union(
   v.literal('ingredient'),
   v.literal('cookedFood'),
+  v.literal('custom'),
 )
 
 export default defineSchema({
@@ -40,7 +43,6 @@ export default defineSchema({
   foodGroups: defineTable({
     ownerUserId: v.optional(v.string()),
     name: v.string(),
-    slug: v.optional(v.string()),
     appliesTo: groupScopeValidator,
     archived: v.boolean(),
     createdAt: v.number(),
@@ -49,9 +51,9 @@ export default defineSchema({
     ownerUserId: v.optional(v.string()),
     name: v.string(),
     brand: v.optional(v.string()),
-    kcalPer100g: v.number(),
-    defaultUnit: unitValidator,
-    gramsPerUnit: v.optional(v.number()),
+    kcalPer100: v.number(),
+    kcalBasisUnit: v.optional(nutritionUnitValidator),
+    ignoreCalories: v.boolean(),
     groupIds: v.array(v.id('foodGroups')),
     notes: v.optional(v.string()),
     archived: v.boolean(),
@@ -80,8 +82,14 @@ export default defineSchema({
   recipeVersionIngredients: defineTable({
     ownerUserId: v.optional(v.string()),
     recipeVersionId: v.id('recipeVersions'),
-    ingredientId: v.id('ingredients'),
-    plannedWeightGrams: v.number(),
+    sourceType: v.union(v.literal('ingredient'), v.literal('custom')),
+    ingredientId: v.optional(v.id('ingredients')),
+    ingredientNameSnapshot: v.optional(v.string()),
+    kcalPer100Snapshot: v.optional(v.number()),
+    kcalBasisUnitSnapshot: v.optional(nutritionUnitValidator),
+    ignoreCaloriesSnapshot: v.optional(v.boolean()),
+    referenceAmount: v.number(),
+    referenceUnit: nutritionUnitValidator,
     notes: v.optional(v.string()),
   })
     .index('by_owner', ['ownerUserId'])
@@ -109,7 +117,7 @@ export default defineSchema({
     finishedWeightGrams: v.number(),
     totalRawWeightGrams: v.number(),
     totalCalories: v.number(),
-    kcalPer100g: v.number(),
+    kcalPer100: v.optional(v.number()),
     notes: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     createdAt: v.number(),
@@ -120,10 +128,16 @@ export default defineSchema({
   cookedFoodIngredients: defineTable({
     ownerUserId: v.optional(v.string()),
     cookedFoodId: v.id('cookedFoods'),
+    sourceType: v.union(v.literal('ingredient'), v.literal('custom')),
     ingredientId: v.optional(v.id('ingredients')),
     ingredientNameSnapshot: v.optional(v.string()),
-    rawWeightGrams: v.number(),
-    ingredientKcalPer100gSnapshot: v.number(),
+    referenceAmount: v.number(),
+    referenceUnit: nutritionUnitValidator,
+    countedAmount: v.optional(v.number()),
+    rawWeightGrams: v.optional(v.number()),
+    ingredientKcalPer100Snapshot: v.optional(v.number()),
+    ingredientKcalBasisUnitSnapshot: v.optional(nutritionUnitValidator),
+    ignoreCaloriesSnapshot: v.optional(v.boolean()),
     ingredientCaloriesSnapshot: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
@@ -133,8 +147,7 @@ export default defineSchema({
     ownerUserId: v.optional(v.string()),
     personId: v.id('people'),
     name: v.optional(v.string()),
-    eatenOn: v.optional(v.string()),
-    eatenAt: v.optional(v.number()),
+    eatenOn: v.string(),
     notes: v.optional(v.string()),
     archived: v.optional(v.boolean()),
     createdAt: v.number(),
@@ -147,8 +160,11 @@ export default defineSchema({
     sourceType: mealSourceValidator,
     ingredientId: v.optional(v.id('ingredients')),
     cookedFoodId: v.optional(v.id('cookedFoods')),
+    nameSnapshot: v.optional(v.string()),
+    kcalPer100Snapshot: v.optional(v.number()),
+    kcalBasisUnitSnapshot: v.optional(nutritionUnitValidator),
+    ignoreCaloriesSnapshot: v.optional(v.boolean()),
     consumedWeightGrams: v.number(),
-    kcalPer100gSnapshot: v.number(),
     caloriesSnapshot: v.number(),
     notes: v.optional(v.string()),
   })
