@@ -1296,7 +1296,7 @@ function ManagePageContent() {
                   <Input
                     type="number"
                     aria-label="Ingredient kcal per 100"
-                    placeholder="kcal / 100g"
+                    placeholder="kcal / 100"
                     value={ingredientKcal}
                     onChange={(event) => setIngredientKcal(event.target.value)}
                   />
