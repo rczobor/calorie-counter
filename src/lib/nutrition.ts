@@ -54,3 +54,26 @@ export function getKcalPer100(entity: {
 export function formatKcalPer100(value: number | undefined) {
   return Math.round(value ?? 0).toString()
 }
+
+export function getMealDateKey(meal: { eatenOn?: string; createdAt: number }) {
+  if (meal.eatenOn) {
+    return meal.eatenOn
+  }
+  return toLocalDateString(meal.createdAt)
+}
+
+export function getCookSessionModifiedAt(session: {
+  createdAt: number
+  updatedAt?: number
+}) {
+  return session.updatedAt ?? session.createdAt
+}
+
+export function formatCookSessionLabel(session: {
+  label?: string
+  cookedAt: number
+}) {
+  const cookedDate = toLocalDateString(session.cookedAt)
+  const label = session.label?.trim()
+  return label ? `${cookedDate} - ${label}` : cookedDate
+}

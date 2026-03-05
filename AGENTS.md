@@ -69,6 +69,7 @@ Migration conventions:
 - Preview build: `bun run preview`
 - Lint: `bun run lint`
 - Lint autofix: `bun run lint:fix`
+- Type check: `bun run typecheck`
 - Tests: `bun run test` (Vitest; currently no tests in repo)
 - Convex dev (separate terminal): `bunx convex dev`
 
@@ -76,6 +77,7 @@ Migration conventions:
 
 For non-trivial edits, run:
 1. `bun run lint`
-2. `bun run build`
+2. `bun run typecheck`
+3. `bun run build`
 
 If tests are added or changed, run `bun run test`.

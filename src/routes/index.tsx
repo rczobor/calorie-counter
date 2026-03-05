@@ -1,30 +1,22 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
-import { Flame, Pencil, Plus, Target, Trash2, X } from "lucide-react";
+import { Flame, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { ConfirmDestructiveDialog } from "@/components/page/confirm-destructive-dialog";
+import { PageShell } from "@/components/page/page-shell";
+import { ConfigMissingState, LoadingSkeletonState } from "@/components/page/page-states";
+import { StatusBadge } from "@/components/page/status-badge";
 import { isConvexConfigured } from "@/integrations/convex/config";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -37,27 +29,18 @@ import {
   CustomIngredientSwitchRow,
   IngredientLineModeToggle,
 } from "@/components/nutrition/ingredient-line-controls";
+import { MealFormSection } from "@/features/meals/meal-form";
+import { MealsMetrics } from "@/features/meals/metrics";
+import { MealTableSection } from "@/features/meals/meal-table";
+import { useConfirmableAction } from "@/hooks/use-confirmable-action";
+import { useManagementData } from "@/hooks/use-management-data";
 import {
+  formatCookSessionLabel,
   formatKcalPer100,
+  getMealDateKey,
   getKcalPer100,
-  toErrorMessage,
   toLocalDateString,
 } from "@/lib/nutrition";
-
-const EMPTY_MANAGEMENT_DATA = {
-  people: [],
-  personGoalHistory: [],
-  foodGroups: [],
-  ingredients: [],
-  recipes: [],
-  recipeVersions: [],
-  recipeVersionIngredients: [],
-  cookSessions: [],
-  cookedFoods: [],
-  cookedFoodIngredients: [],
-  meals: [],
-  mealItems: [],
-};
 
 type ExistingIngredientMealItemDraft = {
   sourceType: "ingredient";
@@ -105,12 +88,6 @@ type MealTableRow = {
   status: "Active" | "Archived";
 };
 
-type PendingConfirmation = {
-  message: string;
-  successText: string;
-  action: () => Promise<unknown>;
-};
-
 export const Route = createFileRoute("/")({
   ssr: false,
   component: MealDashboardPage,
@@ -118,19 +95,7 @@ export const Route = createFileRoute("/")({
 
 function MealDashboardPage() {
   if (!isConvexConfigured) {
-    return (
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_20%,#f9f4df_0%,#f6f6f4_50%,#eff5f1_100%)] px-4 py-10 sm:px-6 dark:bg-[radial-gradient(circle_at_20%_20%,#1b2230_0%,#101721_48%,#0a1018_100%)]">
-        <Card className="mx-auto max-w-3xl border-amber-200 bg-card/90 dark:border-amber-500/30">
-          <CardHeader>
-            <CardTitle>Connect Convex First</CardTitle>
-            <CardDescription>
-              Add `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` in your project
-              `.env.local`, then reload.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </main>
-    );
+    return <ConfigMissingState />;
   }
 
   return <MealDashboardPageContent />;
@@ -172,15 +137,16 @@ function MealDashboardPageContent() {
     number | null
   >(null);
   const [mealItems, setMealItems] = useState<DraftMealItem[]>([]);
-  const [pendingConfirmation, setPendingConfirmation] =
-    useState<PendingConfirmation | null>(null);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const {
+    pendingConfirmation,
+    isConfirmDialogOpen,
+    runAction,
+    confirmAndRunAction,
+    handleConfirmDialogOpenChange,
+    confirmPendingAction,
+  } = useConfirmableAction();
 
-  const dataResult = useQuery(api.nutrition.getManagementData);
-  const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<
-    typeof dataResult
-  >;
-  const isLoading = dataResult === undefined;
+  const { data, isLoading } = useManagementData();
 
   const createMeal = useMutation(api.nutrition.createMeal);
   const updateMeal = useMutation(api.nutrition.updateMeal);
@@ -342,52 +308,37 @@ function MealDashboardPageContent() {
     : 0;
   const remainingAfterDraft = remainingToday - draftCalories;
 
-  const mealTableRows = useMemo<MealTableRow[]>(
-    () =>
-      mealsForSelection.map((meal) => {
-        const itemRows = mealItemsByMealId.get(meal._id) ?? [];
-        const totalCalories = itemRows.reduce(
-          (sum, row) => sum + row.caloriesSnapshot,
-          0,
-        );
-        const itemNames = itemRows.map((row) =>
-          row.sourceType === "ingredient"
-            ? (ingredientById.get(row.ingredientId as Id<"ingredients">)
-                ?.name ??
-              (row as { nameSnapshot?: string }).nameSnapshot ??
-              "Unknown ingredient")
-            : row.sourceType === "custom"
-              ? ((row as { nameSnapshot?: string }).nameSnapshot ??
-                "Custom ingredient")
-              : (cookedFoodById.get(row.cookedFoodId as Id<"cookedFoods">)
-                  ?.name ??
-                (row as { nameSnapshot?: string }).nameSnapshot ??
-                "Unknown cooked food"),
-        );
+  const mealTableRows: MealTableRow[] = mealsForSelection.map((meal) => {
+    const itemRows = mealItemsByMealId.get(meal._id) ?? [];
+    const totalCalories = itemRows.reduce(
+      (sum, row) => sum + row.caloriesSnapshot,
+      0,
+    );
+    const itemNames = itemRows.map((row) =>
+      row.sourceType === "ingredient"
+        ? (ingredientById.get(row.ingredientId as Id<"ingredients">)?.name ??
+          (row as { nameSnapshot?: string }).nameSnapshot ??
+          "Unknown ingredient")
+        : row.sourceType === "custom"
+          ? ((row as { nameSnapshot?: string }).nameSnapshot ??
+            "Custom ingredient")
+          : (cookedFoodById.get(row.cookedFoodId as Id<"cookedFoods">)?.name ??
+            (row as { nameSnapshot?: string }).nameSnapshot ??
+            "Unknown cooked food"),
+    );
 
-        return {
-          id: meal._id,
-          meal,
-          mealName: meal.name?.trim() || "Meal",
-          personName: personById.get(meal.personId) ?? "Unknown",
-          totalCalories,
-          itemCount: itemRows.length,
-          itemSummary:
-            itemNames.length > 0
-              ? itemNames.slice(0, 3).join(", ")
-              : "No items",
-          notes: meal.notes ?? "",
-          status: meal.archived ? "Archived" : "Active",
-        };
-      }),
-    [
-      cookedFoodById,
-      ingredientById,
-      mealItemsByMealId,
-      mealsForSelection,
-      personById,
-    ],
-  );
+    return {
+      id: meal._id,
+      meal,
+      mealName: meal.name?.trim() || "Meal",
+      personName: personById.get(meal.personId) ?? "Unknown",
+      totalCalories,
+      itemCount: itemRows.length,
+      itemSummary: itemNames.length > 0 ? itemNames.slice(0, 3).join(", ") : "No items",
+      notes: meal.notes ?? "",
+      status: meal.archived ? "Archived" : "Active",
+    };
+  });
 
   const mealColumns: ColumnDef<MealTableRow>[] = [
     {
@@ -425,11 +376,7 @@ function MealDashboardPageContent() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.status}
-        </span>
-      ),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: "actions",
@@ -552,48 +499,6 @@ function MealDashboardPageContent() {
       ),
     },
   ];
-
-  async function runAction(
-    successText: string,
-    action: () => Promise<unknown>,
-  ) {
-    try {
-      await action();
-      toast.success(successText);
-    } catch (error) {
-      toast.error(toErrorMessage(error));
-    }
-  }
-
-  const confirmAndRunAction = (
-    message: string,
-    successText: string,
-    action: () => Promise<unknown>,
-  ) => {
-    setPendingConfirmation({
-      message,
-      successText,
-      action,
-    });
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmDialogOpenChange = (open: boolean) => {
-    setIsConfirmDialogOpen(open);
-    if (!open) {
-      setPendingConfirmation(null);
-    }
-  };
-
-  const confirmPendingAction = () => {
-    if (!pendingConfirmation) {
-      return;
-    }
-    const { successText, action } = pendingConfirmation;
-    setIsConfirmDialogOpen(false);
-    setPendingConfirmation(null);
-    void runAction(successText, action);
-  };
 
   const selectedIngredient =
     itemIngredientId && itemSourceType === "ingredient"
@@ -795,17 +700,12 @@ function MealDashboardPageContent() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] dark:bg-[radial-gradient(circle_at_15%_10%,#1d2535_0%,#111a26_45%,#0a1119_100%)]">
-        <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
-              <Flame className="h-4 w-4" />
-              Meal Logging
-            </p>
-            <Skeleton className="mt-3 h-10 w-full max-w-2xl" />
-            <Skeleton className="mt-3 h-4 w-full max-w-136" />
-            <Skeleton className="mt-2 h-4 w-full max-w-md" />
-          </div>
+      <LoadingSkeletonState
+        title="Daily calories with quick correction flow"
+        subtitle="Pick a person and day, log servings, then edit or archive mistakes directly."
+        eyebrow="Meal Logging"
+        icon={<Flame className="h-4 w-4" />}
+      >
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
@@ -884,67 +784,35 @@ function MealDashboardPageContent() {
               </CardContent>
             </Card>
           </div>
-        </section>
-      </main>
+      </LoadingSkeletonState>
     );
   }
 
   return (
     <>
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_15%_10%,#fff6de_0%,#f7f6f3_45%,#e9f1eb_100%)] dark:bg-[radial-gradient(circle_at_15%_10%,#1d2535_0%,#111a26_45%,#0a1119_100%)]">
-        <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-amber-700">
-              <Flame className="h-4 w-4" />
-              Meal Logging
-            </p>
-            <h1 data-display="true" className="mt-2 text-4xl text-foreground">
-              Daily calories with quick correction flow
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Pick a person and day, log servings, then edit/archive/delete
-              mistakes directly.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <Card className="border-emerald-200/80 bg-card/90 dark:border-emerald-500/30">
-              <CardHeader>
-                <CardDescription>Target</CardDescription>
-                <CardTitle>
-                  {selectedPerson?.currentDailyGoalKcal.toFixed(0) ?? "--"} kcal
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardDescription>Consumed Today</CardDescription>
-                <CardTitle>{consumedToday.toFixed(0)} kcal</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-amber-200/80 bg-card/90 dark:border-amber-500/30">
-              <CardHeader>
-                <CardDescription>Remaining After Draft</CardDescription>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-amber-700" />
-                  {remainingAfterDraft.toFixed(0)} kcal
-                </CardTitle>
-              </CardHeader>
-            </Card>
-          </div>
+      <PageShell
+        title="Daily calories with quick correction flow"
+        subtitle="Pick a person and day, log servings, then edit or archive mistakes directly."
+        eyebrow="Meal Logging"
+        icon={<Flame className="h-4 w-4" />}
+        maxWidth="7xl"
+        showArchived={showArchivedMeals}
+        onShowArchivedChange={setShowArchivedMeals}
+        showArchivedLabel="Show archived meals"
+      >
+          <MealsMetrics
+            targetKcal={`${selectedPerson?.currentDailyGoalKcal.toFixed(0) ?? "--"} kcal`}
+            consumedTodayKcal={`${consumedToday.toFixed(0)} kcal`}
+            remainingAfterDraftKcal={`${remainingAfterDraft.toFixed(0)} kcal`}
+          />
 
           <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle>
-                  {editingMealId ? "Edit Meal" : "Create Meal"}
-                </CardTitle>
-                <CardDescription>
-                  Remaining today:{" "}
-                  {selectedPerson ? `${remainingToday.toFixed(0)} kcal` : "--"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <MealFormSection
+              title={editingMealId ? "Edit Meal" : "Create Meal"}
+              description={`Remaining today: ${
+                selectedPerson ? `${remainingToday.toFixed(0)} kcal` : "--"
+              }`}
+            >
                 <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <div className="space-y-2">
                     <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
@@ -1317,78 +1185,28 @@ function MealDashboardPageContent() {
                     </Button>
                   ) : null}
                 </div>
-              </CardContent>
-            </Card>
+            </MealFormSection>
 
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle>Meals for {mealDate}</CardTitle>
-                <CardDescription>
-                  {selectedPerson?.name ?? "All people"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            <MealTableSection
+              title={`Meals for ${mealDate}`}
+              description={selectedPerson?.name ?? "All people"}
+            >
                 <DataTable
                   columns={mealColumns}
                   data={mealTableRows}
                   searchColumnId="mealName"
-                  searchPlaceholder="Search meals by name"
+                  searchPlaceholder="Search meals"
                   emptyText="No meals for this selection."
-                  toolbarActions={
-                    <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={showArchivedMeals}
-                        onChange={(event) =>
-                          setShowArchivedMeals(event.target.checked)
-                        }
-                      />
-                      Show archived
-                    </label>
-                  }
                 />
-              </CardContent>
-            </Card>
+            </MealTableSection>
           </div>
-        </section>
-      </main>
-      <AlertDialog
+      </PageShell>
+      <ConfirmDestructiveDialog
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
-      >
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingConfirmation?.message}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="gap-2"
-              variant="destructive"
-              onClick={confirmPendingAction}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={confirmPendingAction}
+        description={pendingConfirmation?.message}
+      />
     </>
   );
-}
-
-function getMealDateKey(meal: { eatenOn?: string; createdAt: number }) {
-  if (meal.eatenOn) {
-    return meal.eatenOn;
-  }
-  return toLocalDateString(meal.createdAt);
-}
-
-function formatCookSessionLabel(session: { label?: string; cookedAt: number }) {
-  const cookedDate = toLocalDateString(session.cookedAt);
-  const label = session.label?.trim();
-  return label ? `${cookedDate} - ${label}` : cookedDate;
 }

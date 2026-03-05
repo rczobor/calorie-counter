@@ -1,68 +1,38 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
-import { BookOpenText, FolderTree, Trash2, Wheat } from "lucide-react";
-import { toast } from "sonner";
+import { Trash2, UserRound } from "lucide-react";
 
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { ConfirmDestructiveDialog } from "@/components/page/confirm-destructive-dialog";
+import { PageShell } from "@/components/page/page-shell";
+import { ConfigMissingState, LoadingSkeletonState } from "@/components/page/page-states";
+import { StatusBadge } from "@/components/page/status-badge";
 import { isConvexConfigured } from "@/integrations/convex/config";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CustomIngredientSwitchRow,
   IngredientLineModeToggle,
 } from "@/components/nutrition/ingredient-line-controls";
+import { FoodGroupsSection } from "@/features/manage/food-groups";
+import { IngredientsSection } from "@/features/manage/ingredients";
+import { RecipesSection } from "@/features/manage/recipes";
+import { useConfirmableAction } from "@/hooks/use-confirmable-action";
+import { useManagementData } from "@/hooks/use-management-data";
 import {
   NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
   formatKcalPer100,
   getKcalPer100,
-  toErrorMessage,
 } from "@/lib/nutrition";
-
-const EMPTY_MANAGEMENT_DATA = {
-  people: [],
-  personGoalHistory: [],
-  foodGroups: [],
-  ingredients: [],
-  recipes: [],
-  recipeVersions: [],
-  recipeVersionIngredients: [],
-  cookSessions: [],
-  cookedFoods: [],
-  cookedFoodIngredients: [],
-  meals: [],
-  mealItems: [],
-};
-
-type PendingConfirmation = {
-  message: string;
-  successText: string;
-  action: () => Promise<unknown>;
-};
 
 type FoodGroupTableRow = {
   id: Id<"foodGroups">;
@@ -128,13 +98,7 @@ export const Route = createFileRoute("/manage")({
 
 function ManagePage() {
   if (!isConvexConfigured) {
-    return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">
-          Convex configuration is missing.
-        </p>
-      </main>
-    );
+    return <ConfigMissingState />;
   }
 
   return <ManagePageContent />;
@@ -142,9 +106,14 @@ function ManagePage() {
 
 function ManagePageContent() {
   const [showArchived, setShowArchived] = useState(false);
-  const [pendingConfirmation, setPendingConfirmation] =
-    useState<PendingConfirmation | null>(null);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const {
+    pendingConfirmation,
+    isConfirmDialogOpen,
+    runAction,
+    confirmAndRunAction,
+    handleConfirmDialogOpenChange,
+    confirmPendingAction,
+  } = useConfirmableAction();
 
   const [editingGroupId, setEditingGroupId] = useState<Id<"foodGroups"> | null>(
     null,
@@ -197,11 +166,7 @@ function ManagePageContent() {
     Record<string, string>
   >({});
 
-  const dataResult = useQuery(api.nutrition.getManagementData);
-  const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<
-    typeof dataResult
-  >;
-  const isLoading = dataResult === undefined;
+  const { data, isLoading } = useManagementData();
 
   const createFoodGroup = useMutation(api.nutrition.createFoodGroup);
   const updateFoodGroup = useMutation(api.nutrition.updateFoodGroup);
@@ -266,48 +231,6 @@ function ManagePageContent() {
     return map;
   }, [data.recipeVersionIngredients]);
 
-  async function runAction(
-    successText: string,
-    action: () => Promise<unknown>,
-  ) {
-    try {
-      await action();
-      toast.success(successText);
-    } catch (error) {
-      toast.error(toErrorMessage(error));
-    }
-  }
-
-  const confirmAndRunAction = (
-    message: string,
-    successText: string,
-    action: () => Promise<unknown>,
-  ) => {
-    setPendingConfirmation({
-      message,
-      successText,
-      action,
-    });
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmDialogOpenChange = (open: boolean) => {
-    setIsConfirmDialogOpen(open);
-    if (!open) {
-      setPendingConfirmation(null);
-    }
-  };
-
-  const confirmPendingAction = () => {
-    if (!pendingConfirmation) {
-      return;
-    }
-    const { successText, action } = pendingConfirmation;
-    setIsConfirmDialogOpen(false);
-    setPendingConfirmation(null);
-    void runAction(successText, action);
-  };
-
   const resetGroupForm = () => {
     setEditingGroupId(null);
     setGroupName("");
@@ -369,11 +292,7 @@ function ManagePageContent() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.status}
-        </span>
-      ),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: "actions",
@@ -482,11 +401,7 @@ function ManagePageContent() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.status}
-        </span>
-      ),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: "actions",
@@ -647,11 +562,7 @@ function ManagePageContent() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.status}
-        </span>
-      ),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: "actions",
@@ -1171,47 +1082,43 @@ function ManagePageContent() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">
-          Loading management data…
-        </p>
-      </main>
+      <LoadingSkeletonState
+        title="Catalog Management"
+        subtitle="Manage food groups, ingredients, and recipes."
+        eyebrow="Catalog"
+        icon={<UserRound className="h-4 w-4" />}
+      >
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      </LoadingSkeletonState>
     );
   }
 
   return (
     <>
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
-        <section className="mx-auto flex w-full max-w-7xl flex-col px-4 py-8 sm:px-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
-            <h1 data-display="true" className="text-4xl text-foreground">
-              Catalog Management
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Manage food groups, ingredients, and recipes.
-            </p>
-            <label className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(event) => setShowArchived(event.target.checked)}
-              />
-              Show archived records
-            </label>
-          </div>
+      <PageShell
+        title="Catalog Management"
+        subtitle="Manage food groups, ingredients, and recipes."
+        eyebrow="Catalog"
+        icon={<UserRound className="h-4 w-4" />}
+        showArchived={showArchived}
+        onShowArchivedChange={setShowArchived}
+      >
 
           <div className="order-2 mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FolderTree className="h-4 w-4 text-amber-700" />
-                  Food Groups
-                </CardTitle>
-                <CardDescription>
-                  Used to classify ingredients and cooked foods.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <FoodGroupsSection>
                 <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                   <Input
                     aria-label="Group name"
@@ -1262,24 +1169,12 @@ function ManagePageContent() {
                   columns={foodGroupColumns}
                   data={foodGroupRows}
                   searchColumnId="name"
-                  searchPlaceholder="Search groups by name"
+                  searchPlaceholder="Search food groups"
                   emptyText="No food groups found."
                 />
-              </CardContent>
-            </Card>
+            </FoodGroupsSection>
 
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wheat className="h-4 w-4 text-amber-700" />
-                  Ingredients
-                </CardTitle>
-                <CardDescription>
-                  Store kcal/100g and whether calories are ignored for this
-                  ingredient.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <IngredientsSection>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Input
                     aria-label="Ingredient name"
@@ -1379,26 +1274,14 @@ function ManagePageContent() {
                   columns={ingredientColumns}
                   data={ingredientRows}
                   searchColumnId="name"
-                  searchPlaceholder="Search ingredients by name"
+                  searchPlaceholder="Search ingredients"
                   emptyText="No ingredients found."
                 />
-              </CardContent>
-            </Card>
+            </IngredientsSection>
           </div>
 
           <div className="order-1 mt-6 grid grid-cols-1 gap-5">
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpenText className="h-4 w-4 text-sky-700" />
-                  Recipes
-                </CardTitle>
-                <CardDescription>
-                  Build recipe lines with existing or inline ingredients. Inline
-                  lines can be optionally saved to catalog.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <RecipesSection>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Input
                     aria-label="Recipe name"
@@ -1629,39 +1512,19 @@ function ManagePageContent() {
                   columns={recipeColumns}
                   data={recipeRows}
                   searchColumnId="name"
-                  searchPlaceholder="Search recipes by name"
+                  searchPlaceholder="Search recipes"
                   emptyText="No recipes found."
                 />
-              </CardContent>
-            </Card>
+            </RecipesSection>
           </div>
-        </section>
-      </main>
+      </PageShell>
 
-      <AlertDialog
+      <ConfirmDestructiveDialog
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
-      >
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingConfirmation?.message}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="gap-2"
-              variant="destructive"
-              onClick={confirmPendingAction}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={confirmPendingAction}
+        description={pendingConfirmation?.message}
+      />
     </>
   );
 }

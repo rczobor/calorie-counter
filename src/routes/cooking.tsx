@@ -1,73 +1,45 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation } from 'convex/react'
 import { useMemo, useState } from 'react'
-import { ChefHat, Trash2 } from 'lucide-react'
+import { Trash2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
+import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { PageShell } from '@/components/page/page-shell'
+import { ConfigMissingState, LoadingSkeletonState } from '@/components/page/page-states'
+import { StatusBadge } from '@/components/page/status-badge'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { SearchablePicker } from '@/components/ui/searchable-picker'
 import { Select } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
   CustomIngredientSwitchRow,
   IngredientLineModeToggle,
 } from '@/components/nutrition/ingredient-line-controls'
+import { CookedFoodsSection } from '@/features/cooking/cooked-foods'
+import { SessionsSection } from '@/features/cooking/sessions'
+import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { useManagementData } from '@/hooks/use-management-data'
 import {
   NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
+  formatCookSessionLabel,
   formatKcalPer100,
+  getCookSessionModifiedAt,
   getKcalPer100,
   getNutritionUnitLabel,
-  toErrorMessage,
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
-
-const EMPTY_MANAGEMENT_DATA = {
-  people: [],
-  personGoalHistory: [],
-  foodGroups: [],
-  ingredients: [],
-  recipes: [],
-  recipeVersions: [],
-  recipeVersionIngredients: [],
-  cookSessions: [],
-  cookedFoods: [],
-  cookedFoodIngredients: [],
-  meals: [],
-  mealItems: [],
-}
-
-type PendingConfirmation = {
-  message: string
-  successText: string
-  action: () => Promise<unknown>
-}
 
 type SessionTableRow = {
   id: Id<'cookSessions'>
@@ -119,11 +91,7 @@ export const Route = createFileRoute('/cooking')({
 
 function CookingPage() {
   if (!isConvexConfigured) {
-    return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">Convex configuration is missing.</p>
-      </main>
-    )
+    return <ConfigMissingState />
   }
 
   return <CookingPageContent />
@@ -131,9 +99,14 @@ function CookingPage() {
 
 function CookingPageContent() {
   const [showArchived, setShowArchived] = useState(false)
-  const [pendingConfirmation, setPendingConfirmation] =
-    useState<PendingConfirmation | null>(null)
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+  const {
+    pendingConfirmation,
+    isConfirmDialogOpen,
+    runAction,
+    confirmAndRunAction,
+    handleConfirmDialogOpenChange,
+    confirmPendingAction,
+  } = useConfirmableAction()
 
   const [editingSessionId, setEditingSessionId] = useState<Id<'cookSessions'> | null>(null)
   const [sessionLabel, setSessionLabel] = useState('')
@@ -181,9 +154,7 @@ function CookingPageContent() {
     CookedFoodIngredientDraft[]
   >([])
 
-  const dataResult = useQuery(api.nutrition.getManagementData)
-  const data = (dataResult ?? EMPTY_MANAGEMENT_DATA) as NonNullable<typeof dataResult>
-  const isLoading = dataResult === undefined
+  const { data, isLoading } = useManagementData()
 
   const createCookSession = useMutation(api.nutrition.createCookSession)
   const updateCookSession = useMutation(api.nutrition.updateCookSession)
@@ -290,7 +261,7 @@ function CookingPageContent() {
     () =>
       cookSessions.map((session) => ({
         value: session._id,
-        label: formatCookSessionOptionLabel(session),
+        label: formatCookSessionLabel(session),
         keywords: [
           session.label ?? '',
           toLocalDateString(session.cookedAt),
@@ -321,7 +292,7 @@ function CookingPageContent() {
         kcalPer100: getKcalPer100(food),
         sessionLabel:
           cookSessionById.get(food.cookSessionId)?.label?.trim() ||
-          formatCookSessionOptionLabel(cookSessionById.get(food.cookSessionId) ?? {
+          formatCookSessionLabel(cookSessionById.get(food.cookSessionId) ?? {
             cookedAt: food.createdAt,
             label: undefined,
             createdAt: food.createdAt,
@@ -330,45 +301,6 @@ function CookingPageContent() {
       })),
     [cookSessionById, cookedFoods],
   )
-
-  async function runAction(successText: string, action: () => Promise<unknown>) {
-    try {
-      await action()
-      toast.success(successText)
-    } catch (error) {
-      toast.error(toErrorMessage(error))
-    }
-  }
-
-  const confirmAndRunAction = (
-    message: string,
-    successText: string,
-    action: () => Promise<unknown>,
-  ) => {
-    setPendingConfirmation({
-      message,
-      successText,
-      action,
-    })
-    setIsConfirmDialogOpen(true)
-  }
-
-  const handleConfirmDialogOpenChange = (open: boolean) => {
-    setIsConfirmDialogOpen(open)
-    if (!open) {
-      setPendingConfirmation(null)
-    }
-  }
-
-  const confirmPendingAction = () => {
-    if (!pendingConfirmation) {
-      return
-    }
-    const { successText, action } = pendingConfirmation
-    setIsConfirmDialogOpen(false)
-    setPendingConfirmation(null)
-    void runAction(successText, action)
-  }
 
   const resetSessionForm = () => {
     setEditingSessionId(null)
@@ -561,9 +493,7 @@ function CookingPageContent() {
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
-      ),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: 'actions',
@@ -642,9 +572,7 @@ function CookingPageContent() {
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.status}</span>
-      ),
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: 'actions',
@@ -766,40 +694,43 @@ function CookingPageContent() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6">
-        <p className="text-sm text-muted-foreground">Loading cooking data…</p>
-      </main>
+      <LoadingSkeletonState
+        title="Cooking"
+        subtitle="Manage cooking sessions and cooked foods with reference and counted ingredient lines."
+        eyebrow="Cooking"
+        icon={<UserRound className="h-4 w-4" />}
+      >
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      </LoadingSkeletonState>
     )
   }
 
   return (
     <>
-      <main className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_20%_10%,#fff7e4_0%,#f5f6f4_44%,#e8f0ea_100%)] dark:bg-[radial-gradient(circle_at_20%_10%,#1d2535_0%,#111a26_44%,#0a1119_100%)]">
-        <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
-          <div className="rounded-2xl border border-amber-200/80 bg-card/85 p-6 shadow-sm dark:border-amber-500/25">
-            <h1 data-display="true" className="text-4xl text-foreground">
-              Cooking
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Manage cooking sessions and cooked foods with reference and counted ingredient lines.
-            </p>
-            <label className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(event) => setShowArchived(event.target.checked)}
-              />
-              Show archived records
-            </label>
-          </div>
+      <PageShell
+        title="Cooking"
+        subtitle="Manage cooking sessions and cooked foods with reference and counted ingredient lines."
+        eyebrow="Cooking"
+        icon={<UserRound className="h-4 w-4" />}
+        showArchived={showArchived}
+        onShowArchivedChange={setShowArchived}
+      >
 
           <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle>Sessions</CardTitle>
-                <CardDescription>Group cooked foods by cooking date/session.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <SessionsSection>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Input
                     aria-label="Session label"
@@ -876,23 +807,12 @@ function CookingPageContent() {
                   columns={sessionColumns}
                   data={sessionRows}
                   searchColumnId="label"
-                  searchPlaceholder="Search sessions by label"
+                  searchPlaceholder="Search sessions"
                   emptyText="No sessions found."
                 />
-              </CardContent>
-            </Card>
+            </SessionsSection>
 
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ChefHat className="h-4 w-4 text-rose-700" />
-                  Cooked Foods
-                </CardTitle>
-                <CardDescription>
-                  Lines can be reference-only (ignored calories) or counted by measured amount.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <CookedFoodsSection>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SearchablePicker
                     ariaLabel="Cooked food session search"
@@ -1307,53 +1227,23 @@ function CookingPageContent() {
                   columns={cookedFoodColumns}
                   data={cookedFoodRows}
                   searchColumnId="name"
-                  searchPlaceholder="Search cooked foods by name"
+                  searchPlaceholder="Search cooked foods"
                   emptyText="No cooked foods found."
                 />
-              </CardContent>
-            </Card>
+            </CookedFoodsSection>
           </div>
-        </section>
-      </main>
+      </PageShell>
 
-      <AlertDialog
+      <ConfirmDestructiveDialog
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
-      >
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm deletion</AlertDialogTitle>
-            <AlertDialogDescription>{pendingConfirmation?.message}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="gap-2"
-              variant="destructive"
-              onClick={confirmPendingAction}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={confirmPendingAction}
+        description={pendingConfirmation?.message}
+      />
     </>
   )
 }
 
 function createDraftId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function formatCookSessionOptionLabel(session: Doc<'cookSessions'>) {
-  const cookedDate = toLocalDateString(session.cookedAt)
-  if (!session.label?.trim()) {
-    return cookedDate
-  }
-  return `${cookedDate} • ${session.label.trim()}`
-}
-
-function getCookSessionModifiedAt(session: Doc<'cookSessions'>) {
-  return (session as Doc<'cookSessions'> & { updatedAt?: number }).updatedAt ?? session.createdAt
 }
