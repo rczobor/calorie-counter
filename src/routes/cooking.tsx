@@ -1,8 +1,8 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
-import { useMemo, useState } from 'react'
-import { Trash2, UserRound } from 'lucide-react'
+import { type ReactNode, useMemo, useState } from 'react'
+import { Plus, Trash2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
@@ -13,6 +13,7 @@ import { ConfigMissingState, LoadingSkeletonState } from '@/components/page/page
 import { StatusBadge } from '@/components/page/status-badge'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
@@ -25,8 +26,6 @@ import {
   CustomIngredientSwitchRow,
   IngredientLineModeToggle,
 } from '@/components/nutrition/ingredient-line-controls'
-import { CookedFoodsSection } from '@/features/cooking/cooked-foods'
-import { SessionsSection } from '@/features/cooking/sessions'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { useManagementData } from '@/hooks/use-management-data'
 import {
@@ -40,6 +39,7 @@ import {
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
+import { cn } from '@/lib/utils'
 
 type SessionTableRow = {
   id: Id<'cookSessions'>
@@ -84,6 +84,14 @@ type CookedFoodIngredientDraft =
   | ExistingCookedFoodIngredientDraft
   | CustomCookedFoodIngredientDraft
 
+function getIngredientBasisUnit(ingredient?: { kcalBasisUnit?: NutritionUnit }) {
+  return ingredient?.kcalBasisUnit ?? 'g'
+}
+
+function shouldAutoFillReferenceFields(unit: NutritionUnit) {
+  return unit === 'g' || unit === 'ml'
+}
+
 export const Route = createFileRoute('/cooking')({
   ssr: false,
   component: CookingPage,
@@ -99,6 +107,7 @@ function CookingPage() {
 
 function CookingPageContent() {
   const [showArchived, setShowArchived] = useState(false)
+  const [isSessionEditorVisible, setIsSessionEditorVisible] = useState(false)
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
@@ -181,9 +190,25 @@ function CookingPageContent() {
     showArchived ? true : !item.archived,
   )
 
+  const personById = useMemo(
+    () => new Map(data.people.map((person) => [person._id, person])),
+    [data.people],
+  )
   const ingredientById = useMemo(
     () => new Map(data.ingredients.map((item) => [item._id, item])),
     [data.ingredients],
+  )
+  const selectedCookedFoodLineIngredient = cookedFoodLineIngredientId
+    ? ingredientById.get(cookedFoodLineIngredientId)
+    : undefined
+  const selectedCookedFoodLineIngredientBasisUnit = getIngredientBasisUnit(
+    selectedCookedFoodLineIngredient,
+  )
+  const shouldAutoFillIngredientReference = shouldAutoFillReferenceFields(
+    selectedCookedFoodLineIngredientBasisUnit,
+  )
+  const shouldAutoFillCustomReference = shouldAutoFillReferenceFields(
+    cookedFoodLineCustomBasisUnit,
   )
   const ingredientOptions = useMemo(
     () =>
@@ -336,6 +361,34 @@ function CookingPageContent() {
     setCookedFoodIngredientLines([])
   }
 
+  const scrollToTop = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const openNewSessionEditor = () => {
+    resetSessionForm()
+    setIsSessionEditorVisible(true)
+  }
+
+  const openEditSessionEditor = (session: Doc<'cookSessions'>) => {
+    setEditingSessionId(session._id)
+    setSessionLabel(session.label ?? '')
+    setSessionDate(toLocalDateString(session.cookedAt))
+    setSessionPersonId(session.cookedByPersonId ?? '')
+    setSessionNotes(session.notes ?? '')
+    setIsSessionEditorVisible(true)
+    scrollToTop()
+  }
+
+  const closeSessionEditor = () => {
+    setIsSessionEditorVisible(false)
+    resetSessionForm()
+  }
+
   const isIngredientIgnored = (ingredientId: Id<'ingredients'>) => {
     return Boolean(
       (ingredientById.get(ingredientId) as { ignoreCalories?: boolean } | undefined)
@@ -344,10 +397,6 @@ function CookingPageContent() {
   }
 
   const addCookedFoodIngredientLine = () => {
-    const referenceAmount = Number(cookedFoodLineReferenceAmount)
-    if (!Number.isFinite(referenceAmount) || referenceAmount <= 0) {
-      return
-    }
     const parsedCounted = Number(cookedFoodLineCountedAmount)
     const countedAmount =
       Number.isFinite(parsedCounted) && parsedCounted > 0 ? parsedCounted : undefined
@@ -356,7 +405,24 @@ function CookingPageContent() {
       if (!cookedFoodLineIngredientId) {
         return
       }
+      const basisUnit = getIngredientBasisUnit(ingredientById.get(cookedFoodLineIngredientId))
+      const shouldAutoFillReference = shouldAutoFillReferenceFields(basisUnit)
+      const referenceUnit = shouldAutoFillReference ? basisUnit : cookedFoodLineReferenceUnit
       const ignored = isIngredientIgnored(cookedFoodLineIngredientId)
+      let referenceAmount: number
+      if (shouldAutoFillReference && !countedAmount) {
+        toast.error('Amount is required for ingredients using grams or ml.')
+        return
+      }
+      if (shouldAutoFillReference) {
+        referenceAmount = countedAmount!
+      } else {
+        referenceAmount = Number(cookedFoodLineReferenceAmount)
+      }
+      if (!shouldAutoFillReference && (!Number.isFinite(referenceAmount) || referenceAmount <= 0)) {
+        toast.error('Reference amount is required for ingredients using spoon, pinch, or piece units.')
+        return
+      }
       if (!ignored && !countedAmount) {
         toast.error('Counted amount is required for calorie-counted ingredients.')
         return
@@ -368,12 +434,13 @@ function CookingPageContent() {
           sourceType: 'ingredient',
           ingredientId: cookedFoodLineIngredientId,
           referenceAmount,
-          referenceUnit: cookedFoodLineReferenceUnit,
+          referenceUnit,
           countedAmount,
         },
       ])
       setCookedFoodLineIngredientId('')
       setCookedFoodLineReferenceAmount('')
+      setCookedFoodLineReferenceUnit('g')
       setCookedFoodLineCountedAmount('')
       return
     }
@@ -389,6 +456,26 @@ function CookingPageContent() {
       cookedFoodLineCustomIgnoreCalories && (!Number.isFinite(parsedKcal) || parsedKcal < 0)
         ? 0
         : parsedKcal
+    const referenceUnit = shouldAutoFillCustomReference
+      ? cookedFoodLineCustomBasisUnit
+      : cookedFoodLineReferenceUnit
+    let referenceAmount: number
+    if (shouldAutoFillCustomReference && !countedAmount) {
+      toast.error('Amount is required for custom entries using grams or ml.')
+      return
+    }
+    if (shouldAutoFillCustomReference) {
+      referenceAmount = countedAmount!
+    } else {
+      referenceAmount = Number(cookedFoodLineReferenceAmount)
+    }
+    if (
+      !shouldAutoFillCustomReference &&
+      (!Number.isFinite(referenceAmount) || referenceAmount <= 0)
+    ) {
+      toast.error('Reference amount is required for custom entries using spoon, pinch, or piece units.')
+      return
+    }
     if (!cookedFoodLineCustomIgnoreCalories && !countedAmount) {
       toast.error('Counted amount is required for calorie-counted ingredients.')
       return
@@ -404,7 +491,7 @@ function CookingPageContent() {
         kcalBasisUnit: cookedFoodLineCustomBasisUnit,
         ignoreCalories: cookedFoodLineCustomIgnoreCalories,
         referenceAmount,
-        referenceUnit: cookedFoodLineReferenceUnit,
+        referenceUnit,
         countedAmount,
         saveToCatalog: cookedFoodLineCustomSaveToCatalog,
       },
@@ -415,6 +502,7 @@ function CookingPageContent() {
     setCookedFoodLineCustomIgnoreCalories(false)
     setCookedFoodLineCustomSaveToCatalog(true)
     setCookedFoodLineReferenceAmount('')
+    setCookedFoodLineReferenceUnit('g')
     setCookedFoodLineCountedAmount('')
   }
 
@@ -480,6 +568,140 @@ function CookingPageContent() {
 
   const resolvedCookedFoodSessionId =
     cookedFoodSessionId || (editingCookedFoodId ? '' : (cookSessions[0]?._id ?? ''))
+  const selectedCookSession = resolvedCookedFoodSessionId
+    ? cookSessionById.get(resolvedCookedFoodSessionId)
+    : undefined
+  const selectedCookPersonName = selectedCookSession?.cookedByPersonId
+    ? personById.get(selectedCookSession.cookedByPersonId)?.name
+    : undefined
+
+  const saveSession = () => {
+    void runAction(
+      editingSessionId ? 'Session updated.' : 'Session created.',
+      async () => {
+        const cookedAt = toTimestampFromDate(sessionDate)
+        if (editingSessionId) {
+          await updateCookSession({
+            sessionId: editingSessionId,
+            label: sessionLabel.trim() || undefined,
+            cookedAt,
+            cookedByPersonId: sessionPersonId || undefined,
+            notes: sessionNotes.trim() || undefined,
+          })
+          setCookedFoodSessionId(editingSessionId)
+        } else {
+          const sessionId = await createCookSession({
+            label: sessionLabel.trim() || undefined,
+            cookedAt,
+            cookedByPersonId: sessionPersonId || undefined,
+            notes: sessionNotes.trim() || undefined,
+          })
+          setCookedFoodSessionId(sessionId)
+        }
+        closeSessionEditor()
+      },
+    )
+  }
+
+  const saveCookedFood = () => {
+    const resolvedCookedFoodName = cookedFoodName.trim() || toLocalDateString(Date.now())
+    if (!resolvedCookedFoodSessionId) {
+      toast.error('Select a session before saving cooked food.')
+      return
+    }
+    if (cookedFoodIngredientLines.length === 0) {
+      toast.error('Add at least one ingredient line.')
+      return
+    }
+    const finishedWeight = Number(cookedFoodFinishedWeight)
+    if (!Number.isFinite(finishedWeight) || finishedWeight <= 0) {
+      toast.error('Finished amount must be greater than 0.')
+      return
+    }
+
+    for (const line of cookedFoodIngredientLines) {
+      const ignored =
+        line.sourceType === 'ingredient'
+          ? isIngredientIgnored(line.ingredientId)
+          : line.ignoreCalories
+      if (!ignored && (!line.countedAmount || line.countedAmount <= 0)) {
+        toast.error('All calorie-counted lines must include counted amount.')
+        return
+      }
+    }
+
+    if (
+      !editingCookedFoodId &&
+      saveCookedFoodAsRecipe &&
+      !(cookedFoodRecipeDraftName.trim() || resolvedCookedFoodName)
+    ) {
+      toast.error('Recipe name is required when saving as recipe.')
+      return
+    }
+
+    const recipeVersion =
+      !saveCookedFoodAsRecipe && cookedFoodRecipeVersionId
+        ? recipeVersionById.get(cookedFoodRecipeVersionId)
+        : undefined
+
+    void runAction(
+      editingCookedFoodId ? 'Cooked food updated.' : 'Cooked food created.',
+      async () => {
+        const payload = {
+          cookSessionId: resolvedCookedFoodSessionId,
+          name: resolvedCookedFoodName,
+          recipeId: recipeVersion?.recipeId,
+          recipeVersionId: cookedFoodRecipeVersionId || undefined,
+          groupIds: cookedFoodGroupId ? [cookedFoodGroupId] : [],
+          finishedWeightGrams: finishedWeight,
+          notes: cookedFoodNotes.trim() || undefined,
+          ingredients: cookedFoodIngredientLines.map((line) =>
+            line.sourceType === 'ingredient'
+              ? {
+                  sourceType: 'ingredient' as const,
+                  ingredientId: line.ingredientId,
+                  referenceAmount: line.referenceAmount,
+                  referenceUnit: line.referenceUnit,
+                  countedAmount: line.countedAmount,
+                }
+              : {
+                  sourceType: 'custom' as const,
+                  name: line.name,
+                  kcalPer100: line.kcalPer100,
+                  kcalBasisUnit: line.kcalBasisUnit,
+                  ignoreCalories: line.ignoreCalories,
+                  referenceAmount: line.referenceAmount,
+                  referenceUnit: line.referenceUnit,
+                  countedAmount: line.countedAmount,
+                  saveToCatalog: line.saveToCatalog,
+                },
+          ),
+        }
+
+        if (editingCookedFoodId) {
+          await updateCookedFood({
+            cookedFoodId: editingCookedFoodId,
+            ...payload,
+          })
+        } else {
+          await createCookedFood({
+            ...payload,
+            saveAsRecipe: saveCookedFoodAsRecipe || undefined,
+            recipeDraft: saveCookedFoodAsRecipe
+              ? {
+                  name: cookedFoodRecipeDraftName.trim() || resolvedCookedFoodName,
+                  description: cookedFoodRecipeDraftDescription.trim() || undefined,
+                  instructions: cookedFoodRecipeDraftInstructions.trim() || undefined,
+                  notes: cookedFoodRecipeDraftNotes.trim() || undefined,
+                }
+              : undefined,
+          })
+        }
+
+        resetCookedFoodForm()
+      },
+    )
+  }
 
   const sessionColumns: ColumnDef<SessionTableRow>[] = [
     {
@@ -502,17 +724,7 @@ function CookingPageContent() {
         const session = row.original.session
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setEditingSessionId(session._id)
-                setSessionLabel(session.label ?? '')
-                setSessionDate(toLocalDateString(session.cookedAt))
-                setSessionPersonId(session.cookedByPersonId ?? '')
-                setSessionNotes(session.notes ?? '')
-              }}
-            >
+            <Button size="sm" variant="outline" onClick={() => openEditSessionEditor(session)}>
               Edit
             </Button>
             <Button
@@ -540,7 +752,7 @@ function CookingPageContent() {
                 confirmAndRunAction('Delete this session permanently?', 'Session deleted.', async () => {
                   await deleteCookSession({ sessionId: session._id })
                   if (editingSessionId === session._id) {
-                    resetSessionForm()
+                    closeSessionEditor()
                   }
                 })
               }
@@ -650,6 +862,7 @@ function CookingPageContent() {
                 setCookedFoodLineReferenceAmount('')
                 setCookedFoodLineReferenceUnit('g')
                 setCookedFoodLineCountedAmount('')
+                scrollToTop()
               }}
             >
               Edit
@@ -700,18 +913,48 @@ function CookingPageContent() {
         eyebrow="Cooking"
         icon={<UserRound className="h-4 w-4" />}
       >
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-10 w-full" />
+        <div className="mt-6 space-y-5">
+          <div className="rounded-lg border border-border bg-card/90 p-5">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-36" />
+                  <Skeleton className="h-4 w-72" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-24" />
+                  <Skeleton className="h-9 w-32" />
+                </div>
+              </div>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-10 w-32" />
+                <Skeleton className="h-10 w-32" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+              <Skeleton className="h-52 w-full" />
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+                <Skeleton className="h-56 w-full" />
+                <Skeleton className="h-56 w-full" />
+              </div>
+            </div>
           </div>
-          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-10 w-full" />
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+            <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+            <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
+              <Skeleton className="h-6 w-28" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-48 w-full" />
+            </div>
           </div>
         </div>
       </LoadingSkeletonState>
@@ -728,501 +971,588 @@ function CookingPageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-
-          <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <SessionsSection>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    aria-label="Session label"
-                    placeholder="Session label"
-                    value={sessionLabel}
-                    onChange={(event) => setSessionLabel(event.target.value)}
-                  />
-                  <DatePicker
-                    value={sessionDate}
-                    onChange={setSessionDate}
-                    ariaLabel="Session date"
-                  />
-                  <Select
-                    ariaLabel="Session person"
-                    value={sessionPersonId}
-                    onValueChange={(value) =>
-                      setSessionPersonId((value as Id<'people'> | '' | null) ?? '')
-                    }
-                    placeholder="Cooked by"
-                    options={[
-                      { value: '', label: 'No person' },
-                      ...people.map((person) => ({
-                        value: person._id,
-                        label: person.name,
-                      })),
-                    ]}
-                  />
-                  <Input
-                    aria-label="Session notes"
-                    placeholder="Session notes"
-                    value={sessionNotes}
-                    onChange={(event) => setSessionNotes(event.target.value)}
-                  />
+        <div className="mt-6 space-y-5">
+          <Card className="border-border/70 bg-card/90">
+            <CardHeader className="gap-2 border-b border-border/60">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Cooked foods</CardTitle>
+                  <CardDescription>
+                    Sessions, ingredients, and recipe details stay in one workspace.
+                  </CardDescription>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() =>
-                      void runAction(
-                        editingSessionId ? 'Session updated.' : 'Session created.',
-                        async () => {
-                          const cookedAt = toTimestampFromDate(sessionDate)
-                          if (editingSessionId) {
-                            await updateCookSession({
-                              sessionId: editingSessionId,
-                              label: sessionLabel.trim() || undefined,
-                              cookedAt,
-                              cookedByPersonId: sessionPersonId || undefined,
-                              notes: sessionNotes.trim() || undefined,
-                            })
-                            setCookedFoodSessionId(editingSessionId)
-                          } else {
-                            const sessionId = await createCookSession({
-                              label: sessionLabel.trim() || undefined,
-                              cookedAt,
-                              cookedByPersonId: sessionPersonId || undefined,
-                              notes: sessionNotes.trim() || undefined,
-                            })
-                            setCookedFoodSessionId(sessionId)
-                          }
-                          resetSessionForm()
-                        },
-                      )
-                    }
-                  >
-                    {editingSessionId ? 'Save session' : 'Create session'}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" onClick={resetCookedFoodForm}>
+                    {editingCookedFoodId ? 'Cancel edit' : 'Reset form'}
                   </Button>
-                  {editingSessionId ? (
-                    <Button variant="outline" onClick={resetSessionForm}>
-                      Cancel
-                    </Button>
-                  ) : null}
+                  <Button onClick={saveCookedFood}>
+                    {editingCookedFoodId ? 'Save cooked food' : 'Create cooked food'}
+                  </Button>
                 </div>
-                <DataTable
-                  columns={sessionColumns}
-                  data={sessionRows}
-                  searchColumnId="label"
-                  searchPlaceholder="Search sessions"
-                  emptyText="No sessions found."
-                />
-            </SessionsSection>
-
-            <CookedFoodsSection>
-                <div className="grid gap-3 sm:grid-cols-2">
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5 pt-6">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <Field label="Session">
                   <SearchablePicker
                     ariaLabel="Cooked food session search"
                     value={resolvedCookedFoodSessionId}
                     onValueChange={(value) =>
                       setCookedFoodSessionId(value as Id<'cookSessions'> | '')
                     }
-                    placeholder="Search session"
+                    placeholder="Search or switch session"
                     options={sessionOptions}
                   />
+                </Field>
+                <div className="xl:pt-[1.875rem]">
+                  <Button type="button" size="sm" onClick={openNewSessionEditor}>
+                    <Plus className="h-3.5 w-3.5" />
+                    New session
+                  </Button>
+                </div>
+                <div className="xl:pt-[1.875rem]">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!selectedCookSession}
+                    onClick={() => {
+                      if (selectedCookSession) {
+                        openEditSessionEditor(selectedCookSession)
+                      }
+                    }}
+                  >
+                    Edit selected
+                  </Button>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {selectedCookSession ? (
+                  <>
+                    {formatCookSessionLabel(selectedCookSession)}
+                    {' · '}
+                    {toLocalDateString(selectedCookSession.cookedAt)}
+                    {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
+                    {selectedCookSession.archived ? ' · Archived' : ''}
+                    {selectedCookSession.notes?.trim() ? ` · ${selectedCookSession.notes}` : ''}
+                  </>
+                ) : (
+                  'Choose the session for this batch before saving the cooked food.'
+                )}
+              </p>
+
+              {isSessionEditorVisible ? (
+                <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {editingSessionId ? 'Edit session' : 'New session'}
+                    </p>
+                    <Button type="button" size="sm" variant="ghost" onClick={closeSessionEditor}>
+                      Close
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <Field label="Label">
+                      <Input
+                        aria-label="Session label"
+                        placeholder="Breakfast"
+                        value={sessionLabel}
+                        onChange={(event) => setSessionLabel(event.target.value)}
+                      />
+                    </Field>
+                    <Field label="Date">
+                      <DatePicker
+                        value={sessionDate}
+                        onChange={setSessionDate}
+                        ariaLabel="Session date"
+                        className="w-full justify-start"
+                      />
+                    </Field>
+                    <Field label="Cooked by">
+                      <Select
+                        ariaLabel="Session person"
+                        value={sessionPersonId}
+                        onValueChange={(value) =>
+                          setSessionPersonId((value as Id<'people'> | '' | null) ?? '')
+                        }
+                        placeholder="No person"
+                        className="w-full"
+                        options={[
+                          { value: '', label: 'No person' },
+                          ...people.map((person) => ({
+                            value: person._id,
+                            label: person.name,
+                          })),
+                        ]}
+                      />
+                    </Field>
+                    <Field label="Notes">
+                      <Input
+                        aria-label="Session notes"
+                        placeholder="Optional"
+                        value={sessionNotes}
+                        onChange={(event) => setSessionNotes(event.target.value)}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button onClick={saveSession}>
+                      {editingSessionId ? 'Save session' : 'Create session'}
+                    </Button>
+                    <Button variant="outline" onClick={closeSessionEditor}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Field label="Cooked food name">
                   <Input
                     aria-label="Cooked food name"
-                    placeholder="Cooked food name"
+                    placeholder="Musli"
                     value={cookedFoodName}
                     onChange={(event) => setCookedFoodName(event.target.value)}
                   />
-                  {editingCookedFoodId || !saveCookedFoodAsRecipe ? (
-                    <SearchablePicker
-                      value={cookedFoodRecipeVersionId}
-                      onValueChange={(value) =>
-                        applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
-                      }
-                      ariaLabel="Cooked food recipe search"
-                      placeholder="Search recipe"
-                      options={recipeVersionOptions}
-                    />
-                  ) : (
-                    <div className="rounded-md border border-emerald-400/35 bg-emerald-500/8 px-3 py-2 text-xs text-foreground">
-                      New recipe will be created from these ingredient lines.
-                    </div>
-                  )}
+                </Field>
+                <Field label="Group">
                   <Select
                     ariaLabel="Cooked food group"
                     value={cookedFoodGroupId}
                     onValueChange={(value) =>
                       setCookedFoodGroupId((value as Id<'foodGroups'> | '' | null) ?? '')
                     }
-                    placeholder="Group"
+                    placeholder="No group"
+                    className="w-full"
                     options={[
                       { value: '', label: 'No group' },
                       ...groups.map((group) => ({ value: group._id, label: group.name })),
                     ]}
                   />
+                </Field>
+                <Field label="Finished amount">
                   <Input
                     type="number"
                     aria-label="Finished cooked food amount"
-                    placeholder="Finished amount"
+                    placeholder="0"
                     value={cookedFoodFinishedWeight}
                     onChange={(event) => setCookedFoodFinishedWeight(event.target.value)}
                   />
+                </Field>
+                <Field label="Notes">
                   <Input
                     aria-label="Cooked food notes"
-                    placeholder="Notes"
+                    placeholder="Optional"
                     value={cookedFoodNotes}
                     onChange={(event) => setCookedFoodNotes(event.target.value)}
                   />
-                </div>
+                </Field>
+              </div>
 
-                {!editingCookedFoodId ? (
-                  <div className="rounded-md bg-muted/35 p-3">
-                    <label className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
-                      Save this cooked food as a reusable recipe
-                      <Switch
-                        checked={saveCookedFoodAsRecipe}
-                        onCheckedChange={(checked) => {
-                          const nextChecked = Boolean(checked)
-                          setSaveCookedFoodAsRecipe(nextChecked)
-                          if (nextChecked) {
-                            setCookedFoodRecipeVersionId('')
-                            if (!cookedFoodRecipeDraftName.trim() && cookedFoodName.trim()) {
-                              setCookedFoodRecipeDraftName(cookedFoodName.trim())
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                    {saveCookedFoodAsRecipe ? (
-                      <div className="mt-3 space-y-3">
-                        <Input
-                          aria-label="Recipe name from cooked food"
-                          placeholder={cookedFoodName.trim() || 'Recipe name'}
-                          value={cookedFoodRecipeDraftName}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftName(event.target.value)
-                          }
-                        />
-                        <Input
-                          aria-label="Recipe description from cooked food"
-                          placeholder="Description (optional)"
-                          value={cookedFoodRecipeDraftDescription}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftDescription(event.target.value)
-                          }
-                        />
-                        <Textarea
-                          aria-label="Recipe instructions from cooked food"
-                          placeholder="Instructions (optional)"
-                          value={cookedFoodRecipeDraftInstructions}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftInstructions(event.target.value)
-                          }
-                        />
-                        <Input
-                          aria-label="Recipe notes from cooked food"
-                          placeholder="Notes (optional)"
-                          value={cookedFoodRecipeDraftNotes}
-                          onChange={(event) =>
-                            setCookedFoodRecipeDraftNotes(event.target.value)
-                          }
-                        />
-                      </div>
-                    ) : null}
+              <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Ingredient lines</p>
+                    <p className="text-sm text-muted-foreground">
+                      Add existing ingredients or custom entries.
+                    </p>
                   </div>
-                ) : null}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-medium text-foreground">Add ingredient line</p>
                   <IngredientLineModeToggle
                     value={cookedFoodLineMode}
                     onValueChange={setCookedFoodLineMode}
                   />
                 </div>
 
-                {cookedFoodLineMode === 'ingredient' ? (
-                  <div className="grid gap-3 sm:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr_auto]">
-                    <SearchablePicker
-                      value={cookedFoodLineIngredientId}
-                      onValueChange={(value) =>
-                        setCookedFoodLineIngredientId(value as Id<'ingredients'> | '')
-                      }
-                      ariaLabel="Cooked food ingredient search"
-                      placeholder="Search ingredient"
-                      options={ingredientOptions}
-                    />
-                    <Input
-                      type="number"
-                      aria-label="Reference amount"
-                      placeholder="Reference amount"
-                      value={cookedFoodLineReferenceAmount}
-                      onChange={(event) =>
-                        setCookedFoodLineReferenceAmount(event.target.value)
-                      }
-                    />
-                    <Select
-                      ariaLabel="Reference unit"
-                      value={cookedFoodLineReferenceUnit}
-                      onValueChange={(value) =>
-                        setCookedFoodLineReferenceUnit((value as NutritionUnit | null) ?? 'g')
-                      }
-                      options={NUTRITION_UNIT_OPTIONS}
-                    />
-                    <Input
-                      type="number"
-                      aria-label="Counted amount"
-                      placeholder="Counted amount"
-                      value={cookedFoodLineCountedAmount}
-                      onChange={(event) =>
-                        setCookedFoodLineCountedAmount(event.target.value)
-                      }
-                    />
-                    <Button variant="outline" onClick={addCookedFoodIngredientLine}>
-                      Add
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
+                <div className="mt-4 space-y-4">
+                  {cookedFoodLineMode === 'ingredient' ? (
                     <div
-                      className={`grid gap-3 ${
-                        cookedFoodLineCustomIgnoreCalories
-                          ? 'sm:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)]'
-                          : 'sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]'
-                      }`}
+                      className={cn(
+                        'grid gap-4',
+                        shouldAutoFillIngredientReference
+                          ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_auto]'
+                          : 'xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto]',
+                      )}
                     >
-                      <Input
-                        aria-label="Custom ingredient name"
-                        placeholder="Ingredient"
-                        value={cookedFoodLineCustomName}
-                        onChange={(event) =>
-                          setCookedFoodLineCustomName(event.target.value)
-                        }
-                      />
-                      {cookedFoodLineCustomIgnoreCalories ? null : (
-                        <>
+                      <Field label="Ingredient">
+                        <SearchablePicker
+                          value={cookedFoodLineIngredientId}
+                          onValueChange={(value) => {
+                            const nextIngredientId = value as Id<'ingredients'> | ''
+                            setCookedFoodLineIngredientId(nextIngredientId)
+                            setCookedFoodLineReferenceUnit(
+                              getIngredientBasisUnit(
+                                nextIngredientId
+                                  ? ingredientById.get(nextIngredientId)
+                                  : undefined,
+                              ),
+                            )
+                          }}
+                          ariaLabel="Cooked food ingredient search"
+                          placeholder="Search ingredient"
+                          options={ingredientOptions}
+                        />
+                      </Field>
+                      {shouldAutoFillIngredientReference ? null : (
+                        <Field label="Reference amount">
                           <Input
                             type="number"
-                            aria-label="Custom kcal per 100"
-                            placeholder="kcal/100"
-                            value={cookedFoodLineCustomKcal}
+                            aria-label="Reference amount"
+                            placeholder="0"
+                            value={cookedFoodLineReferenceAmount}
                             onChange={(event) =>
-                              setCookedFoodLineCustomKcal(event.target.value)
+                              setCookedFoodLineReferenceAmount(event.target.value)
                             }
                           />
+                        </Field>
+                      )}
+                      {shouldAutoFillIngredientReference ? null : (
+                        <Field label="Reference unit">
                           <Select
-                            ariaLabel="Custom kcal basis"
-                            value={cookedFoodLineCustomBasisUnit}
+                            ariaLabel="Reference unit"
+                            value={cookedFoodLineReferenceUnit}
                             onValueChange={(value) =>
-                              setCookedFoodLineCustomBasisUnit(
+                              setCookedFoodLineReferenceUnit(
                                 (value as NutritionUnit | null) ?? 'g',
                               )
                             }
+                            className="w-full"
                             options={NUTRITION_UNIT_OPTIONS}
                           />
-                        </>
+                        </Field>
                       )}
+                      <Field
+                        label={shouldAutoFillIngredientReference ? 'Amount' : 'Counted amount'}
+                      >
+                        <Input
+                          type="number"
+                          aria-label={
+                            shouldAutoFillIngredientReference ? 'Ingredient amount' : 'Counted amount'
+                          }
+                          placeholder="0"
+                          value={cookedFoodLineCountedAmount}
+                          onChange={(event) =>
+                            setCookedFoodLineCountedAmount(event.target.value)
+                          }
+                        />
+                      </Field>
+                      <div className="xl:pt-[1.875rem]">
+                        <Button variant="outline" onClick={addCookedFoodIngredientLine}>
+                          Add line
+                        </Button>
+                      </div>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                      <Input
-                        type="number"
-                        aria-label="Custom reference amount"
-                        placeholder="Reference amount"
-                        value={cookedFoodLineReferenceAmount}
-                        onChange={(event) =>
-                          setCookedFoodLineReferenceAmount(event.target.value)
-                        }
-                      />
-                      <Select
-                        ariaLabel="Custom reference unit"
-                        value={cookedFoodLineReferenceUnit}
-                        onValueChange={(value) =>
-                          setCookedFoodLineReferenceUnit(
-                            (value as NutritionUnit | null) ?? 'g',
-                          )
-                        }
-                        options={NUTRITION_UNIT_OPTIONS}
-                      />
-                      <Input
-                        type="number"
-                        aria-label="Custom counted amount"
-                        placeholder="Counted amount"
-                        value={cookedFoodLineCountedAmount}
-                        onChange={(event) =>
-                          setCookedFoodLineCountedAmount(event.target.value)
-                        }
-                      />
-                      <Button variant="outline" onClick={addCookedFoodIngredientLine}>
-                        Add
-                      </Button>
-                    </div>
-                    <CustomIngredientSwitchRow
-                      ignoreCalories={cookedFoodLineCustomIgnoreCalories}
-                      onIgnoreCaloriesChange={setCookedFoodLineCustomIgnoreCalories}
-                      saveToCatalog={cookedFoodLineCustomSaveToCatalog}
-                      onSaveToCatalogChange={setCookedFoodLineCustomSaveToCatalog}
-                    />
-                  </div>
-                )}
-
-                <div className="rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
-                  {cookedFoodIngredientLines.length === 0 ? (
-                    <p>Add at least one ingredient line.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {cookedFoodIngredientLines.map((line) => {
-                        const ignored =
-                          line.sourceType === 'ingredient'
-                            ? isIngredientIgnored(line.ingredientId)
-                            : line.ignoreCalories
-                        const label =
-                          line.sourceType === 'ingredient'
-                            ? ingredientById.get(line.ingredientId)?.name ?? 'Ingredient'
-                            : line.name
-                        return (
-                          <div
-                            key={line.draftId}
-                            className="flex items-center justify-between gap-2 rounded-md bg-background/80 p-2"
-                          >
-                            <p className="text-xs text-foreground">
-                              <span className="font-medium">{label}</span> - {' '}
-                              {line.referenceAmount.toFixed(2)} {getNutritionUnitLabel(line.referenceUnit)}
-                              {' · '}
-                              {ignored ? 'Ignored calories' : `Counted: ${line.countedAmount?.toFixed(2) ?? 0}`}
-                              {line.sourceType === 'custom' && !line.ignoreCalories ? (
-                                <>
-                                  {' · '}kcal/100 {formatKcalPer100(line.kcalPer100)} ({getNutritionUnitLabel(line.kcalBasisUnit)})
-                                </>
-                              ) : null}
-                            </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeCookedFoodIngredientLine(line.draftId)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    <>
+                      <div
+                        className={cn(
+                          'grid gap-4',
+                          cookedFoodLineCustomIgnoreCalories
+                            ? 'xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]'
+                            : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]',
+                        )}
+                      >
+                        <Field label="Ingredient">
+                          <Input
+                            aria-label="Custom ingredient name"
+                            placeholder="Ingredient"
+                            value={cookedFoodLineCustomName}
+                            onChange={(event) => setCookedFoodLineCustomName(event.target.value)}
+                          />
+                        </Field>
+                        {cookedFoodLineCustomIgnoreCalories ? null : (
+                          <>
+                            <Field label="kcal per 100">
+                              <Input
+                                type="number"
+                                aria-label="Custom kcal per 100"
+                                placeholder="0"
+                                value={cookedFoodLineCustomKcal}
+                                onChange={(event) =>
+                                  setCookedFoodLineCustomKcal(event.target.value)
+                                }
+                              />
+                            </Field>
+                            <Field label="Basis unit">
+                              <Select
+                                ariaLabel="Custom kcal basis"
+                                value={cookedFoodLineCustomBasisUnit}
+                                onValueChange={(value) => {
+                                  const nextUnit = (value as NutritionUnit | null) ?? 'g'
+                                  setCookedFoodLineCustomBasisUnit(nextUnit)
+                                  setCookedFoodLineReferenceUnit(nextUnit)
+                                }}
+                                className="w-full"
+                                options={NUTRITION_UNIT_OPTIONS}
+                              />
+                            </Field>
+                          </>
+                        )}
+                      </div>
+                      <div
+                        className={cn(
+                          'grid gap-4',
+                          shouldAutoFillCustomReference
+                            ? 'xl:grid-cols-[minmax(0,1fr)_auto]'
+                            : 'xl:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]',
+                        )}
+                      >
+                        {shouldAutoFillCustomReference ? null : (
+                          <Field label="Reference amount">
+                            <Input
+                              type="number"
+                              aria-label="Custom reference amount"
+                              placeholder="0"
+                              value={cookedFoodLineReferenceAmount}
+                              onChange={(event) =>
+                                setCookedFoodLineReferenceAmount(event.target.value)
+                              }
+                            />
+                          </Field>
+                        )}
+                        {shouldAutoFillCustomReference ? null : (
+                          <Field label="Reference unit">
+                            <Select
+                              ariaLabel="Custom reference unit"
+                              value={cookedFoodLineReferenceUnit}
+                              onValueChange={(value) =>
+                                setCookedFoodLineReferenceUnit(
+                                  (value as NutritionUnit | null) ?? 'g',
+                                )
+                              }
+                              className="w-full"
+                              options={NUTRITION_UNIT_OPTIONS}
+                            />
+                          </Field>
+                        )}
+                        <Field label={shouldAutoFillCustomReference ? 'Amount' : 'Counted amount'}>
+                          <Input
+                            type="number"
+                            aria-label={
+                              shouldAutoFillCustomReference
+                                ? 'Custom ingredient amount'
+                                : 'Custom counted amount'
+                            }
+                            placeholder="0"
+                            value={cookedFoodLineCountedAmount}
+                            onChange={(event) =>
+                              setCookedFoodLineCountedAmount(event.target.value)
+                            }
+                          />
+                        </Field>
+                        <div className="xl:pt-[1.875rem]">
+                          <Button variant="outline" onClick={addCookedFoodIngredientLine}>
+                            Add line
+                          </Button>
+                        </div>
+                      </div>
+                      {shouldAutoFillCustomReference ? (
+                        <p className="text-sm text-muted-foreground">
+                          Reference amount and unit will be saved automatically from the amount
+                          and basis unit.
+                        </p>
+                      ) : null}
+                      <CustomIngredientSwitchRow
+                        ignoreCalories={cookedFoodLineCustomIgnoreCalories}
+                        onIgnoreCaloriesChange={setCookedFoodLineCustomIgnoreCalories}
+                        saveToCatalog={cookedFoodLineCustomSaveToCatalog}
+                        onSaveToCatalogChange={setCookedFoodLineCustomSaveToCatalog}
+                      />
+                    </>
                   )}
                 </div>
+              </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => {
-                      const resolvedCookedFoodName =
-                        cookedFoodName.trim() || toLocalDateString(Date.now())
-                      if (!resolvedCookedFoodSessionId) {
-                        toast.error('Select a session before saving cooked food.')
-                        return
-                      }
-                      if (cookedFoodIngredientLines.length === 0) {
-                        toast.error('Add at least one ingredient line.')
-                        return
-                      }
-                      const finishedWeight = Number(cookedFoodFinishedWeight)
-                      if (!Number.isFinite(finishedWeight) || finishedWeight <= 0) {
-                        toast.error('Finished amount must be greater than 0.')
-                        return
-                      }
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+                <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Recipe</p>
+                      <p className="text-sm text-muted-foreground">
+                        Use an existing recipe as a starting point, or save this result as one.
+                      </p>
+                    </div>
+                    {!editingCookedFoodId ? (
+                      <label className="inline-flex items-center gap-2 text-sm text-foreground">
+                        <Switch
+                          checked={saveCookedFoodAsRecipe}
+                          onCheckedChange={(checked) => {
+                            const nextChecked = Boolean(checked)
+                            setSaveCookedFoodAsRecipe(nextChecked)
+                            if (nextChecked) {
+                              setCookedFoodRecipeVersionId('')
+                              if (!cookedFoodRecipeDraftName.trim() && cookedFoodName.trim()) {
+                                setCookedFoodRecipeDraftName(cookedFoodName.trim())
+                              }
+                            }
+                          }}
+                        />
+                        Save as reusable recipe
+                      </label>
+                    ) : null}
+                  </div>
 
-                      for (const line of cookedFoodIngredientLines) {
-                        const ignored =
-                          line.sourceType === 'ingredient'
-                            ? isIngredientIgnored(line.ingredientId)
-                            : line.ignoreCalories
-                        if (!ignored && (!line.countedAmount || line.countedAmount <= 0)) {
-                          toast.error('All calorie-counted lines must include counted amount.')
-                          return
-                        }
-                      }
-
-                      if (
-                        !editingCookedFoodId &&
-                        saveCookedFoodAsRecipe &&
-                        !(cookedFoodRecipeDraftName.trim() || resolvedCookedFoodName)
-                      ) {
-                        toast.error('Recipe name is required when saving as recipe.')
-                        return
-                      }
-
-                      const recipeVersion =
-                        !saveCookedFoodAsRecipe && cookedFoodRecipeVersionId
-                          ? recipeVersionById.get(cookedFoodRecipeVersionId)
-                          : undefined
-
-                      void runAction(
-                        editingCookedFoodId
-                          ? 'Cooked food updated.'
-                          : 'Cooked food created.',
-                        async () => {
-                          const payload = {
-                            cookSessionId: resolvedCookedFoodSessionId,
-                            name: resolvedCookedFoodName,
-                            recipeId: recipeVersion?.recipeId,
-                            recipeVersionId: cookedFoodRecipeVersionId || undefined,
-                            groupIds: cookedFoodGroupId ? [cookedFoodGroupId] : [],
-                            finishedWeightGrams: finishedWeight,
-                            notes: cookedFoodNotes.trim() || undefined,
-                            ingredients: cookedFoodIngredientLines.map((line) =>
-                              line.sourceType === 'ingredient'
-                                ? {
-                                    sourceType: 'ingredient' as const,
-                                    ingredientId: line.ingredientId,
-                                    referenceAmount: line.referenceAmount,
-                                    referenceUnit: line.referenceUnit,
-                                    countedAmount: line.countedAmount,
-                                  }
-                                : {
-                                    sourceType: 'custom' as const,
-                                    name: line.name,
-                                    kcalPer100: line.kcalPer100,
-                                    kcalBasisUnit: line.kcalBasisUnit,
-                                    ignoreCalories: line.ignoreCalories,
-                                    referenceAmount: line.referenceAmount,
-                                    referenceUnit: line.referenceUnit,
-                                    countedAmount: line.countedAmount,
-                                    saveToCatalog: line.saveToCatalog,
-                                  },
-                            ),
+                  <div className="mt-4 space-y-4">
+                    {editingCookedFoodId || !saveCookedFoodAsRecipe ? (
+                      <Field label="Recipe source">
+                        <SearchablePicker
+                          value={cookedFoodRecipeVersionId}
+                          onValueChange={(value) =>
+                            applyRecipeVersionToCookedFood(value as Id<'recipeVersions'> | '')
                           }
+                          ariaLabel="Cooked food recipe search"
+                          placeholder="Search recipe"
+                          options={recipeVersionOptions}
+                        />
+                      </Field>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        A new recipe draft will be created from these ingredient lines.
+                      </p>
+                    )}
 
-                          if (editingCookedFoodId) {
-                            await updateCookedFood({
-                              cookedFoodId: editingCookedFoodId,
-                              ...payload,
-                            })
-                          } else {
-                            await createCookedFood({
-                              ...payload,
-                              saveAsRecipe: saveCookedFoodAsRecipe || undefined,
-                              recipeDraft: saveCookedFoodAsRecipe
-                                ? {
-                                    name:
-                                      cookedFoodRecipeDraftName.trim() ||
-                                      resolvedCookedFoodName,
-                                    description:
-                                      cookedFoodRecipeDraftDescription.trim() || undefined,
-                                    instructions:
-                                      cookedFoodRecipeDraftInstructions.trim() || undefined,
-                                    notes: cookedFoodRecipeDraftNotes.trim() || undefined,
-                                  }
-                                : undefined,
-                            })
-                          }
-
-                          resetCookedFoodForm()
-                        },
-                      )
-                    }}
-                  >
-                    {editingCookedFoodId ? 'Save cooked food' : 'Create cooked food'}
-                  </Button>
-                  {editingCookedFoodId ? (
-                    <Button variant="outline" onClick={resetCookedFoodForm}>
-                      Cancel
-                    </Button>
-                  ) : null}
+                    {!editingCookedFoodId && saveCookedFoodAsRecipe ? (
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <Field label="Recipe name">
+                          <Input
+                            aria-label="Recipe name from cooked food"
+                            placeholder={cookedFoodName.trim() || 'Recipe name'}
+                            value={cookedFoodRecipeDraftName}
+                            onChange={(event) => setCookedFoodRecipeDraftName(event.target.value)}
+                          />
+                        </Field>
+                        <Field label="Description">
+                          <Input
+                            aria-label="Recipe description from cooked food"
+                            placeholder="Optional"
+                            value={cookedFoodRecipeDraftDescription}
+                            onChange={(event) =>
+                              setCookedFoodRecipeDraftDescription(event.target.value)
+                            }
+                          />
+                        </Field>
+                        <Field label="Instructions" className="lg:col-span-2">
+                          <Textarea
+                            aria-label="Recipe instructions from cooked food"
+                            placeholder="Optional"
+                            value={cookedFoodRecipeDraftInstructions}
+                            onChange={(event) =>
+                              setCookedFoodRecipeDraftInstructions(event.target.value)
+                            }
+                          />
+                        </Field>
+                        <Field label="Notes" className="lg:col-span-2">
+                          <Input
+                            aria-label="Recipe notes from cooked food"
+                            placeholder="Optional"
+                            value={cookedFoodRecipeDraftNotes}
+                            onChange={(event) => setCookedFoodRecipeDraftNotes(event.target.value)}
+                          />
+                        </Field>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
+                <div className="space-y-5">
+                  <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">
+                        Current lines ({cookedFoodIngredientLines.length})
+                      </p>
+                      <p className="text-sm text-muted-foreground">Review before saving.</p>
+                    </div>
+
+                    {cookedFoodIngredientLines.length === 0 ? (
+                      <div className="mt-4 rounded-md border border-dashed border-border/70 bg-background/70 px-4 py-5 text-sm text-muted-foreground">
+                        Add at least one ingredient line.
+                      </div>
+                    ) : (
+                      <div className="mt-4 max-h-80 space-y-2 overflow-y-auto pr-1">
+                        {cookedFoodIngredientLines.map((line) => {
+                          const ignored =
+                            line.sourceType === 'ingredient'
+                              ? isIngredientIgnored(line.ingredientId)
+                              : line.ignoreCalories
+                          const label =
+                            line.sourceType === 'ingredient'
+                              ? ingredientById.get(line.ingredientId)?.name ?? 'Ingredient'
+                              : line.name
+                          return (
+                            <div
+                              key={line.draftId}
+                              className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/80 px-3 py-2"
+                            >
+                              <p className="text-sm text-foreground">
+                                <span className="font-medium">{label}</span>
+                                {' · '}
+                                {line.referenceAmount.toFixed(2)}{' '}
+                                {getNutritionUnitLabel(line.referenceUnit)}
+                                {' · '}
+                                {ignored
+                                  ? 'Ignored calories'
+                                  : `Counted: ${line.countedAmount?.toFixed(2) ?? 0}`}
+                                {line.sourceType === 'custom' && !line.ignoreCalories ? (
+                                  <>
+                                    {' · '}kcal/100 {formatKcalPer100(line.kcalPer100)} (
+                                    {getNutritionUnitLabel(line.kcalBasisUnit)})
+                                  </>
+                                ) : null}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeCookedFoodIngredientLine(line.draftId)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {editingCookedFoodId ? 'Update cooked food' : 'Ready to save'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {cookedFoodIngredientLines.length} ingredient lines
+                          {selectedCookSession
+                            ? ` · ${formatCookSessionLabel(selectedCookSession)}`
+                            : ' · No session selected'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {editingCookedFoodId ? (
+                          <Button variant="outline" onClick={resetCookedFoodForm}>
+                            Cancel
+                          </Button>
+                        ) : null}
+                        <Button onClick={saveCookedFood}>
+                          {editingCookedFoodId ? 'Save cooked food' : 'Create cooked food'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader className="gap-2 border-b border-border/60">
+                <CardTitle>Cooked foods</CardTitle>
+                <CardDescription>{cookedFoodRows.length} total</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
                 <DataTable
                   columns={cookedFoodColumns}
                   data={cookedFoodRows}
@@ -1230,8 +1560,26 @@ function CookingPageContent() {
                   searchPlaceholder="Search cooked foods"
                   emptyText="No cooked foods found."
                 />
-            </CookedFoodsSection>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 bg-card/90">
+              <CardHeader className="gap-2 border-b border-border/60">
+                <CardTitle>Sessions</CardTitle>
+                <CardDescription>{sessionRows.length} total</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <DataTable
+                  columns={sessionColumns}
+                  data={sessionRows}
+                  searchColumnId="label"
+                  searchPlaceholder="Search sessions"
+                  emptyText="No sessions found."
+                />
+              </CardContent>
+            </Card>
           </div>
+        </div>
       </PageShell>
 
       <ConfirmDestructiveDialog
@@ -1246,4 +1594,19 @@ function CookingPageContent() {
 
 function createDraftId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+type FieldProps = {
+  label: string
+  children: ReactNode
+  className?: string
+}
+
+function Field({ label, children, className }: FieldProps) {
+  return (
+    <div className={cn('block min-w-0', className)}>
+      <span className="mb-2 block text-sm font-medium text-foreground">{label}</span>
+      {children}
+    </div>
+  )
 }
