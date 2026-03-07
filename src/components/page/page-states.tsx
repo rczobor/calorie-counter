@@ -1,4 +1,4 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,7 +16,7 @@ export function ConfigMissingState({
   return (
     <PageShell title={title} subtitle={description} maxWidth="6xl">
       <div className="mt-6">
-        <Card className="mx-auto max-w-3xl border-amber-200 bg-card/90 dark:border-amber-500/30">
+        <Card className="mx-auto max-w-3xl border-border bg-card">
           <CardHeader>
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
@@ -31,9 +31,9 @@ type LoadingSkeletonStateProps = {
   title: string
   subtitle?: string
   eyebrow?: string
-  icon?: React.ReactNode
+  icon?: ReactNode
   maxWidth?: "6xl" | "7xl"
-  children?: React.ReactNode
+  children?: ReactNode
 }
 
 export function LoadingSkeletonState({

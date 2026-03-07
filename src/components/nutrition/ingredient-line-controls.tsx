@@ -1,5 +1,5 @@
 import { Switch } from "@/components/ui/switch";
-import { Toggle } from "@/components/ui/toggle";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 type IngredientLineMode = "ingredient" | "custom";
@@ -12,9 +12,6 @@ type IngredientLineModeToggleProps = {
   className?: string;
 };
 
-const ingredientModeToggleClassName =
-  "rounded-full border border-transparent px-3 text-muted-foreground transition-colors hover:text-foreground data-[state=on]:border-primary/60 data-[state=on]:bg-primary data-[state=on]:font-semibold data-[state=on]:text-primary-foreground data-[state=on]:shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]";
-
 export function IngredientLineModeToggle({
   value,
   onValueChange,
@@ -23,39 +20,20 @@ export function IngredientLineModeToggle({
   className,
 }: IngredientLineModeToggleProps) {
   return (
-    <div
-      className={cn(
-        "inline-flex gap-1 rounded-full border border-border/70 bg-muted/40 p-1",
-        className,
-      )}
+    <Tabs
+      value={value}
+      onValueChange={(nextValue) => {
+        if (nextValue === "ingredient" || nextValue === "custom") {
+          onValueChange(nextValue);
+        }
+      }}
+      className={cn("w-fit", className)}
     >
-      <Toggle
-        size="sm"
-        variant="default"
-        className={ingredientModeToggleClassName}
-        pressed={value === "ingredient"}
-        onPressedChange={(pressed) => {
-          if (pressed) {
-            onValueChange("ingredient");
-          }
-        }}
-      >
-        {existingLabel}
-      </Toggle>
-      <Toggle
-        size="sm"
-        variant="default"
-        className={ingredientModeToggleClassName}
-        pressed={value === "custom"}
-        onPressedChange={(pressed) => {
-          if (pressed) {
-            onValueChange("custom");
-          }
-        }}
-      >
-        {customLabel}
-      </Toggle>
-    </div>
+      <TabsList>
+        <TabsTrigger value="ingredient">{existingLabel}</TabsTrigger>
+        <TabsTrigger value="custom">{customLabel}</TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 }
 

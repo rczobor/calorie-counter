@@ -1,10 +1,10 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 import { BookOpenText } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type RecipesSectionProps = {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function RecipesSection({ children }: RecipesSectionProps) {

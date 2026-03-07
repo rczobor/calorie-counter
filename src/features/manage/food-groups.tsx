@@ -1,10 +1,10 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 import { FolderTree } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type FoodGroupsSectionProps = {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function FoodGroupsSection({ children }: FoodGroupsSectionProps) {

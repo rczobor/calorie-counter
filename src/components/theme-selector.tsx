@@ -21,7 +21,7 @@ export default function ThemeSelector() {
     return (
       <div
         aria-hidden
-        className="h-8 w-24 rounded-md border border-border bg-muted/40 dark:border-white/10 dark:bg-slate-900/70 sm:w-39.5"
+        className="h-8 w-24 rounded-full border border-border bg-muted/50 sm:w-39.5"
       />
     );
   }
@@ -30,7 +30,7 @@ export default function ThemeSelector() {
     <div
       role="radiogroup"
       aria-label="Theme selector"
-      className="inline-flex items-center gap-0.5 rounded-md border border-border bg-background/80 p-0.5 dark:border-white/10 dark:bg-slate-900/70 sm:gap-1 sm:p-1"
+      className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5 sm:gap-1 sm:p-1"
     >
       {THEME_OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -46,9 +46,8 @@ export default function ThemeSelector() {
             aria-pressed={isSelected}
             onClick={() => setTheme(option.value)}
             className={cn(
-              "min-w-8 rounded-sm px-1.5 text-[11px] leading-none dark:text-slate-100 sm:min-w-11.5 sm:px-2",
-              isSelected &&
-                "shadow-sm dark:bg-slate-800/90 dark:text-amber-100 dark:shadow-[0_10px_24px_-16px_rgba(245,158,11,0.65)]",
+              "min-w-8 rounded-full px-1.5 text-[11px] leading-none sm:min-w-11.5 sm:px-2",
+              isSelected && "shadow-sm",
             )}
           >
             <Icon className="size-3" />

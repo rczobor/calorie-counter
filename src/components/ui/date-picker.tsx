@@ -73,20 +73,20 @@ export function DatePicker({
       <PopoverTrigger
         render={
           <Button
-            variant="outline"
-            data-empty={!date}
-            className={cn(
-              "data-[empty=true]:text-muted-foreground justify-start text-left font-normal",
-              className,
-            )}
-            aria-label={ariaLabel ?? placeholder}
-            disabled={disabled}
-          />
+          variant="outline"
+          data-empty={!date}
+          className={cn(
+            "data-[empty=true]:text-muted-foreground justify-start text-left font-normal",
+            className
+          )}
+          aria-label={ariaLabel ?? placeholder}
+          disabled={disabled}
+        >
+          <CalendarIcon />
+          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+        </Button>
         }
-      >
-        <CalendarIcon />
-        {date ? format(date, "PPP") : <span>{placeholder}</span>}
-      </PopoverTrigger>
+      />
       <PopoverContent className="w-auto p-0">
         <Calendar
           mode="single"

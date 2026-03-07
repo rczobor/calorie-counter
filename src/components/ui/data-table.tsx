@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState, type ReactNode } from "react";
 import {
   type ColumnFiltersState,
   type ColumnDef,
@@ -26,7 +26,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchColumnId?: string;
   searchPlaceholder?: string;
-  toolbarActions?: React.ReactNode;
+  toolbarActions?: ReactNode;
   emptyText?: string;
   className?: string;
 }
@@ -42,8 +42,8 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   "use no memo";
 
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
     [],
   );
 

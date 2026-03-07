@@ -1,10 +1,10 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type PeopleTableSectionProps = {
   today: string
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function PeopleTableSection({ today, children }: PeopleTableSectionProps) {

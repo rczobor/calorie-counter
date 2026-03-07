@@ -1,11 +1,11 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type MealTableSectionProps = {
   title: string
   description: string
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function MealTableSection({ title, description, children }: MealTableSectionProps) {

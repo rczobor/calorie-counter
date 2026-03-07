@@ -1,9 +1,9 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type GoalHistorySectionProps = {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function GoalHistorySection({ children }: GoalHistorySectionProps) {

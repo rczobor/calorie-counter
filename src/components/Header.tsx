@@ -13,23 +13,20 @@ const NAV_ITEMS = [
 ] as const
 
 const NAV_LINK_CLASS =
-  'whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
+  'whitespace-nowrap rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
 
 const NAV_LINK_ACTIVE_CLASS =
-  'rounded-md bg-accent px-3 py-2 text-sm text-accent-foreground'
+  'rounded-full bg-accent px-3 py-2 text-sm text-accent-foreground'
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-sm supports-[backdrop-filter]:bg-background/70 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(9,14,24,0.98)_0%,rgba(9,14,24,0.88)_100%)]">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="flex h-16 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Link to="/">
-              <span
-                data-display="true"
-                className="inline-flex items-center gap-2 whitespace-nowrap text-base text-foreground sm:text-lg"
-              >
-                <Flame className="h-5 w-5 text-amber-500" />
+              <span className="inline-flex items-center gap-2 whitespace-nowrap text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                <Flame className="h-5 w-5 text-foreground/80" />
                 Calorie Counter
               </span>
             </Link>
@@ -54,12 +51,12 @@ export default function Header() {
             <ThemeSelector />
             {isClerkConfigured ? (
               <SignedIn>
-                <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground lg:flex">
+                  <ShieldCheck className="h-3.5 w-3.5 text-foreground/70" />
                   Shell mode
                 </div>
-                <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
-                  <DatabaseZap className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground lg:flex">
+                  <DatabaseZap className="h-3.5 w-3.5 text-foreground/70" />
                   Convex ready
                 </div>
               </SignedIn>
