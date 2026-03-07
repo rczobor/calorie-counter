@@ -49,6 +49,7 @@ When schema/validator changes may conflict with existing production data, use ex
    - Run `bunx convex deploy` again.
 
 Migration conventions:
+
 - Prefer `internalMutation`/`internalAction` for one-off migrations.
 - Make migrations idempotent when practical.
 - Remove migration code after successful production execution.
@@ -76,6 +77,7 @@ Migration conventions:
 ## Validation Before Handoff
 
 For non-trivial edits, run:
+
 1. `bun run lint`
 2. `bun run typecheck`
 3. `bun run build`

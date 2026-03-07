@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode } from 'react'
 import {
   type ColumnFiltersState,
   type ColumnDef,
@@ -8,9 +8,9 @@ import {
   getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
-} from "@tanstack/react-table";
+} from '@tanstack/react-table'
 
-import { Input } from "@/components/ui/input";
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -18,17 +18,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[];
-  searchColumnId?: string;
-  searchPlaceholder?: string;
-  toolbarActions?: ReactNode;
-  emptyText?: string;
-  className?: string;
+  columns: ColumnDef<TData, TValue>[]
+  data: TData[]
+  searchColumnId?: string
+  searchPlaceholder?: string
+  toolbarActions?: ReactNode
+  emptyText?: string
+  className?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -37,15 +37,13 @@ export function DataTable<TData, TValue>({
   searchColumnId,
   searchPlaceholder,
   toolbarActions,
-  emptyText = "No results.",
+  emptyText = 'No results.',
   className,
 }: DataTableProps<TData, TValue>) {
-  "use no memo";
+  'use no memo'
 
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
-    [],
-  );
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
   // TanStack Table intentionally returns non-memoizable functions.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -61,22 +59,22 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-  });
+  })
 
   const searchColumn = searchColumnId
     ? table.getColumn(searchColumnId)
-    : undefined;
+    : undefined
 
   return (
-    <div className={cn("min-w-0 w-full max-w-full space-y-3", className)}>
+    <div className={cn('min-w-0 w-full max-w-full space-y-3', className)}>
       {searchColumn || toolbarActions ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {searchColumn ? (
             <Input
               aria-label="Table search"
               className="w-full sm:max-w-xs"
-              placeholder={searchPlaceholder ?? "Search..."}
-              value={(searchColumn.getFilterValue() as string) ?? ""}
+              placeholder={searchPlaceholder ?? 'Search...'}
+              value={(searchColumn.getFilterValue() as string) ?? ''}
               onChange={(event) =>
                 searchColumn.setFilterValue(event.target.value)
               }
@@ -106,7 +104,7 @@ export function DataTable<TData, TValue>({
                             header.getContext(),
                           )}
                     </TableHead>
-                  );
+                  )
                 })}
               </TableRow>
             ))}
@@ -116,7 +114,7 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
+                  data-state={row.getIsSelected() && 'selected'}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -142,5 +140,5 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
     </div>
-  );
+  )
 }

@@ -1,111 +1,114 @@
-import { type ColumnDef } from "@tanstack/react-table";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
-import { useMemo, useState } from "react";
-import { Trash2, UserRound } from "lucide-react";
+import { type ColumnDef } from '@tanstack/react-table'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation } from 'convex/react'
+import { useMemo, useState } from 'react'
+import { Trash2, UserRound } from 'lucide-react'
 
-import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { ConfirmDestructiveDialog } from "@/components/page/confirm-destructive-dialog";
-import { PageShell } from "@/components/page/page-shell";
-import { ConfigMissingState, LoadingSkeletonState } from "@/components/page/page-states";
-import { StatusBadge } from "@/components/page/status-badge";
-import { isConvexConfigured } from "@/integrations/convex/config";
-import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { api } from '../../convex/_generated/api'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
+import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { PageShell } from '@/components/page/page-shell'
+import {
+  ConfigMissingState,
+  LoadingSkeletonState,
+} from '@/components/page/page-states'
+import { StatusBadge } from '@/components/page/status-badge'
+import { isConvexConfigured } from '@/integrations/convex/config'
+import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table'
+import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   CustomIngredientSwitchRow,
   IngredientLineModeToggle,
-} from "@/components/nutrition/ingredient-line-controls";
-import { FoodGroupsSection } from "@/features/manage/food-groups";
-import { IngredientsSection } from "@/features/manage/ingredients";
-import { RecipesSection } from "@/features/manage/recipes";
-import { useConfirmableAction } from "@/hooks/use-confirmable-action";
-import { useManagementData } from "@/hooks/use-management-data";
+} from '@/components/nutrition/ingredient-line-controls'
+import { FoodGroupsSection } from '@/features/manage/food-groups'
+import { IngredientsSection } from '@/features/manage/ingredients'
+import { RecipesSection } from '@/features/manage/recipes'
+import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { useManagementData } from '@/hooks/use-management-data'
 import {
   NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
   formatKcalPer100,
   getKcalPer100,
-} from "@/lib/nutrition";
+} from '@/lib/nutrition'
 
 type FoodGroupTableRow = {
-  id: Id<"foodGroups">;
-  group: Doc<"foodGroups">;
-  name: string;
-  appliesTo: "ingredient" | "cookedFood";
-  status: "Active" | "Archived";
-};
+  id: Id<'foodGroups'>
+  group: Doc<'foodGroups'>
+  name: string
+  appliesTo: 'ingredient' | 'cookedFood'
+  status: 'Active' | 'Archived'
+}
 
 type IngredientTableRow = {
-  id: Id<"ingredients">;
-  ingredient: Doc<"ingredients">;
-  name: string;
-  brand: string;
-  kcalPer100: number;
-  ignoreCalories: boolean;
-  status: "Active" | "Archived";
-};
+  id: Id<'ingredients'>
+  ingredient: Doc<'ingredients'>
+  name: string
+  brand: string
+  kcalPer100: number
+  ignoreCalories: boolean
+  status: 'Active' | 'Archived'
+}
 
 type RecipeTableRow = {
-  id: Id<"recipes">;
-  recipe: Doc<"recipes">;
-  name: string;
-  latestVersionNumber: number;
-  status: "Active" | "Archived";
-};
+  id: Id<'recipes'>
+  recipe: Doc<'recipes'>
+  name: string
+  latestVersionNumber: number
+  status: 'Active' | 'Archived'
+}
 
 type RecipeIngredientPickerRow = {
-  id: Id<"ingredients">;
-  name: string;
-  brand: string;
-  kcalPer100: number;
-  ignoreCalories: boolean;
-};
+  id: Id<'ingredients'>
+  name: string
+  brand: string
+  kcalPer100: number
+  ignoreCalories: boolean
+}
 
 type ExistingRecipeIngredientDraft = {
-  draftId: string;
-  sourceType: "ingredient";
-  ingredientId: Id<"ingredients">;
-  referenceAmount: number;
-  referenceUnit: NutritionUnit;
-};
+  draftId: string
+  sourceType: 'ingredient'
+  ingredientId: Id<'ingredients'>
+  referenceAmount: number
+  referenceUnit: NutritionUnit
+}
 
 type CustomRecipeIngredientDraft = {
-  draftId: string;
-  sourceType: "custom";
-  name: string;
-  kcalPer100: number;
-  ignoreCalories: boolean;
-  referenceAmount: number;
-  referenceUnit: NutritionUnit;
-  saveToCatalog: boolean;
-};
+  draftId: string
+  sourceType: 'custom'
+  name: string
+  kcalPer100: number
+  ignoreCalories: boolean
+  referenceAmount: number
+  referenceUnit: NutritionUnit
+  saveToCatalog: boolean
+}
 
 type RecipeIngredientDraft =
   | ExistingRecipeIngredientDraft
-  | CustomRecipeIngredientDraft;
+  | CustomRecipeIngredientDraft
 
-export const Route = createFileRoute("/manage")({
+export const Route = createFileRoute('/manage')({
   ssr: false,
   component: ManagePage,
-});
+})
 
 function ManagePage() {
   if (!isConvexConfigured) {
-    return <ConfigMissingState />;
+    return <ConfigMissingState />
   }
 
-  return <ManagePageContent />;
+  return <ManagePageContent />
 }
 
 function ManagePageContent() {
-  const [showArchived, setShowArchived] = useState(false);
+  const [showArchived, setShowArchived] = useState(false)
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
@@ -113,158 +116,156 @@ function ManagePageContent() {
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
     confirmPendingAction,
-  } = useConfirmableAction();
+  } = useConfirmableAction()
 
-  const [editingGroupId, setEditingGroupId] = useState<Id<"foodGroups"> | null>(
+  const [editingGroupId, setEditingGroupId] = useState<Id<'foodGroups'> | null>(
     null,
-  );
-  const [groupName, setGroupName] = useState("");
-  const [groupScope, setGroupScope] = useState<"ingredient" | "cookedFood">(
-    "ingredient",
-  );
+  )
+  const [groupName, setGroupName] = useState('')
+  const [groupScope, setGroupScope] = useState<'ingredient' | 'cookedFood'>(
+    'ingredient',
+  )
 
   const [editingIngredientId, setEditingIngredientId] =
-    useState<Id<"ingredients"> | null>(null);
-  const [ingredientName, setIngredientName] = useState("");
-  const [ingredientBrand, setIngredientBrand] = useState("");
-  const [ingredientKcal, setIngredientKcal] = useState("");
+    useState<Id<'ingredients'> | null>(null)
+  const [ingredientName, setIngredientName] = useState('')
+  const [ingredientBrand, setIngredientBrand] = useState('')
+  const [ingredientKcal, setIngredientKcal] = useState('')
   const [ingredientIgnoreCalories, setIngredientIgnoreCalories] =
-    useState(false);
+    useState(false)
   const [ingredientGroupId, setIngredientGroupId] = useState<
-    Id<"foodGroups"> | ""
-  >("");
-  const [ingredientNotes, setIngredientNotes] = useState("");
+    Id<'foodGroups'> | ''
+  >('')
+  const [ingredientNotes, setIngredientNotes] = useState('')
 
-  const [editingRecipeId, setEditingRecipeId] = useState<Id<"recipes"> | null>(
+  const [editingRecipeId, setEditingRecipeId] = useState<Id<'recipes'> | null>(
     null,
-  );
-  const [recipeName, setRecipeName] = useState("");
-  const [recipeDescription, setRecipeDescription] = useState("");
-  const [recipeInstructions, setRecipeInstructions] = useState("");
-  const [recipeNotes, setRecipeNotes] = useState("");
-  const [recipeLineMode, setRecipeLineMode] = useState<"ingredient" | "custom">(
-    "ingredient",
-  );
+  )
+  const [recipeName, setRecipeName] = useState('')
+  const [recipeDescription, setRecipeDescription] = useState('')
+  const [recipeInstructions, setRecipeInstructions] = useState('')
+  const [recipeNotes, setRecipeNotes] = useState('')
+  const [recipeLineMode, setRecipeLineMode] = useState<'ingredient' | 'custom'>(
+    'ingredient',
+  )
   const [recipeLineIngredientId, setRecipeLineIngredientId] = useState<
-    Id<"ingredients"> | ""
-  >("");
-  const [recipeLineCustomName, setRecipeLineCustomName] = useState("");
-  const [recipeLineCustomKcal, setRecipeLineCustomKcal] = useState("");
+    Id<'ingredients'> | ''
+  >('')
+  const [recipeLineCustomName, setRecipeLineCustomName] = useState('')
+  const [recipeLineCustomKcal, setRecipeLineCustomKcal] = useState('')
   const [recipeLineCustomIgnoreCalories, setRecipeLineCustomIgnoreCalories] =
-    useState(false);
+    useState(false)
   const [recipeLineCustomSaveToCatalog, setRecipeLineCustomSaveToCatalog] =
-    useState(true);
-  const [recipeLineAmount, setRecipeLineAmount] = useState("");
-  const [recipeLineUnit, setRecipeLineUnit] = useState<NutritionUnit>("g");
+    useState(true)
+  const [recipeLineAmount, setRecipeLineAmount] = useState('')
+  const [recipeLineUnit, setRecipeLineUnit] = useState<NutritionUnit>('g')
   const [recipeIngredientLines, setRecipeIngredientLines] = useState<
     RecipeIngredientDraft[]
-  >([]);
+  >([])
   const [recipeLineAmountDraftById, setRecipeLineAmountDraftById] = useState<
     Record<string, string>
-  >({});
+  >({})
   const [recipeLineKcalDraftById, setRecipeLineKcalDraftById] = useState<
     Record<string, string>
-  >({});
+  >({})
 
-  const { data, isLoading } = useManagementData();
+  const { data, isLoading } = useManagementData()
 
-  const createFoodGroup = useMutation(api.nutrition.createFoodGroup);
-  const updateFoodGroup = useMutation(api.nutrition.updateFoodGroup);
-  const setFoodGroupArchived = useMutation(api.nutrition.setFoodGroupArchived);
-  const deleteFoodGroup = useMutation(api.nutrition.deleteFoodGroup);
+  const createFoodGroup = useMutation(api.nutrition.createFoodGroup)
+  const updateFoodGroup = useMutation(api.nutrition.updateFoodGroup)
+  const setFoodGroupArchived = useMutation(api.nutrition.setFoodGroupArchived)
+  const deleteFoodGroup = useMutation(api.nutrition.deleteFoodGroup)
 
-  const createIngredient = useMutation(api.nutrition.createIngredient);
-  const updateIngredient = useMutation(api.nutrition.updateIngredient);
-  const setIngredientArchived = useMutation(
-    api.nutrition.setIngredientArchived,
-  );
-  const deleteIngredient = useMutation(api.nutrition.deleteIngredient);
+  const createIngredient = useMutation(api.nutrition.createIngredient)
+  const updateIngredient = useMutation(api.nutrition.updateIngredient)
+  const setIngredientArchived = useMutation(api.nutrition.setIngredientArchived)
+  const deleteIngredient = useMutation(api.nutrition.deleteIngredient)
 
-  const createRecipe = useMutation(api.nutrition.createRecipe);
+  const createRecipe = useMutation(api.nutrition.createRecipe)
   const updateRecipeCurrentVersion = useMutation(
     api.nutrition.updateRecipeCurrentVersion,
-  );
-  const setRecipeArchived = useMutation(api.nutrition.setRecipeArchived);
-  const deleteRecipe = useMutation(api.nutrition.deleteRecipe);
+  )
+  const setRecipeArchived = useMutation(api.nutrition.setRecipeArchived)
+  const deleteRecipe = useMutation(api.nutrition.deleteRecipe)
 
   const groups = data.foodGroups
     .filter((group) => (showArchived ? true : !group.archived))
     .filter(
       (group) =>
-        group.appliesTo === "ingredient" || group.appliesTo === "cookedFood",
-    );
+        group.appliesTo === 'ingredient' || group.appliesTo === 'cookedFood',
+    )
   const ingredients = data.ingredients.filter((item) =>
     showArchived ? true : !item.archived,
-  );
+  )
   const recipes = data.recipes.filter((item) =>
     showArchived ? true : !item.archived,
-  );
+  )
 
   const ingredientById = useMemo(
     () => new Map(data.ingredients.map((item) => [item._id, item])),
     [data.ingredients],
-  );
+  )
 
   const recipeVersionByRecipeId = useMemo(() => {
-    const map = new Map<Id<"recipes">, Doc<"recipeVersions">>();
+    const map = new Map<Id<'recipes'>, Doc<'recipeVersions'>>()
     for (const version of data.recipeVersions) {
       if (version.isCurrent && !map.has(version.recipeId)) {
-        map.set(version.recipeId, version);
+        map.set(version.recipeId, version)
       }
     }
-    return map;
-  }, [data.recipeVersions]);
+    return map
+  }, [data.recipeVersions])
 
   const recipeIngredientsByVersionId = useMemo(() => {
     const map = new Map<
-      Id<"recipeVersions">,
-      Doc<"recipeVersionIngredients">[]
-    >();
+      Id<'recipeVersions'>,
+      Doc<'recipeVersionIngredients'>[]
+    >()
     for (const line of data.recipeVersionIngredients) {
-      const bucket = map.get(line.recipeVersionId);
+      const bucket = map.get(line.recipeVersionId)
       if (bucket) {
-        bucket.push(line);
+        bucket.push(line)
       } else {
-        map.set(line.recipeVersionId, [line]);
+        map.set(line.recipeVersionId, [line])
       }
     }
-    return map;
-  }, [data.recipeVersionIngredients]);
+    return map
+  }, [data.recipeVersionIngredients])
 
   const resetGroupForm = () => {
-    setEditingGroupId(null);
-    setGroupName("");
-    setGroupScope("ingredient");
-  };
+    setEditingGroupId(null)
+    setGroupName('')
+    setGroupScope('ingredient')
+  }
 
   const resetIngredientForm = () => {
-    setEditingIngredientId(null);
-    setIngredientName("");
-    setIngredientBrand("");
-    setIngredientKcal("");
-    setIngredientIgnoreCalories(false);
-    setIngredientGroupId("");
-    setIngredientNotes("");
-  };
+    setEditingIngredientId(null)
+    setIngredientName('')
+    setIngredientBrand('')
+    setIngredientKcal('')
+    setIngredientIgnoreCalories(false)
+    setIngredientGroupId('')
+    setIngredientNotes('')
+  }
 
   const resetRecipeForm = () => {
-    setEditingRecipeId(null);
-    setRecipeName("");
-    setRecipeDescription("");
-    setRecipeInstructions("");
-    setRecipeNotes("");
-    setRecipeLineMode("ingredient");
-    setRecipeLineIngredientId("");
-    setRecipeLineCustomName("");
-    setRecipeLineCustomKcal("");
-    setRecipeLineCustomIgnoreCalories(false);
-    setRecipeLineCustomSaveToCatalog(true);
-    setRecipeLineAmount("");
-    setRecipeLineUnit("g");
-    setRecipeIngredientLines([]);
-    setRecipeLineAmountDraftById({});
-    setRecipeLineKcalDraftById({});
-  };
+    setEditingRecipeId(null)
+    setRecipeName('')
+    setRecipeDescription('')
+    setRecipeInstructions('')
+    setRecipeNotes('')
+    setRecipeLineMode('ingredient')
+    setRecipeLineIngredientId('')
+    setRecipeLineCustomName('')
+    setRecipeLineCustomKcal('')
+    setRecipeLineCustomIgnoreCalories(false)
+    setRecipeLineCustomSaveToCatalog(true)
+    setRecipeLineAmount('')
+    setRecipeLineUnit('g')
+    setRecipeIngredientLines([])
+    setRecipeLineAmountDraftById({})
+    setRecipeLineKcalDraftById({})
+  }
 
   const foodGroupRows = useMemo<FoodGroupTableRow[]>(
     () =>
@@ -272,45 +273,45 @@ function ManagePageContent() {
         id: group._id,
         group,
         name: group.name,
-        appliesTo: (group as { appliesTo: "ingredient" | "cookedFood" })
+        appliesTo: (group as { appliesTo: 'ingredient' | 'cookedFood' })
           .appliesTo,
-        status: group.archived ? "Archived" : "Active",
+        status: group.archived ? 'Archived' : 'Active',
       })),
     [groups],
-  );
+  )
 
   const foodGroupColumns: ColumnDef<FoodGroupTableRow>[] = [
     {
-      accessorKey: "name",
-      header: "Name",
+      accessorKey: 'name',
+      header: 'Name',
     },
     {
-      accessorKey: "appliesTo",
-      header: "Scope",
+      accessorKey: 'appliesTo',
+      header: 'Scope',
       cell: ({ row }) => row.original.appliesTo,
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: 'status',
+      header: 'Status',
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
-        const group = row.original.group;
+        const group = row.original.group
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                setEditingGroupId(group._id);
-                setGroupName(group.name);
+                setEditingGroupId(group._id)
+                setGroupName(group.name)
                 setGroupScope(
-                  (group as { appliesTo: "ingredient" | "cookedFood" })
+                  (group as { appliesTo: 'ingredient' | 'cookedFood' })
                     .appliesTo,
-                );
+                )
               }}
             >
               Edit
@@ -320,17 +321,17 @@ function ManagePageContent() {
               variant="outline"
               onClick={() =>
                 void runAction(
-                  group.archived ? "Group restored." : "Group archived.",
+                  group.archived ? 'Group restored.' : 'Group archived.',
                   async () => {
                     await setFoodGroupArchived({
                       groupId: group._id,
                       archived: !group.archived,
-                    });
+                    })
                   },
                 )
               }
             >
-              {group.archived ? "Unarchive" : "Archive"}
+              {group.archived ? 'Unarchive' : 'Archive'}
             </Button>
             <Button
               size="sm"
@@ -338,12 +339,12 @@ function ManagePageContent() {
               aria-label={`Delete ${group.name}`}
               onClick={() =>
                 confirmAndRunAction(
-                  "Delete this group permanently?",
-                  "Group deleted.",
+                  'Delete this group permanently?',
+                  'Group deleted.',
                   async () => {
-                    await deleteFoodGroup({ groupId: group._id });
+                    await deleteFoodGroup({ groupId: group._id })
                     if (editingGroupId === group._id) {
-                      resetGroupForm();
+                      resetGroupForm()
                     }
                   },
                 )
@@ -352,10 +353,10 @@ function ManagePageContent() {
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        );
+        )
       },
     },
-  ];
+  ]
 
   const ingredientRows = useMemo<IngredientTableRow[]>(
     () =>
@@ -363,20 +364,20 @@ function ManagePageContent() {
         id: ingredient._id,
         ingredient,
         name: ingredient.name,
-        brand: ingredient.brand ?? "",
+        brand: ingredient.brand ?? '',
         kcalPer100: getKcalPer100(ingredient),
         ignoreCalories: Boolean(
           (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
         ),
-        status: ingredient.archived ? "Archived" : "Active",
+        status: ingredient.archived ? 'Archived' : 'Active',
       })),
     [ingredients],
-  );
+  )
 
   const ingredientColumns: ColumnDef<IngredientTableRow>[] = [
     {
-      accessorKey: "name",
-      header: "Ingredient",
+      accessorKey: 'name',
+      header: 'Ingredient',
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
@@ -389,42 +390,42 @@ function ManagePageContent() {
       ),
     },
     {
-      accessorKey: "kcalPer100",
-      header: "kcal/100",
+      accessorKey: 'kcalPer100',
+      header: 'kcal/100',
       cell: ({ row }) => formatKcalPer100(row.original.kcalPer100),
     },
     {
-      accessorKey: "ignoreCalories",
-      header: "Calories",
-      cell: ({ row }) => (row.original.ignoreCalories ? "Ignored" : "Counted"),
+      accessorKey: 'ignoreCalories',
+      header: 'Calories',
+      cell: ({ row }) => (row.original.ignoreCalories ? 'Ignored' : 'Counted'),
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: 'status',
+      header: 'Status',
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
-        const ingredient = row.original.ingredient;
+        const ingredient = row.original.ingredient
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                setEditingIngredientId(ingredient._id);
-                setIngredientName(ingredient.name);
-                setIngredientBrand(ingredient.brand ?? "");
-                setIngredientKcal(formatKcalPer100(getKcalPer100(ingredient)));
+                setEditingIngredientId(ingredient._id)
+                setIngredientName(ingredient.name)
+                setIngredientBrand(ingredient.brand ?? '')
+                setIngredientKcal(formatKcalPer100(getKcalPer100(ingredient)))
                 setIngredientIgnoreCalories(
                   Boolean(
                     (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
                   ),
-                );
-                setIngredientGroupId(ingredient.groupIds[0] ?? "");
-                setIngredientNotes(ingredient.notes ?? "");
+                )
+                setIngredientGroupId(ingredient.groupIds[0] ?? '')
+                setIngredientNotes(ingredient.notes ?? '')
               }}
             >
               Edit
@@ -435,18 +436,18 @@ function ManagePageContent() {
               onClick={() =>
                 void runAction(
                   ingredient.archived
-                    ? "Ingredient restored."
-                    : "Ingredient archived.",
+                    ? 'Ingredient restored.'
+                    : 'Ingredient archived.',
                   async () => {
                     await setIngredientArchived({
                       ingredientId: ingredient._id,
                       archived: !ingredient.archived,
-                    });
+                    })
                   },
                 )
               }
             >
-              {ingredient.archived ? "Unarchive" : "Archive"}
+              {ingredient.archived ? 'Unarchive' : 'Archive'}
             </Button>
             <Button
               size="sm"
@@ -454,12 +455,12 @@ function ManagePageContent() {
               aria-label={`Delete ${ingredient.name}`}
               onClick={() =>
                 confirmAndRunAction(
-                  "Delete this ingredient permanently?",
-                  "Ingredient deleted.",
+                  'Delete this ingredient permanently?',
+                  'Ingredient deleted.',
                   async () => {
-                    await deleteIngredient({ ingredientId: ingredient._id });
+                    await deleteIngredient({ ingredientId: ingredient._id })
                     if (editingIngredientId === ingredient._id) {
-                      resetIngredientForm();
+                      resetIngredientForm()
                     }
                   },
                 )
@@ -468,30 +469,30 @@ function ManagePageContent() {
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        );
+        )
       },
     },
-  ];
+  ]
 
   const recipeIngredientRows = useMemo<RecipeIngredientPickerRow[]>(
     () =>
       ingredients.map((ingredient) => ({
         id: ingredient._id,
         name: ingredient.name,
-        brand: ingredient.brand ?? "",
+        brand: ingredient.brand ?? '',
         kcalPer100: getKcalPer100(ingredient),
         ignoreCalories: Boolean(
           (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
         ),
       })),
     [ingredients],
-  );
+  )
 
   const recipeIngredientColumns: ColumnDef<RecipeIngredientPickerRow>[] = [
     {
-      id: "name",
+      id: 'name',
       accessorFn: (row) => `${row.name} ${row.brand}`.trim(),
-      header: "Ingredient",
+      header: 'Ingredient',
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
@@ -504,35 +505,35 @@ function ManagePageContent() {
       ),
     },
     {
-      accessorKey: "kcalPer100",
-      header: "kcal/100",
+      accessorKey: 'kcalPer100',
+      header: 'kcal/100',
       cell: ({ row }) => formatKcalPer100(row.original.kcalPer100),
     },
     {
-      accessorKey: "ignoreCalories",
-      header: "Calories",
-      cell: ({ row }) => (row.original.ignoreCalories ? "Ignored" : "Counted"),
+      accessorKey: 'ignoreCalories',
+      header: 'Calories',
+      cell: ({ row }) => (row.original.ignoreCalories ? 'Ignored' : 'Counted'),
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Select</div>,
       cell: ({ row }) => {
-        const isSelected = row.original.id === recipeLineIngredientId;
+        const isSelected = row.original.id === recipeLineIngredientId
         return (
           <div className="flex justify-end">
             <Button
               type="button"
               size="sm"
-              variant={isSelected ? "default" : "outline"}
+              variant={isSelected ? 'default' : 'outline'}
               onClick={() => setRecipeLineIngredientId(row.original.id)}
             >
-              {isSelected ? "Selected" : "Use"}
+              {isSelected ? 'Selected' : 'Use'}
             </Button>
           </div>
-        );
+        )
       },
     },
-  ];
+  ]
 
   const recipeRows = useMemo<RecipeTableRow[]>(
     () =>
@@ -541,15 +542,15 @@ function ManagePageContent() {
         recipe,
         name: recipe.name,
         latestVersionNumber: recipe.latestVersionNumber,
-        status: recipe.archived ? "Archived" : "Active",
+        status: recipe.archived ? 'Archived' : 'Active',
       })),
     [recipes],
-  );
+  )
 
   const recipeColumns: ColumnDef<RecipeTableRow>[] = [
     {
-      accessorKey: "name",
-      header: "Recipe",
+      accessorKey: 'name',
+      header: 'Recipe',
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
@@ -560,46 +561,46 @@ function ManagePageContent() {
       ),
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: 'status',
+      header: 'Status',
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
-        const recipe = row.original.recipe;
+        const recipe = row.original.recipe
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                const currentVersion = recipeVersionByRecipeId.get(recipe._id);
+                const currentVersion = recipeVersionByRecipeId.get(recipe._id)
                 if (!currentVersion) {
-                  return;
+                  return
                 }
                 const versionIngredients =
-                  recipeIngredientsByVersionId.get(currentVersion._id) ?? [];
-                setEditingRecipeId(recipe._id);
-                setRecipeName(recipe.name);
-                setRecipeDescription(recipe.description ?? "");
-                setRecipeInstructions(currentVersion.instructions ?? "");
-                setRecipeNotes(currentVersion.notes ?? "");
-                setRecipeLineAmountDraftById({});
-                setRecipeLineKcalDraftById({});
+                  recipeIngredientsByVersionId.get(currentVersion._id) ?? []
+                setEditingRecipeId(recipe._id)
+                setRecipeName(recipe.name)
+                setRecipeDescription(recipe.description ?? '')
+                setRecipeInstructions(currentVersion.instructions ?? '')
+                setRecipeNotes(currentVersion.notes ?? '')
+                setRecipeLineAmountDraftById({})
+                setRecipeLineKcalDraftById({})
                 setRecipeIngredientLines(
                   versionIngredients.map((line) => {
-                    const sourceType = line.sourceType;
-                    const referenceAmount = line.referenceAmount;
-                    const referenceUnit = line.referenceUnit;
-                    if (sourceType === "custom" || !line.ingredientId) {
+                    const sourceType = line.sourceType
+                    const referenceAmount = line.referenceAmount
+                    const referenceUnit = line.referenceUnit
+                    if (sourceType === 'custom' || !line.ingredientId) {
                       return {
                         draftId: createDraftId(),
-                        sourceType: "custom" as const,
+                        sourceType: 'custom' as const,
                         name:
                           (line as { ingredientNameSnapshot?: string })
-                            .ingredientNameSnapshot ?? "Custom ingredient",
+                            .ingredientNameSnapshot ?? 'Custom ingredient',
                         kcalPer100:
                           (line as { kcalPer100Snapshot?: number })
                             .kcalPer100Snapshot ?? 0,
@@ -610,17 +611,17 @@ function ManagePageContent() {
                         referenceAmount,
                         referenceUnit,
                         saveToCatalog: false,
-                      };
+                      }
                     }
                     return {
                       draftId: createDraftId(),
-                      sourceType: "ingredient" as const,
+                      sourceType: 'ingredient' as const,
                       ingredientId: line.ingredientId,
                       referenceAmount,
                       referenceUnit,
-                    };
+                    }
                   }),
-                );
+                )
               }}
             >
               Edit
@@ -630,17 +631,17 @@ function ManagePageContent() {
               variant="outline"
               onClick={() =>
                 void runAction(
-                  recipe.archived ? "Recipe restored." : "Recipe archived.",
+                  recipe.archived ? 'Recipe restored.' : 'Recipe archived.',
                   async () => {
                     await setRecipeArchived({
                       recipeId: recipe._id,
                       archived: !recipe.archived,
-                    });
+                    })
                   },
                 )
               }
             >
-              {recipe.archived ? "Unarchive" : "Archive"}
+              {recipe.archived ? 'Unarchive' : 'Archive'}
             </Button>
             <Button
               size="sm"
@@ -648,12 +649,12 @@ function ManagePageContent() {
               aria-label={`Delete ${recipe.name}`}
               onClick={() =>
                 confirmAndRunAction(
-                  "Delete this recipe permanently?",
-                  "Recipe deleted.",
+                  'Delete this recipe permanently?',
+                  'Recipe deleted.',
                   async () => {
-                    await deleteRecipe({ recipeId: recipe._id });
+                    await deleteRecipe({ recipeId: recipe._id })
                     if (editingRecipeId === recipe._id) {
-                      resetRecipeForm();
+                      resetRecipeForm()
                     }
                   },
                 )
@@ -662,57 +663,57 @@ function ManagePageContent() {
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        );
+        )
       },
     },
-  ];
+  ]
 
   const addRecipeIngredientLine = () => {
-    const parsedAmount = Number(recipeLineAmount);
+    const parsedAmount = Number(recipeLineAmount)
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return;
+      return
     }
 
-    if (recipeLineMode === "ingredient") {
+    if (recipeLineMode === 'ingredient') {
       if (!recipeLineIngredientId) {
-        return;
+        return
       }
       setRecipeIngredientLines((current) => [
         ...current,
         {
           draftId: createDraftId(),
-          sourceType: "ingredient",
+          sourceType: 'ingredient',
           ingredientId: recipeLineIngredientId,
           referenceAmount: parsedAmount,
           referenceUnit: recipeLineUnit,
         },
-      ]);
-      setRecipeLineIngredientId("");
-      setRecipeLineAmount("");
-      return;
+      ])
+      setRecipeLineIngredientId('')
+      setRecipeLineAmount('')
+      return
     }
 
-    const parsedKcal = Number(recipeLineCustomKcal);
+    const parsedKcal = Number(recipeLineCustomKcal)
     if (!recipeLineCustomName.trim()) {
-      return;
+      return
     }
     if (
       !recipeLineCustomIgnoreCalories &&
       (!Number.isFinite(parsedKcal) || parsedKcal <= 0)
     ) {
-      return;
+      return
     }
     const kcalPer100 =
       recipeLineCustomIgnoreCalories &&
       (!Number.isFinite(parsedKcal) || parsedKcal < 0)
         ? 0
-        : parsedKcal;
+        : parsedKcal
 
     setRecipeIngredientLines((current) => [
       ...current,
       {
         draftId: createDraftId(),
-        sourceType: "custom",
+        sourceType: 'custom',
         name: recipeLineCustomName.trim(),
         kcalPer100: kcalPer100,
         ignoreCalories: recipeLineCustomIgnoreCalories,
@@ -720,35 +721,35 @@ function ManagePageContent() {
         referenceUnit: recipeLineUnit,
         saveToCatalog: recipeLineCustomSaveToCatalog,
       },
-    ]);
-    setRecipeLineCustomName("");
-    setRecipeLineCustomKcal("");
-    setRecipeLineCustomIgnoreCalories(false);
-    setRecipeLineCustomSaveToCatalog(true);
-    setRecipeLineAmount("");
-  };
+    ])
+    setRecipeLineCustomName('')
+    setRecipeLineCustomKcal('')
+    setRecipeLineCustomIgnoreCalories(false)
+    setRecipeLineCustomSaveToCatalog(true)
+    setRecipeLineAmount('')
+  }
 
   const removeRecipeIngredientLine = (draftId: string) => {
     setRecipeIngredientLines((current) =>
       current.filter((line) => line.draftId !== draftId),
-    );
+    )
     setRecipeLineAmountDraftById((current) => {
       if (!(draftId in current)) {
-        return current;
+        return current
       }
-      const next = { ...current };
-      delete next[draftId];
-      return next;
-    });
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
     setRecipeLineKcalDraftById((current) => {
       if (!(draftId in current)) {
-        return current;
+        return current
       }
-      const next = { ...current };
-      delete next[draftId];
-      return next;
-    });
-  };
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
+  }
 
   const updateRecipeIngredientLine = (
     draftId: string,
@@ -756,17 +757,17 @@ function ManagePageContent() {
   ) => {
     setRecipeIngredientLines((current) =>
       current.map((line) => (line.draftId === draftId ? updater(line) : line)),
-    );
-  };
+    )
+  }
 
   const updateCustomRecipeIngredientLine = (
     draftId: string,
     updater: (line: CustomRecipeIngredientDraft) => CustomRecipeIngredientDraft,
   ) => {
     updateRecipeIngredientLine(draftId, (line) =>
-      line.sourceType === "custom" ? updater(line) : line,
-    );
-  };
+      line.sourceType === 'custom' ? updater(line) : line,
+    )
+  }
 
   const updateRecipeIngredientLineAmount = (
     draftId: string,
@@ -775,8 +776,8 @@ function ManagePageContent() {
     updateRecipeIngredientLine(draftId, (line) => ({
       ...line,
       referenceAmount: nextAmount,
-    }));
-  };
+    }))
+  }
 
   const updateRecipeIngredientLineUnit = (
     draftId: string,
@@ -785,71 +786,71 @@ function ManagePageContent() {
     updateRecipeIngredientLine(draftId, (line) => ({
       ...line,
       referenceUnit: nextUnit,
-    }));
-  };
+    }))
+  }
 
   const commitRecipeIngredientLineAmount = (draftId: string) => {
-    const rawValue = recipeLineAmountDraftById[draftId];
+    const rawValue = recipeLineAmountDraftById[draftId]
     if (rawValue !== undefined) {
-      const parsedAmount = Number(rawValue);
+      const parsedAmount = Number(rawValue)
       if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
-        updateRecipeIngredientLineAmount(draftId, parsedAmount);
+        updateRecipeIngredientLineAmount(draftId, parsedAmount)
       }
     }
     setRecipeLineAmountDraftById((current) => {
       if (!(draftId in current)) {
-        return current;
+        return current
       }
-      const next = { ...current };
-      delete next[draftId];
-      return next;
-    });
-  };
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
+  }
 
   const commitRecipeIngredientLineKcal = (draftId: string) => {
-    const rawValue = recipeLineKcalDraftById[draftId];
+    const rawValue = recipeLineKcalDraftById[draftId]
     if (rawValue !== undefined) {
-      const parsedKcal = Number(rawValue);
+      const parsedKcal = Number(rawValue)
       updateCustomRecipeIngredientLine(draftId, (line) => {
         if (line.ignoreCalories) {
           return {
             ...line,
             kcalPer100:
               Number.isFinite(parsedKcal) && parsedKcal >= 0 ? parsedKcal : 0,
-          };
+          }
         }
         if (Number.isFinite(parsedKcal) && parsedKcal > 0) {
-          return { ...line, kcalPer100: parsedKcal };
+          return { ...line, kcalPer100: parsedKcal }
         }
-        return line;
-      });
+        return line
+      })
     }
     setRecipeLineKcalDraftById((current) => {
       if (!(draftId in current)) {
-        return current;
+        return current
       }
-      const next = { ...current };
-      delete next[draftId];
-      return next;
-    });
-  };
+      const next = { ...current }
+      delete next[draftId]
+      return next
+    })
+  }
 
   const recipeLineEditorColumns: ColumnDef<RecipeIngredientDraft>[] = [
     {
-      id: "name",
+      id: 'name',
       header: () => <div className="w-[220px]">Name</div>,
       cell: ({ row }) => {
-        const line = row.original;
+        const line = row.original
         const label =
-          line.sourceType === "ingredient"
-            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
-            : line.name;
+          line.sourceType === 'ingredient'
+            ? (ingredientById.get(line.ingredientId)?.name ?? 'Ingredient')
+            : line.name
 
-        if (line.sourceType === "custom") {
+        if (line.sourceType === 'custom') {
           return (
             <div className="w-[220px]">
               <Input
-                aria-label={`${label || "Custom ingredient"} name`}
+                aria-label={`${label || 'Custom ingredient'} name`}
                 className="h-8 text-sm"
                 placeholder="Ingredient"
                 value={line.name}
@@ -864,33 +865,33 @@ function ManagePageContent() {
                 }
               />
             </div>
-          );
+          )
         }
 
         return (
           <div className="flex h-8 w-[220px] items-center truncate text-sm text-foreground">
             {label}
           </div>
-        );
+        )
       },
     },
     {
-      id: "kcalPer100",
+      id: 'kcalPer100',
       header: () => <div className="w-[120px]">kcal/100</div>,
       cell: ({ row }) => {
-        const line = row.original;
+        const line = row.original
         const label =
-          line.sourceType === "ingredient"
-            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
-            : line.name;
+          line.sourceType === 'ingredient'
+            ? (ingredientById.get(line.ingredientId)?.name ?? 'Ingredient')
+            : line.name
 
-        if (line.sourceType === "custom") {
+        if (line.sourceType === 'custom') {
           return (
             <Input
               type="number"
-              min={line.ignoreCalories ? "0" : "1"}
+              min={line.ignoreCalories ? '0' : '1'}
               step="1"
-              aria-label={`${label || "Custom ingredient"} kcal per 100`}
+              aria-label={`${label || 'Custom ingredient'} kcal per 100`}
               placeholder="kcal/100"
               disabled={line.ignoreCalories}
               className="h-8 w-[120px]"
@@ -906,12 +907,12 @@ function ManagePageContent() {
               }
               onBlur={() => commitRecipeIngredientLineKcal(line.draftId)}
               onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur();
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur()
                 }
               }}
             />
-          );
+          )
         }
 
         return (
@@ -920,18 +921,18 @@ function ManagePageContent() {
               getKcalPer100(ingredientById.get(line.ingredientId) ?? {}),
             )}
           </span>
-        );
+        )
       },
     },
     {
-      id: "amount",
+      id: 'amount',
       header: () => <div className="w-[120px]">Amount</div>,
       cell: ({ row }) => {
-        const line = row.original;
+        const line = row.original
         const label =
-          line.sourceType === "ingredient"
-            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
-            : line.name;
+          line.sourceType === 'ingredient'
+            ? (ingredientById.get(line.ingredientId)?.name ?? 'Ingredient')
+            : line.name
 
         return (
           <Input
@@ -952,23 +953,23 @@ function ManagePageContent() {
             }
             onBlur={() => commitRecipeIngredientLineAmount(line.draftId)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
+              if (event.key === 'Enter') {
+                event.currentTarget.blur()
               }
             }}
           />
-        );
+        )
       },
     },
     {
-      id: "unit",
+      id: 'unit',
       header: () => <div className="w-[130px]">Unit</div>,
       cell: ({ row }) => {
-        const line = row.original;
+        const line = row.original
         const label =
-          line.sourceType === "ingredient"
-            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
-            : line.name;
+          line.sourceType === 'ingredient'
+            ? (ingredientById.get(line.ingredientId)?.name ?? 'Ingredient')
+            : line.name
 
         return (
           <Select
@@ -978,37 +979,37 @@ function ManagePageContent() {
             onValueChange={(value) =>
               updateRecipeIngredientLineUnit(
                 line.draftId,
-                (value as NutritionUnit | null) ?? "g",
+                (value as NutritionUnit | null) ?? 'g',
               )
             }
             options={NUTRITION_UNIT_OPTIONS}
           />
-        );
+        )
       },
     },
     {
-      id: "ignore",
+      id: 'ignore',
       header: () => <div className="w-[90px] text-center">Ignore</div>,
       cell: ({ row }) => {
-        const line = row.original;
+        const line = row.original
         const label =
-          line.sourceType === "ingredient"
-            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
-            : line.name;
+          line.sourceType === 'ingredient'
+            ? (ingredientById.get(line.ingredientId)?.name ?? 'Ingredient')
+            : line.name
 
-        if (line.sourceType !== "custom") {
+        if (line.sourceType !== 'custom') {
           return (
             <span className="block w-[90px] text-center text-xs text-muted-foreground">
               -
             </span>
-          );
+          )
         }
 
         return (
           <div className="flex w-[90px] justify-center">
             <Switch
               size="sm"
-              aria-label={`${label || "Custom ingredient"} ignore calories`}
+              aria-label={`${label || 'Custom ingredient'} ignore calories`}
               checked={line.ignoreCalories}
               onCheckedChange={(checked) =>
                 updateCustomRecipeIngredientLine(
@@ -1021,32 +1022,32 @@ function ManagePageContent() {
               }
             />
           </div>
-        );
+        )
       },
     },
     {
-      id: "save",
+      id: 'save',
       header: () => <div className="w-[90px] text-center">Save</div>,
       cell: ({ row }) => {
-        const line = row.original;
+        const line = row.original
         const label =
-          line.sourceType === "ingredient"
-            ? (ingredientById.get(line.ingredientId)?.name ?? "Ingredient")
-            : line.name;
+          line.sourceType === 'ingredient'
+            ? (ingredientById.get(line.ingredientId)?.name ?? 'Ingredient')
+            : line.name
 
-        if (line.sourceType !== "custom") {
+        if (line.sourceType !== 'custom') {
           return (
             <span className="block w-[90px] text-center text-xs text-muted-foreground">
               -
             </span>
-          );
+          )
         }
 
         return (
           <div className="flex w-[90px] justify-center">
             <Switch
               size="sm"
-              aria-label={`${label || "Custom ingredient"} save to ingredient catalog`}
+              aria-label={`${label || 'Custom ingredient'} save to ingredient catalog`}
               checked={line.saveToCatalog}
               onCheckedChange={(checked) =>
                 updateCustomRecipeIngredientLine(
@@ -1059,11 +1060,11 @@ function ManagePageContent() {
               }
             />
           </div>
-        );
+        )
       },
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="w-[120px] text-right">Action</div>,
       cell: ({ row }) => (
         <div className="flex w-[120px] justify-end">
@@ -1078,7 +1079,7 @@ function ManagePageContent() {
         </div>
       ),
     },
-  ];
+  ]
 
   if (isLoading) {
     return (
@@ -1103,7 +1104,7 @@ function ManagePageContent() {
           </div>
         </div>
       </LoadingSkeletonState>
-    );
+    )
   }
 
   return (
@@ -1116,407 +1117,390 @@ function ManagePageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
+        <div className="order-2 mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <FoodGroupsSection>
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+              <Input
+                aria-label="Group name"
+                placeholder="Group name"
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+              />
+              <Select
+                ariaLabel="Group scope"
+                value={groupScope}
+                onValueChange={(value) =>
+                  setGroupScope(
+                    (value as 'ingredient' | 'cookedFood' | null) ??
+                      'ingredient',
+                  )
+                }
+                options={[
+                  { value: 'ingredient', label: 'Ingredient only' },
+                  { value: 'cookedFood', label: 'Cooked food only' },
+                ]}
+              />
+              <Button
+                onClick={() =>
+                  void runAction(
+                    editingGroupId ? 'Group updated.' : 'Group created.',
+                    async () => {
+                      if (editingGroupId) {
+                        await updateFoodGroup({
+                          groupId: editingGroupId,
+                          name: groupName,
+                          appliesTo: groupScope,
+                        })
+                      } else {
+                        await createFoodGroup({
+                          name: groupName,
+                          appliesTo: groupScope,
+                        })
+                      }
+                      resetGroupForm()
+                    },
+                  )
+                }
+              >
+                {editingGroupId ? 'Save' : 'Create'}
+              </Button>
+            </div>
+            <DataTable
+              columns={foodGroupColumns}
+              data={foodGroupRows}
+              searchColumnId="name"
+              searchPlaceholder="Search food groups"
+              emptyText="No food groups found."
+            />
+          </FoodGroupsSection>
 
-          <div className="order-2 mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-            <FoodGroupsSection>
-                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                  <Input
-                    aria-label="Group name"
-                    placeholder="Group name"
-                    value={groupName}
-                    onChange={(event) => setGroupName(event.target.value)}
-                  />
-                  <Select
-                    ariaLabel="Group scope"
-                    value={groupScope}
-                    onValueChange={(value) =>
-                      setGroupScope(
-                        (value as "ingredient" | "cookedFood" | null) ??
-                          "ingredient",
-                      )
-                    }
-                    options={[
-                      { value: "ingredient", label: "Ingredient only" },
-                      { value: "cookedFood", label: "Cooked food only" },
-                    ]}
-                  />
-                  <Button
-                    onClick={() =>
-                      void runAction(
-                        editingGroupId ? "Group updated." : "Group created.",
-                        async () => {
-                          if (editingGroupId) {
-                            await updateFoodGroup({
-                              groupId: editingGroupId,
-                              name: groupName,
-                              appliesTo: groupScope,
-                            });
-                          } else {
-                            await createFoodGroup({
-                              name: groupName,
-                              appliesTo: groupScope,
-                            });
-                          }
-                          resetGroupForm();
-                        },
-                      )
-                    }
-                  >
-                    {editingGroupId ? "Save" : "Create"}
-                  </Button>
-                </div>
-                <DataTable
-                  columns={foodGroupColumns}
-                  data={foodGroupRows}
-                  searchColumnId="name"
-                  searchPlaceholder="Search food groups"
-                  emptyText="No food groups found."
+          <IngredientsSection>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                aria-label="Ingredient name"
+                placeholder="Ingredient name"
+                value={ingredientName}
+                onChange={(event) => setIngredientName(event.target.value)}
+              />
+              <Input
+                aria-label="Ingredient brand"
+                placeholder="Brand"
+                value={ingredientBrand}
+                onChange={(event) => setIngredientBrand(event.target.value)}
+              />
+              <Input
+                type="number"
+                aria-label="Ingredient kcal per 100"
+                placeholder="kcal / 100"
+                value={ingredientKcal}
+                onChange={(event) => setIngredientKcal(event.target.value)}
+              />
+              <Select
+                ariaLabel="Ingredient group"
+                value={ingredientGroupId}
+                onValueChange={(value) =>
+                  setIngredientGroupId(
+                    (value as Id<'foodGroups'> | '' | null) ?? '',
+                  )
+                }
+                placeholder="Group (optional)"
+                options={[
+                  { value: '', label: 'No group' },
+                  ...groups
+                    .filter((group) => group.appliesTo === 'ingredient')
+                    .map((group) => ({
+                      value: group._id,
+                      label: group.name,
+                    })),
+                ]}
+              />
+              <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+                Ignore calories
+                <Switch
+                  checked={ingredientIgnoreCalories}
+                  onCheckedChange={(checked) =>
+                    setIngredientIgnoreCalories(Boolean(checked))
+                  }
                 />
-            </FoodGroupsSection>
+              </label>
+            </div>
+            <Textarea
+              aria-label="Ingredient notes"
+              placeholder="Notes"
+              value={ingredientNotes}
+              onChange={(event) => setIngredientNotes(event.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() =>
+                  void runAction(
+                    editingIngredientId
+                      ? 'Ingredient updated.'
+                      : 'Ingredient created.',
+                    async () => {
+                      const payload = {
+                        name: ingredientName,
+                        brand: ingredientBrand.trim() || undefined,
+                        kcalPer100: Number(ingredientKcal),
+                        ignoreCalories: ingredientIgnoreCalories,
+                        groupIds: ingredientGroupId ? [ingredientGroupId] : [],
+                        notes: ingredientNotes.trim() || undefined,
+                      }
+                      if (editingIngredientId) {
+                        await updateIngredient({
+                          ingredientId: editingIngredientId,
+                          ...payload,
+                        })
+                      } else {
+                        await createIngredient(payload)
+                      }
+                      resetIngredientForm()
+                    },
+                  )
+                }
+              >
+                {editingIngredientId ? 'Save ingredient' : 'Add ingredient'}
+              </Button>
+              {editingIngredientId ? (
+                <Button variant="outline" onClick={resetIngredientForm}>
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
 
-            <IngredientsSection>
-                <div className="grid gap-3 sm:grid-cols-2">
+            <DataTable
+              columns={ingredientColumns}
+              data={ingredientRows}
+              searchColumnId="name"
+              searchPlaceholder="Search ingredients"
+              emptyText="No ingredients found."
+            />
+          </IngredientsSection>
+        </div>
+
+        <div className="order-1 mt-6 grid grid-cols-1 gap-5">
+          <RecipesSection>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                aria-label="Recipe name"
+                placeholder="Recipe name"
+                value={recipeName}
+                onChange={(event) => setRecipeName(event.target.value)}
+              />
+              <Input
+                aria-label="Recipe description"
+                placeholder="Description"
+                value={recipeDescription}
+                onChange={(event) => setRecipeDescription(event.target.value)}
+              />
+            </div>
+            <Textarea
+              aria-label="Recipe instructions"
+              placeholder="Instructions"
+              value={recipeInstructions}
+              onChange={(event) => setRecipeInstructions(event.target.value)}
+            />
+            <Input
+              aria-label="Recipe version notes"
+              placeholder="Version notes"
+              value={recipeNotes}
+              onChange={(event) => setRecipeNotes(event.target.value)}
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-medium text-foreground">
+                Add ingredient line
+              </p>
+              <IngredientLineModeToggle
+                value={recipeLineMode}
+                onValueChange={setRecipeLineMode}
+              />
+            </div>
+
+            {recipeLineMode === 'ingredient' ? (
+              <div className="space-y-3">
+                <DataTable
+                  columns={recipeIngredientColumns}
+                  data={recipeIngredientRows}
+                  searchColumnId="name"
+                  searchPlaceholder="Search ingredients by name or brand"
+                  emptyText="No ingredients found."
+                />
+                <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr_1fr_auto]">
                   <Input
-                    aria-label="Ingredient name"
-                    placeholder="Ingredient name"
-                    value={ingredientName}
-                    onChange={(event) => setIngredientName(event.target.value)}
-                  />
-                  <Input
-                    aria-label="Ingredient brand"
-                    placeholder="Brand"
-                    value={ingredientBrand}
-                    onChange={(event) => setIngredientBrand(event.target.value)}
+                    aria-label="Selected recipe ingredient"
+                    value={
+                      recipeLineIngredientId
+                        ? (ingredientById.get(recipeLineIngredientId)?.name ??
+                          'Unknown ingredient')
+                        : ''
+                    }
+                    placeholder="Select ingredient from table"
+                    readOnly
                   />
                   <Input
                     type="number"
-                    aria-label="Ingredient kcal per 100"
-                    placeholder="kcal / 100"
-                    value={ingredientKcal}
-                    onChange={(event) => setIngredientKcal(event.target.value)}
+                    aria-label="Recipe reference amount"
+                    placeholder="Amount"
+                    value={recipeLineAmount}
+                    onChange={(event) =>
+                      setRecipeLineAmount(event.target.value)
+                    }
                   />
                   <Select
-                    ariaLabel="Ingredient group"
-                    value={ingredientGroupId}
+                    ariaLabel="Recipe reference unit"
+                    value={recipeLineUnit}
                     onValueChange={(value) =>
-                      setIngredientGroupId(
-                        (value as Id<"foodGroups"> | "" | null) ?? "",
-                      )
+                      setRecipeLineUnit((value as NutritionUnit | null) ?? 'g')
                     }
-                    placeholder="Group (optional)"
-                    options={[
-                      { value: "", label: "No group" },
-                      ...groups
-                        .filter((group) => group.appliesTo === "ingredient")
-                        .map((group) => ({
-                          value: group._id,
-                          label: group.name,
-                        })),
-                    ]}
+                    options={NUTRITION_UNIT_OPTIONS}
                   />
-                  <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
-                    Ignore calories
-                    <Switch
-                      checked={ingredientIgnoreCalories}
-                      onCheckedChange={(checked) =>
-                        setIngredientIgnoreCalories(Boolean(checked))
-                      }
-                    />
-                  </label>
-                </div>
-                <Textarea
-                  aria-label="Ingredient notes"
-                  placeholder="Notes"
-                  value={ingredientNotes}
-                  onChange={(event) => setIngredientNotes(event.target.value)}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() =>
-                      void runAction(
-                        editingIngredientId
-                          ? "Ingredient updated."
-                          : "Ingredient created.",
-                        async () => {
-                          const payload = {
-                            name: ingredientName,
-                            brand: ingredientBrand.trim() || undefined,
-                            kcalPer100: Number(ingredientKcal),
-                            ignoreCalories: ingredientIgnoreCalories,
-                            groupIds: ingredientGroupId
-                              ? [ingredientGroupId]
-                              : [],
-                            notes: ingredientNotes.trim() || undefined,
-                          };
-                          if (editingIngredientId) {
-                            await updateIngredient({
-                              ingredientId: editingIngredientId,
-                              ...payload,
-                            });
-                          } else {
-                            await createIngredient(payload);
-                          }
-                          resetIngredientForm();
-                        },
-                      )
-                    }
-                  >
-                    {editingIngredientId ? "Save ingredient" : "Add ingredient"}
+                  <Button variant="outline" onClick={addRecipeIngredientLine}>
+                    Add
                   </Button>
-                  {editingIngredientId ? (
-                    <Button variant="outline" onClick={resetIngredientForm}>
-                      Cancel
-                    </Button>
-                  ) : null}
                 </div>
-
-                <DataTable
-                  columns={ingredientColumns}
-                  data={ingredientRows}
-                  searchColumnId="name"
-                  searchPlaceholder="Search ingredients"
-                  emptyText="No ingredients found."
-                />
-            </IngredientsSection>
-          </div>
-
-          <div className="order-1 mt-6 grid grid-cols-1 gap-5">
-            <RecipesSection>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    aria-label="Recipe name"
-                    placeholder="Recipe name"
-                    value={recipeName}
-                    onChange={(event) => setRecipeName(event.target.value)}
-                  />
-                  <Input
-                    aria-label="Recipe description"
-                    placeholder="Description"
-                    value={recipeDescription}
-                    onChange={(event) =>
-                      setRecipeDescription(event.target.value)
-                    }
-                  />
-                </div>
-                <Textarea
-                  aria-label="Recipe instructions"
-                  placeholder="Instructions"
-                  value={recipeInstructions}
+              </div>
+            ) : (
+              <div
+                className={`grid gap-3 ${
+                  recipeLineCustomIgnoreCalories
+                    ? 'sm:grid-cols-[1.2fr_0.7fr_0.7fr_auto]'
+                    : 'sm:grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr_auto]'
+                }`}
+              >
+                <Input
+                  aria-label="Recipe custom ingredient name"
+                  placeholder="Ingredient"
+                  value={recipeLineCustomName}
                   onChange={(event) =>
-                    setRecipeInstructions(event.target.value)
+                    setRecipeLineCustomName(event.target.value)
                   }
                 />
-                <Input
-                  aria-label="Recipe version notes"
-                  placeholder="Version notes"
-                  value={recipeNotes}
-                  onChange={(event) => setRecipeNotes(event.target.value)}
-                />
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-medium text-foreground">
-                    Add ingredient line
-                  </p>
-                  <IngredientLineModeToggle
-                    value={recipeLineMode}
-                    onValueChange={setRecipeLineMode}
-                  />
-                </div>
-
-                {recipeLineMode === "ingredient" ? (
-                  <div className="space-y-3">
-                    <DataTable
-                      columns={recipeIngredientColumns}
-                      data={recipeIngredientRows}
-                      searchColumnId="name"
-                      searchPlaceholder="Search ingredients by name or brand"
-                      emptyText="No ingredients found."
-                    />
-                    <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr_1fr_auto]">
-                      <Input
-                        aria-label="Selected recipe ingredient"
-                        value={
-                          recipeLineIngredientId
-                            ? (ingredientById.get(recipeLineIngredientId)
-                                ?.name ?? "Unknown ingredient")
-                            : ""
-                        }
-                        placeholder="Select ingredient from table"
-                        readOnly
-                      />
-                      <Input
-                        type="number"
-                        aria-label="Recipe reference amount"
-                        placeholder="Amount"
-                        value={recipeLineAmount}
-                        onChange={(event) =>
-                          setRecipeLineAmount(event.target.value)
-                        }
-                      />
-                      <Select
-                        ariaLabel="Recipe reference unit"
-                        value={recipeLineUnit}
-                        onValueChange={(value) =>
-                          setRecipeLineUnit(
-                            (value as NutritionUnit | null) ?? "g",
-                          )
-                        }
-                        options={NUTRITION_UNIT_OPTIONS}
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={addRecipeIngredientLine}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className={`grid gap-3 ${
-                      recipeLineCustomIgnoreCalories
-                        ? "sm:grid-cols-[1.2fr_0.7fr_0.7fr_auto]"
-                        : "sm:grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr_auto]"
-                    }`}
-                  >
-                    <Input
-                      aria-label="Recipe custom ingredient name"
-                      placeholder="Ingredient"
-                      value={recipeLineCustomName}
-                      onChange={(event) =>
-                        setRecipeLineCustomName(event.target.value)
-                      }
-                    />
-                    {recipeLineCustomIgnoreCalories ? null : (
-                      <Input
-                        type="number"
-                        aria-label="Recipe custom kcal per 100"
-                        placeholder="kcal/100"
-                        value={recipeLineCustomKcal}
-                        onChange={(event) =>
-                          setRecipeLineCustomKcal(event.target.value)
-                        }
-                      />
-                    )}
-                    <Input
-                      type="number"
-                      aria-label="Recipe custom reference amount"
-                      placeholder="Amount"
-                      value={recipeLineAmount}
-                      onChange={(event) =>
-                        setRecipeLineAmount(event.target.value)
-                      }
-                    />
-                    <Select
-                      ariaLabel="Recipe custom reference unit"
-                      value={recipeLineUnit}
-                      onValueChange={(value) =>
-                        setRecipeLineUnit(
-                          (value as NutritionUnit | null) ?? "g",
-                        )
-                      }
-                      options={NUTRITION_UNIT_OPTIONS}
-                    />
-                    <Button variant="outline" onClick={addRecipeIngredientLine}>
-                      Add
-                    </Button>
-                    <CustomIngredientSwitchRow
-                      ignoreCalories={recipeLineCustomIgnoreCalories}
-                      onIgnoreCaloriesChange={setRecipeLineCustomIgnoreCalories}
-                      saveToCatalog={recipeLineCustomSaveToCatalog}
-                      onSaveToCatalogChange={setRecipeLineCustomSaveToCatalog}
-                    />
-                  </div>
-                )}
-
-                <div className="rounded-md border border-border/60 bg-muted/35 p-2.5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-medium text-foreground">
-                      Recipe ingredients
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {recipeIngredientLines.length} line
-                      {recipeIngredientLines.length === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                  {recipeIngredientLines.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Add at least one ingredient line.
-                    </p>
-                  ) : (
-                    <DataTable
-                      columns={recipeLineEditorColumns}
-                      data={recipeIngredientLines}
-                      emptyText="Add at least one ingredient line."
-                      className="[&_[data-slot=table]]:min-w-[980px] [&_[data-slot=table]]:table-auto"
-                    />
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() =>
-                      void runAction(
-                        editingRecipeId ? "Recipe updated." : "Recipe created.",
-                        async () => {
-                          const ingredientLines = recipeIngredientLines.map(
-                            (line) =>
-                              line.sourceType === "ingredient"
-                                ? {
-                                    sourceType: "ingredient" as const,
-                                    ingredientId: line.ingredientId,
-                                    referenceAmount: line.referenceAmount,
-                                    referenceUnit: line.referenceUnit,
-                                  }
-                                : {
-                                    sourceType: "custom" as const,
-                                    name: line.name,
-                                    kcalPer100: line.kcalPer100,
-                                    ignoreCalories: line.ignoreCalories,
-                                    referenceAmount: line.referenceAmount,
-                                    referenceUnit: line.referenceUnit,
-                                    saveToCatalog: line.saveToCatalog,
-                                  },
-                          );
-                          const payload = {
-                            name: recipeName,
-                            description: recipeDescription.trim() || undefined,
-                            instructions:
-                              recipeInstructions.trim() || undefined,
-                            notes: recipeNotes.trim() || undefined,
-                            ingredientLines,
-                          };
-                          if (editingRecipeId) {
-                            await updateRecipeCurrentVersion({
-                              recipeId: editingRecipeId,
-                              ...payload,
-                            });
-                          } else {
-                            await createRecipe(payload);
-                          }
-                          resetRecipeForm();
-                        },
-                      )
+                {recipeLineCustomIgnoreCalories ? null : (
+                  <Input
+                    type="number"
+                    aria-label="Recipe custom kcal per 100"
+                    placeholder="kcal/100"
+                    value={recipeLineCustomKcal}
+                    onChange={(event) =>
+                      setRecipeLineCustomKcal(event.target.value)
                     }
-                  >
-                    {editingRecipeId ? "Save recipe" : "Create recipe"}
-                  </Button>
-                  {editingRecipeId ? (
-                    <Button variant="outline" onClick={resetRecipeForm}>
-                      Cancel
-                    </Button>
-                  ) : null}
-                </div>
-
-                <DataTable
-                  columns={recipeColumns}
-                  data={recipeRows}
-                  searchColumnId="name"
-                  searchPlaceholder="Search recipes"
-                  emptyText="No recipes found."
+                  />
+                )}
+                <Input
+                  type="number"
+                  aria-label="Recipe custom reference amount"
+                  placeholder="Amount"
+                  value={recipeLineAmount}
+                  onChange={(event) => setRecipeLineAmount(event.target.value)}
                 />
-            </RecipesSection>
-          </div>
+                <Select
+                  ariaLabel="Recipe custom reference unit"
+                  value={recipeLineUnit}
+                  onValueChange={(value) =>
+                    setRecipeLineUnit((value as NutritionUnit | null) ?? 'g')
+                  }
+                  options={NUTRITION_UNIT_OPTIONS}
+                />
+                <Button variant="outline" onClick={addRecipeIngredientLine}>
+                  Add
+                </Button>
+                <CustomIngredientSwitchRow
+                  ignoreCalories={recipeLineCustomIgnoreCalories}
+                  onIgnoreCaloriesChange={setRecipeLineCustomIgnoreCalories}
+                  saveToCatalog={recipeLineCustomSaveToCatalog}
+                  onSaveToCatalogChange={setRecipeLineCustomSaveToCatalog}
+                />
+              </div>
+            )}
+
+            <div className="rounded-md border border-border/60 bg-muted/35 p-2.5">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-medium text-foreground">
+                  Recipe ingredients
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {recipeIngredientLines.length} line
+                  {recipeIngredientLines.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              {recipeIngredientLines.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Add at least one ingredient line.
+                </p>
+              ) : (
+                <DataTable
+                  columns={recipeLineEditorColumns}
+                  data={recipeIngredientLines}
+                  emptyText="Add at least one ingredient line."
+                  className="[&_[data-slot=table]]:min-w-[980px] [&_[data-slot=table]]:table-auto"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() =>
+                  void runAction(
+                    editingRecipeId ? 'Recipe updated.' : 'Recipe created.',
+                    async () => {
+                      const ingredientLines = recipeIngredientLines.map(
+                        (line) =>
+                          line.sourceType === 'ingredient'
+                            ? {
+                                sourceType: 'ingredient' as const,
+                                ingredientId: line.ingredientId,
+                                referenceAmount: line.referenceAmount,
+                                referenceUnit: line.referenceUnit,
+                              }
+                            : {
+                                sourceType: 'custom' as const,
+                                name: line.name,
+                                kcalPer100: line.kcalPer100,
+                                ignoreCalories: line.ignoreCalories,
+                                referenceAmount: line.referenceAmount,
+                                referenceUnit: line.referenceUnit,
+                                saveToCatalog: line.saveToCatalog,
+                              },
+                      )
+                      const payload = {
+                        name: recipeName,
+                        description: recipeDescription.trim() || undefined,
+                        instructions: recipeInstructions.trim() || undefined,
+                        notes: recipeNotes.trim() || undefined,
+                        ingredientLines,
+                      }
+                      if (editingRecipeId) {
+                        await updateRecipeCurrentVersion({
+                          recipeId: editingRecipeId,
+                          ...payload,
+                        })
+                      } else {
+                        await createRecipe(payload)
+                      }
+                      resetRecipeForm()
+                    },
+                  )
+                }
+              >
+                {editingRecipeId ? 'Save recipe' : 'Create recipe'}
+              </Button>
+              {editingRecipeId ? (
+                <Button variant="outline" onClick={resetRecipeForm}>
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
+
+            <DataTable
+              columns={recipeColumns}
+              data={recipeRows}
+              searchColumnId="name"
+              searchPlaceholder="Search recipes"
+              emptyText="No recipes found."
+            />
+          </RecipesSection>
+        </div>
       </PageShell>
 
       <ConfirmDestructiveDialog
@@ -1526,9 +1510,9 @@ function ManagePageContent() {
         description={pendingConfirmation?.message}
       />
     </>
-  );
+  )
 }
 
 function createDraftId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }

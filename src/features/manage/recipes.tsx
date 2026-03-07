@@ -1,7 +1,13 @@
-import type { ReactNode } from "react"
-import { BookOpenText } from "lucide-react"
+import type { ReactNode } from 'react'
+import { BookOpenText } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 type RecipesSectionProps = {
   children: ReactNode
@@ -16,7 +22,8 @@ export function RecipesSection({ children }: RecipesSectionProps) {
           Recipes
         </CardTitle>
         <CardDescription>
-          Build recipe lines with existing or inline ingredients. Inline lines can be optionally saved to catalog.
+          Build recipe lines with existing or inline ingredients. Inline lines
+          can be optionally saved to catalog.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">{children}</CardContent>

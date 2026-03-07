@@ -1,21 +1,21 @@
-import { useQuery } from "convex/react"
+import { useQuery } from 'convex/react'
 
-import { api } from "../../convex/_generated/api"
-import type { Doc } from "../../convex/_generated/dataModel"
+import { api } from '../../convex/_generated/api'
+import type { Doc } from '../../convex/_generated/dataModel'
 
 export type ManagementData = {
-  people: Doc<"people">[]
-  personGoalHistory: Doc<"personGoalHistory">[]
-  foodGroups: Doc<"foodGroups">[]
-  ingredients: Doc<"ingredients">[]
-  recipes: Doc<"recipes">[]
-  recipeVersions: Doc<"recipeVersions">[]
-  recipeVersionIngredients: Doc<"recipeVersionIngredients">[]
-  cookSessions: Doc<"cookSessions">[]
-  cookedFoods: Doc<"cookedFoods">[]
-  cookedFoodIngredients: Doc<"cookedFoodIngredients">[]
-  meals: Doc<"meals">[]
-  mealItems: Doc<"mealItems">[]
+  people: Doc<'people'>[]
+  personGoalHistory: Doc<'personGoalHistory'>[]
+  foodGroups: Doc<'foodGroups'>[]
+  ingredients: Doc<'ingredients'>[]
+  recipes: Doc<'recipes'>[]
+  recipeVersions: Doc<'recipeVersions'>[]
+  recipeVersionIngredients: Doc<'recipeVersionIngredients'>[]
+  cookSessions: Doc<'cookSessions'>[]
+  cookedFoods: Doc<'cookedFoods'>[]
+  cookedFoodIngredients: Doc<'cookedFoodIngredients'>[]
+  meals: Doc<'meals'>[]
+  mealItems: Doc<'mealItems'>[]
 }
 
 const EMPTY_MANAGEMENT_DATA: ManagementData = {

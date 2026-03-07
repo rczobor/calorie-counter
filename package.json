@@ -7,6 +7,7 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
+    "format": "bunx prettier . --write",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "bun run typecheck:app && bun run typecheck:convex",

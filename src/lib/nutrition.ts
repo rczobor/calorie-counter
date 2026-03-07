@@ -19,7 +19,10 @@ export const NUTRITION_UNIT_OPTIONS: Array<{
 ]
 
 export function getNutritionUnitLabel(unit: NutritionUnit) {
-  return NUTRITION_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? unit
+  return (
+    NUTRITION_UNIT_OPTIONS.find((option) => option.value === unit)?.label ??
+    unit
+  )
 }
 
 export function toLocalDateString(timestamp: number) {
@@ -45,9 +48,7 @@ export function toErrorMessage(error: unknown) {
   return 'Request failed.'
 }
 
-export function getKcalPer100(entity: {
-  kcalPer100?: number
-}) {
+export function getKcalPer100(entity: { kcalPer100?: number }) {
   return entity.kcalPer100 ?? 0
 }
 

@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
-import { renderHook } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { renderHook } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 const mockUseQuery = vi.fn()
 
-vi.mock("convex/react", () => ({
+vi.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
 }))
 
-import { useManagementData } from "@/hooks/use-management-data"
+import { useManagementData } from '@/hooks/use-management-data'
 
-describe("useManagementData", () => {
-  it("returns loading fallback when query is undefined", () => {
+describe('useManagementData', () => {
+  it('returns loading fallback when query is undefined', () => {
     mockUseQuery.mockReturnValue(undefined)
 
     const { result } = renderHook(() => useManagementData())
@@ -21,9 +21,9 @@ describe("useManagementData", () => {
     expect(result.current.data.meals).toEqual([])
   })
 
-  it("returns query data when available", () => {
+  it('returns query data when available', () => {
     mockUseQuery.mockReturnValue({
-      people: [{ _id: "p1", name: "Alex" }],
+      people: [{ _id: 'p1', name: 'Alex' }],
       personGoalHistory: [],
       foodGroups: [],
       ingredients: [],

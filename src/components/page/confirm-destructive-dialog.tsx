@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react"
+import { Trash2 } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -9,7 +9,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog'
 
 type ConfirmDestructiveDialogProps = {
   open: boolean
@@ -25,8 +25,8 @@ export function ConfirmDestructiveDialog({
   onOpenChange,
   onConfirm,
   description,
-  title = "Confirm deletion",
-  confirmLabel = "Delete",
+  title = 'Confirm deletion',
+  confirmLabel = 'Delete',
 }: ConfirmDestructiveDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -37,7 +37,11 @@ export function ConfirmDestructiveDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction className="gap-2" variant="destructive" onClick={onConfirm}>
+          <AlertDialogAction
+            className="gap-2"
+            variant="destructive"
+            onClick={onConfirm}
+          >
             <Trash2 className="h-4 w-4" />
             {confirmLabel}
           </AlertDialogAction>

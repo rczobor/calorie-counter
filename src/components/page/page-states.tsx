@@ -1,8 +1,14 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { PageShell } from "@/components/page/page-shell"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { PageShell } from '@/components/page/page-shell'
 
 type ConfigMissingStateProps = {
   title?: string
@@ -10,8 +16,8 @@ type ConfigMissingStateProps = {
 }
 
 export function ConfigMissingState({
-  title = "Connect Convex First",
-  description = "Add VITE_CONVEX_URL and CONVEX_DEPLOYMENT in .env.local, then reload.",
+  title = 'Connect Convex First',
+  description = 'Add VITE_CONVEX_URL and CONVEX_DEPLOYMENT in .env.local, then reload.',
 }: ConfigMissingStateProps) {
   return (
     <PageShell title={title} subtitle={description} maxWidth="6xl">
@@ -32,7 +38,7 @@ type LoadingSkeletonStateProps = {
   subtitle?: string
   eyebrow?: string
   icon?: ReactNode
-  maxWidth?: "6xl" | "7xl"
+  maxWidth?: '6xl' | '7xl'
   children?: ReactNode
 }
 
@@ -41,7 +47,7 @@ export function LoadingSkeletonState({
   subtitle,
   eyebrow,
   icon,
-  maxWidth = "7xl",
+  maxWidth = '7xl',
   children,
 }: LoadingSkeletonStateProps) {
   return (

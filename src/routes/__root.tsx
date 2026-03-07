@@ -1,56 +1,56 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { TanStackDevtools } from "@tanstack/react-devtools";
+import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
+import { TanStackDevtools } from '@tanstack/react-devtools'
 import {
   ClerkLoaded,
   ClerkLoading,
   SignInButton,
   SignedIn,
   SignedOut,
-} from "@clerk/clerk-react";
-import { useConvexAuth } from "convex/react";
+} from '@clerk/clerk-react'
+import { useConvexAuth } from 'convex/react'
 
-import Header from "../components/Header";
+import Header from '../components/Header'
 
-import ClerkProvider from "../integrations/clerk/provider";
-import { isClerkConfigured } from "../integrations/clerk/config";
+import ClerkProvider from '../integrations/clerk/provider'
+import { isClerkConfigured } from '../integrations/clerk/config'
 
-import ConvexProvider from "../integrations/convex/provider";
-import { ThemeProvider } from "../components/theme-provider";
-import { Toaster } from "../components/ui/sonner";
-import { Button } from "../components/ui/button";
+import ConvexProvider from '../integrations/convex/provider'
+import { ThemeProvider } from '../components/theme-provider'
+import { Toaster } from '../components/ui/sonner'
+import { Button } from '../components/ui/button'
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
+} from '../components/ui/card'
 
-import appCss from "../styles.css?url";
+import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       {
-        charSet: "utf-8",
+        charSet: 'utf-8',
       },
       {
-        name: "viewport",
-        content: "width=device-width, initial-scale=1",
+        name: 'viewport',
+        content: 'width=device-width, initial-scale=1',
       },
       {
-        title: "Calorie Counter Shell",
+        title: 'Calorie Counter Shell',
       },
     ],
     links: [
       {
-        rel: "stylesheet",
+        rel: 'stylesheet',
         href: appCss,
       },
     ],
   }),
   shellComponent: RootDocument,
-});
+})
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -72,11 +72,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               <Toaster richColors />
               <TanStackDevtools
                 config={{
-                  position: "bottom-right",
+                  position: 'bottom-right',
                 }}
                 plugins={[
                   {
-                    name: "Tanstack Router",
+                    name: 'Tanstack Router',
                     render: <TanStackRouterDevtoolsPanel />,
                   },
                 ]}
@@ -87,7 +87,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
-  );
+  )
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -98,14 +98,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           <CardHeader className="space-y-3">
             <CardTitle>Authentication setup required</CardTitle>
             <CardDescription>
-              Add `VITE_CLERK_PUBLISHABLE_KEY` to
-              your project `.env.local` to sign in and access
-              data.
+              Add `VITE_CLERK_PUBLISHABLE_KEY` to your project `.env.local` to
+              sign in and access data.
             </CardDescription>
           </CardHeader>
         </Card>
       </main>
-    );
+    )
   }
 
   return (
@@ -133,11 +132,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         </SignedOut>
       </ClerkLoaded>
     </>
-  );
+  )
 }
 
 function ConvexAuthReady({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated } = useConvexAuth();
+  const { isLoading, isAuthenticated } = useConvexAuth()
 
   if (isLoading) {
     return (
@@ -145,7 +144,7 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
         title="Preparing secure session"
         description="Connecting your sign-in session to data access..."
       />
-    );
+    )
   }
 
   if (!isAuthenticated) {
@@ -154,10 +153,10 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
         title="Session verification failed"
         description="Sign out and sign in again. If this persists, create a Clerk JWT template named `convex` (audience `convex`), verify CLERK_JWT_ISSUER_DOMAIN, then restart `bunx convex dev`."
       />
-    );
+    )
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }
 
 function AuthStatusCard({
@@ -165,9 +164,9 @@ function AuthStatusCard({
   description,
   action,
 }: {
-  title: string;
-  description: string;
-  action?: React.ReactNode;
+  title: string
+  description: string
+  action?: React.ReactNode
 }) {
   return (
     <main className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6">
@@ -179,5 +178,5 @@ function AuthStatusCard({
         </CardHeader>
       </Card>
     </main>
-  );
+  )
 }

@@ -1,90 +1,90 @@
-import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { format } from 'date-fns'
+import { Calendar as CalendarIcon } from 'lucide-react'
 
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 
 type DatePickerProps = {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  ariaLabel?: string;
-  className?: string;
-  disabled?: boolean;
-};
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  ariaLabel?: string
+  className?: string
+  disabled?: boolean
+}
 
 function parseLocalDate(value: string) {
   if (!value) {
-    return undefined;
+    return undefined
   }
 
-  const parts = value.split("-");
+  const parts = value.split('-')
   if (parts.length !== 3) {
-    return undefined;
+    return undefined
   }
 
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
+  const year = Number(parts[0])
+  const month = Number(parts[1])
+  const day = Number(parts[2])
   if (
     !Number.isInteger(year) ||
     !Number.isInteger(month) ||
     !Number.isInteger(day)
   ) {
-    return undefined;
+    return undefined
   }
 
-  const date = new Date(year, month - 1, day);
+  const date = new Date(year, month - 1, day)
   if (
     date.getFullYear() !== year ||
     date.getMonth() !== month - 1 ||
     date.getDate() !== day
   ) {
-    return undefined;
+    return undefined
   }
-  return date;
+  return date
 }
 
 function toLocalDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function DatePicker({
   value,
   onChange,
-  placeholder = "Pick a date",
+  placeholder = 'Pick a date',
   ariaLabel,
   className,
   disabled,
 }: DatePickerProps) {
-  const date = parseLocalDate(value);
+  const date = parseLocalDate(value)
 
   return (
     <Popover>
       <PopoverTrigger
         render={
           <Button
-          variant="outline"
-          data-empty={!date}
-          className={cn(
-            "data-[empty=true]:text-muted-foreground justify-start text-left font-normal",
-            className
-          )}
-          aria-label={ariaLabel ?? placeholder}
-          disabled={disabled}
-        >
-          <CalendarIcon />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
-        </Button>
+            variant="outline"
+            data-empty={!date}
+            className={cn(
+              'data-[empty=true]:text-muted-foreground justify-start text-left font-normal',
+              className,
+            )}
+            aria-label={ariaLabel ?? placeholder}
+            disabled={disabled}
+          >
+            <CalendarIcon />
+            {date ? format(date, 'PPP') : <span>{placeholder}</span>}
+          </Button>
         }
       />
       <PopoverContent className="w-auto p-0">
@@ -93,11 +93,11 @@ export function DatePicker({
           selected={date}
           onSelect={(selectedDate) => {
             if (selectedDate) {
-              onChange(toLocalDateKey(selectedDate));
+              onChange(toLocalDateKey(selectedDate))
             }
           }}
         />
       </PopoverContent>
     </Popover>
-  );
+  )
 }

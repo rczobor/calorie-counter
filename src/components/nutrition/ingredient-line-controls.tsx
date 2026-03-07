@@ -1,49 +1,49 @@
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
-type IngredientLineMode = "ingredient" | "custom";
+type IngredientLineMode = 'ingredient' | 'custom'
 
 type IngredientLineModeToggleProps = {
-  value: IngredientLineMode;
-  onValueChange: (value: IngredientLineMode) => void;
-  existingLabel?: string;
-  customLabel?: string;
-  className?: string;
-};
+  value: IngredientLineMode
+  onValueChange: (value: IngredientLineMode) => void
+  existingLabel?: string
+  customLabel?: string
+  className?: string
+}
 
 export function IngredientLineModeToggle({
   value,
   onValueChange,
-  existingLabel = "Existing",
-  customLabel = "New",
+  existingLabel = 'Existing',
+  customLabel = 'New',
   className,
 }: IngredientLineModeToggleProps) {
   return (
     <Tabs
       value={value}
       onValueChange={(nextValue) => {
-        if (nextValue === "ingredient" || nextValue === "custom") {
-          onValueChange(nextValue);
+        if (nextValue === 'ingredient' || nextValue === 'custom') {
+          onValueChange(nextValue)
         }
       }}
-      className={cn("w-fit", className)}
+      className={cn('w-fit', className)}
     >
       <TabsList>
         <TabsTrigger value="ingredient">{existingLabel}</TabsTrigger>
         <TabsTrigger value="custom">{customLabel}</TabsTrigger>
       </TabsList>
     </Tabs>
-  );
+  )
 }
 
 type CustomIngredientSwitchRowProps = {
-  ignoreCalories: boolean;
-  onIgnoreCaloriesChange: (checked: boolean) => void;
-  saveToCatalog: boolean;
-  onSaveToCatalogChange: (checked: boolean) => void;
-  className?: string;
-};
+  ignoreCalories: boolean
+  onIgnoreCaloriesChange: (checked: boolean) => void
+  saveToCatalog: boolean
+  onSaveToCatalogChange: (checked: boolean) => void
+  className?: string
+}
 
 export function CustomIngredientSwitchRow({
   ignoreCalories,
@@ -55,7 +55,7 @@ export function CustomIngredientSwitchRow({
   return (
     <label
       className={cn(
-        "col-span-full flex items-center gap-3 text-xs text-muted-foreground",
+        'col-span-full flex items-center gap-3 text-xs text-muted-foreground',
         className,
       )}
     >
@@ -72,5 +72,5 @@ export function CustomIngredientSwitchRow({
         onCheckedChange={(checked) => onSaveToCatalogChange(Boolean(checked))}
       />
     </label>
-  );
+  )
 }

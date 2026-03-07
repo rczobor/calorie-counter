@@ -1,7 +1,13 @@
-import type { ReactNode } from "react"
-import { FolderTree } from "lucide-react"
+import type { ReactNode } from 'react'
+import { FolderTree } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 type FoodGroupsSectionProps = {
   children: ReactNode
@@ -15,7 +21,9 @@ export function FoodGroupsSection({ children }: FoodGroupsSectionProps) {
           <FolderTree className="h-4 w-4 text-amber-700" />
           Food Groups
         </CardTitle>
-        <CardDescription>Used to classify ingredients and cooked foods.</CardDescription>
+        <CardDescription>
+          Used to classify ingredients and cooked foods.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">{children}</CardContent>
     </Card>

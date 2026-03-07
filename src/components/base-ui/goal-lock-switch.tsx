@@ -1,9 +1,9 @@
-import { Switch } from "@base-ui/react/switch";
+import { Switch } from '@base-ui/react/switch'
 
 type GoalLockSwitchProps = {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-};
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}
 
 export function GoalLockSwitch({
   checked,
@@ -22,5 +22,5 @@ export function GoalLockSwitch({
         <Switch.Thumb className="size-5 rounded-full bg-background shadow-sm transition-transform data-checked:translate-x-5" />
       </Switch.Root>
     </label>
-  );
+  )
 }

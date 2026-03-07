@@ -1,7 +1,13 @@
-import type { ReactNode } from "react"
-import { ChefHat } from "lucide-react"
+import type { ReactNode } from 'react'
+import { ChefHat } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 type CookedFoodsSectionProps = {
   children: ReactNode
@@ -16,7 +22,8 @@ export function CookedFoodsSection({ children }: CookedFoodsSectionProps) {
           Cooked Foods
         </CardTitle>
         <CardDescription>
-          Lines can be reference-only (ignored calories) or counted by measured amount.
+          Lines can be reference-only (ignored calories) or counted by measured
+          amount.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>

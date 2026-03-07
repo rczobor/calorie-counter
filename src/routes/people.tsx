@@ -1,28 +1,31 @@
-import { type ColumnDef } from "@tanstack/react-table"
-import { createFileRoute } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
-import { Target, UserRound } from "lucide-react"
-import { useMemo, useState } from "react"
+import { type ColumnDef } from '@tanstack/react-table'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation } from 'convex/react'
+import { Target, UserRound } from 'lucide-react'
+import { useMemo, useState } from 'react'
 
-import { api } from "../../convex/_generated/api"
-import type { Doc, Id } from "../../convex/_generated/dataModel"
-import { ConfirmDestructiveDialog } from "@/components/page/confirm-destructive-dialog"
-import { PageShell } from "@/components/page/page-shell"
-import { ConfigMissingState, LoadingSkeletonState } from "@/components/page/page-states"
-import { StatusBadge } from "@/components/page/status-badge"
-import { Button } from "@/components/ui/button"
-import { DataTable } from "@/components/ui/data-table"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import { GoalHistorySection } from "@/features/people/goal-history"
-import { PeopleTableSection } from "@/features/people/people-table"
-import { PersonFormSection } from "@/features/people/person-form"
-import { useConfirmableAction } from "@/hooks/use-confirmable-action"
-import { useManagementData } from "@/hooks/use-management-data"
-import { isConvexConfigured } from "@/integrations/convex/config"
-import { getMealDateKey, toLocalDateString } from "@/lib/nutrition"
+import { api } from '../../convex/_generated/api'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
+import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { PageShell } from '@/components/page/page-shell'
+import {
+  ConfigMissingState,
+  LoadingSkeletonState,
+} from '@/components/page/page-states'
+import { StatusBadge } from '@/components/page/status-badge'
+import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { GoalHistorySection } from '@/features/people/goal-history'
+import { PeopleTableSection } from '@/features/people/people-table'
+import { PersonFormSection } from '@/features/people/person-form'
+import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { useManagementData } from '@/hooks/use-management-data'
+import { isConvexConfigured } from '@/integrations/convex/config'
+import { getMealDateKey, toLocalDateString } from '@/lib/nutrition'
 
-export const Route = createFileRoute("/people")({
+export const Route = createFileRoute('/people')({
   ssr: false,
   component: PeoplePage,
 })
@@ -36,11 +39,13 @@ function PeoplePage() {
 }
 
 function PeoplePageContent() {
-  const [editingPersonId, setEditingPersonId] = useState<Id<"people"> | null>(null)
-  const [name, setName] = useState("")
-  const [goal, setGoal] = useState("2200")
-  const [notes, setNotes] = useState("")
-  const [goalReason, setGoalReason] = useState("")
+  const [editingPersonId, setEditingPersonId] = useState<Id<'people'> | null>(
+    null,
+  )
+  const [name, setName] = useState('')
+  const [goal, setGoal] = useState('2200')
+  const [notes, setNotes] = useState('')
+  const [goalReason, setGoalReason] = useState('')
   const [showArchived, setShowArchived] = useState(false)
 
   const {
@@ -63,7 +68,7 @@ function PeoplePageContent() {
   const [today] = useState(() => toLocalDateString(Date.now()))
 
   const mealItemsByMealId = useMemo(() => {
-    const map = new Map<Id<"meals">, Doc<"mealItems">[]>()
+    const map = new Map<Id<'meals'>, Doc<'mealItems'>[]>()
     for (const item of data.mealItems) {
       const bucket = map.get(item.mealId)
       if (bucket) {
@@ -76,7 +81,7 @@ function PeoplePageContent() {
   }, [data.mealItems])
 
   const dailyConsumedByPersonId = useMemo(() => {
-    const map = new Map<Id<"people">, number>()
+    const map = new Map<Id<'people'>, number>()
     for (const meal of data.meals) {
       if (Boolean(meal.archived) || getMealDateKey(meal) !== today) {
         continue
@@ -96,13 +101,13 @@ function PeoplePageContent() {
 
   const resetForm = () => {
     setEditingPersonId(null)
-    setName("")
-    setGoal("2200")
-    setNotes("")
-    setGoalReason("")
+    setName('')
+    setGoal('2200')
+    setNotes('')
+    setGoalReason('')
   }
 
-  const startEdit = (personId: Id<"people">) => {
+  const startEdit = (personId: Id<'people'>) => {
     const person = data.people.find((item) => item._id === personId)
     if (!person) {
       return
@@ -111,8 +116,8 @@ function PeoplePageContent() {
     setEditingPersonId(personId)
     setName(person.name)
     setGoal(person.currentDailyGoalKcal.toFixed(0))
-    setNotes(person.notes ?? "")
-    setGoalReason("")
+    setNotes(person.notes ?? '')
+    setGoalReason('')
   }
 
   const peopleTableRows = useMemo<PersonTableRow[]>(
@@ -123,8 +128,8 @@ function PeoplePageContent() {
           id: person._id,
           person,
           name: person.name,
-          notes: person.notes ?? "",
-          status: person.active ? "Active" : "Archived",
+          notes: person.notes ?? '',
+          status: person.active ? 'Active' : 'Archived',
           goalKcal: person.currentDailyGoalKcal,
           consumedKcal,
           remainingKcal: person.currentDailyGoalKcal - consumedKcal,
@@ -135,53 +140,65 @@ function PeoplePageContent() {
 
   const peopleColumns: ColumnDef<PersonTableRow>[] = [
     {
-      accessorKey: "name",
-      header: "Name",
+      accessorKey: 'name',
+      header: 'Name',
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
           {row.original.notes ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{row.original.notes}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {row.original.notes}
+            </p>
           ) : null}
         </div>
       ),
     },
     {
-      accessorKey: "goalKcal",
-      header: "Goal",
+      accessorKey: 'goalKcal',
+      header: 'Goal',
       cell: ({ row }) => `${row.original.goalKcal.toFixed(0)} kcal`,
     },
     {
-      accessorKey: "consumedKcal",
-      header: "Consumed",
+      accessorKey: 'consumedKcal',
+      header: 'Consumed',
       cell: ({ row }) => `${row.original.consumedKcal.toFixed(0)} kcal`,
     },
     {
-      accessorKey: "remainingKcal",
-      header: "Left Today",
+      accessorKey: 'remainingKcal',
+      header: 'Left Today',
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1">
           <Target className="h-3 w-3" />
-          <span className={row.original.remainingKcal < 0 ? "text-destructive" : "text-foreground"}>
+          <span
+            className={
+              row.original.remainingKcal < 0
+                ? 'text-destructive'
+                : 'text-foreground'
+            }
+          >
             {row.original.remainingKcal.toFixed(0)} kcal
           </span>
         </span>
       ),
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: 'status',
+      header: 'Status',
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: "actions",
+      id: 'actions',
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
         const person = row.original.person
 
         return (
           <div className="flex min-w-max items-center justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={() => startEdit(person._id)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => startEdit(person._id)}
+            >
               Edit
             </Button>
             <Button
@@ -189,7 +206,7 @@ function PeoplePageContent() {
               variant="outline"
               onClick={() =>
                 void runAction(
-                  person.active ? "Person archived." : "Person restored.",
+                  person.active ? 'Person archived.' : 'Person restored.',
                   async () => {
                     await setPersonArchived({
                       personId: person._id,
@@ -199,7 +216,7 @@ function PeoplePageContent() {
                 )
               }
             >
-              {person.active ? "Archive" : "Unarchive"}
+              {person.active ? 'Archive' : 'Unarchive'}
             </Button>
             <Button
               size="sm"
@@ -207,8 +224,8 @@ function PeoplePageContent() {
               aria-label={`Delete ${person.name}`}
               onClick={() =>
                 confirmAndRunAction(
-                  "Delete this person permanently?",
-                  "Person deleted.",
+                  'Delete this person permanently?',
+                  'Person deleted.',
                   async () => {
                     await deletePerson({ personId: person._id })
                     if (editingPersonId === person._id) {
@@ -235,34 +252,34 @@ function PeoplePageContent() {
     () =>
       data.personGoalHistory.map((entry) => ({
         id: entry._id,
-        personName: personNameById.get(entry.personId) ?? "Unknown",
+        personName: personNameById.get(entry.personId) ?? 'Unknown',
         effectiveDate: entry.effectiveDate,
         goalKcal: entry.goalKcal,
-        reason: entry.reason ?? "",
+        reason: entry.reason ?? '',
       })),
     [data.personGoalHistory, personNameById],
   )
 
   const goalHistoryColumns: ColumnDef<GoalHistoryTableRow>[] = [
     {
-      accessorKey: "personName",
-      header: "Person",
+      accessorKey: 'personName',
+      header: 'Person',
     },
     {
-      accessorKey: "effectiveDate",
-      header: "Effective Date",
+      accessorKey: 'effectiveDate',
+      header: 'Effective Date',
     },
     {
-      accessorKey: "goalKcal",
-      header: "Goal",
+      accessorKey: 'goalKcal',
+      header: 'Goal',
       cell: ({ row }) => `${row.original.goalKcal.toFixed(0)} kcal`,
     },
     {
-      accessorKey: "reason",
-      header: "Reason",
+      accessorKey: 'reason',
+      header: 'Reason',
       cell: ({ row }) => (
         <span className="max-w-80 whitespace-normal text-muted-foreground">
-          {row.original.reason || "—"}
+          {row.original.reason || '—'}
         </span>
       ),
     },
@@ -287,14 +304,20 @@ function PeoplePageContent() {
           <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
             <Skeleton className="h-6 w-20" />
             {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={`people-row-skeleton-${index}`} className="h-10 w-full" />
+              <Skeleton
+                key={`people-row-skeleton-${index}`}
+                className="h-10 w-full"
+              />
             ))}
           </div>
         </div>
         <div className="mt-5 space-y-2 rounded-lg border border-border bg-card/90 p-4">
           <Skeleton className="h-6 w-44" />
           {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={`history-row-skeleton-${index}`} className="h-9 w-full" />
+            <Skeleton
+              key={`history-row-skeleton-${index}`}
+              className="h-9 w-full"
+            />
           ))}
         </div>
       </LoadingSkeletonState>
@@ -341,33 +364,36 @@ function PeoplePageContent() {
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() =>
-                  void runAction(editingPersonId ? "Person updated." : "Person created.", async () => {
-                    const goalValue = Number(goal)
-                    if (editingPersonId) {
-                      await updatePerson({
-                        personId: editingPersonId,
-                        name,
-                        notes: notes.trim() || undefined,
-                      })
-                      await updatePersonGoal({
-                        personId: editingPersonId,
-                        goalKcal: goalValue,
-                        reason: goalReason.trim() || undefined,
-                        effectiveDate: today,
-                      })
-                    } else {
-                      await createPerson({
-                        name,
-                        notes: notes.trim() || undefined,
-                        currentDailyGoalKcal: goalValue,
-                        effectiveDate: today,
-                      })
-                    }
-                    resetForm()
-                  })
+                  void runAction(
+                    editingPersonId ? 'Person updated.' : 'Person created.',
+                    async () => {
+                      const goalValue = Number(goal)
+                      if (editingPersonId) {
+                        await updatePerson({
+                          personId: editingPersonId,
+                          name,
+                          notes: notes.trim() || undefined,
+                        })
+                        await updatePersonGoal({
+                          personId: editingPersonId,
+                          goalKcal: goalValue,
+                          reason: goalReason.trim() || undefined,
+                          effectiveDate: today,
+                        })
+                      } else {
+                        await createPerson({
+                          name,
+                          notes: notes.trim() || undefined,
+                          currentDailyGoalKcal: goalValue,
+                          effectiveDate: today,
+                        })
+                      }
+                      resetForm()
+                    },
+                  )
                 }
               >
-                {editingPersonId ? "Save Changes" : "Create Person"}
+                {editingPersonId ? 'Save Changes' : 'Create Person'}
               </Button>
               {editingPersonId ? (
                 <Button variant="outline" onClick={resetForm}>
@@ -410,18 +436,18 @@ function PeoplePageContent() {
 }
 
 type PersonTableRow = {
-  id: Id<"people">
-  person: Doc<"people">
+  id: Id<'people'>
+  person: Doc<'people'>
   name: string
   notes: string
-  status: "Active" | "Archived"
+  status: 'Active' | 'Archived'
   goalKcal: number
   consumedKcal: number
   remainingKcal: number
 }
 
 type GoalHistoryTableRow = {
-  id: Id<"personGoalHistory">
+  id: Id<'personGoalHistory'>
   personName: string
   effectiveDate: string
   goalKcal: number

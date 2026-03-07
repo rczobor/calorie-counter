@@ -20,6 +20,7 @@ A multi-person calorie tracking app built with TanStack Start + Convex, with opt
 ## Convex Domain Model
 
 The Convex schema currently includes:
+
 - `people`, `personGoalHistory`
 - `foodGroups`, `ingredients`
 - `recipes`, `recipeVersions`, `recipeVersionIngredients`
@@ -49,6 +50,7 @@ Convex-backed routes require `VITE_CONVEX_URL` (and usually `CONVEX_DEPLOYMENT` 
 3. Create a Clerk JWT template for Convex.
 
 In Clerk Dashboard:
+
 - Go to `JWT Templates`
 - Create template named `convex`
 - Set audience to `convex`

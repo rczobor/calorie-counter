@@ -1,15 +1,13 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react'
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils'
 
-const SHELL_BACKGROUND_CLASS =
-  "min-h-[calc(100vh-4rem)] bg-background"
-const HERO_CLASS =
-  "rounded-lg border border-border bg-card p-6 shadow-sm"
+const SHELL_BACKGROUND_CLASS = 'min-h-[calc(100vh-4rem)] bg-background'
+const HERO_CLASS = 'rounded-lg border border-border bg-card p-6 shadow-sm'
 
 const WIDTH_CLASS_MAP = {
-  "6xl": "max-w-6xl",
-  "7xl": "max-w-7xl",
+  '6xl': 'max-w-6xl',
+  '7xl': 'max-w-7xl',
 } as const
 
 type PageShellProps = {
@@ -30,10 +28,10 @@ export function PageShell({
   subtitle,
   eyebrow,
   icon,
-  maxWidth = "7xl",
+  maxWidth = '7xl',
   showArchived,
   onShowArchivedChange,
-  showArchivedLabel = "Show archived records",
+  showArchivedLabel = 'Show archived records',
   children,
   contentClassName,
 }: PageShellProps) {
@@ -41,7 +39,7 @@ export function PageShell({
     <main className={SHELL_BACKGROUND_CLASS}>
       <section
         className={cn(
-          "mx-auto w-full px-4 py-8 sm:px-6",
+          'mx-auto w-full px-4 py-8 sm:px-6',
           WIDTH_CLASS_MAP[maxWidth],
           contentClassName,
         )}
@@ -53,11 +51,18 @@ export function PageShell({
               {eyebrow}
             </p>
           ) : null}
-          <h1 className={cn("text-4xl font-semibold tracking-tight text-foreground", eyebrow ? "mt-2" : "")}>
+          <h1
+            className={cn(
+              'text-4xl font-semibold tracking-tight text-foreground',
+              eyebrow ? 'mt-2' : '',
+            )}
+          >
             {title}
           </h1>
-          {subtitle ? <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p> : null}
-          {typeof showArchived === "boolean" && onShowArchivedChange ? (
+          {subtitle ? (
+            <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+          ) : null}
+          {typeof showArchived === 'boolean' && onShowArchivedChange ? (
             <label className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
               <input
                 type="checkbox"

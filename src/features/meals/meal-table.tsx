@@ -1,6 +1,12 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 type MealTableSectionProps = {
   title: string
@@ -8,7 +14,11 @@ type MealTableSectionProps = {
   children: ReactNode
 }
 
-export function MealTableSection({ title, description, children }: MealTableSectionProps) {
+export function MealTableSection({
+  title,
+  description,
+  children,
+}: MealTableSectionProps) {
   return (
     <Card className="border-border/70 bg-card/90">
       <CardHeader>

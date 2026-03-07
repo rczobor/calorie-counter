@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
-import { ConfigMissingState, LoadingSkeletonState } from "@/components/page/page-states"
-import { PageShell } from "@/components/page/page-shell"
+import {
+  ConfigMissingState,
+  LoadingSkeletonState,
+} from '@/components/page/page-states'
+import { PageShell } from '@/components/page/page-shell'
 
-describe("page shell and states", () => {
-  it("renders page shell with archived toggle", () => {
+describe('page shell and states', () => {
+  it('renders page shell with archived toggle', () => {
     const onChange = vi.fn()
 
     render(
@@ -20,17 +23,19 @@ describe("page shell and states", () => {
       </PageShell>,
     )
 
-    expect(screen.getByRole("heading", { name: "Catalog" })).toBeTruthy()
-    expect(screen.getByText("Manage resources")).toBeTruthy()
-    fireEvent.click(screen.getByRole("checkbox"))
+    expect(screen.getByRole('heading', { name: 'Catalog' })).toBeTruthy()
+    expect(screen.getByText('Manage resources')).toBeTruthy()
+    fireEvent.click(screen.getByRole('checkbox'))
     expect(onChange).toHaveBeenCalledWith(true)
   })
 
-  it("renders standard config and loading states", () => {
+  it('renders standard config and loading states', () => {
     render(<ConfigMissingState />)
-    expect(screen.getAllByText("Connect Convex First").length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Connect Convex First').length).toBeGreaterThan(
+      0,
+    )
 
     render(<LoadingSkeletonState title="Loading page" eyebrow="Area" />)
-    expect(screen.getByRole("heading", { name: "Loading page" })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Loading page' })).toBeTruthy()
   })
 })

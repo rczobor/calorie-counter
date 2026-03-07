@@ -1,7 +1,13 @@
-import type { ReactNode } from "react"
-import { Wheat } from "lucide-react"
+import type { ReactNode } from 'react'
+import { Wheat } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 type IngredientsSectionProps = {
   children: ReactNode

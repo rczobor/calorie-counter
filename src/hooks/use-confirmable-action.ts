@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react"
-import { toast } from "sonner"
+import { useCallback, useState } from 'react'
+import { toast } from 'sonner'
 
-import { toErrorMessage } from "@/lib/nutrition"
+import { toErrorMessage } from '@/lib/nutrition'
 
 export type PendingConfirmation = {
   message: string

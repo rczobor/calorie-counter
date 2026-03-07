@@ -1,6 +1,6 @@
-import { Flame } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Flame } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function AppPending() {
   return (
@@ -30,5 +30,5 @@ export function AppPending() {
         </div>
       </section>
     </main>
-  );
+  )
 }

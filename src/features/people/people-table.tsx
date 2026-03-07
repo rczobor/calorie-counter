@@ -1,13 +1,22 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 type PeopleTableSectionProps = {
   today: string
   children: ReactNode
 }
 
-export function PeopleTableSection({ today, children }: PeopleTableSectionProps) {
+export function PeopleTableSection({
+  today,
+  children,
+}: PeopleTableSectionProps) {
   return (
     <Card className="border-border/70 bg-card/90">
       <CardHeader>
