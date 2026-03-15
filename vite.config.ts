@@ -13,7 +13,11 @@ const config = defineConfig({
   plugins: [
     devtools(),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        routeFileIgnorePattern: '\\.(test|spec)\\.[jt]sx?$',
+      },
+    }),
     nitro(),
     viteReact(),
     babel({
