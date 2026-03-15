@@ -1287,10 +1287,7 @@ function CookingPageContent() {
                     disabled={!selectedCookSession}
                     onClick={() => {
                       if (effectiveSelectedCookSessionId) {
-                        createDraftForSession(
-                          effectiveSelectedCookSessionId,
-                          activeDraft ?? undefined,
-                        )
+                        createDraftForSession(effectiveSelectedCookSessionId)
                       }
                     }}
                   >

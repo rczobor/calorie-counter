@@ -114,7 +114,7 @@ describe('route smoke', () => {
     expect(
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: /create session/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /new session/i })).toBeTruthy()
     expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
   })
 
