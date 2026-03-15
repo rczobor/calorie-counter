@@ -2,8 +2,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-const SHELL_BACKGROUND_CLASS = 'min-h-[calc(100vh-4rem)] bg-background'
-const HERO_CLASS = 'rounded-lg border border-border bg-card p-6 shadow-sm'
+const SHELL_BACKGROUND_CLASS = 'min-h-[calc(100vh-2.5rem)] bg-background'
 
 const WIDTH_CLASS_MAP = {
   '6xl': 'max-w-6xl',
@@ -25,8 +24,6 @@ type PageShellProps = {
 
 export function PageShell({
   title,
-  subtitle,
-  eyebrow,
   icon,
   maxWidth = '7xl',
   showArchived,
@@ -39,31 +36,18 @@ export function PageShell({
     <main className={SHELL_BACKGROUND_CLASS}>
       <section
         className={cn(
-          'mx-auto w-full px-4 py-8 sm:px-6',
+          'mx-auto w-full px-4 py-3 sm:px-6',
           WIDTH_CLASS_MAP[maxWidth],
           contentClassName,
         )}
       >
-        <div className={HERO_CLASS}>
-          {eyebrow ? (
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              {icon}
-              {eyebrow}
-            </p>
-          ) : null}
-          <h1
-            className={cn(
-              'text-4xl font-semibold tracking-tight text-foreground',
-              eyebrow ? 'mt-2' : '',
-            )}
-          >
+        <div className="flex items-center justify-between">
+          <h1 className="flex items-center gap-2 text-lg font-medium text-foreground">
+            {icon}
             {title}
           </h1>
-          {subtitle ? (
-            <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
-          ) : null}
           {typeof showArchived === 'boolean' && onShowArchivedChange ? (
-            <label className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+            <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
               <input
                 type="checkbox"
                 checked={showArchived}
@@ -82,5 +66,4 @@ export function PageShell({
 
 export const pageShellClasses = {
   background: SHELL_BACKGROUND_CLASS,
-  hero: HERO_CLASS,
 }

@@ -93,7 +93,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 function AuthGate({ children }: { children: React.ReactNode }) {
   if (!isClerkConfigured) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6">
+      <main className="min-h-[calc(100vh-2.5rem)] px-4 py-10 sm:px-6">
         <Card className="mx-auto max-w-xl">
           <CardHeader className="space-y-3">
             <CardTitle>Authentication setup required</CardTitle>
@@ -169,7 +169,7 @@ function AuthStatusCard({
   action?: React.ReactNode
 }) {
   return (
-    <main className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6">
+    <main className="min-h-[calc(100vh-2.5rem)] px-4 py-10 sm:px-6">
       <Card className="mx-auto max-w-xl">
         <CardHeader className="space-y-3">
           <CardTitle>{title}</CardTitle>

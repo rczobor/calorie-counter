@@ -20,8 +20,8 @@ export function ConfigMissingState({
   description = 'Add VITE_CONVEX_URL and CONVEX_DEPLOYMENT in .env.local, then reload.',
 }: ConfigMissingStateProps) {
   return (
-    <PageShell title={title} subtitle={description} maxWidth="6xl">
-      <div className="mt-6">
+    <PageShell title={title} maxWidth="6xl">
+      <div className="mt-3">
         <Card className="mx-auto max-w-3xl border-border bg-card">
           <CardHeader>
             <CardTitle>{title}</CardTitle>
@@ -35,8 +35,6 @@ export function ConfigMissingState({
 
 type LoadingSkeletonStateProps = {
   title: string
-  subtitle?: string
-  eyebrow?: string
   icon?: ReactNode
   maxWidth?: '6xl' | '7xl'
   children?: ReactNode
@@ -44,24 +42,16 @@ type LoadingSkeletonStateProps = {
 
 export function LoadingSkeletonState({
   title,
-  subtitle,
-  eyebrow,
   icon,
   maxWidth = '7xl',
   children,
 }: LoadingSkeletonStateProps) {
   return (
-    <PageShell
-      title={title}
-      subtitle={subtitle}
-      eyebrow={eyebrow}
-      icon={icon}
-      maxWidth={maxWidth}
-    >
-      <div className="mt-6 space-y-5">
+    <PageShell title={title} icon={icon} maxWidth={maxWidth}>
+      <div className="mt-3 space-y-3">
         {children ?? (
           <>
-            <div className="grid gap-5 xl:grid-cols-2">
+            <div className="grid gap-3 xl:grid-cols-2">
               <Card className="border-border/70 bg-card/90">
                 <CardHeader>
                   <Skeleton className="h-6 w-40" />

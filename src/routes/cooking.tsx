@@ -574,6 +574,48 @@ function CookingPageContent() {
     )
   }
 
+  const editCookedFoodIngredientLine = (draftId: string) => {
+    const line = cookedFoodIngredientLines.find((l) => l.draftId === draftId)
+    if (!line) return
+
+    if (line.sourceType === 'ingredient') {
+      setCookedFoodLineMode('ingredient')
+      setCookedFoodLineIngredientId(line.ingredientId)
+      const basisUnit = getIngredientBasisUnit(
+        ingredientById.get(line.ingredientId),
+      )
+      const autoFilled = shouldAutoFillReferenceFields(basisUnit)
+      if (autoFilled) {
+        setCookedFoodLineCountedAmount(String(line.referenceAmount))
+      } else {
+        setCookedFoodLineReferenceAmount(String(line.referenceAmount))
+        setCookedFoodLineReferenceUnit(line.referenceUnit)
+        setCookedFoodLineCountedAmount(
+          line.countedAmount ? String(line.countedAmount) : '',
+        )
+      }
+    } else {
+      setCookedFoodLineMode('custom')
+      setCookedFoodLineCustomName(line.name)
+      setCookedFoodLineCustomKcal(String(line.kcalPer100))
+      setCookedFoodLineCustomBasisUnit(line.kcalBasisUnit)
+      setCookedFoodLineCustomIgnoreCalories(line.ignoreCalories)
+      setCookedFoodLineCustomSaveToCatalog(line.saveToCatalog)
+      const autoFilled = shouldAutoFillReferenceFields(line.kcalBasisUnit)
+      if (autoFilled) {
+        setCookedFoodLineCountedAmount(String(line.referenceAmount))
+      } else {
+        setCookedFoodLineReferenceAmount(String(line.referenceAmount))
+        setCookedFoodLineReferenceUnit(line.referenceUnit)
+        setCookedFoodLineCountedAmount(
+          line.countedAmount ? String(line.countedAmount) : '',
+        )
+      }
+    }
+
+    removeCookedFoodIngredientLine(draftId)
+  }
+
   const applyRecipeVersionToCookedFood = (
     recipeVersionId: Id<'recipeVersions'> | '',
   ) => {
@@ -1009,11 +1051,9 @@ function CookingPageContent() {
     return (
       <LoadingSkeletonState
         title="Cooking"
-        subtitle="Manage cooking sessions and cooked foods with reference and counted ingredient lines."
-        eyebrow="Cooking"
         icon={<UserRound className="h-4 w-4" />}
       >
-        <div className="mt-6 space-y-5">
+        <div className="mt-3 space-y-3">
           <div className="rounded-lg border border-border bg-card/90 p-5">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1038,13 +1078,13 @@ function CookingPageContent() {
                 <Skeleton className="h-16 w-full" />
               </div>
               <Skeleton className="h-52 w-full" />
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
                 <Skeleton className="h-56 w-full" />
                 <Skeleton className="h-56 w-full" />
               </div>
             </div>
           </div>
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
             <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
               <Skeleton className="h-6 w-32" />
               <Skeleton className="h-9 w-full" />
@@ -1065,13 +1105,11 @@ function CookingPageContent() {
     <>
       <PageShell
         title="Cooking"
-        subtitle="Manage cooking sessions and cooked foods with reference and counted ingredient lines."
-        eyebrow="Cooking"
         icon={<UserRound className="h-4 w-4" />}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="mt-6 space-y-5">
+        <div className="mt-3 space-y-3">
           <Card className="border-border/70 bg-card/90">
             <CardHeader className="gap-2 border-b border-border/60">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1094,7 +1132,7 @@ function CookingPageContent() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-6">
+            <CardContent className="space-y-3 pt-3">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <Field label="Session">
                   <SearchablePicker
@@ -1529,7 +1567,7 @@ function CookingPageContent() {
                 </div>
               </div>
 
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
                 <div className="rounded-md border border-border/70 bg-muted/20 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1639,7 +1677,7 @@ function CookingPageContent() {
                   </div>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-3">
                   <div className="rounded-md border border-border/70 bg-muted/20 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-medium text-foreground">
@@ -1674,12 +1712,16 @@ function CookingPageContent() {
                               <p className="text-sm text-foreground">
                                 <span className="font-medium">{label}</span>
                                 {' · '}
-                                {line.referenceAmount.toFixed(2)}{' '}
+                                {line.referenceAmount.toFixed(0)}{' '}
                                 {getNutritionUnitLabel(line.referenceUnit)}
-                                {' · '}
-                                {ignored
-                                  ? 'Ignored calories'
-                                  : `Counted: ${line.countedAmount?.toFixed(2) ?? 0}`}
+                                {ignored ? (
+                                  <>{' · '}Ignored calories</>
+                                ) : line.referenceUnit !== 'g' &&
+                                  line.countedAmount ? (
+                                  <>
+                                    {' · '}Counted: {line.countedAmount.toFixed(0)} g
+                                  </>
+                                ) : null}
                                 {line.sourceType === 'custom' &&
                                 !line.ignoreCalories ? (
                                   <>
@@ -1689,16 +1731,28 @@ function CookingPageContent() {
                                   </>
                                 ) : null}
                               </p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  removeCookedFoodIngredientLine(line.draftId)
-                                }
-                              >
-                                Remove
-                              </Button>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    editCookedFoodIngredientLine(line.draftId)
+                                  }
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    removeCookedFoodIngredientLine(line.draftId)
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </div>
                             </div>
                           )
                         })}
@@ -1743,13 +1797,13 @@ function CookingPageContent() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
             <Card className="border-border/70 bg-card/90">
               <CardHeader className="gap-2 border-b border-border/60">
                 <CardTitle>Cooked foods</CardTitle>
                 <CardDescription>{cookedFoodRows.length} total</CardDescription>
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent className="pt-3">
                 <DataTable
                   columns={cookedFoodColumns}
                   data={cookedFoodRows}
@@ -1765,7 +1819,7 @@ function CookingPageContent() {
                 <CardTitle>Sessions</CardTitle>
                 <CardDescription>{sessionRows.length} total</CardDescription>
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent className="pt-3">
                 <DataTable
                   columns={sessionColumns}
                   data={sessionRows}

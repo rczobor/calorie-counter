@@ -1,12 +1,3 @@
-import { Target } from 'lucide-react'
-
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
 type MealsMetricsProps = {
   targetKcal: string
   consumedTodayKcal: string
@@ -19,28 +10,21 @@ export function MealsMetrics({
   remainingAfterDraftKcal,
 }: MealsMetricsProps) {
   return (
-    <div className="mt-6 grid gap-4 md:grid-cols-3">
-      <Card className="border-emerald-200/80 bg-card/90 dark:border-emerald-500/30">
-        <CardHeader>
-          <CardDescription>Target</CardDescription>
-          <CardTitle>{targetKcal}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card className="border-border/70 bg-card/90">
-        <CardHeader>
-          <CardDescription>Consumed Today</CardDescription>
-          <CardTitle>{consumedTodayKcal}</CardTitle>
-        </CardHeader>
-      </Card>
-      <Card className="border-amber-200/80 bg-card/90 dark:border-amber-500/30">
-        <CardHeader>
-          <CardDescription>Remaining After Draft</CardDescription>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-amber-700" />
-            {remainingAfterDraftKcal}
-          </CardTitle>
-        </CardHeader>
-      </Card>
+    <div className="mt-3 flex flex-wrap items-center gap-6">
+      <div>
+        <span className="text-xs text-muted-foreground">Target</span>
+        <p className="text-sm font-medium">{targetKcal}</p>
+      </div>
+      <div>
+        <span className="text-xs text-muted-foreground">Consumed Today</span>
+        <p className="text-sm font-medium">{consumedTodayKcal}</p>
+      </div>
+      <div>
+        <span className="text-xs text-muted-foreground">
+          Remaining After Draft
+        </span>
+        <p className="text-sm font-medium">{remainingAfterDraftKcal}</p>
+      </div>
     </div>
   )
 }

@@ -1085,11 +1085,9 @@ function ManagePageContent() {
     return (
       <LoadingSkeletonState
         title="Catalog Management"
-        subtitle="Manage food groups, ingredients, and recipes."
-        eyebrow="Catalog"
         icon={<UserRound className="h-4 w-4" />}
       >
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
             <Skeleton className="h-6 w-32" />
             <Skeleton className="h-9 w-full" />
@@ -1111,13 +1109,11 @@ function ManagePageContent() {
     <>
       <PageShell
         title="Catalog Management"
-        subtitle="Manage food groups, ingredients, and recipes."
-        eyebrow="Catalog"
         icon={<UserRound className="h-4 w-4" />}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="order-2 mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className="order-2 mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
           <FoodGroupsSection>
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <Input
@@ -1278,7 +1274,7 @@ function ManagePageContent() {
           </IngredientsSection>
         </div>
 
-        <div className="order-1 mt-6 grid grid-cols-1 gap-5">
+        <div className="order-1 mt-3 grid grid-cols-1 gap-3">
           <RecipesSection>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input

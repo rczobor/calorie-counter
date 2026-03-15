@@ -15,7 +15,6 @@ describe('page shell and states', () => {
     render(
       <PageShell
         title="Catalog"
-        subtitle="Manage resources"
         showArchived={false}
         onShowArchivedChange={onChange}
       >
@@ -24,7 +23,6 @@ describe('page shell and states', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Catalog' })).toBeTruthy()
-    expect(screen.getByText('Manage resources')).toBeTruthy()
     fireEvent.click(screen.getByRole('checkbox'))
     expect(onChange).toHaveBeenCalledWith(true)
   })
@@ -35,7 +33,7 @@ describe('page shell and states', () => {
       0,
     )
 
-    render(<LoadingSkeletonState title="Loading page" eyebrow="Area" />)
+    render(<LoadingSkeletonState title="Loading page" />)
     expect(screen.getByRole('heading', { name: 'Loading page' })).toBeTruthy()
   })
 })

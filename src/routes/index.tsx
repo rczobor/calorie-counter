@@ -702,11 +702,9 @@ function MealDashboardPageContent() {
     return (
       <LoadingSkeletonState
         title="Daily calories with quick correction flow"
-        subtitle="Pick a person and day, log servings, then edit or archive mistakes directly."
-        eyebrow="Meal Logging"
         icon={<Flame className="h-4 w-4" />}
       >
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-3 grid gap-4 md:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <Card
               key={`metric-skeleton-${index}`}
@@ -720,7 +718,7 @@ function MealDashboardPageContent() {
           ))}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1.1fr_1fr]">
           <Card className="border-border/70 bg-card/90">
             <CardHeader>
               <Skeleton className="h-6 w-40" />
@@ -791,8 +789,6 @@ function MealDashboardPageContent() {
     <>
       <PageShell
         title="Daily calories with quick correction flow"
-        subtitle="Pick a person and day, log servings, then edit or archive mistakes directly."
-        eyebrow="Meal Logging"
         icon={<Flame className="h-4 w-4" />}
         maxWidth="7xl"
         showArchived={showArchivedMeals}
@@ -805,7 +801,7 @@ function MealDashboardPageContent() {
           remainingAfterDraftKcal={`${remainingAfterDraft.toFixed(0)} kcal`}
         />
 
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1.1fr_1fr]">
           <MealFormSection
             title={editingMealId ? 'Edit Meal' : 'Create Meal'}
             description={`Remaining today: ${
@@ -1082,7 +1078,7 @@ function MealDashboardPageContent() {
                         ? item.name
                         : (cookedFoodById.get(item.cookedFoodId)?.name ??
                           'Cooked food')
-                  const amountLabel = `${item.consumedWeightGrams.toFixed(1)} g`
+                  const amountLabel = `${item.consumedWeightGrams.toFixed(0)} g`
                   return (
                     <div
                       key={`draft-item-${index}`}

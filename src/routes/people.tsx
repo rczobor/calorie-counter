@@ -289,11 +289,10 @@ function PeoplePageContent() {
     return (
       <LoadingSkeletonState
         title="Manage people separately from daily logging"
-        eyebrow="People and Daily Goals"
         icon={<UserRound className="h-4 w-4" />}
         maxWidth="7xl"
       >
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
           <div className="space-y-3 rounded-lg border border-border bg-card/90 p-4">
             <Skeleton className="h-6 w-32" />
             <Skeleton className="h-9 w-full" />
@@ -311,7 +310,7 @@ function PeoplePageContent() {
             ))}
           </div>
         </div>
-        <div className="mt-5 space-y-2 rounded-lg border border-border bg-card/90 p-4">
+        <div className="mt-3 space-y-2 rounded-lg border border-border bg-card/90 p-4">
           <Skeleton className="h-6 w-44" />
           {Array.from({ length: 5 }).map((_, index) => (
             <Skeleton
@@ -328,13 +327,12 @@ function PeoplePageContent() {
     <>
       <PageShell
         title="Manage people separately from daily logging"
-        eyebrow="People and Daily Goals"
         icon={<UserRound className="h-4 w-4" />}
         maxWidth="7xl"
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
           <PersonFormSection isEditing={Boolean(editingPersonId)}>
             <Input
               aria-label="Person name"
