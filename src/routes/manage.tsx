@@ -1084,7 +1084,7 @@ function ManagePageContent() {
   if (isLoading) {
     return (
       <LoadingSkeletonState
-        title="Catalog Management"
+        title="Catalog"
         icon={<UserRound className="h-4 w-4" />}
       >
         <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -1108,7 +1108,7 @@ function ManagePageContent() {
   return (
     <>
       <PageShell
-        title="Catalog Management"
+        title="Catalog"
         icon={<UserRound className="h-4 w-4" />}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}

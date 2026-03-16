@@ -172,7 +172,6 @@ function CookingPageContent() {
     toLocalDateString(Date.now()),
   )
   const [sessionPersonId, setSessionPersonId] = useState<Id<'people'> | ''>('')
-  const [sessionNotes, setSessionNotes] = useState('')
 
   const { data, isLoading } = useManagementData()
 
@@ -420,7 +419,6 @@ function CookingPageContent() {
     setSessionLabel('')
     setSessionDate(toLocalDateString(Date.now()))
     setSessionPersonId('')
-    setSessionNotes('')
   }
 
   const scrollToTop = () => {
@@ -441,7 +439,6 @@ function CookingPageContent() {
     setSessionLabel(session.label ?? '')
     setSessionDate(toLocalDateString(session.cookedAt))
     setSessionPersonId(session.cookedByPersonId ?? '')
-    setSessionNotes(session.notes ?? '')
     setIsSessionEditorVisible(true)
     scrollToTop()
   }
@@ -856,7 +853,6 @@ function CookingPageContent() {
             label: sessionLabel.trim() || undefined,
             cookedAt,
             cookedByPersonId: sessionPersonId || undefined,
-            notes: sessionNotes.trim() || undefined,
           })
           setSelectedCookSessionId(editingSessionId)
         } else {
@@ -864,7 +860,6 @@ function CookingPageContent() {
             label: sessionLabel.trim() || undefined,
             cookedAt,
             cookedByPersonId: sessionPersonId || undefined,
-            notes: sessionNotes.trim() || undefined,
           })
           createDraftForSession(sessionId)
         }
@@ -1320,9 +1315,6 @@ function CookingPageContent() {
                   {' · '}
                   {toLocalDateString(selectedCookSession.cookedAt)}
                   {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
-                  {selectedCookSession.notes?.trim()
-                    ? ` · ${selectedCookSession.notes}`
-                    : ''}
                   {selectedCookSession.archived ? ' · Archived' : ''}
                 </div>
               ) : (
@@ -1348,7 +1340,7 @@ function CookingPageContent() {
                     </Button>
                   </div>
 
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <Field label="Label">
                       <Input
                         aria-label="Session label"
@@ -1383,14 +1375,6 @@ function CookingPageContent() {
                             label: person.name,
                           })),
                         ]}
-                      />
-                    </Field>
-                    <Field label="Notes">
-                      <Input
-                        aria-label="Session notes"
-                        placeholder="Optional"
-                        value={sessionNotes}
-                        onChange={(event) => setSessionNotes(event.target.value)}
                       />
                     </Field>
                   </div>
@@ -1558,7 +1542,7 @@ function CookingPageContent() {
                       {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       <Field label="Cooked food name">
                         <Input
                           aria-label="Cooked food name"
@@ -1604,19 +1588,6 @@ function CookingPageContent() {
                             updateActiveDraft((draft) => ({
                               ...draft,
                               finishedWeight: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field label="Notes">
-                        <Input
-                          aria-label="Cooked food notes"
-                          placeholder="Optional"
-                          value={activeDraft.notes}
-                          onChange={(event) =>
-                            updateActiveDraft((draft) => ({
-                              ...draft,
-                              notes: event.target.value,
                             }))
                           }
                         />
@@ -1961,19 +1932,47 @@ function CookingPageContent() {
                         <div className="mt-4 space-y-4">
                           {activeDraft.persistedCookedFoodId ||
                           !activeDraft.saveAsRecipe ? (
-                            <Field label="Recipe source">
-                              <SearchablePicker
-                                value={activeDraft.recipeVersionId}
-                                onValueChange={(value) =>
-                                  applyRecipeVersionToActiveDraft(
-                                    value as Id<'recipeVersions'> | '',
-                                  )
+                            <>
+                              <Field label="Recipe source">
+                                <SearchablePicker
+                                  value={activeDraft.recipeVersionId}
+                                  onValueChange={(value) =>
+                                    applyRecipeVersionToActiveDraft(
+                                      value as Id<'recipeVersions'> | '',
+                                    )
+                                  }
+                                  ariaLabel="Cooked food recipe search"
+                                  placeholder="Search recipe"
+                                  options={recipeVersionOptions}
+                                />
+                              </Field>
+                              {(() => {
+                                const rv = activeDraft.recipeVersionId
+                                  ? recipeVersionById.get(activeDraft.recipeVersionId)
+                                  : undefined
+                                const instructions = (rv as { instructions?: string } | undefined)?.instructions?.trim()
+                                const rvNotes = (rv as { notes?: string } | undefined)?.notes?.trim()
+                                if (!instructions && !rvNotes) {
+                                  return null
                                 }
-                                ariaLabel="Cooked food recipe search"
-                                placeholder="Search recipe"
-                                options={recipeVersionOptions}
-                              />
-                            </Field>
+                                return (
+                                  <div className="rounded-md border border-border/60 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+                                    {instructions ? (
+                                      <div>
+                                        <p className="font-medium text-foreground">Instructions</p>
+                                        <p className="mt-1 whitespace-pre-wrap">{instructions}</p>
+                                      </div>
+                                    ) : null}
+                                    {rvNotes ? (
+                                      <div className={instructions ? 'mt-3' : ''}>
+                                        <p className="font-medium text-foreground">Notes</p>
+                                        <p className="mt-1 whitespace-pre-wrap">{rvNotes}</p>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                )
+                              })()}
+                            </>
                           ) : (
                             <p className="text-sm text-muted-foreground">
                               A new recipe draft will be created from these
@@ -2321,7 +2320,6 @@ function draftHasUserContent(draft: CookingDraft) {
       draft.recipeDraftDescription.trim() ||
       draft.recipeDraftInstructions.trim() ||
       draft.recipeDraftNotes.trim() ||
-      draft.notes.trim() ||
       draft.lineIngredientId ||
       draft.lineCustomName.trim() ||
       draft.lineCustomKcal.trim() ||

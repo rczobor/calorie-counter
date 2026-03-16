@@ -44,7 +44,6 @@ function PeoplePageContent() {
   )
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
-  const [notes, setNotes] = useState('')
   const [goalReason, setGoalReason] = useState('')
   const [showArchived, setShowArchived] = useState(false)
 
@@ -103,7 +102,6 @@ function PeoplePageContent() {
     setEditingPersonId(null)
     setName('')
     setGoal('2200')
-    setNotes('')
     setGoalReason('')
   }
 
@@ -116,7 +114,6 @@ function PeoplePageContent() {
     setEditingPersonId(personId)
     setName(person.name)
     setGoal(person.currentDailyGoalKcal.toFixed(0))
-    setNotes(person.notes ?? '')
     setGoalReason('')
   }
 
@@ -128,7 +125,6 @@ function PeoplePageContent() {
           id: person._id,
           person,
           name: person.name,
-          notes: person.notes ?? '',
           status: person.active ? 'Active' : 'Archived',
           goalKcal: person.currentDailyGoalKcal,
           consumedKcal,
@@ -143,14 +139,7 @@ function PeoplePageContent() {
       accessorKey: 'name',
       header: 'Name',
       cell: ({ row }) => (
-        <div className="max-w-56 whitespace-normal">
-          <p className="font-medium text-foreground">{row.original.name}</p>
-          {row.original.notes ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {row.original.notes}
-            </p>
-          ) : null}
-        </div>
+        <span className="font-medium text-foreground">{row.original.name}</span>
       ),
     },
     {
@@ -288,7 +277,7 @@ function PeoplePageContent() {
   if (isLoading) {
     return (
       <LoadingSkeletonState
-        title="Manage people separately from daily logging"
+        title="People"
         icon={<UserRound className="h-4 w-4" />}
         maxWidth="7xl"
       >
@@ -326,7 +315,7 @@ function PeoplePageContent() {
   return (
     <>
       <PageShell
-        title="Manage people separately from daily logging"
+        title="People"
         icon={<UserRound className="h-4 w-4" />}
         maxWidth="7xl"
         showArchived={showArchived}
@@ -348,12 +337,6 @@ function PeoplePageContent() {
               onChange={(event) => setGoal(event.target.value)}
             />
             <Input
-              aria-label="Person notes"
-              placeholder="Notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-            <Input
               aria-label="Goal change reason"
               placeholder="Reason for goal change (optional)"
               value={goalReason}
@@ -370,7 +353,6 @@ function PeoplePageContent() {
                         await updatePerson({
                           personId: editingPersonId,
                           name,
-                          notes: notes.trim() || undefined,
                         })
                         await updatePersonGoal({
                           personId: editingPersonId,
@@ -381,7 +363,6 @@ function PeoplePageContent() {
                       } else {
                         await createPerson({
                           name,
-                          notes: notes.trim() || undefined,
                           currentDailyGoalKcal: goalValue,
                           effectiveDate: today,
                         })
@@ -437,7 +418,6 @@ type PersonTableRow = {
   id: Id<'people'>
   person: Doc<'people'>
   name: string
-  notes: string
   status: 'Active' | 'Archived'
   goalKcal: number
   consumedKcal: number
