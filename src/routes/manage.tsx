@@ -142,9 +142,7 @@ function ManagePageContent() {
     null,
   )
   const [recipeName, setRecipeName] = useState('')
-  const [recipeDescription, setRecipeDescription] = useState('')
   const [recipeInstructions, setRecipeInstructions] = useState('')
-  const [recipeNotes, setRecipeNotes] = useState('')
   const [recipeLineMode, setRecipeLineMode] = useState<'ingredient' | 'custom'>(
     'ingredient',
   )
@@ -251,9 +249,7 @@ function ManagePageContent() {
   const resetRecipeForm = () => {
     setEditingRecipeId(null)
     setRecipeName('')
-    setRecipeDescription('')
     setRecipeInstructions('')
-    setRecipeNotes('')
     setRecipeLineMode('ingredient')
     setRecipeLineIngredientId('')
     setRecipeLineCustomName('')
@@ -584,9 +580,7 @@ function ManagePageContent() {
                   recipeIngredientsByVersionId.get(currentVersion._id) ?? []
                 setEditingRecipeId(recipe._id)
                 setRecipeName(recipe.name)
-                setRecipeDescription(recipe.description ?? '')
                 setRecipeInstructions(currentVersion.instructions ?? '')
-                setRecipeNotes(currentVersion.notes ?? '')
                 setRecipeLineAmountDraftById({})
                 setRecipeLineKcalDraftById({})
                 setRecipeIngredientLines(
@@ -1283,24 +1277,12 @@ function ManagePageContent() {
                 value={recipeName}
                 onChange={(event) => setRecipeName(event.target.value)}
               />
-              <Input
-                aria-label="Recipe description"
-                placeholder="Description"
-                value={recipeDescription}
-                onChange={(event) => setRecipeDescription(event.target.value)}
-              />
             </div>
             <Textarea
               aria-label="Recipe instructions"
               placeholder="Instructions"
               value={recipeInstructions}
               onChange={(event) => setRecipeInstructions(event.target.value)}
-            />
-            <Input
-              aria-label="Recipe version notes"
-              placeholder="Version notes"
-              value={recipeNotes}
-              onChange={(event) => setRecipeNotes(event.target.value)}
             />
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1461,9 +1443,7 @@ function ManagePageContent() {
                       )
                       const payload = {
                         name: recipeName,
-                        description: recipeDescription.trim() || undefined,
                         instructions: recipeInstructions.trim() || undefined,
-                        notes: recipeNotes.trim() || undefined,
                         ingredientLines,
                       }
                       if (editingRecipeId) {

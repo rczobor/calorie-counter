@@ -107,9 +107,7 @@ type CookingDraft = {
   recipeVersionId: Id<'recipeVersions'> | ''
   saveAsRecipe: boolean
   recipeDraftName: string
-  recipeDraftDescription: string
   recipeDraftInstructions: string
-  recipeDraftNotes: string
   notes: string
   lineMode: 'ingredient' | 'custom'
   lineIngredientId: Id<'ingredients'> | ''
@@ -964,11 +962,8 @@ function CookingPageContent() {
               ? {
                   name:
                     draftToSave.recipeDraftName.trim() || resolvedCookedFoodName,
-                  description:
-                    draftToSave.recipeDraftDescription.trim() || undefined,
                   instructions:
                     draftToSave.recipeDraftInstructions.trim() || undefined,
-                  notes: draftToSave.recipeDraftNotes.trim() || undefined,
                 }
               : undefined,
           })
@@ -1951,24 +1946,13 @@ function CookingPageContent() {
                                   ? recipeVersionById.get(activeDraft.recipeVersionId)
                                   : undefined
                                 const instructions = (rv as { instructions?: string } | undefined)?.instructions?.trim()
-                                const rvNotes = (rv as { notes?: string } | undefined)?.notes?.trim()
-                                if (!instructions && !rvNotes) {
+                                if (!instructions) {
                                   return null
                                 }
                                 return (
                                   <div className="rounded-md border border-border/60 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-                                    {instructions ? (
-                                      <div>
-                                        <p className="font-medium text-foreground">Instructions</p>
-                                        <p className="mt-1 whitespace-pre-wrap">{instructions}</p>
-                                      </div>
-                                    ) : null}
-                                    {rvNotes ? (
-                                      <div className={instructions ? 'mt-3' : ''}>
-                                        <p className="font-medium text-foreground">Notes</p>
-                                        <p className="mt-1 whitespace-pre-wrap">{rvNotes}</p>
-                                      </div>
-                                    ) : null}
+                                    <p className="font-medium text-foreground">Instructions</p>
+                                    <p className="mt-1 whitespace-pre-wrap">{instructions}</p>
                                   </div>
                                 )
                               })()}
@@ -1998,21 +1982,7 @@ function CookingPageContent() {
                                   }
                                 />
                               </Field>
-                              <Field label="Description">
-                                <Input
-                                  aria-label="Recipe description from cooked food"
-                                  placeholder="Optional"
-                                  value={activeDraft.recipeDraftDescription}
-                                  onChange={(event) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      recipeDraftDescription:
-                                        event.target.value,
-                                    }))
-                                  }
-                                />
-                              </Field>
-                              <Field label="Instructions" className="lg:col-span-2">
+                              <Field label="Instructions">
                                 <Textarea
                                   aria-label="Recipe instructions from cooked food"
                                   placeholder="Optional"
@@ -2022,19 +1992,6 @@ function CookingPageContent() {
                                       ...draft,
                                       recipeDraftInstructions:
                                         event.target.value,
-                                    }))
-                                  }
-                                />
-                              </Field>
-                              <Field label="Notes" className="lg:col-span-2">
-                                <Input
-                                  aria-label="Recipe notes from cooked food"
-                                  placeholder="Optional"
-                                  value={activeDraft.recipeDraftNotes}
-                                  onChange={(event) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      recipeDraftNotes: event.target.value,
                                     }))
                                   }
                                 />
@@ -2210,9 +2167,7 @@ function createCookingDraft(
     recipeVersionId: '',
     saveAsRecipe: false,
     recipeDraftName: '',
-    recipeDraftDescription: '',
     recipeDraftInstructions: '',
-    recipeDraftNotes: '',
     notes: '',
     lineMode: 'ingredient',
     lineIngredientId: '',
@@ -2294,9 +2249,7 @@ function duplicateCookingDraft(sourceDraft: CookingDraft) {
     recipeVersionId: sourceDraft.recipeVersionId,
     saveAsRecipe: false,
     recipeDraftName: '',
-    recipeDraftDescription: '',
     recipeDraftInstructions: '',
-    recipeDraftNotes: '',
     notes: sourceDraft.notes,
     ingredientLines: sourceDraft.ingredientLines.map(cloneIngredientLine),
   })
@@ -2317,9 +2270,7 @@ function draftHasUserContent(draft: CookingDraft) {
       draft.recipeVersionId ||
       draft.saveAsRecipe ||
       draft.recipeDraftName.trim() ||
-      draft.recipeDraftDescription.trim() ||
       draft.recipeDraftInstructions.trim() ||
-      draft.recipeDraftNotes.trim() ||
       draft.lineIngredientId ||
       draft.lineCustomName.trim() ||
       draft.lineCustomKcal.trim() ||
