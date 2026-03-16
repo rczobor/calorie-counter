@@ -1,5 +1,5 @@
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Toggle } from '@/components/ui/toggle'
 import { cn } from '@/lib/utils'
 
 type IngredientLineMode = 'ingredient' | 'custom'
@@ -20,20 +20,34 @@ export function IngredientLineModeToggle({
   className,
 }: IngredientLineModeToggleProps) {
   return (
-    <Tabs
-      value={value}
-      onValueChange={(nextValue) => {
-        if (nextValue === 'ingredient' || nextValue === 'custom') {
-          onValueChange(nextValue)
-        }
-      }}
-      className={cn('w-fit', className)}
+    <div
+      className={cn(
+        'inline-flex rounded-xl border border-border/80 bg-muted/35 p-1',
+        className,
+      )}
     >
-      <TabsList>
-        <TabsTrigger value="ingredient">{existingLabel}</TabsTrigger>
-        <TabsTrigger value="custom">{customLabel}</TabsTrigger>
-      </TabsList>
-    </Tabs>
+      {(
+        [
+          ['ingredient', existingLabel],
+          ['custom', customLabel],
+        ] as const
+      ).map(([mode, label]) => (
+        <Toggle
+          key={mode}
+          variant="default"
+          size="lg"
+          pressed={value === mode}
+          onPressedChange={(pressed) => {
+            if (pressed) {
+              onValueChange(mode)
+            }
+          }}
+          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
+        >
+          {label}
+        </Toggle>
+      ))}
+    </div>
   )
 }
 

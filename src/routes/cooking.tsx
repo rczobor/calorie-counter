@@ -1,8 +1,8 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
-import { Copy, Plus, Trash2, UserRound } from 'lucide-react'
-import { type ReactNode, useMemo, useState } from 'react'
+import { ChefHat, Copy, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
 
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
@@ -1169,11 +1169,11 @@ function CookingPageContent() {
     return (
       <LoadingSkeletonState
         title="Cooking"
-        icon={<UserRound className="h-4 w-4" />}
+        icon={<ChefHat className="h-4 w-4" />}
       >
         <div className="mt-3 space-y-3">
           <div className="rounded-lg border border-border bg-card/90 p-5">
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-2">
                   <Skeleton className="h-6 w-36" />
@@ -1223,13 +1223,14 @@ function CookingPageContent() {
     <>
       <PageShell
         title="Cooking"
-        icon={<UserRound className="h-4 w-4" />}
+        icon={<ChefHat className="h-4 w-4" />}
+        maxWidth="7xl"
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
         <div className="mt-3 space-y-3">
           <Card className="border-border/70 bg-card/90">
-            <CardHeader className="gap-2 border-b border-border/60">
+            <CardHeader className="gap-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <CardTitle>Session workspace</CardTitle>
@@ -1259,19 +1260,17 @@ function CookingPageContent() {
             </CardHeader>
             <CardContent className="space-y-3 pt-3">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <Field label="Session">
-                  <SearchablePicker
-                    ariaLabel="Cook session search"
-                    value={effectiveSelectedCookSessionId}
-                    onValueChange={(value) => {
-                      setSelectedCookSessionId(value as Id<'cookSessions'> | '')
-                      setShowAllCookedFoods(false)
-                    }}
-                    placeholder="Search or switch session"
-                    options={sessionOptions}
-                  />
-                </Field>
-                <div className="xl:pt-[1.875rem]">
+                <SearchablePicker
+                  ariaLabel="Cook session search"
+                  value={effectiveSelectedCookSessionId}
+                  onValueChange={(value) => {
+                    setSelectedCookSessionId(value as Id<'cookSessions'> | '')
+                    setShowAllCookedFoods(false)
+                  }}
+                  placeholder="Search or switch session"
+                  options={sessionOptions}
+                />
+                <div>
                   <Button
                     type="button"
                     disabled={!selectedCookSession}
@@ -1285,7 +1284,7 @@ function CookingPageContent() {
                     New cooking
                   </Button>
                 </div>
-                <div className="xl:pt-[1.875rem]">
+                <div>
                   <Button
                     type="button"
                     variant="outline"
@@ -1336,42 +1335,36 @@ function CookingPageContent() {
                   </div>
 
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <Field label="Label">
-                      <Input
-                        aria-label="Session label"
-                        placeholder="Breakfast prep"
-                        value={sessionLabel}
-                        onChange={(event) => setSessionLabel(event.target.value)}
-                      />
-                    </Field>
-                    <Field label="Date">
-                      <DatePicker
-                        value={sessionDate}
-                        onChange={setSessionDate}
-                        ariaLabel="Session date"
-                        className="w-full justify-start"
-                      />
-                    </Field>
-                    <Field label="Cooked by">
-                      <Select
-                        ariaLabel="Session person"
-                        value={sessionPersonId}
-                        onValueChange={(value) =>
-                          setSessionPersonId(
-                            (value as Id<'people'> | '' | null) ?? '',
-                          )
-                        }
-                        placeholder="No person"
-                        className="w-full"
-                        options={[
-                          { value: '', label: 'No person' },
-                          ...people.map((person) => ({
-                            value: person._id,
-                            label: person.name,
-                          })),
-                        ]}
-                      />
-                    </Field>
+                    <Input
+                      aria-label="Session label"
+                      placeholder="Breakfast prep"
+                      value={sessionLabel}
+                      onChange={(event) => setSessionLabel(event.target.value)}
+                    />
+                    <DatePicker
+                      value={sessionDate}
+                      onChange={setSessionDate}
+                      ariaLabel="Session date"
+                      className="w-full justify-start"
+                    />
+                    <Select
+                      ariaLabel="Session person"
+                      value={sessionPersonId}
+                      onValueChange={(value) =>
+                        setSessionPersonId(
+                          (value as Id<'people'> | '' | null) ?? '',
+                        )
+                      }
+                      placeholder="No person"
+                      className="w-full"
+                      options={[
+                        { value: '', label: 'No person' },
+                        ...people.map((person) => ({
+                          value: person._id,
+                          label: person.name,
+                        })),
+                      ]}
+                    />
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -1389,7 +1382,7 @@ function CookingPageContent() {
 
           <div className="grid gap-3 xl:grid-cols-[320px_minmax(0,1fr)]">
             <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2 border-b border-border/60">
+              <CardHeader className="gap-2">
                 <CardTitle>In progress</CardTitle>
                 <CardDescription>
                   Drafts stay attached to the selected session until you save or
@@ -1470,7 +1463,7 @@ function CookingPageContent() {
             </Card>
 
             <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2 border-b border-border/60">
+              <CardHeader className="gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <CardTitle>
@@ -1514,7 +1507,7 @@ function CookingPageContent() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-3">
+              <CardContent className="space-y-3 pt-3">
                 {!selectedCookSession ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
                     Choose a session first. Sessions keep the shared cooking
@@ -1538,55 +1531,49 @@ function CookingPageContent() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      <Field label="Cooked food name">
-                        <Input
-                          aria-label="Cooked food name"
-                          placeholder="Muesli jars"
-                          value={activeDraft.name}
-                          onChange={(event) =>
-                            updateActiveDraft((draft) => ({
-                              ...draft,
-                              name: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field label="Group">
-                        <Select
-                          ariaLabel="Cooked food group"
-                          value={activeDraft.groupId}
-                          onValueChange={(value) =>
-                            updateActiveDraft((draft) => ({
-                              ...draft,
-                              groupId:
-                                (value as Id<'foodGroups'> | '' | null) ?? '',
-                            }))
-                          }
-                          placeholder="No group"
-                          className="w-full"
-                          options={[
-                            { value: '', label: 'No group' },
-                            ...groups.map((group) => ({
-                              value: group._id,
-                              label: group.name,
-                            })),
-                          ]}
-                        />
-                      </Field>
-                      <Field label="Finished amount">
-                        <Input
-                          type="number"
-                          aria-label="Finished cooked food amount"
-                          placeholder="0"
-                          value={activeDraft.finishedWeight}
-                          onChange={(event) =>
-                            updateActiveDraft((draft) => ({
-                              ...draft,
-                              finishedWeight: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
+                      <Input
+                        aria-label="Cooked food name"
+                        placeholder="Muesli jars"
+                        value={activeDraft.name}
+                        onChange={(event) =>
+                          updateActiveDraft((draft) => ({
+                            ...draft,
+                            name: event.target.value,
+                          }))
+                        }
+                      />
+                      <Select
+                        ariaLabel="Cooked food group"
+                        value={activeDraft.groupId}
+                        onValueChange={(value) =>
+                          updateActiveDraft((draft) => ({
+                            ...draft,
+                            groupId:
+                              (value as Id<'foodGroups'> | '' | null) ?? '',
+                          }))
+                        }
+                        placeholder="No group"
+                        className="w-full"
+                        options={[
+                          { value: '', label: 'No group' },
+                          ...groups.map((group) => ({
+                            value: group._id,
+                            label: group.name,
+                          })),
+                        ]}
+                      />
+                      <Input
+                        type="number"
+                        aria-label="Finished cooked food amount"
+                        placeholder="0"
+                        value={activeDraft.finishedWeight}
+                        onChange={(event) =>
+                          updateActiveDraft((draft) => ({
+                            ...draft,
+                            finishedWeight: event.target.value,
+                          }))
+                        }
+                      />
                     </div>
 
                     <div className="rounded-md border border-border/70 bg-muted/20 p-4">
@@ -1628,86 +1615,72 @@ function CookingPageContent() {
                                 : 'xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto]',
                             )}
                           >
-                            <Field label="Ingredient">
-                              <SearchablePicker
-                                value={activeDraft.lineIngredientId}
-                                onValueChange={(value) => {
-                                  const nextIngredientId = value as
-                                    | Id<'ingredients'>
-                                    | ''
-                                  updateActiveDraft((draft) => ({
-                                    ...draft,
-                                    lineIngredientId: nextIngredientId,
-                                    lineReferenceUnit: getIngredientBasisUnit(
-                                      nextIngredientId
-                                        ? ingredientById.get(nextIngredientId)
-                                        : undefined,
-                                    ),
-                                  }))
-                                }}
-                                ariaLabel="Cooked food ingredient search"
-                                placeholder="Search ingredient"
-                                options={ingredientOptions}
-                              />
-                            </Field>
+                            <SearchablePicker
+                              value={activeDraft.lineIngredientId}
+                              onValueChange={(value) => {
+                                const nextIngredientId = value as
+                                  | Id<'ingredients'>
+                                  | ''
+                                updateActiveDraft((draft) => ({
+                                  ...draft,
+                                  lineIngredientId: nextIngredientId,
+                                  lineReferenceUnit: getIngredientBasisUnit(
+                                    nextIngredientId
+                                      ? ingredientById.get(nextIngredientId)
+                                      : undefined,
+                                  ),
+                                }))
+                              }}
+                              ariaLabel="Cooked food ingredient search"
+                              placeholder="Search ingredient"
+                              options={ingredientOptions}
+                            />
                             {shouldAutoFillIngredientReference ? null : (
-                              <Field label="Reference amount">
-                                <Input
-                                  type="number"
-                                  aria-label="Reference amount"
-                                  placeholder="0"
-                                  value={activeDraft.lineReferenceAmount}
-                                  onChange={(event) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      lineReferenceAmount: event.target.value,
-                                    }))
-                                  }
-                                />
-                              </Field>
-                            )}
-                            {shouldAutoFillIngredientReference ? null : (
-                              <Field label="Reference unit">
-                                <Select
-                                  ariaLabel="Reference unit"
-                                  value={activeDraft.lineReferenceUnit}
-                                  onValueChange={(value) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      lineReferenceUnit:
-                                        (value as NutritionUnit | null) ?? 'g',
-                                    }))
-                                  }
-                                  className="w-full"
-                                  options={NUTRITION_UNIT_OPTIONS}
-                                />
-                              </Field>
-                            )}
-                            <Field
-                              label={
-                                shouldAutoFillIngredientReference
-                                  ? 'Amount'
-                                  : 'Counted amount'
-                              }
-                            >
                               <Input
                                 type="number"
-                                aria-label={
-                                  shouldAutoFillIngredientReference
-                                    ? 'Ingredient amount'
-                                    : 'Counted amount'
-                                }
+                                aria-label="Reference amount"
                                 placeholder="0"
-                                value={activeDraft.lineCountedAmount}
+                                value={activeDraft.lineReferenceAmount}
                                 onChange={(event) =>
                                   updateActiveDraft((draft) => ({
                                     ...draft,
-                                    lineCountedAmount: event.target.value,
+                                    lineReferenceAmount: event.target.value,
                                   }))
                                 }
                               />
-                            </Field>
-                            <div className="xl:pt-[1.875rem]">
+                            )}
+                            {shouldAutoFillIngredientReference ? null : (
+                              <Select
+                                ariaLabel="Reference unit"
+                                value={activeDraft.lineReferenceUnit}
+                                onValueChange={(value) =>
+                                  updateActiveDraft((draft) => ({
+                                    ...draft,
+                                    lineReferenceUnit:
+                                      (value as NutritionUnit | null) ?? 'g',
+                                  }))
+                                }
+                                className="w-full"
+                                options={NUTRITION_UNIT_OPTIONS}
+                              />
+                            )}
+                            <Input
+                              type="number"
+                              aria-label={
+                                shouldAutoFillIngredientReference
+                                  ? 'Ingredient amount'
+                                  : 'Counted amount'
+                              }
+                              placeholder="0"
+                              value={activeDraft.lineCountedAmount}
+                              onChange={(event) =>
+                                updateActiveDraft((draft) => ({
+                                  ...draft,
+                                  lineCountedAmount: event.target.value,
+                                }))
+                              }
+                            />
+                            <div>
                               <Button
                                 variant="outline"
                                 onClick={addCookedFoodIngredientLine}
@@ -1726,52 +1699,46 @@ function CookingPageContent() {
                                   : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]',
                               )}
                             >
-                              <Field label="Ingredient">
-                                <Input
-                                  aria-label="Custom ingredient name"
-                                  placeholder="Ingredient"
-                                  value={activeDraft.lineCustomName}
-                                  onChange={(event) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      lineCustomName: event.target.value,
-                                    }))
-                                  }
-                                />
-                              </Field>
+                              <Input
+                                aria-label="Custom ingredient name"
+                                placeholder="Ingredient"
+                                value={activeDraft.lineCustomName}
+                                onChange={(event) =>
+                                  updateActiveDraft((draft) => ({
+                                    ...draft,
+                                    lineCustomName: event.target.value,
+                                  }))
+                                }
+                              />
                               {activeDraft.lineCustomIgnoreCalories ? null : (
                                 <>
-                                  <Field label="kcal per 100">
-                                    <Input
-                                      type="number"
-                                      aria-label="Custom kcal per 100"
-                                      placeholder="0"
-                                      value={activeDraft.lineCustomKcal}
-                                      onChange={(event) =>
-                                        updateActiveDraft((draft) => ({
-                                          ...draft,
-                                          lineCustomKcal: event.target.value,
-                                        }))
-                                      }
-                                    />
-                                  </Field>
-                                  <Field label="Basis unit">
-                                    <Select
-                                      ariaLabel="Custom kcal basis"
-                                      value={activeDraft.lineCustomBasisUnit}
-                                      onValueChange={(value) => {
-                                        const nextUnit =
-                                          (value as NutritionUnit | null) ?? 'g'
-                                        updateActiveDraft((draft) => ({
-                                          ...draft,
-                                          lineCustomBasisUnit: nextUnit,
-                                          lineReferenceUnit: nextUnit,
-                                        }))
-                                      }}
-                                      className="w-full"
-                                      options={NUTRITION_UNIT_OPTIONS}
-                                    />
-                                  </Field>
+                                  <Input
+                                    type="number"
+                                    aria-label="Custom kcal per 100"
+                                    placeholder="0"
+                                    value={activeDraft.lineCustomKcal}
+                                    onChange={(event) =>
+                                      updateActiveDraft((draft) => ({
+                                        ...draft,
+                                        lineCustomKcal: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                  <Select
+                                    ariaLabel="Custom kcal basis"
+                                    value={activeDraft.lineCustomBasisUnit}
+                                    onValueChange={(value) => {
+                                      const nextUnit =
+                                        (value as NutritionUnit | null) ?? 'g'
+                                      updateActiveDraft((draft) => ({
+                                        ...draft,
+                                        lineCustomBasisUnit: nextUnit,
+                                        lineReferenceUnit: nextUnit,
+                                      }))
+                                    }}
+                                    className="w-full"
+                                    options={NUTRITION_UNIT_OPTIONS}
+                                  />
                                 </>
                               )}
                             </div>
@@ -1784,63 +1751,51 @@ function CookingPageContent() {
                               )}
                             >
                               {shouldAutoFillCustomReference ? null : (
-                                <Field label="Reference amount">
-                                  <Input
-                                    type="number"
-                                    aria-label="Custom reference amount"
-                                    placeholder="0"
-                                    value={activeDraft.lineReferenceAmount}
-                                    onChange={(event) =>
-                                      updateActiveDraft((draft) => ({
-                                        ...draft,
-                                        lineReferenceAmount: event.target.value,
-                                      }))
-                                    }
-                                  />
-                                </Field>
-                              )}
-                              {shouldAutoFillCustomReference ? null : (
-                                <Field label="Reference unit">
-                                  <Select
-                                    ariaLabel="Custom reference unit"
-                                    value={activeDraft.lineReferenceUnit}
-                                    onValueChange={(value) =>
-                                      updateActiveDraft((draft) => ({
-                                        ...draft,
-                                        lineReferenceUnit:
-                                          (value as NutritionUnit | null) ?? 'g',
-                                      }))
-                                    }
-                                    className="w-full"
-                                    options={NUTRITION_UNIT_OPTIONS}
-                                  />
-                                </Field>
-                              )}
-                              <Field
-                                label={
-                                  shouldAutoFillCustomReference
-                                    ? 'Amount'
-                                    : 'Counted amount'
-                                }
-                              >
                                 <Input
                                   type="number"
-                                  aria-label={
-                                    shouldAutoFillCustomReference
-                                      ? 'Custom ingredient amount'
-                                      : 'Custom counted amount'
-                                  }
+                                  aria-label="Custom reference amount"
                                   placeholder="0"
-                                  value={activeDraft.lineCountedAmount}
+                                  value={activeDraft.lineReferenceAmount}
                                   onChange={(event) =>
                                     updateActiveDraft((draft) => ({
                                       ...draft,
-                                      lineCountedAmount: event.target.value,
+                                      lineReferenceAmount: event.target.value,
                                     }))
                                   }
                                 />
-                              </Field>
-                              <div className="xl:pt-[1.875rem]">
+                              )}
+                              {shouldAutoFillCustomReference ? null : (
+                                <Select
+                                  ariaLabel="Custom reference unit"
+                                  value={activeDraft.lineReferenceUnit}
+                                  onValueChange={(value) =>
+                                    updateActiveDraft((draft) => ({
+                                      ...draft,
+                                      lineReferenceUnit:
+                                        (value as NutritionUnit | null) ?? 'g',
+                                    }))
+                                  }
+                                  className="w-full"
+                                  options={NUTRITION_UNIT_OPTIONS}
+                                />
+                              )}
+                              <Input
+                                type="number"
+                                aria-label={
+                                  shouldAutoFillCustomReference
+                                    ? 'Custom ingredient amount'
+                                    : 'Custom counted amount'
+                                }
+                                placeholder="0"
+                                value={activeDraft.lineCountedAmount}
+                                onChange={(event) =>
+                                  updateActiveDraft((draft) => ({
+                                    ...draft,
+                                    lineCountedAmount: event.target.value,
+                                  }))
+                                }
+                              />
+                              <div>
                                 <Button
                                   variant="outline"
                                   onClick={addCookedFoodIngredientLine}
@@ -1928,19 +1883,17 @@ function CookingPageContent() {
                           {activeDraft.persistedCookedFoodId ||
                           !activeDraft.saveAsRecipe ? (
                             <>
-                              <Field label="Recipe source">
-                                <SearchablePicker
-                                  value={activeDraft.recipeVersionId}
-                                  onValueChange={(value) =>
-                                    applyRecipeVersionToActiveDraft(
-                                      value as Id<'recipeVersions'> | '',
-                                    )
-                                  }
-                                  ariaLabel="Cooked food recipe search"
-                                  placeholder="Search recipe"
-                                  options={recipeVersionOptions}
-                                />
-                              </Field>
+                              <SearchablePicker
+                                value={activeDraft.recipeVersionId}
+                                onValueChange={(value) =>
+                                  applyRecipeVersionToActiveDraft(
+                                    value as Id<'recipeVersions'> | '',
+                                  )
+                                }
+                                ariaLabel="Cooked food recipe search"
+                                placeholder="Search recipe"
+                                options={recipeVersionOptions}
+                              />
                               {(() => {
                                 const rv = activeDraft.recipeVersionId
                                   ? recipeVersionById.get(activeDraft.recipeVersionId)
@@ -1967,35 +1920,31 @@ function CookingPageContent() {
                           {!activeDraft.persistedCookedFoodId &&
                           activeDraft.saveAsRecipe ? (
                             <div className="grid gap-4 lg:grid-cols-2">
-                              <Field label="Recipe name">
-                                <Input
-                                  aria-label="Recipe name from cooked food"
-                                  placeholder={
-                                    activeDraft.name.trim() || 'Recipe name'
-                                  }
-                                  value={activeDraft.recipeDraftName}
-                                  onChange={(event) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      recipeDraftName: event.target.value,
-                                    }))
-                                  }
-                                />
-                              </Field>
-                              <Field label="Instructions">
-                                <Textarea
-                                  aria-label="Recipe instructions from cooked food"
-                                  placeholder="Optional"
-                                  value={activeDraft.recipeDraftInstructions}
-                                  onChange={(event) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      recipeDraftInstructions:
-                                        event.target.value,
-                                    }))
-                                  }
-                                />
-                              </Field>
+                              <Input
+                                aria-label="Recipe name from cooked food"
+                                placeholder={
+                                  activeDraft.name.trim() || 'Recipe name'
+                                }
+                                value={activeDraft.recipeDraftName}
+                                onChange={(event) =>
+                                  updateActiveDraft((draft) => ({
+                                    ...draft,
+                                    recipeDraftName: event.target.value,
+                                  }))
+                                }
+                              />
+                              <Textarea
+                                aria-label="Recipe instructions from cooked food"
+                                placeholder="Optional"
+                                value={activeDraft.recipeDraftInstructions}
+                                onChange={(event) =>
+                                  updateActiveDraft((draft) => ({
+                                    ...draft,
+                                    recipeDraftInstructions:
+                                      event.target.value,
+                                  }))
+                                }
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -2083,7 +2032,7 @@ function CookingPageContent() {
 
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
             <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2 border-b border-border/60">
+              <CardHeader className="gap-2">
                 <CardTitle>{savedFoodsCardTitle}</CardTitle>
                 <CardDescription>{cookedFoodRows.length} total</CardDescription>
               </CardHeader>
@@ -2121,7 +2070,7 @@ function CookingPageContent() {
             </Card>
 
             <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2 border-b border-border/60">
+              <CardHeader className="gap-2">
                 <CardTitle>Sessions</CardTitle>
                 <CardDescription>{sessionRows.length} total</CardDescription>
               </CardHeader>
@@ -2330,19 +2279,3 @@ function createDraftId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-type FieldProps = {
-  label: string
-  children: ReactNode
-  className?: string
-}
-
-function Field({ label, children, className }: FieldProps) {
-  return (
-    <label className={cn('flex min-w-0 flex-col gap-1.5', className)}>
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {label}
-      </span>
-      {children}
-    </label>
-  )
-}

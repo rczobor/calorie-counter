@@ -805,16 +805,16 @@ function MealDashboardPageContent() {
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                   Person
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {people.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Add an active person in Manage before creating meals.
-                    </p>
-                  ) : (
-                    people.map((person) => (
+                {people.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Add an active person in Manage before creating meals.
+                  </p>
+                ) : (
+                  <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
+                    {people.map((person) => (
                       <Toggle
                         key={person._id}
-                        variant="outline"
+                        variant="default"
                         size="lg"
                         pressed={effectiveSelectedPersonId === person._id}
                         onPressedChange={(pressed) => {
@@ -822,13 +822,13 @@ function MealDashboardPageContent() {
                             setSelectedPersonId(person._id)
                           }
                         }}
-                        className="h-9 rounded-full px-3 text-sm data-[state=on]:border-emerald-500/55 data-[state=on]:bg-emerald-500/15 data-[state=on]:text-foreground"
+                        className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
                       >
                         {person.name}
                       </Toggle>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <DatePicker
                 value={mealDate}
@@ -916,7 +916,7 @@ function MealDashboardPageContent() {
                         setItemQuickCalories('')
                       }}
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3.5 w-3.5" />
                       {editingDraftItemIndex === null ? 'Add' : 'Update'}
                     </Button>
                   </div>
@@ -957,7 +957,7 @@ function MealDashboardPageContent() {
                         }
                       />
                       <Button variant="outline" onClick={upsertDraftItem}>
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5" />
                         {editingDraftItemIndex === null ? 'Add' : 'Update'}
                       </Button>
                     </div>
@@ -1047,7 +1047,7 @@ function MealDashboardPageContent() {
                         onChange={(event) => setItemWeight(event.target.value)}
                       />
                       <Button variant="outline" onClick={upsertDraftItem}>
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5" />
                         {editingDraftItemIndex === null ? 'Add' : 'Update'}
                       </Button>
                     </div>

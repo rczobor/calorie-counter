@@ -2,7 +2,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { useMemo, useState } from 'react'
-import { Trash2, UserRound } from 'lucide-react'
+import { BookOpenText, Trash2 } from 'lucide-react'
 
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
@@ -1079,7 +1079,7 @@ function ManagePageContent() {
     return (
       <LoadingSkeletonState
         title="Catalog"
-        icon={<UserRound className="h-4 w-4" />}
+        icon={<BookOpenText className="h-4 w-4" />}
       >
         <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
@@ -1103,7 +1103,8 @@ function ManagePageContent() {
     <>
       <PageShell
         title="Catalog"
-        icon={<UserRound className="h-4 w-4" />}
+        icon={<BookOpenText className="h-4 w-4" />}
+        maxWidth="7xl"
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >

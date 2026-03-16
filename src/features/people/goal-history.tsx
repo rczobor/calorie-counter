@@ -14,7 +14,7 @@ type GoalHistorySectionProps = {
 
 export function GoalHistorySection({ children }: GoalHistorySectionProps) {
   return (
-    <Card className="mt-5 border-border/70 bg-card/90">
+    <Card className="mt-3 border-border/70 bg-card/90">
       <CardHeader>
         <CardTitle>Goal Change History</CardTitle>
         <CardDescription>Effective-dated records per person.</CardDescription>

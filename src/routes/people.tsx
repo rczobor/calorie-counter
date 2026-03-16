@@ -1,7 +1,7 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
-import { Target, UserRound } from 'lucide-react'
+import { Target, Trash2, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { api } from '../../convex/_generated/api'
@@ -224,7 +224,7 @@ function PeoplePageContent() {
                 )
               }
             >
-              Delete
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         )

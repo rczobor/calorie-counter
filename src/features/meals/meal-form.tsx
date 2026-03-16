@@ -25,7 +25,7 @@ export function MealFormSection({
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
+      <CardContent className="space-y-3">{children}</CardContent>
     </Card>
   )
 }
