@@ -28,6 +28,7 @@ import {
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { SearchablePicker } from '@/components/ui/searchable-picker'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -1531,49 +1532,58 @@ function CookingPageContent() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      <Input
-                        aria-label="Cooked food name"
-                        placeholder="Muesli jars"
-                        value={activeDraft.name}
-                        onChange={(event) =>
-                          updateActiveDraft((draft) => ({
-                            ...draft,
-                            name: event.target.value,
-                          }))
-                        }
-                      />
-                      <Select
-                        ariaLabel="Cooked food group"
-                        value={activeDraft.groupId}
-                        onValueChange={(value) =>
-                          updateActiveDraft((draft) => ({
-                            ...draft,
-                            groupId:
-                              (value as Id<'foodGroups'> | '' | null) ?? '',
-                          }))
-                        }
-                        placeholder="No group"
-                        className="w-full"
-                        options={[
-                          { value: '', label: 'No group' },
-                          ...groups.map((group) => ({
-                            value: group._id,
-                            label: group.name,
-                          })),
-                        ]}
-                      />
-                      <Input
-                        type="number"
-                        aria-label="Finished cooked food amount"
-                        placeholder="0"
-                        value={activeDraft.finishedWeight}
-                        onChange={(event) =>
-                          updateActiveDraft((draft) => ({
-                            ...draft,
-                            finishedWeight: event.target.value,
-                          }))
-                        }
-                      />
+                      <div>
+                        <Label htmlFor="cookedFoodName">Name</Label>
+                        <Input
+                          id="cookedFoodName"
+                          placeholder="Muesli jars"
+                          value={activeDraft.name}
+                          onChange={(event) =>
+                            updateActiveDraft((draft) => ({
+                              ...draft,
+                              name: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Group</Label>
+                        <Select
+                          ariaLabel="Cooked food group"
+                          value={activeDraft.groupId}
+                          onValueChange={(value) =>
+                            updateActiveDraft((draft) => ({
+                              ...draft,
+                              groupId:
+                                (value as Id<'foodGroups'> | '' | null) ?? '',
+                            }))
+                          }
+                          placeholder="No group"
+                          className="w-full"
+                          options={[
+                            { value: '', label: 'No group' },
+                            ...groups.map((group) => ({
+                              value: group._id,
+                              label: group.name,
+                            })),
+                          ]}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="finishedWeight">Finished weight</Label>
+                        <Input
+                          id="finishedWeight"
+                          type="number"
+                          placeholder="0"
+                          value={activeDraft.finishedWeight}
+                          onChange={(event) =>
+                            updateActiveDraft((draft) => ({
+                              ...draft,
+                              finishedWeight: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
 
                     <div className="rounded-md border border-border/70 bg-muted/20 p-4">
@@ -1615,72 +1625,86 @@ function CookingPageContent() {
                                 : 'xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto]',
                             )}
                           >
-                            <SearchablePicker
-                              value={activeDraft.lineIngredientId}
-                              onValueChange={(value) => {
-                                const nextIngredientId = value as
-                                  | Id<'ingredients'>
-                                  | ''
-                                updateActiveDraft((draft) => ({
-                                  ...draft,
-                                  lineIngredientId: nextIngredientId,
-                                  lineReferenceUnit: getIngredientBasisUnit(
-                                    nextIngredientId
-                                      ? ingredientById.get(nextIngredientId)
-                                      : undefined,
-                                  ),
-                                }))
-                              }}
-                              ariaLabel="Cooked food ingredient search"
-                              placeholder="Search ingredient"
-                              options={ingredientOptions}
-                            />
+                            <div>
+                              <Label>Ingredient</Label>
+                              <SearchablePicker
+                                value={activeDraft.lineIngredientId}
+                                onValueChange={(value) => {
+                                  const nextIngredientId = value as
+                                    | Id<'ingredients'>
+                                    | ''
+                                  updateActiveDraft((draft) => ({
+                                    ...draft,
+                                    lineIngredientId: nextIngredientId,
+                                    lineReferenceUnit: getIngredientBasisUnit(
+                                      nextIngredientId
+                                        ? ingredientById.get(nextIngredientId)
+                                        : undefined,
+                                    ),
+                                  }))
+                                }}
+                                ariaLabel="Cooked food ingredient search"
+                                placeholder="Search ingredient"
+                                options={ingredientOptions}
+                              />
+                            </div>
                             {shouldAutoFillIngredientReference ? null : (
+                              <div>
+                                <Label htmlFor="lineReferenceAmount">
+                                  Ref. amount
+                                </Label>
+                                <Input
+                                  id="lineReferenceAmount"
+                                  type="number"
+                                  placeholder="0"
+                                  value={activeDraft.lineReferenceAmount}
+                                  onChange={(event) =>
+                                    updateActiveDraft((draft) => ({
+                                      ...draft,
+                                      lineReferenceAmount: event.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
+                            )}
+                            {shouldAutoFillIngredientReference ? null : (
+                              <div>
+                                <Label>Ref. unit</Label>
+                                <Select
+                                  ariaLabel="Reference unit"
+                                  value={activeDraft.lineReferenceUnit}
+                                  onValueChange={(value) =>
+                                    updateActiveDraft((draft) => ({
+                                      ...draft,
+                                      lineReferenceUnit:
+                                        (value as NutritionUnit | null) ?? 'g',
+                                    }))
+                                  }
+                                  className="w-full"
+                                  options={NUTRITION_UNIT_OPTIONS}
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <Label htmlFor="lineCountedAmount">
+                                {shouldAutoFillIngredientReference
+                                  ? 'Amount'
+                                  : 'Counted'}
+                              </Label>
                               <Input
+                                id="lineCountedAmount"
                                 type="number"
-                                aria-label="Reference amount"
                                 placeholder="0"
-                                value={activeDraft.lineReferenceAmount}
+                                value={activeDraft.lineCountedAmount}
                                 onChange={(event) =>
                                   updateActiveDraft((draft) => ({
                                     ...draft,
-                                    lineReferenceAmount: event.target.value,
+                                    lineCountedAmount: event.target.value,
                                   }))
                                 }
                               />
-                            )}
-                            {shouldAutoFillIngredientReference ? null : (
-                              <Select
-                                ariaLabel="Reference unit"
-                                value={activeDraft.lineReferenceUnit}
-                                onValueChange={(value) =>
-                                  updateActiveDraft((draft) => ({
-                                    ...draft,
-                                    lineReferenceUnit:
-                                      (value as NutritionUnit | null) ?? 'g',
-                                  }))
-                                }
-                                className="w-full"
-                                options={NUTRITION_UNIT_OPTIONS}
-                              />
-                            )}
-                            <Input
-                              type="number"
-                              aria-label={
-                                shouldAutoFillIngredientReference
-                                  ? 'Ingredient amount'
-                                  : 'Counted amount'
-                              }
-                              placeholder="0"
-                              value={activeDraft.lineCountedAmount}
-                              onChange={(event) =>
-                                updateActiveDraft((draft) => ({
-                                  ...draft,
-                                  lineCountedAmount: event.target.value,
-                                }))
-                              }
-                            />
-                            <div>
+                            </div>
+                            <div className="self-end">
                               <Button
                                 variant="outline"
                                 onClick={addCookedFoodIngredientLine}
@@ -1699,46 +1723,59 @@ function CookingPageContent() {
                                   : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]',
                               )}
                             >
-                              <Input
-                                aria-label="Custom ingredient name"
-                                placeholder="Ingredient"
-                                value={activeDraft.lineCustomName}
-                                onChange={(event) =>
-                                  updateActiveDraft((draft) => ({
-                                    ...draft,
-                                    lineCustomName: event.target.value,
-                                  }))
-                                }
-                              />
+                              <div>
+                                <Label htmlFor="customIngredientName">
+                                  Ingredient
+                                </Label>
+                                <Input
+                                  id="customIngredientName"
+                                  placeholder="Ingredient"
+                                  value={activeDraft.lineCustomName}
+                                  onChange={(event) =>
+                                    updateActiveDraft((draft) => ({
+                                      ...draft,
+                                      lineCustomName: event.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
                               {activeDraft.lineCustomIgnoreCalories ? null : (
                                 <>
-                                  <Input
-                                    type="number"
-                                    aria-label="Custom kcal per 100"
-                                    placeholder="0"
-                                    value={activeDraft.lineCustomKcal}
-                                    onChange={(event) =>
-                                      updateActiveDraft((draft) => ({
-                                        ...draft,
-                                        lineCustomKcal: event.target.value,
-                                      }))
-                                    }
-                                  />
-                                  <Select
-                                    ariaLabel="Custom kcal basis"
-                                    value={activeDraft.lineCustomBasisUnit}
-                                    onValueChange={(value) => {
-                                      const nextUnit =
-                                        (value as NutritionUnit | null) ?? 'g'
-                                      updateActiveDraft((draft) => ({
-                                        ...draft,
-                                        lineCustomBasisUnit: nextUnit,
-                                        lineReferenceUnit: nextUnit,
-                                      }))
-                                    }}
-                                    className="w-full"
-                                    options={NUTRITION_UNIT_OPTIONS}
-                                  />
+                                  <div>
+                                    <Label htmlFor="lineCustomKcal">
+                                      kcal / 100
+                                    </Label>
+                                    <Input
+                                      id="lineCustomKcal"
+                                      type="number"
+                                      placeholder="0"
+                                      value={activeDraft.lineCustomKcal}
+                                      onChange={(event) =>
+                                        updateActiveDraft((draft) => ({
+                                          ...draft,
+                                          lineCustomKcal: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Basis unit</Label>
+                                    <Select
+                                      ariaLabel="Custom kcal basis"
+                                      value={activeDraft.lineCustomBasisUnit}
+                                      onValueChange={(value) => {
+                                        const nextUnit =
+                                          (value as NutritionUnit | null) ?? 'g'
+                                        updateActiveDraft((draft) => ({
+                                          ...draft,
+                                          lineCustomBasisUnit: nextUnit,
+                                          lineReferenceUnit: nextUnit,
+                                        }))
+                                      }}
+                                      className="w-full"
+                                      options={NUTRITION_UNIT_OPTIONS}
+                                    />
+                                  </div>
                                 </>
                               )}
                             </div>
@@ -1751,51 +1788,62 @@ function CookingPageContent() {
                               )}
                             >
                               {shouldAutoFillCustomReference ? null : (
+                                <div>
+                                  <Label htmlFor="customReferenceAmount">
+                                    Ref. amount
+                                  </Label>
+                                  <Input
+                                    id="customReferenceAmount"
+                                    type="number"
+                                    placeholder="0"
+                                    value={activeDraft.lineReferenceAmount}
+                                    onChange={(event) =>
+                                      updateActiveDraft((draft) => ({
+                                        ...draft,
+                                        lineReferenceAmount: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              )}
+                              {shouldAutoFillCustomReference ? null : (
+                                <div>
+                                  <Label>Ref. unit</Label>
+                                  <Select
+                                    ariaLabel="Custom reference unit"
+                                    value={activeDraft.lineReferenceUnit}
+                                    onValueChange={(value) =>
+                                      updateActiveDraft((draft) => ({
+                                        ...draft,
+                                        lineReferenceUnit:
+                                          (value as NutritionUnit | null) ?? 'g',
+                                      }))
+                                    }
+                                    className="w-full"
+                                    options={NUTRITION_UNIT_OPTIONS}
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <Label htmlFor="customCountedAmount">
+                                  {shouldAutoFillCustomReference
+                                    ? 'Amount'
+                                    : 'Counted'}
+                                </Label>
                                 <Input
+                                  id="customCountedAmount"
                                   type="number"
-                                  aria-label="Custom reference amount"
                                   placeholder="0"
-                                  value={activeDraft.lineReferenceAmount}
+                                  value={activeDraft.lineCountedAmount}
                                   onChange={(event) =>
                                     updateActiveDraft((draft) => ({
                                       ...draft,
-                                      lineReferenceAmount: event.target.value,
+                                      lineCountedAmount: event.target.value,
                                     }))
                                   }
                                 />
-                              )}
-                              {shouldAutoFillCustomReference ? null : (
-                                <Select
-                                  ariaLabel="Custom reference unit"
-                                  value={activeDraft.lineReferenceUnit}
-                                  onValueChange={(value) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      lineReferenceUnit:
-                                        (value as NutritionUnit | null) ?? 'g',
-                                    }))
-                                  }
-                                  className="w-full"
-                                  options={NUTRITION_UNIT_OPTIONS}
-                                />
-                              )}
-                              <Input
-                                type="number"
-                                aria-label={
-                                  shouldAutoFillCustomReference
-                                    ? 'Custom ingredient amount'
-                                    : 'Custom counted amount'
-                                }
-                                placeholder="0"
-                                value={activeDraft.lineCountedAmount}
-                                onChange={(event) =>
-                                  updateActiveDraft((draft) => ({
-                                    ...draft,
-                                    lineCountedAmount: event.target.value,
-                                  }))
-                                }
-                              />
-                              <div>
+                              </div>
+                              <div className="self-end">
                                 <Button
                                   variant="outline"
                                   onClick={addCookedFoodIngredientLine}
@@ -1991,7 +2039,10 @@ function CookingPageContent() {
                                         {getNutritionUnitLabel(line.referenceUnit)}
                                         {ignored
                                           ? ' · Calories ignored'
-                                          : ` · Counted ${line.countedAmount ?? 0}`}
+                                          : line.countedAmount ===
+                                              line.referenceAmount
+                                            ? ' · Counted'
+                                            : ` · Counted ${line.countedAmount ?? 0}`}
                                       </p>
                                     </div>
                                     <div className="flex gap-2">
