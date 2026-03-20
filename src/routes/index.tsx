@@ -356,7 +356,6 @@ function MealDashboardPageContent() {
       header: 'Items',
       cell: ({ row }) => (
         <div className="max-w-72 whitespace-normal text-xs text-muted-foreground">
-          <p className="text-sm text-foreground">{row.original.itemCount}</p>
           <p>{row.original.itemSummary}</p>
         </div>
       ),
