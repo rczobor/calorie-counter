@@ -83,17 +83,17 @@ describe('Cooking route', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
 
-    fireEvent.change(screen.getByLabelText(/cooked food name/i), {
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Oat jars' },
     })
-    fireEvent.change(screen.getByLabelText(/finished cooked food amount/i), {
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
       target: { value: '400' },
     })
 
     fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
 
     expect(
-      (screen.getByLabelText(/cooked food name/i) as HTMLInputElement).value,
+      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
     ).toBe('')
     expect(screen.getAllByText(/^Oat jars$/i).length).toBeGreaterThan(0)
 
@@ -102,12 +102,10 @@ describe('Cooking route', () => {
     )
 
     expect(
-      (screen.getByLabelText(/cooked food name/i) as HTMLInputElement).value,
+      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
     ).toBe('Oat jars')
     expect(
-      (
-        screen.getByLabelText(/finished cooked food amount/i) as HTMLInputElement
-      ).value,
+      (screen.getByLabelText(/finished weight/i) as HTMLInputElement).value,
     ).toBe('400')
   })
 
@@ -120,20 +118,20 @@ describe('Cooking route', () => {
     renderCookingRoute()
 
     fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
-    fireEvent.change(screen.getByLabelText(/cooked food name/i), {
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Chicken base' },
     })
-    fireEvent.change(screen.getByLabelText(/finished cooked food amount/i), {
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
       target: { value: '800' },
     })
 
     fireEvent.click(screen.getByRole('button', { name: /duplicate current/i }))
 
     expect(
-      (screen.getByLabelText(/cooked food name/i) as HTMLInputElement).value,
+      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
     ).toBe('Chicken base')
 
-    fireEvent.change(screen.getByLabelText(/cooked food name/i), {
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Chicken base split' },
     })
 
@@ -145,7 +143,7 @@ describe('Cooking route', () => {
     )
 
     expect(
-      (screen.getByLabelText(/cooked food name/i) as HTMLInputElement).value,
+      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
     ).toBe('Chicken base')
   })
 
@@ -158,23 +156,23 @@ describe('Cooking route', () => {
     renderCookingRoute()
 
     fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
-    fireEvent.click(screen.getByRole('tab', { name: /^new$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
 
-    fireEvent.change(screen.getByLabelText(/custom ingredient name/i), {
+    fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
       target: { value: 'Oats' },
     })
-    fireEvent.change(screen.getByLabelText(/custom kcal per 100/i), {
+    fireEvent.change(screen.getByLabelText(/kcal \/ 100/i), {
       target: { value: '380' },
     })
-    fireEvent.change(screen.getByLabelText(/custom ingredient amount/i), {
+    fireEvent.change(screen.getByLabelText(/^amount$/i), {
       target: { value: '120' },
     })
     fireEvent.click(screen.getByRole('button', { name: /add line/i }))
 
-    fireEvent.change(screen.getByLabelText(/cooked food name/i), {
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Overnight oats' },
     })
-    fireEvent.change(screen.getByLabelText(/finished cooked food amount/i), {
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
       target: { value: '300' },
     })
 
@@ -200,7 +198,7 @@ describe('Cooking route', () => {
       }),
     )
     expect(
-      (screen.getByLabelText(/cooked food name/i) as HTMLInputElement).value,
+      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
     ).toBe('')
   })
 

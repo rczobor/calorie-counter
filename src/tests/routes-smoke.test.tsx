@@ -70,9 +70,7 @@ describe('route smoke', () => {
     const Component = MealsRoute.options.component as ComponentType
     renderRoute(Component)
 
-    expect(
-      screen.getByRole('heading', { name: /daily calories/i }),
-    ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /^meals$/i })).toBeTruthy()
     expect(
       screen.getByRole('checkbox', { name: /show archived meals/i }),
     ).toBeTruthy()
@@ -84,7 +82,7 @@ describe('route smoke', () => {
     const Component = PeopleRoute.options.component as ComponentType
     renderRoute(Component)
 
-    expect(screen.getByRole('heading', { name: /manage people/i })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /^people$/i })).toBeTruthy()
     expect(
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
@@ -96,9 +94,7 @@ describe('route smoke', () => {
     const Component = ManageRoute.options.component as ComponentType
     renderRoute(Component)
 
-    expect(
-      screen.getByRole('heading', { name: /catalog management/i }),
-    ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /^catalog$/i })).toBeTruthy()
     expect(
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
