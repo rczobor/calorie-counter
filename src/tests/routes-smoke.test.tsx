@@ -53,7 +53,7 @@ vi.mock('convex/react', () => ({
 
 import { Route as MealsRoute } from '@/routes/index'
 import { Route as PeopleRoute } from '@/routes/people'
-import { Route as ManageRoute } from '@/routes/manage'
+import { Route as ManageRoute } from '@/routes/catalog'
 import { Route as CookingRoute } from '@/routes/cooking'
 
 function renderRoute(Component: ComponentType) {

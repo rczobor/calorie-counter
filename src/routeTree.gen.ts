@@ -10,19 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PeopleRouteImport } from './routes/people'
-import { Route as ManageRouteImport } from './routes/manage'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as CookingRouteImport } from './routes/cooking'
+import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as IndexRouteImport } from './routes/index'
 
 const PeopleRoute = PeopleRouteImport.update({
   id: '/people',
   path: '/people',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ManageRoute = ManageRouteImport.update({
-  id: '/manage',
-  path: '/manage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -35,6 +30,11 @@ const CookingRoute = CookingRouteImport.update({
   path: '/cooking',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CatalogRoute = CatalogRouteImport.update({
+  id: '/catalog',
+  path: '/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,39 +43,39 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/catalog': typeof CatalogRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
-  '/manage': typeof ManageRoute
   '/people': typeof PeopleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/catalog': typeof CatalogRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
-  '/manage': typeof ManageRoute
   '/people': typeof PeopleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/catalog': typeof CatalogRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
-  '/manage': typeof ManageRoute
   '/people': typeof PeopleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cooking' | '/history' | '/manage' | '/people'
+  fullPaths: '/' | '/catalog' | '/cooking' | '/history' | '/people'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cooking' | '/history' | '/manage' | '/people'
-  id: '__root__' | '/' | '/cooking' | '/history' | '/manage' | '/people'
+  to: '/' | '/catalog' | '/cooking' | '/history' | '/people'
+  id: '__root__' | '/' | '/catalog' | '/cooking' | '/history' | '/people'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CatalogRoute: typeof CatalogRoute
   CookingRoute: typeof CookingRoute
   HistoryRoute: typeof HistoryRoute
-  ManageRoute: typeof ManageRoute
   PeopleRoute: typeof PeopleRoute
 }
 
@@ -86,13 +86,6 @@ declare module '@tanstack/react-router' {
       path: '/people'
       fullPath: '/people'
       preLoaderRoute: typeof PeopleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/manage': {
-      id: '/manage'
-      path: '/manage'
-      fullPath: '/manage'
-      preLoaderRoute: typeof ManageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -109,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CookingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalog': {
+      id: '/catalog'
+      path: '/catalog'
+      fullPath: '/catalog'
+      preLoaderRoute: typeof CatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -121,9 +121,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CatalogRoute: CatalogRoute,
   CookingRoute: CookingRoute,
   HistoryRoute: HistoryRoute,
-  ManageRoute: ManageRoute,
   PeopleRoute: PeopleRoute,
 }
 export const routeTree = rootRouteImport

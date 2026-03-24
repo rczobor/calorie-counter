@@ -94,7 +94,7 @@ type RecipeIngredientDraft =
   | ExistingRecipeIngredientDraft
   | CustomRecipeIngredientDraft
 
-export const Route = createFileRoute('/manage')({
+export const Route = createFileRoute('/catalog')({
   ssr: false,
   component: ManagePage,
 })

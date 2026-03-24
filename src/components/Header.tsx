@@ -7,10 +7,10 @@ import { isClerkConfigured } from '@/integrations/clerk/config'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Meals' },
-  { to: '/history', label: 'History' },
-  { to: '/manage', label: 'Manage' },
   { to: '/cooking', label: 'Cooking' },
+  { to: '/catalog', label: 'Catalog' },
   { to: '/people', label: 'People' },
+  { to: '/history', label: 'History' },
 ] as const
 
 const NAV_LINK_CLASS =
