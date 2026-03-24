@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PeopleRouteImport } from './routes/people'
 import { Route as ManageRouteImport } from './routes/manage'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as CookingRouteImport } from './routes/cooking'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const PeopleRoute = PeopleRouteImport.update({
 const ManageRoute = ManageRouteImport.update({
   id: '/manage',
   path: '/manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CookingRoute = CookingRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cooking': typeof CookingRoute
+  '/history': typeof HistoryRoute
   '/manage': typeof ManageRoute
   '/people': typeof PeopleRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cooking': typeof CookingRoute
+  '/history': typeof HistoryRoute
   '/manage': typeof ManageRoute
   '/people': typeof PeopleRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/cooking': typeof CookingRoute
+  '/history': typeof HistoryRoute
   '/manage': typeof ManageRoute
   '/people': typeof PeopleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cooking' | '/manage' | '/people'
+  fullPaths: '/' | '/cooking' | '/history' | '/manage' | '/people'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cooking' | '/manage' | '/people'
-  id: '__root__' | '/' | '/cooking' | '/manage' | '/people'
+  to: '/' | '/cooking' | '/history' | '/manage' | '/people'
+  id: '__root__' | '/' | '/cooking' | '/history' | '/manage' | '/people'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CookingRoute: typeof CookingRoute
+  HistoryRoute: typeof HistoryRoute
   ManageRoute: typeof ManageRoute
   PeopleRoute: typeof PeopleRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/manage'
       fullPath: '/manage'
       preLoaderRoute: typeof ManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cooking': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CookingRoute: CookingRoute,
+  HistoryRoute: HistoryRoute,
   ManageRoute: ManageRoute,
   PeopleRoute: PeopleRoute,
 }
