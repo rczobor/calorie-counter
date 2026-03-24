@@ -493,7 +493,6 @@ function MealDashboardPageContent() {
       : undefined
 
   const resetDraftItemInputs = () => {
-    setItemMode('quick')
     setItemIngredientId('')
     setItemCookedFoodId('')
     setItemCustomName('')
@@ -809,24 +808,18 @@ function MealDashboardPageContent() {
                     Add an active person in Manage before creating meals.
                   </p>
                 ) : (
-                  <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
-                    {people.map((person) => (
-                      <Toggle
-                        key={person._id}
-                        variant="default"
-                        size="lg"
-                        pressed={effectiveSelectedPersonId === person._id}
-                        onPressedChange={(pressed) => {
-                          if (pressed) {
-                            setSelectedPersonId(person._id)
-                          }
-                        }}
-                        className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
-                      >
-                        {person.name}
-                      </Toggle>
-                    ))}
-                  </div>
+                  <Select
+                    options={people.map((person) => ({
+                      value: person._id,
+                      label: person.name,
+                    }))}
+                    value={effectiveSelectedPersonId || null}
+                    onValueChange={(value) =>
+                      setSelectedPersonId(value ?? ('' as Id<'people'>))
+                    }
+                    placeholder="Select person"
+                    ariaLabel="Select person"
+                  />
                 )}
               </div>
               <DatePicker
