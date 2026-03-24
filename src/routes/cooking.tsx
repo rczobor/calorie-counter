@@ -69,6 +69,14 @@ type CookedFoodTableRow = {
   status: 'Active' | 'Archived'
 }
 
+type IngredientSelectionRow = {
+  id: Id<'ingredients'>
+  ingredient: Doc<'ingredients'>
+  name: string
+  kcalPer100: number
+  ignoreCalories: boolean
+}
+
 type ExistingCookedFoodIngredientDraft = {
   draftId: string
   sourceType: 'ingredient'
@@ -277,16 +285,6 @@ function CookingPageContent() {
     return map
   }, [data.cookedFoodIngredients])
 
-  const ingredientOptions = useMemo(
-    () =>
-      ingredients.map((item) => ({
-        value: item._id,
-        label: item.name,
-        keywords: `${item.brand ?? ''} ${formatKcalPer100(getKcalPer100(item))} kcal`,
-      })),
-    [ingredients],
-  )
-
   const sessionOptions = useMemo(
     () =>
       cookSessions.map((session) => ({
@@ -477,6 +475,87 @@ function CookingPageContent() {
     }
     updateDraft(activeDraft.draftId, updater, options)
   }
+
+  const ingredientSelectionRows = useMemo<IngredientSelectionRow[]>(
+    () =>
+      ingredients.map((ingredient) => ({
+        id: ingredient._id,
+        ingredient,
+        name: ingredient.name,
+        kcalPer100: getKcalPer100(ingredient),
+        ignoreCalories: Boolean(
+          (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
+        ),
+      })),
+    [ingredients],
+  )
+
+  const ingredientSelectionColumns: ColumnDef<IngredientSelectionRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Ingredient',
+      cell: ({ row }) => (
+        <div className="max-w-56 whitespace-normal">
+          <p className="font-medium text-foreground">{row.original.name}</p>
+          {row.original.ingredient.brand ? (
+            <p className="text-xs text-muted-foreground">
+              {row.original.ingredient.brand}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'kcalPer100',
+      header: 'kcal/100',
+      cell: ({ row }) => formatKcalPer100(row.original.kcalPer100),
+    },
+    {
+      accessorKey: 'ignoreCalories',
+      header: 'Calories',
+      cell: ({ row }) =>
+        row.original.ignoreCalories ? (
+          <span className="text-xs text-muted-foreground">Ignored</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Counted</span>
+        ),
+    },
+    {
+      id: 'pick',
+      header: () => <div className="text-right">Pick</div>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant={
+              activeDraft?.lineIngredientId === row.original.id
+                ? 'default'
+                : 'outline'
+            }
+            onClick={() => {
+              const nextIngredientId = row.original.id
+              updateActiveDraft((draft) => ({
+                ...draft,
+                lineIngredientId: nextIngredientId,
+                lineReferenceUnit: getIngredientBasisUnit(
+                  ingredientById.get(nextIngredientId),
+                ),
+              }))
+            }}
+          >
+            {activeDraft?.lineIngredientId === row.original.id
+              ? 'Selected'
+              : 'Select'}
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const selectedLineIngredient =
+    activeDraft?.lineIngredientId && activeDraft.lineMode === 'ingredient'
+      ? ingredientById.get(activeDraft.lineIngredientId)
+      : undefined
 
   const selectDraft = (draftId: string, sessionId: Id<'cookSessions'>) => {
     setSelectedCookSessionId(sessionId)
@@ -1617,102 +1696,105 @@ function CookingPageContent() {
 
                       <div className="mt-4 space-y-4">
                         {activeDraft.lineMode === 'ingredient' ? (
-                          <div
-                            className={cn(
-                              'grid gap-4',
-                              shouldAutoFillIngredientReference
-                                ? 'xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_auto]'
-                                : 'xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto]',
+                          <>
+                            <DataTable
+                              columns={ingredientSelectionColumns}
+                              data={ingredientSelectionRows}
+                              searchColumnId="name"
+                              searchPlaceholder="Search ingredients"
+                              emptyText="No ingredients found."
+                            />
+                            {selectedLineIngredient ? (
+                              <p className="text-xs text-muted-foreground">
+                                Selected:{' '}
+                                <span className="font-medium text-foreground">
+                                  {selectedLineIngredient.name}
+                                </span>
+                                {' · '}
+                                {formatKcalPer100(
+                                  getKcalPer100(selectedLineIngredient),
+                                )}{' '}
+                                kcal/100g
+                              </p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                Select an ingredient from the table.
+                              </p>
                             )}
-                          >
-                            <div>
-                              <Label>Ingredient</Label>
-                              <SearchablePicker
-                                value={activeDraft.lineIngredientId}
-                                onValueChange={(value) => {
-                                  const nextIngredientId = value as
-                                    | Id<'ingredients'>
-                                    | ''
-                                  updateActiveDraft((draft) => ({
-                                    ...draft,
-                                    lineIngredientId: nextIngredientId,
-                                    lineReferenceUnit: getIngredientBasisUnit(
-                                      nextIngredientId
-                                        ? ingredientById.get(nextIngredientId)
-                                        : undefined,
-                                    ),
-                                  }))
-                                }}
-                                ariaLabel="Cooked food ingredient search"
-                                placeholder="Search ingredient"
-                                options={ingredientOptions}
-                              />
-                            </div>
-                            {shouldAutoFillIngredientReference ? null : (
+                            <div
+                              className={cn(
+                                'grid gap-4',
+                                shouldAutoFillIngredientReference
+                                  ? 'grid-cols-[minmax(0,1fr)_auto]'
+                                  : 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                              )}
+                            >
+                              {shouldAutoFillIngredientReference ? null : (
+                                <div>
+                                  <Label htmlFor="lineReferenceAmount">
+                                    Ref. amount
+                                  </Label>
+                                  <Input
+                                    id="lineReferenceAmount"
+                                    type="number"
+                                    placeholder="0"
+                                    value={activeDraft.lineReferenceAmount}
+                                    onChange={(event) =>
+                                      updateActiveDraft((draft) => ({
+                                        ...draft,
+                                        lineReferenceAmount: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              )}
+                              {shouldAutoFillIngredientReference ? null : (
+                                <div>
+                                  <Label>Ref. unit</Label>
+                                  <Select
+                                    ariaLabel="Reference unit"
+                                    value={activeDraft.lineReferenceUnit}
+                                    onValueChange={(value) =>
+                                      updateActiveDraft((draft) => ({
+                                        ...draft,
+                                        lineReferenceUnit:
+                                          (value as NutritionUnit | null) ?? 'g',
+                                      }))
+                                    }
+                                    className="w-full"
+                                    options={NUTRITION_UNIT_OPTIONS}
+                                  />
+                                </div>
+                              )}
                               <div>
-                                <Label htmlFor="lineReferenceAmount">
-                                  Ref. amount
+                                <Label htmlFor="lineCountedAmount">
+                                  {shouldAutoFillIngredientReference
+                                    ? 'Amount'
+                                    : 'Counted'}
                                 </Label>
                                 <Input
-                                  id="lineReferenceAmount"
+                                  id="lineCountedAmount"
                                   type="number"
                                   placeholder="0"
-                                  value={activeDraft.lineReferenceAmount}
+                                  value={activeDraft.lineCountedAmount}
                                   onChange={(event) =>
                                     updateActiveDraft((draft) => ({
                                       ...draft,
-                                      lineReferenceAmount: event.target.value,
+                                      lineCountedAmount: event.target.value,
                                     }))
                                   }
                                 />
                               </div>
-                            )}
-                            {shouldAutoFillIngredientReference ? null : (
-                              <div>
-                                <Label>Ref. unit</Label>
-                                <Select
-                                  ariaLabel="Reference unit"
-                                  value={activeDraft.lineReferenceUnit}
-                                  onValueChange={(value) =>
-                                    updateActiveDraft((draft) => ({
-                                      ...draft,
-                                      lineReferenceUnit:
-                                        (value as NutritionUnit | null) ?? 'g',
-                                    }))
-                                  }
-                                  className="w-full"
-                                  options={NUTRITION_UNIT_OPTIONS}
-                                />
+                              <div className="self-end">
+                                <Button
+                                  variant="outline"
+                                  onClick={addCookedFoodIngredientLine}
+                                >
+                                  Add line
+                                </Button>
                               </div>
-                            )}
-                            <div>
-                              <Label htmlFor="lineCountedAmount">
-                                {shouldAutoFillIngredientReference
-                                  ? 'Amount'
-                                  : 'Counted'}
-                              </Label>
-                              <Input
-                                id="lineCountedAmount"
-                                type="number"
-                                placeholder="0"
-                                value={activeDraft.lineCountedAmount}
-                                onChange={(event) =>
-                                  updateActiveDraft((draft) => ({
-                                    ...draft,
-                                    lineCountedAmount: event.target.value,
-                                  }))
-                                }
-                              />
                             </div>
-                            <div className="self-end">
-                              <Button
-                                variant="outline"
-                                onClick={addCookedFoodIngredientLine}
-                              >
-                                Add line
-                              </Button>
-                            </div>
-                          </div>
+                          </>
                         ) : (
                           <>
                             <div
