@@ -1081,18 +1081,24 @@ function ManagePageContent() {
         title="Catalog"
         icon={<BookOpenText className="h-4 w-4" />}
       >
-        <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-10 w-full" />
+        <div className="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <div>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-48" />
+            <div className="mt-3 space-y-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           </div>
-          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-10 w-full" />
+          <div>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-48" />
+            <div className="mt-3 space-y-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           </div>
         </div>
       </LoadingSkeletonState>
@@ -1108,7 +1114,7 @@ function ManagePageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="order-2 mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <div className="order-2 mt-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
           <FoodGroupsSection>
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <Input

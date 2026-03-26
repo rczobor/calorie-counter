@@ -1,13 +1,5 @@
 import type { ReactNode } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
 type PeopleTableSectionProps = {
   today: string
   children: ReactNode
@@ -18,12 +10,12 @@ export function PeopleTableSection({
   children,
 }: PeopleTableSectionProps) {
   return (
-    <Card className="border-border/70 bg-card/90">
-      <CardHeader>
-        <CardTitle>People</CardTitle>
-        <CardDescription>Today: {today}</CardDescription>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <section>
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-foreground">People</h2>
+        <p className="text-xs text-muted-foreground">Today: {today}</p>
+      </div>
+      {children}
+    </section>
   )
 }

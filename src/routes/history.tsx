@@ -180,8 +180,8 @@ function HistoryPageContent() {
   }
 
   return (
-    <PageShell title="History" icon={<History className="h-5 w-5" />}>
-      <div className="mt-3 space-y-4">
+    <PageShell title="History" icon={<History className="h-4 w-4" />}>
+      <div className="mt-4 space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">
@@ -218,36 +218,36 @@ function HistoryPageContent() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-6">
-          <div>
-            <span className="text-xs text-muted-foreground">
-              Daily Goal
-            </span>
-            <p className="text-sm font-medium">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Daily Goal</span>
+            <span className="text-sm font-semibold">
               {selectedPerson
                 ? `${selectedPerson.currentDailyGoalKcal.toFixed(0)} kcal`
                 : '--'}
-            </p>
+            </span>
           </div>
-          <div>
-            <span className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
               Avg. Consumed / Day
             </span>
-            <p className="text-sm font-medium">
+            <span className="text-sm font-semibold">
               {rows.length > 0 ? `${Math.round(avgConsumed)} kcal` : '--'}
-            </p>
+            </span>
           </div>
-          <div>
-            <span className="text-xs text-muted-foreground">Days</span>
-            <p className="text-sm font-medium">{rows.length}</p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Days</span>
+            <span className="text-sm font-semibold">{rows.length}</span>
           </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={rows}
-          emptyText="No data for the selected range."
-        />
+        <div>
+          <DataTable
+            columns={columns}
+            data={rows}
+            emptyText="No data for the selected range."
+          />
+        </div>
       </div>
     </PageShell>
   )

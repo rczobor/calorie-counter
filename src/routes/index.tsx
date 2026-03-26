@@ -16,7 +16,6 @@ import {
 import { StatusBadge } from '@/components/page/status-badge'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
@@ -694,82 +693,33 @@ function MealDashboardPageContent() {
         title="Meals"
         icon={<Flame className="h-4 w-4" />}
       >
-        <div className="mt-3 grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Card
-              key={`metric-skeleton-${index}`}
-              className="border-border/70 bg-card/90"
-            >
-              <CardHeader>
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-2/3" />
-              </CardHeader>
-            </Card>
-          ))}
+        <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 border-b border-border/40 pb-4">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-5 w-28" />
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1.1fr_1fr]">
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader>
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-4 w-48" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-16" />
-                  <div className="flex gap-2">
-                    <Skeleton className="h-9 w-20 rounded-full" />
-                    <Skeleton className="h-9 w-20 rounded-full" />
-                  </div>
-                </div>
-                <Skeleton className="h-9 w-full" />
-              </div>
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
+          <div>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-40" />
+            <div className="mt-3 space-y-3">
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
-              <div className="rounded-lg border border-border p-3">
-                <Skeleton className="h-4 w-24" />
-                <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_auto]">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-24" />
-                </div>
-                <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Skeleton className="h-9 w-28" />
-                <Skeleton className="h-9 w-24" />
-              </div>
-            </CardContent>
-          </Card>
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          </div>
 
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader>
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-4 w-48" />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div
-                  key={`meal-list-skeleton-${index}`}
-                  className="rounded-lg border border-border bg-muted/45 p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <Skeleton className="h-4 w-40" />
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-14" />
-                      <Skeleton className="h-8 w-18" />
-                    </div>
-                  </div>
-                  <Skeleton className="mt-2 h-3 w-5/6" />
-                  <Skeleton className="mt-1 h-3 w-2/3" />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <div>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-40" />
+            <div className="mt-3 space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
         </div>
       </LoadingSkeletonState>
     )
@@ -791,7 +741,7 @@ function MealDashboardPageContent() {
           remainingAfterDraftKcal={`${remainingAfterDraft.toFixed(0)} kcal`}
         />
 
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1.1fr_1fr]">
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
           <MealFormSection
             title={editingMealId ? 'Edit Meal' : 'Create Meal'}
             description={`Remaining today: ${

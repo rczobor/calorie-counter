@@ -1,32 +1,24 @@
 import type { ReactNode } from 'react'
 import { BookOpenText } from 'lucide-react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
 type RecipesSectionProps = {
   children: ReactNode
 }
 
 export function RecipesSection({ children }: RecipesSectionProps) {
   return (
-    <Card className="border-border/70 bg-card/90">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BookOpenText className="h-4 w-4 text-sky-700" />
+    <section>
+      <div className="mb-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <BookOpenText className="h-3.5 w-3.5 text-primary" />
           Recipes
-        </CardTitle>
-        <CardDescription>
+        </h2>
+        <p className="text-xs text-muted-foreground">
           Build recipe lines with existing or inline ingredients. Inline lines
           can be optionally saved to catalog.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">{children}</CardContent>
-    </Card>
+        </p>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
   )
 }

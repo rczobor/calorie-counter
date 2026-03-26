@@ -1,25 +1,21 @@
 import type { ReactNode } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
 type GoalHistorySectionProps = {
   children: ReactNode
 }
 
 export function GoalHistorySection({ children }: GoalHistorySectionProps) {
   return (
-    <Card className="mt-3 border-border/70 bg-card/90">
-      <CardHeader>
-        <CardTitle>Goal Change History</CardTitle>
-        <CardDescription>Effective-dated records per person.</CardDescription>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <section className="mt-6 border-t border-border/40 pt-4">
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-foreground">
+          Goal Change History
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Effective-dated records per person.
+        </p>
+      </div>
+      {children}
+    </section>
   )
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-const SHELL_BACKGROUND_CLASS = 'min-h-[calc(100vh-2.5rem)] bg-background'
+const SHELL_BACKGROUND_CLASS = 'min-h-[calc(100vh-3rem)] bg-background'
 
 const WIDTH_CLASS_MAP = {
   '6xl': 'max-w-6xl',
@@ -24,6 +24,7 @@ type PageShellProps = {
 
 export function PageShell({
   title,
+  subtitle,
   icon,
   maxWidth = '7xl',
   showArchived,
@@ -36,22 +37,34 @@ export function PageShell({
     <main className={SHELL_BACKGROUND_CLASS}>
       <section
         className={cn(
-          'mx-auto w-full px-4 py-3 sm:px-6',
+          'mx-auto w-full px-4 py-4 sm:px-6',
           WIDTH_CLASS_MAP[maxWidth],
           contentClassName,
         )}
       >
         <div className="flex items-center justify-between">
-          <h1 className="flex items-center gap-2 text-lg font-medium text-foreground">
-            {icon}
-            {title}
-          </h1>
+          <div className="flex items-center gap-3">
+            {icon ? (
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {icon}
+              </span>
+            ) : null}
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+                {title}
+              </h1>
+              {subtitle ? (
+                <p className="text-sm text-muted-foreground">{subtitle}</p>
+              ) : null}
+            </div>
+          </div>
           {typeof showArchived === 'boolean' && onShowArchivedChange ? (
-            <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent">
               <input
                 type="checkbox"
                 checked={showArchived}
                 onChange={(event) => onShowArchivedChange(event.target.checked)}
+                className="accent-primary"
               />
               {showArchivedLabel}
             </label>

@@ -1,27 +1,19 @@
 import type { ReactNode } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
 type SessionsSectionProps = {
   children: ReactNode
 }
 
 export function SessionsSection({ children }: SessionsSectionProps) {
   return (
-    <Card className="border-border/70 bg-card/90">
-      <CardHeader>
-        <CardTitle>Sessions</CardTitle>
-        <CardDescription>
+    <section>
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-foreground">Sessions</h2>
+        <p className="text-xs text-muted-foreground">
           Group cooked foods by cooking date/session.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">{children}</CardContent>
-    </Card>
+        </p>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
   )
 }

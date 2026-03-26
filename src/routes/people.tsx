@@ -281,32 +281,41 @@ function PeoplePageContent() {
         icon={<UserRound className="h-4 w-4" />}
         maxWidth="7xl"
       >
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
-          <div className="space-y-3 rounded-lg border border-border bg-card/90 p-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
+          <div>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-1 h-3 w-44" />
+            <div className="mt-3 space-y-3">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
           </div>
-          <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-            <Skeleton className="h-6 w-20" />
-            {Array.from({ length: 4 }).map((_, index) => (
+          <div>
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="mt-1 h-3 w-32" />
+            <div className="mt-3 space-y-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton
+                  key={`people-row-skeleton-${index}`}
+                  className="h-10 w-full"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 border-t border-border/40 pt-4">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="mt-1 h-3 w-52" />
+          <div className="mt-3 space-y-2">
+            {Array.from({ length: 5 }).map((_, index) => (
               <Skeleton
-                key={`people-row-skeleton-${index}`}
-                className="h-10 w-full"
+                key={`history-row-skeleton-${index}`}
+                className="h-9 w-full"
               />
             ))}
           </div>
-        </div>
-        <div className="mt-3 space-y-2 rounded-lg border border-border bg-card/90 p-4">
-          <Skeleton className="h-6 w-44" />
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton
-              key={`history-row-skeleton-${index}`}
-              className="h-9 w-full"
-            />
-          ))}
         </div>
       </LoadingSkeletonState>
     )
@@ -321,7 +330,7 @@ function PeoplePageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
           <PersonFormSection isEditing={Boolean(editingPersonId)}>
             <Input
               aria-label="Person name"

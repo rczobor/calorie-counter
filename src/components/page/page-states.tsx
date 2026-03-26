@@ -1,12 +1,5 @@
 import type { ReactNode } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageShell } from '@/components/page/page-shell'
 
@@ -21,13 +14,8 @@ export function ConfigMissingState({
 }: ConfigMissingStateProps) {
   return (
     <PageShell title={title} maxWidth="6xl">
-      <div className="mt-3">
-        <Card className="mx-auto max-w-3xl border-border bg-card">
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="mt-4">
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     </PageShell>
   )
@@ -48,34 +36,28 @@ export function LoadingSkeletonState({
 }: LoadingSkeletonStateProps) {
   return (
     <PageShell title={title} icon={icon} maxWidth={maxWidth}>
-      <div className="mt-3 space-y-3">
+      <div className="mt-4 space-y-4">
         {children ?? (
-          <>
-            <div className="grid gap-3 xl:grid-cols-2">
-              <Card className="border-border/70 bg-card/90">
-                <CardHeader>
-                  <Skeleton className="h-6 w-40" />
-                  <Skeleton className="h-4 w-48" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                </CardContent>
-              </Card>
-              <Card className="border-border/70 bg-card/90">
-                <CardHeader>
-                  <Skeleton className="h-6 w-40" />
-                  <Skeleton className="h-4 w-48" />
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </CardContent>
-              </Card>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <div>
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-1 h-3 w-40" />
+              <div className="mt-3 space-y-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
             </div>
-          </>
+            <div>
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-1 h-3 w-40" />
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </PageShell>
@@ -89,11 +71,9 @@ type EmptyStateProps = {
 
 export function EmptyState({ title, description }: EmptyStateProps) {
   return (
-    <Card className="border-border/70 bg-card/90">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-    </Card>
+    <div className="py-6 text-center">
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    </div>
   )
 }

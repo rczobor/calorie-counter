@@ -18,13 +18,6 @@ import {
   IngredientLineModeToggle,
 } from '@/components/nutrition/ingredient-line-controls'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
@@ -1251,40 +1244,44 @@ function CookingPageContent() {
         title="Cooking"
         icon={<ChefHat className="h-4 w-4" />}
       >
-        <div className="mt-3 space-y-3">
-          <div className="rounded-lg border border-border bg-card/90 p-5">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-36" />
-                  <Skeleton className="h-4 w-72" />
-                </div>
-                <div className="flex gap-2">
-                  <Skeleton className="h-9 w-24" />
-                  <Skeleton className="h-9 w-32" />
-                </div>
+        <div className="mt-4 space-y-6">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-72" />
               </div>
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-10 w-32" />
-                <Skeleton className="h-10 w-32" />
+              <div className="flex gap-2">
+                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-9 w-32" />
               </div>
-              <div className="grid gap-3 xl:grid-cols-[320px_minmax(0,1fr)]">
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-96 w-full" />
-              </div>
+            </div>
+            <div className="mt-3 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+            <div className="mt-3 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+              <Skeleton className="h-96 w-full" />
+              <Skeleton className="h-96 w-full" />
             </div>
           </div>
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
-            <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-64 w-full" />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+            <div>
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-1 h-3 w-48" />
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-64 w-full" />
+              </div>
             </div>
-            <div className="space-y-2 rounded-lg border border-border bg-card/90 p-4">
-              <Skeleton className="h-6 w-28" />
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-48 w-full" />
+            <div>
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="mt-1 h-3 w-40" />
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-48 w-full" />
+              </div>
             </div>
           </div>
         </div>
@@ -1308,17 +1305,16 @@ function CookingPageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="mt-3 space-y-3">
-          <Card className="border-border/70 bg-card/90">
-            <CardHeader className="gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle>Session workspace</CardTitle>
-                  <CardDescription>
-                    Pick a session, then manage several cookings side by side
-                    without losing in-progress work.
-                  </CardDescription>
-                </div>
+        <div className="mt-4 space-y-3">
+          <section>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Session workspace</h2>
+                <p className="text-xs text-muted-foreground">
+                  Pick a session, then manage several cookings side by side
+                  without losing in-progress work.
+                </p>
+              </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button variant="outline" onClick={openNewSessionEditor}>
                     <Plus className="h-3.5 w-3.5" />
@@ -1336,9 +1332,8 @@ function CookingPageContent() {
                     Edit selected
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-3">
+            </div>
+            <div className="mt-3 space-y-3">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <SearchablePicker
                   ariaLabel="Cook session search"
@@ -1457,19 +1452,19 @@ function CookingPageContent() {
                   </div>
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <div className="grid gap-3 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2">
-                <CardTitle>In progress</CardTitle>
-                <CardDescription>
+          <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <section>
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold text-foreground">In progress</h2>
+                <p className="text-xs text-muted-foreground">
                   Drafts stay attached to the selected session until you save or
                   discard them.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-3">
+                </p>
+              </div>
+              <div className="space-y-3">
                 {noSessions ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
                     Start by creating a session. Your first cooking draft opens
@@ -1539,55 +1534,53 @@ function CookingPageContent() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>
-                      {activeDraft
-                        ? activeDraft.persistedCookedFoodId
-                          ? 'Edit saved cooking'
-                          : 'Draft editor'
-                        : 'Draft editor'}
-                    </CardTitle>
-                    <CardDescription>
-                      {selectedCookSession
-                        ? `Working inside ${formatCookSessionLabel(selectedCookSession)}`
-                        : 'Select a session to start editing.'}
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      disabled={!activeDraft}
-                      onClick={() => {
-                        if (activeDraft) {
-                          discardDraft(activeDraft)
-                        }
-                      }}
-                    >
-                      Discard draft
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={!activeDraft}
-                      onClick={() => saveActiveDraft({ addAnother: true })}
-                    >
-                      Save and add another
-                    </Button>
-                    <Button
-                      disabled={!activeDraft}
-                      onClick={() => saveActiveDraft()}
-                    >
-                      Save
-                    </Button>
-                  </div>
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {activeDraft
+                      ? activeDraft.persistedCookedFoodId
+                        ? 'Edit saved cooking'
+                        : 'Draft editor'
+                      : 'Draft editor'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedCookSession
+                      ? `Working inside ${formatCookSessionLabel(selectedCookSession)}`
+                      : 'Select a session to start editing.'}
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!activeDraft}
+                    onClick={() => {
+                      if (activeDraft) {
+                        discardDraft(activeDraft)
+                      }
+                    }}
+                  >
+                    Discard draft
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!activeDraft}
+                    onClick={() => saveActiveDraft({ addAnother: true })}
+                  >
+                    Save and add another
+                  </Button>
+                  <Button
+                    disabled={!activeDraft}
+                    onClick={() => saveActiveDraft()}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 space-y-3">
                 {!selectedCookSession ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
                     Choose a session first. Sessions keep the shared cooking
@@ -2159,64 +2152,60 @@ function CookingPageContent() {
                     </div>
                   </>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2">
-                <CardTitle>{savedFoodsCardTitle}</CardTitle>
-                <CardDescription>{cookedFoodRows.length} total</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-3">
-                <DataTable
-                  columns={cookedFoodColumns}
-                  data={cookedFoodRows}
-                  searchColumnId="name"
-                  searchPlaceholder="Search saved foods"
-                  emptyText={
-                    showAllCookedFoods
-                      ? 'No cooked foods found.'
-                      : 'No saved foods for this session yet.'
-                  }
-                  toolbarActions={
-                    <>
-                      <Button
-                        size="sm"
-                        variant={showAllCookedFoods ? 'outline' : 'secondary'}
-                        onClick={() => setShowAllCookedFoods(false)}
-                      >
-                        Selected session
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={showAllCookedFoods ? 'secondary' : 'outline'}
-                        onClick={() => setShowAllCookedFoods(true)}
-                      >
-                        All sessions
-                      </Button>
-                    </>
-                  }
-                />
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+            <section className="min-w-0">
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold text-foreground">{savedFoodsCardTitle}</h2>
+                <p className="text-xs text-muted-foreground">{cookedFoodRows.length} total</p>
+              </div>
+              <DataTable
+                columns={cookedFoodColumns}
+                data={cookedFoodRows}
+                searchColumnId="name"
+                searchPlaceholder="Search saved foods"
+                emptyText={
+                  showAllCookedFoods
+                    ? 'No cooked foods found.'
+                    : 'No saved foods for this session yet.'
+                }
+                toolbarActions={
+                  <>
+                    <Button
+                      size="sm"
+                      variant={showAllCookedFoods ? 'outline' : 'secondary'}
+                      onClick={() => setShowAllCookedFoods(false)}
+                    >
+                      Selected session
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={showAllCookedFoods ? 'secondary' : 'outline'}
+                      onClick={() => setShowAllCookedFoods(true)}
+                    >
+                      All sessions
+                    </Button>
+                  </>
+                }
+              />
+            </section>
 
-            <Card className="border-border/70 bg-card/90">
-              <CardHeader className="gap-2">
-                <CardTitle>Sessions</CardTitle>
-                <CardDescription>{sessionRows.length} total</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-3">
-                <DataTable
-                  columns={sessionColumns}
-                  data={sessionRows}
-                  searchColumnId="label"
-                  searchPlaceholder="Search sessions"
-                  emptyText="No sessions found."
-                />
-              </CardContent>
-            </Card>
+            <section className="min-w-0">
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold text-foreground">Sessions</h2>
+                <p className="text-xs text-muted-foreground">{sessionRows.length} total</p>
+              </div>
+              <DataTable
+                columns={sessionColumns}
+                data={sessionRows}
+                searchColumnId="label"
+                searchPlaceholder="Search sessions"
+                emptyText="No sessions found."
+              />
+            </section>
           </div>
         </div>
       </PageShell>

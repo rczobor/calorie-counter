@@ -1,13 +1,5 @@
 import type { ReactNode } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
 type MealTableSectionProps = {
   title: string
   description: string
@@ -20,12 +12,12 @@ export function MealTableSection({
   children,
 }: MealTableSectionProps) {
   return (
-    <Card className="border-border/70 bg-card/90">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <section>
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      {children}
+    </section>
   )
 }
