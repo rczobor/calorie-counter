@@ -744,9 +744,11 @@ function MealDashboardPageContent() {
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
           <MealFormSection
             title={editingMealId ? 'Edit Meal' : 'Create Meal'}
-            description={`Remaining today: ${
-              selectedPerson ? `${remainingToday.toFixed(0)} kcal` : '--'
-            }`}
+            description={
+              editingMealId
+                ? 'Modify items or details, then save.'
+                : 'Add items below, then create the meal.'
+            }
           >
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
               <div className="space-y-2">
@@ -781,20 +783,22 @@ function MealDashboardPageContent() {
 
             <Input
               aria-label="Meal name"
-              placeholder="Meal name (optional)"
+              placeholder="Meal name, e.g. Breakfast (optional)"
               value={mealName}
               onChange={(event) => setMealName(event.target.value)}
             />
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-sm font-medium text-foreground">Meal item</p>
+            <div className="mt-1 border-t border-border/40 pt-4">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                Add items
+              </p>
               <div className="mt-2">
                 <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
                   {(
                     [
                       ['quick', 'Quick'],
-                      ['catalog', 'Catalog'],
+                      ['catalog', 'Saved'],
                       ['new', 'New'],
-                      ['cookedFood', 'Cooked food'],
+                      ['cookedFood', 'Cooked'],
                     ] as const
                   ).map(([mode, label]) => (
                     <Toggle
@@ -818,12 +822,21 @@ function MealDashboardPageContent() {
                   ))}
                 </div>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {itemMode === 'quick'
+                  ? 'Know the total calories? Just type a name and the number.'
+                  : itemMode === 'catalog'
+                    ? "Pick an ingredient you've saved before, then enter the weight."
+                    : itemMode === 'new'
+                      ? 'Add something not in your catalog yet. You can save it for next time.'
+                      : 'Log food from a cooking session.'}
+              </p>
               <div className="mt-3 space-y-3">
                 {itemMode === 'quick' ? (
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
                     <Input
                       aria-label="Quick add name"
-                      placeholder="Name (e.g. soda)"
+                      placeholder="What did you eat? (e.g. soda)"
                       value={itemQuickName}
                       onChange={(event) =>
                         setItemQuickName(event.target.value)
@@ -832,7 +845,7 @@ function MealDashboardPageContent() {
                     <Input
                       type="number"
                       aria-label="Quick add calories"
-                      placeholder="Total kcal"
+                      placeholder="Calories (e.g. 150)"
                       value={itemQuickCalories}
                       onChange={(event) =>
                         setItemQuickCalories(event.target.value)
@@ -892,7 +905,7 @@ function MealDashboardPageContent() {
                       <Input
                         type="number"
                         aria-label="Ingredient grams"
-                        placeholder="grams"
+                        placeholder="Weight in grams"
                         value={itemWeight}
                         onChange={(event) =>
                           setItemWeight(event.target.value)
@@ -914,7 +927,7 @@ function MealDashboardPageContent() {
                   >
                     <Input
                       aria-label="Custom ingredient name"
-                      placeholder="Ingredient name"
+                      placeholder="Name (e.g. granola)"
                       value={itemCustomName}
                       onChange={(event) =>
                         setItemCustomName(event.target.value)
@@ -924,7 +937,7 @@ function MealDashboardPageContent() {
                       <Input
                         type="number"
                         aria-label="Custom ingredient kcal per 100"
-                        placeholder="kcal / 100"
+                        placeholder="Calories per 100g"
                         value={itemCustomKcalPer100}
                         onChange={(event) =>
                           setItemCustomKcalPer100(event.target.value)
@@ -934,7 +947,7 @@ function MealDashboardPageContent() {
                     <Input
                       type="number"
                       aria-label="Custom ingredient grams"
-                      placeholder="grams"
+                      placeholder="Weight in grams"
                       value={itemWeight}
                       onChange={(event) =>
                         setItemWeight(event.target.value)
@@ -984,7 +997,7 @@ function MealDashboardPageContent() {
                       <Input
                         type="number"
                         aria-label="Consumed cooked food grams"
-                        placeholder="grams"
+                        placeholder="Weight in grams"
                         value={itemWeight}
                         onChange={(event) => setItemWeight(event.target.value)}
                       />
@@ -996,6 +1009,7 @@ function MealDashboardPageContent() {
                   </>
                 )}
               </div>
+              {mealItems.length > 0 || editingDraftItemIndex !== null ? (
               <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
                 {editingDraftItemIndex !== null ? (
                   <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10">
@@ -1011,11 +1025,6 @@ function MealDashboardPageContent() {
                       Cancel
                     </Button>
                   </div>
-                ) : null}
-                {mealItems.length === 0 ? (
-                  <p className="px-1 py-0.5 text-xs text-muted-foreground">
-                    No draft items yet.
-                  </p>
                 ) : null}
                 {mealItems.map((item, index) => {
                   const itemCalories = getDraftItemCalories(item)
@@ -1041,10 +1050,10 @@ function MealDashboardPageContent() {
                           {isQuickAdd
                             ? 'Quick'
                             : item.sourceType === 'ingredient'
-                              ? 'Ingredient'
+                              ? 'From saved'
                               : item.sourceType === 'custom'
-                                ? 'Custom ingredient'
-                                : 'Cooked food'}
+                                ? 'New ingredient'
+                                : 'Home-cooked'}
                         </span>
                         : {label}
                         {isQuickAdd
@@ -1073,6 +1082,7 @@ function MealDashboardPageContent() {
                   )
                 })}
               </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -1105,7 +1115,11 @@ function MealDashboardPageContent() {
                   )
                 }}
               >
-                {editingMealId ? 'Save meal changes' : 'Create meal'}
+                {editingMealId
+                  ? 'Save meal changes'
+                  : mealItems.length > 0
+                    ? `Create meal (${mealItems.length} item${mealItems.length === 1 ? '' : 's'})`
+                    : 'Create meal'}
               </Button>
               {editingMealId ? (
                 <Button variant="outline" onClick={resetMealForm}>

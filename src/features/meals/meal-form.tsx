@@ -13,11 +13,11 @@ export function MealFormSection({
 }: MealFormSectionProps) {
   return (
     <section>
-      <div className="mb-3">
+      <div className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-4">{children}</div>
     </section>
   )
 }
