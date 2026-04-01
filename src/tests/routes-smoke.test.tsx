@@ -82,7 +82,9 @@ describe('route smoke', () => {
     const Component = PeopleRoute.options.component as ComponentType
     renderRoute(Component)
 
-    expect(screen.getByRole('heading', { name: /^people$/i })).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: /^people$/i, level: 1 }),
+    ).toBeTruthy()
     expect(
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
