@@ -9,6 +9,7 @@ count.txt
 .tanstack
 .wrangler
 .output
+coverage
 .vinxi
 .vercel
 __unconfig*

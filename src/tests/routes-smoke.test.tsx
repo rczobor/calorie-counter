@@ -2,21 +2,9 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createEmptyManagementData } from '@/tests/factories'
 
-const emptyData = {
-  people: [],
-  personGoalHistory: [],
-  foodGroups: [],
-  ingredients: [],
-  recipes: [],
-  recipeVersions: [],
-  recipeVersionIngredients: [],
-  cookSessions: [],
-  cookedFoods: [],
-  cookedFoodIngredients: [],
-  meals: [],
-  mealItems: [],
-}
+const emptyData = createEmptyManagementData()
 
 let confirmOpen = false
 

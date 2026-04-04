@@ -11,6 +11,7 @@ export default [
       'node_modules/**',
       '.output/**',
       '.vercel/**',
+      'coverage/**',
       'convex/_generated/**',
       'src/routeTree.gen.ts',
     ],

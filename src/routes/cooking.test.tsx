@@ -8,8 +8,11 @@ import {
 } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Id, TableNames } from '../../convex/_generated/dataModel'
-import type { ManagementData } from '@/hooks/use-management-data'
+import {
+  createCookSessionDoc,
+  createCookedFoodDoc,
+  createManagementData,
+} from '@/tests/factories'
 
 const mockUseMutation = vi.fn()
 const toastSuccess = vi.fn()
@@ -266,90 +269,10 @@ function configureMutationMocks() {
   return mutations
 }
 
-function createManagementData(overrides: Partial<ManagementData> = {}) {
-  return {
-    ...createManagementDataBase(),
-    ...overrides,
-  }
-}
-
-function createManagementDataBase(): ManagementData {
-  return {
-    people: [createPerson('person-1', 'Alex')],
-    personGoalHistory: [],
-    foodGroups: [createFoodGroup('group-1', 'Fridge stock')],
-    ingredients: [],
-    recipes: [],
-    recipeVersions: [],
-    recipeVersionIngredients: [],
-    cookSessions: [],
-    cookedFoods: [],
-    cookedFoodIngredients: [],
-    meals: [],
-    mealItems: [],
-  }
-}
-
-function createPerson(id: string, name: string) {
-  return {
-    _id: asId<'people'>(id),
-    _creationTime: 1,
-    ownerUserId: 'user-1',
-    name,
-    notes: undefined,
-    currentDailyGoalKcal: 2000,
-    active: true,
-    createdAt: 1,
-  }
-}
-
-function createFoodGroup(id: string, name: string) {
-  return {
-    _id: asId<'foodGroups'>(id),
-    _creationTime: 1,
-    ownerUserId: 'user-1',
-    name,
-    appliesTo: 'cookedFood' as const,
-    archived: false,
-    createdAt: 1,
-  }
-}
-
 function createSession(id: string, label: string) {
-  return {
-    _id: asId<'cookSessions'>(id),
-    _creationTime: 1,
-    ownerUserId: 'user-1',
-    label,
-    cookedAt: 1,
-    cookedByPersonId: asId<'people'>('person-1'),
-    notes: undefined,
-    archived: false,
-    updatedAt: 1,
-    createdAt: 1,
-  }
+  return createCookSessionDoc(id, label)
 }
 
 function createCookedFood(id: string, sessionId: string, name: string) {
-  return {
-    _id: asId<'cookedFoods'>(id),
-    _creationTime: 1,
-    ownerUserId: 'user-1',
-    cookSessionId: asId<'cookSessions'>(sessionId),
-    name,
-    recipeId: undefined,
-    recipeVersionId: undefined,
-    groupIds: [asId<'foodGroups'>('group-1')],
-    finishedWeightGrams: 300,
-    totalRawWeightGrams: 300,
-    totalCalories: 900,
-    kcalPer100: 300,
-    notes: undefined,
-    archived: false,
-    createdAt: 1,
-  }
-}
-
-function asId<TableName extends TableNames>(value: string) {
-  return value as Id<TableName>
+  return createCookedFoodDoc(id, sessionId, name)
 }

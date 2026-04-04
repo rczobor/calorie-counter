@@ -7,6 +7,20 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     watch: false,
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: [
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+      'convex/**/*.test.ts',
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      exclude: [
+        'convex/_generated/**',
+        'src/routeTree.gen.ts',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+      ],
+    },
   },
 })
