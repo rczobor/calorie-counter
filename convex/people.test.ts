@@ -7,7 +7,7 @@ import {
   createConvexTest,
   insertCookSession,
   insertMeal,
-} from './test-utils'
+} from '../src/tests/convex-test-utils'
 
 describe('nutrition people mutations', () => {
   beforeEach(() => {

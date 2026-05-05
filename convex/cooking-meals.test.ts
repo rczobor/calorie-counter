@@ -8,7 +8,7 @@ import {
   insertCookSession,
   insertIngredient,
   insertPerson,
-} from './test-utils'
+} from '../src/tests/convex-test-utils'
 
 describe('nutrition cooking and meal mutations', () => {
   beforeEach(() => {

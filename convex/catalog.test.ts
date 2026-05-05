@@ -7,7 +7,7 @@ import {
   createConvexTest,
   insertIngredient,
   insertPerson,
-} from './test-utils'
+} from '../src/tests/convex-test-utils'
 
 describe('nutrition catalog mutations', () => {
   beforeEach(() => {

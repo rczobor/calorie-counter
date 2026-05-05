@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test'
-import type { Doc, Id } from './_generated/dataModel'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
 
-import schema from './schema'
+import schema from '../../convex/schema'
 
-const modules = import.meta.glob('./**/*.ts')
+const modules = import.meta.glob('../../convex/**/*.ts')
 
 export const TEST_USER_ID = 'user-1'
 
