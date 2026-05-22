@@ -28,6 +28,11 @@ import {
 
 import appCss from '../styles.css?url'
 
+const APP_DESCRIPTION =
+  'Track meals, calories, people, goals, recipes, and cooking sessions.'
+const LIGHT_THEME_COLOR = '#fdfdfb'
+const DARK_THEME_COLOR = '#110c09'
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -39,6 +44,10 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
+        name: 'description',
+        content: APP_DESCRIPTION,
+      },
+      {
         title: 'Calorie Counter',
       },
     ],
@@ -46,6 +55,26 @@ export const Route = createRootRoute({
       {
         rel: 'stylesheet',
         href: appCss,
+      },
+      {
+        rel: 'manifest',
+        href: '/manifest.json',
+      },
+      {
+        rel: 'icon',
+        href: '/favicon.ico',
+        sizes: '48x48',
+      },
+      {
+        rel: 'icon',
+        href: '/pwa-icon.svg',
+        sizes: 'any',
+        type: 'image/svg+xml',
+      },
+      {
+        rel: 'apple-touch-icon',
+        href: '/apple-touch-icon-180x180.png',
+        sizes: '180x180',
       },
     ],
   }),
@@ -56,6 +85,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta
+          name="theme-color"
+          content={LIGHT_THEME_COLOR}
+          media="(prefers-color-scheme: light)"
+        />
+        <meta
+          name="theme-color"
+          content={DARK_THEME_COLOR}
+          media="(prefers-color-scheme: dark)"
+        />
         <HeadContent />
       </head>
       <body>
