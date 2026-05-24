@@ -67,7 +67,7 @@ describe('nutrition catalog mutations', () => {
     ).rejects.toThrowError('Ingredient is in historical records. Archive instead.')
   })
 
-  it('replaces current recipe ingredient lines instead of appending duplicates', async () => {
+  it('creates a new current recipe version while preserving the old version', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
     const ingredientA = await insertIngredient(t, { name: 'Oats' })
@@ -98,17 +98,103 @@ describe('nutrition catalog mutations', () => {
       ],
     })
 
-    const versionLines = await t.run(async (ctx) => {
+    const { versions, oldVersionLines, newVersionLines } = await t.run(
+      async (ctx) => {
+        const versions = await ctx.db
+          .query('recipeVersions')
+          .withIndex('by_recipe', (q) => q.eq('recipeId', created.recipeId))
+          .collect()
+        const currentVersion = versions.find((version) => version.isCurrent)
+        if (!currentVersion) {
+          throw new Error('Expected a current recipe version.')
+        }
+        const oldVersionLines = await ctx.db
+          .query('recipeVersionIngredients')
+          .withIndex('by_recipeVersion', (q) =>
+            q.eq('recipeVersionId', created.recipeVersionId),
+          )
+          .collect()
+        const newVersionLines = await ctx.db
+          .query('recipeVersionIngredients')
+          .withIndex('by_recipeVersion', (q) =>
+            q.eq('recipeVersionId', currentVersion._id),
+          )
+          .collect()
+        return { versions, oldVersionLines, newVersionLines }
+      },
+    )
+
+    expect(versions).toHaveLength(2)
+    expect(versions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: created.recipeVersionId,
+          versionNumber: 1,
+          isCurrent: false,
+        }),
+        expect.objectContaining({
+          versionNumber: 2,
+          isCurrent: true,
+        }),
+      ]),
+    )
+    expect(oldVersionLines).toHaveLength(1)
+    expect(oldVersionLines[0]?.ingredientId).toBe(ingredientA)
+    expect(newVersionLines).toHaveLength(1)
+    expect(newVersionLines[0]?.ingredientId).toBe(ingredientB)
+    expect(newVersionLines[0]?.referenceAmount).toBe(50)
+  })
+
+  it('replaces lines within each created recipe version without duplicating them', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const ingredientA = await insertIngredient(t, { name: 'Oats' })
+    const ingredientB = await insertIngredient(t, { name: 'Berries' })
+
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Breakfast bowl',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId: ingredientA,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+
+    await user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+      recipeId: created.recipeId,
+      name: 'Breakfast bowl',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId: ingredientB,
+          referenceAmount: 50,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+
+    const currentVersionLines = await t.run(async (ctx) => {
+      const versions = await ctx.db
+        .query('recipeVersions')
+        .withIndex('by_recipe', (q) => q.eq('recipeId', created.recipeId))
+        .collect()
+      const currentVersion = versions.find((version) => version.isCurrent)
+      if (!currentVersion) {
+        throw new Error('Expected a current recipe version.')
+      }
       return await ctx.db
         .query('recipeVersionIngredients')
         .withIndex('by_recipeVersion', (q) =>
-          q.eq('recipeVersionId', created.recipeVersionId),
+          q.eq('recipeVersionId', currentVersion._id),
         )
         .collect()
     })
 
-    expect(versionLines).toHaveLength(1)
-    expect(versionLines[0]?.ingredientId).toBe(ingredientB)
-    expect(versionLines[0]?.referenceAmount).toBe(50)
+    expect(currentVersionLines).toHaveLength(1)
+    expect(currentVersionLines[0]?.ingredientId).toBe(ingredientB)
+    expect(currentVersionLines[0]?.referenceAmount).toBe(50)
   })
 })

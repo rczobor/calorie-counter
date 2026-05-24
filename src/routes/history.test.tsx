@@ -9,6 +9,7 @@ import {
   createMealDoc,
   createMealItemDoc,
   createPersonDoc,
+  createPersonGoalHistoryDoc,
 } from '@/tests/factories'
 
 let mockManagementData: ManagementData = createEmptyManagementData()
@@ -18,7 +19,7 @@ vi.mock('@/integrations/convex/config', () => ({
 }))
 
 vi.mock('@/hooks/use-management-data', () => ({
-  useManagementData: () => ({
+  useHistoryData: () => ({
     data: mockManagementData,
     isLoading: false,
   }),
@@ -75,6 +76,48 @@ describe('History route', () => {
     expect(screen.queryByText('555 kcal')).toBeNull()
     expect(screen.queryByText('444 kcal')).toBeNull()
     expect(screen.queryByText('999 kcal')).toBeNull()
+  })
+
+  it('uses the goal effective on each historical date', () => {
+    mockManagementData = createEmptyManagementData({
+      people: [createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2500 })],
+      personGoalHistory: [
+        createPersonGoalHistoryDoc('goal-1', 'person-1', {
+          effectiveDate: '2026-04-01',
+          goalKcal: 2000,
+          createdAt: 1,
+        }),
+        createPersonGoalHistoryDoc('goal-2', 'person-1', {
+          effectiveDate: '2026-04-03',
+          goalKcal: 2200,
+          createdAt: 2,
+        }),
+      ],
+      meals: [
+        createMealDoc('meal-1', 'person-1', { eatenOn: '2026-04-04' }),
+        createMealDoc('meal-2', 'person-1', { eatenOn: '2026-04-02' }),
+      ],
+      mealItems: [
+        createMealItemDoc('item-1', 'meal-1', { caloriesSnapshot: 500 }),
+        createMealItemDoc('item-2', 'meal-2', { caloriesSnapshot: 500 }),
+      ],
+    })
+
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+
+    const rows = screen.getAllByRole('row')
+    const aprilFourthRow = rows.find((row) =>
+      row.textContent?.includes('Sat, Apr 4, 2026'),
+    )
+    const aprilSecondRow = rows.find((row) =>
+      row.textContent?.includes('Thu, Apr 2, 2026'),
+    )
+
+    expect(aprilFourthRow?.textContent).toContain('2200 kcal')
+    expect(aprilFourthRow?.textContent).toContain('1700 kcal')
+    expect(aprilSecondRow?.textContent).toContain('2000 kcal')
+    expect(aprilSecondRow?.textContent).toContain('1500 kcal')
   })
 
   it('shows empty-state guidance when there are no active people', () => {

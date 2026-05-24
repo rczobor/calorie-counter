@@ -1,11 +1,12 @@
 import {
+  internalMutation,
   mutation,
   query,
   type DatabaseWriter,
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
-import type { Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { v } from 'convex/values'
 
 const nutritionUnitValidator = v.union(
@@ -132,23 +133,59 @@ function normalizeKcalPer100(
   return normalized
 }
 
-function assertOwnedOrThrow<
-  TDoc extends {
-    ownerUserId?: string
-  } | null,
->(doc: TDoc, ownerUserId: string, notFoundMessage: string) {
-  if (!doc || doc.ownerUserId !== ownerUserId) {
+type AuthenticatedOwner = {
+  ownerUserId: string
+  ownerTokenIdentifier: string
+}
+
+type OwnedDocument = {
+  ownerUserId?: string
+  ownerTokenIdentifier?: string
+} | null
+
+function ownerFields(owner: AuthenticatedOwner) {
+  return {
+    ownerUserId: owner.ownerUserId,
+    ownerTokenIdentifier: owner.ownerTokenIdentifier,
+  }
+}
+
+function isOwnedBy<TDoc extends OwnedDocument>(
+  doc: TDoc,
+  owner: AuthenticatedOwner,
+): doc is NonNullable<TDoc> {
+  if (!doc) {
+    return false
+  }
+  if (doc.ownerTokenIdentifier) {
+    return doc.ownerTokenIdentifier === owner.ownerTokenIdentifier
+  }
+  return doc.ownerUserId === owner.ownerUserId
+}
+
+function assertOwnedOrThrow<TDoc extends OwnedDocument>(
+  doc: TDoc,
+  owner: AuthenticatedOwner,
+  notFoundMessage: string,
+): NonNullable<TDoc> {
+  if (!doc) {
+    throw new Error(notFoundMessage)
+  }
+  if (!isOwnedBy(doc, owner)) {
     throw new Error(notFoundMessage)
   }
   return doc
 }
 
-async function requireAuthenticatedUserId(ctx: QueryCtx | MutationCtx) {
+async function requireAuthenticatedUser(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
     throw new Error('Authentication required.')
   }
-  return identity.subject
+  return {
+    ownerUserId: identity.subject,
+    ownerTokenIdentifier: identity.tokenIdentifier,
+  }
 }
 
 function toLocalDateString(timestamp: number) {
@@ -166,6 +203,14 @@ function normalizeDate(value: string | undefined, fallbackDate: number) {
   const trimmed = value.trim()
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     throw new Error('Date must be in YYYY-MM-DD format.')
+  }
+  return trimmed
+}
+
+function normalizeRequiredDate(value: string, fieldName: string) {
+  const trimmed = value.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    throw new Error(`${fieldName} must be in YYYY-MM-DD format.`)
   }
   return trimmed
 }
@@ -193,7 +238,7 @@ function getIngredientIgnoreCalories(ingredient: { ignoreCalories?: boolean }) {
 
 async function saveCustomIngredientToCatalog(
   db: DatabaseWriter,
-  ownerUserId: string,
+  owner: AuthenticatedOwner,
   createdIngredientByKey: Map<string, Id<'ingredients'>>,
   now: number,
   customIngredient: {
@@ -221,7 +266,7 @@ async function saveCustomIngredientToCatalog(
   }
 
   const ingredientId = await db.insert('ingredients', {
-    ownerUserId,
+    ...ownerFields(owner),
     name: customIngredient.name,
     brand: undefined,
     kcalPer100: normalizedKcalPer100,
@@ -237,7 +282,7 @@ async function saveCustomIngredientToCatalog(
 
 async function buildCookedFoodNutrition(
   db: DatabaseWriter,
-  ownerUserId: string,
+  owner: AuthenticatedOwner,
   ingredients: Array<
     | {
         sourceType: 'ingredient'
@@ -293,7 +338,7 @@ async function buildCookedFoodNutrition(
     assertPositive(line.referenceAmount, 'Ingredient amount')
     if (line.sourceType === 'ingredient') {
       const ingredient = await db.get(line.ingredientId)
-      if (!ingredient || ingredient.ownerUserId !== ownerUserId) {
+      if (!isOwnedBy(ingredient, owner)) {
         throw new Error('One or more ingredients are missing.')
       }
       const ignoreCalories = getIngredientIgnoreCalories(ingredient)
@@ -355,7 +400,7 @@ async function buildCookedFoodNutrition(
     if (shouldSaveToCatalog) {
       savedIngredientId = await saveCustomIngredientToCatalog(
         db,
-        ownerUserId,
+        owner,
         createdIngredientByKey,
         now,
         {
@@ -396,7 +441,7 @@ async function buildCookedFoodNutrition(
 
 async function resolveRecipeIngredientLines(
   db: DatabaseWriter,
-  ownerUserId: string,
+  owner: AuthenticatedOwner,
   ingredientLines: Array<
     | {
         sourceType: 'ingredient'
@@ -442,7 +487,7 @@ async function resolveRecipeIngredientLines(
     assertPositive(line.referenceAmount, 'Ingredient amount')
     if (line.sourceType === 'ingredient') {
       const ingredient = await db.get(line.ingredientId)
-      if (!ingredient || ingredient.ownerUserId !== ownerUserId) {
+      if (!isOwnedBy(ingredient, owner)) {
         throw new Error('One or more ingredients are missing.')
       }
       const ignoreCaloriesSnapshot = getIngredientIgnoreCalories(ingredient)
@@ -477,7 +522,7 @@ async function resolveRecipeIngredientLines(
     if (shouldSaveToCatalog) {
       ingredientId = await saveCustomIngredientToCatalog(
         db,
-        ownerUserId,
+        owner,
         createdIngredientByKey,
         now,
         {
@@ -506,7 +551,7 @@ async function resolveRecipeIngredientLines(
 
 async function buildMealItemSnapshots(
   db: DatabaseWriter,
-  ownerUserId: string,
+  owner: AuthenticatedOwner,
   items: Array<
     | {
         sourceType: 'ingredient'
@@ -544,7 +589,7 @@ async function buildMealItemSnapshots(
           throw new Error('Ingredient meal item is missing ingredientId.')
         }
         const ingredient = await db.get(item.ingredientId)
-        if (!ingredient || ingredient.ownerUserId !== ownerUserId) {
+        if (!isOwnedBy(ingredient, owner)) {
           throw new Error('Meal ingredient not found.')
         }
         assertPositive(item.consumedWeightGrams, 'Consumed weight')
@@ -584,7 +629,7 @@ async function buildMealItemSnapshots(
         if (item.saveToCatalog) {
           ingredientId = await saveCustomIngredientToCatalog(
             db,
-            ownerUserId,
+            owner,
             createdIngredientByKey,
             now,
             {
@@ -617,7 +662,7 @@ async function buildMealItemSnapshots(
       }
       assertPositive(item.consumedWeightGrams, 'Consumed weight')
       const cookedFood = await db.get(item.cookedFoodId)
-      if (!cookedFood || cookedFood.ownerUserId !== ownerUserId) {
+      if (!isOwnedBy(cookedFood, owner)) {
         throw new Error('Meal cooked food item not found.')
       }
       const rawCookedFoodKcalPer100 = cookedFood.kcalPer100
@@ -650,12 +695,12 @@ async function buildMealItemSnapshots(
 
 async function touchCookSession(
   ctx: MutationCtx,
-  ownerUserId: string,
+  owner: AuthenticatedOwner,
   sessionId: Id<'cookSessions'>,
   updatedAt = Date.now(),
 ) {
   const session = await ctx.db.get(sessionId)
-  if (!session || session.ownerUserId !== ownerUserId) {
+  if (!isOwnedBy(session, owner)) {
     return
   }
   await ctx.db.patch(sessionId, { updatedAt })
@@ -663,19 +708,19 @@ async function touchCookSession(
 
 async function deleteCookedFoodWithChildren(
   ctx: MutationCtx,
-  ownerUserId: string,
+  owner: AuthenticatedOwner,
   cookedFoodId: Id<'cookedFoods'>,
 ) {
   const cookedFood = assertOwnedOrThrow(
     await ctx.db.get(cookedFoodId),
-    ownerUserId,
+    owner,
     'Cooked food not found.',
   )
   const mealRefs = await ctx.db
     .query('mealItems')
     .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
     .collect()
-  if (mealRefs.some((row) => row.ownerUserId === ownerUserId)) {
+  if (mealRefs.some((row) => isOwnedBy(row, owner))) {
     throw new Error('Cooked food is in meal history. Archive instead.')
   }
 
@@ -685,7 +730,7 @@ async function deleteCookedFoodWithChildren(
     .collect()
   await Promise.all(
     ingredientRows
-      .filter((row) => row.ownerUserId === ownerUserId)
+      .filter((row) => isOwnedBy(row, owner))
       .map((row) => ctx.db.delete(row._id)),
   )
 
@@ -693,10 +738,105 @@ async function deleteCookedFoodWithChildren(
   return cookedFood.cookSessionId
 }
 
+async function getMealItemsForMeals(
+  ctx: QueryCtx,
+  owner: AuthenticatedOwner,
+  meals: Array<{ _id: Id<'meals'> }>,
+) {
+  const rows = await Promise.all(
+    meals.map((meal) =>
+      ctx.db
+        .query('mealItems')
+        .withIndex('by_meal', (q) => q.eq('mealId', meal._id))
+        .collect()
+        .then((items) => items.filter((item) => isOwnedBy(item, owner))),
+    ),
+  )
+  return rows.flat()
+}
+
+function uniqueRowsById<TDoc extends { _id: string }>(rows: TDoc[]) {
+  return [...new Map(rows.map((row) => [row._id, row])).values()]
+}
+
+function filterOwnedRows<TDoc extends OwnedDocument>(
+  rows: TDoc[],
+  owner: AuthenticatedOwner,
+) {
+  return rows.filter((row) => isOwnedBy(row, owner))
+}
+
+async function getOwnedMealsByDate(
+  ctx: QueryCtx,
+  owner: AuthenticatedOwner,
+  eatenOn: string,
+) {
+  const rows = await Promise.all([
+    ctx.db
+      .query('meals')
+      .withIndex('by_ownerTokenIdentifier_and_eatenOn', (q) =>
+        q
+          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('eatenOn', eatenOn),
+      )
+      .collect(),
+    ctx.db
+      .query('meals')
+      .withIndex('by_ownerUserId_and_eatenOn', (q) =>
+        q.eq('ownerUserId', owner.ownerUserId).eq('eatenOn', eatenOn),
+      )
+      .collect(),
+  ])
+
+  return uniqueRowsById(rows.flat().filter((row) => isOwnedBy(row, owner)))
+}
+
+async function getOwnedMealsByDateRange(
+  ctx: QueryCtx,
+  owner: AuthenticatedOwner,
+  startDate: string,
+  endDate: string,
+) {
+  const rows = await Promise.all([
+    ctx.db
+      .query('meals')
+      .withIndex('by_ownerTokenIdentifier_and_eatenOn', (q) =>
+        q
+          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .gte('eatenOn', startDate)
+          .lte('eatenOn', endDate),
+      )
+      .collect(),
+    ctx.db
+      .query('meals')
+      .withIndex('by_ownerUserId_and_eatenOn', (q) =>
+        q
+          .eq('ownerUserId', owner.ownerUserId)
+          .gte('eatenOn', startDate)
+          .lte('eatenOn', endDate),
+      )
+      .collect(),
+  ])
+
+  return uniqueRowsById(rows.flat().filter((row) => isOwnedBy(row, owner)))
+}
+
+function sortMeals(meals: Doc<'meals'>[]) {
+  return meals.sort((a, b) => {
+    const aDate = mealDateKey(a)
+    const bDate = mealDateKey(b)
+    if (aDate === bDate) {
+      return b.createdAt - a.createdAt
+    }
+    return aDate < bDate ? 1 : -1
+  })
+}
+
 export const getManagementData = query({
   args: {},
   handler: async (ctx) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
     const [
       people,
       personGoalHistory,
@@ -762,29 +902,299 @@ export const getManagementData = query({
     ])
 
     return {
-      people: people.sort((a, b) => a.name.localeCompare(b.name)),
-      personGoalHistory: personGoalHistory.sort(
+      people: filterOwnedRows(people, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      personGoalHistory: filterOwnedRows(personGoalHistory, owner).sort(
         (a, b) => b.createdAt - a.createdAt,
       ),
-      foodGroups: foodGroups.sort((a, b) => a.name.localeCompare(b.name)),
-      ingredients: ingredients.sort((a, b) => a.name.localeCompare(b.name)),
-      recipes: recipes.sort((a, b) => b.createdAt - a.createdAt),
-      recipeVersions: recipeVersions.sort((a, b) => b.createdAt - a.createdAt),
-      recipeVersionIngredients,
-      cookSessions: cookSessions.sort(
+      foodGroups: filterOwnedRows(foodGroups, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      ingredients: filterOwnedRows(ingredients, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      recipes: filterOwnedRows(recipes, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      recipeVersions: filterOwnedRows(recipeVersions, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      recipeVersionIngredients: filterOwnedRows(
+        recipeVersionIngredients,
+        owner,
+      ),
+      cookSessions: filterOwnedRows(cookSessions, owner).sort(
         (a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt),
       ),
-      cookedFoods: cookedFoods.sort((a, b) => b.createdAt - a.createdAt),
-      cookedFoodIngredients,
-      meals: meals.sort((a, b) => {
-        const aDate = mealDateKey(a)
-        const bDate = mealDateKey(b)
-        if (aDate === bDate) {
-          return b.createdAt - a.createdAt
-        }
-        return aDate < bDate ? 1 : -1
-      }),
+      cookedFoods: filterOwnedRows(cookedFoods, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      cookedFoodIngredients: filterOwnedRows(cookedFoodIngredients, owner),
+      meals: sortMeals(filterOwnedRows(meals, owner)),
+      mealItems: filterOwnedRows(mealItems, owner),
+    }
+  },
+})
+
+export const getMealDashboardData = query({
+  args: {
+    eatenOn: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
+    const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
+    const [people, ingredients, cookSessions, cookedFoods, meals] =
+      await Promise.all([
+        ctx.db
+          .query('people')
+          .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+          .collect(),
+        ctx.db
+          .query('ingredients')
+          .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+          .collect(),
+        ctx.db
+          .query('cookSessions')
+          .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+          .collect(),
+        ctx.db
+          .query('cookedFoods')
+          .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+          .collect(),
+        getOwnedMealsByDate(ctx, owner, eatenOn),
+      ])
+    const mealItems = await getMealItemsForMeals(ctx, owner, meals)
+
+    return {
+      people: filterOwnedRows(people, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      ingredients: filterOwnedRows(ingredients, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      cookSessions: filterOwnedRows(cookSessions, owner).sort(
+        (a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt),
+      ),
+      cookedFoods: filterOwnedRows(cookedFoods, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      meals: sortMeals(meals),
       mealItems,
+    }
+  },
+})
+
+export const getPeopleData = query({
+  args: {
+    today: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
+    const today = normalizeRequiredDate(args.today, 'Today')
+    const [people, personGoalHistory, meals] = await Promise.all([
+      ctx.db
+        .query('people')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('personGoalHistory')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      getOwnedMealsByDate(ctx, owner, today),
+    ])
+    const mealItems = await getMealItemsForMeals(ctx, owner, meals)
+
+    return {
+      people: filterOwnedRows(people, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      personGoalHistory: filterOwnedRows(personGoalHistory, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      meals: sortMeals(meals),
+      mealItems,
+    }
+  },
+})
+
+export const getHistoryData = query({
+  args: {
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
+    const startDate = normalizeRequiredDate(args.startDate, 'Start date')
+    const endDate = normalizeRequiredDate(args.endDate, 'End date')
+    if (startDate > endDate) {
+      throw new Error('Start date must be on or before end date.')
+    }
+    const [people, personGoalHistory, meals] = await Promise.all([
+      ctx.db
+        .query('people')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('personGoalHistory')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      getOwnedMealsByDateRange(ctx, owner, startDate, endDate),
+    ])
+    const mealItems = await getMealItemsForMeals(ctx, owner, meals)
+
+    return {
+      people: filterOwnedRows(people, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      personGoalHistory: filterOwnedRows(personGoalHistory, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      meals: sortMeals(meals),
+      mealItems,
+    }
+  },
+})
+
+export const getCatalogData = query({
+  args: {},
+  handler: async (ctx) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
+    const [
+      foodGroups,
+      ingredients,
+      recipes,
+      recipeVersions,
+      recipeVersionIngredients,
+    ] = await Promise.all([
+      ctx.db
+        .query('foodGroups')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('ingredients')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('recipes')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('recipeVersions')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+    ])
+
+    return {
+      foodGroups: filterOwnedRows(foodGroups, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      ingredients: filterOwnedRows(ingredients, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      recipes: filterOwnedRows(recipes, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      recipeVersions: filterOwnedRows(recipeVersions, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      recipeVersionIngredients: filterOwnedRows(
+        recipeVersionIngredients,
+        owner,
+      ),
+    }
+  },
+})
+
+export const getCookingData = query({
+  args: {},
+  handler: async (ctx) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
+    const [
+      people,
+      foodGroups,
+      ingredients,
+      recipes,
+      recipeVersions,
+      recipeVersionIngredients,
+      cookSessions,
+      cookedFoods,
+      cookedFoodIngredients,
+    ] = await Promise.all([
+      ctx.db
+        .query('people')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('foodGroups')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('ingredients')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('recipes')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('recipeVersions')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('cookSessions')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('cookedFoods')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+      ctx.db
+        .query('cookedFoodIngredients')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
+        .collect(),
+    ])
+
+    return {
+      people: filterOwnedRows(people, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      foodGroups: filterOwnedRows(foodGroups, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      ingredients: filterOwnedRows(ingredients, owner).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      recipes: filterOwnedRows(recipes, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      recipeVersions: filterOwnedRows(recipeVersions, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      recipeVersionIngredients: filterOwnedRows(
+        recipeVersionIngredients,
+        owner,
+      ),
+      cookSessions: filterOwnedRows(cookSessions, owner).sort(
+        (a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt),
+      ),
+      cookedFoods: filterOwnedRows(cookedFoods, owner).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      ),
+      cookedFoodIngredients: filterOwnedRows(cookedFoodIngredients, owner),
     }
   },
 })
@@ -797,12 +1207,12 @@ export const createPerson = mutation({
     effectiveDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Name')
     assertPositive(args.currentDailyGoalKcal, 'Daily goal')
     const now = Date.now()
     const personId = await ctx.db.insert('people', {
-      ownerUserId,
+      ...ownerFields(owner),
       name: args.name.trim(),
       notes: args.notes?.trim() || undefined,
       currentDailyGoalKcal: args.currentDailyGoalKcal,
@@ -810,7 +1220,7 @@ export const createPerson = mutation({
       createdAt: now,
     })
     await ctx.db.insert('personGoalHistory', {
-      ownerUserId,
+      ...ownerFields(owner),
       personId,
       effectiveDate: normalizeDate(args.effectiveDate, now),
       goalKcal: args.currentDailyGoalKcal,
@@ -828,10 +1238,10 @@ export const updatePerson = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
-      ownerUserId,
+      owner,
       'Person not found.',
     )
     assertNonEmpty(args.name, 'Name')
@@ -850,11 +1260,11 @@ export const updatePersonGoal = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertPositive(args.goalKcal, 'Goal')
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
-      ownerUserId,
+      owner,
       'Person not found.',
     )
     const now = Date.now()
@@ -862,7 +1272,7 @@ export const updatePersonGoal = mutation({
       currentDailyGoalKcal: args.goalKcal,
     })
     await ctx.db.insert('personGoalHistory', {
-      ownerUserId,
+      ...ownerFields(owner),
       personId: args.personId,
       effectiveDate: normalizeDate(args.effectiveDate, now),
       goalKcal: args.goalKcal,
@@ -878,10 +1288,10 @@ export const setPersonArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
-      ownerUserId,
+      owner,
       'Person not found.',
     )
     await ctx.db.patch(args.personId, { active: !args.archived })
@@ -891,10 +1301,10 @@ export const setPersonArchived = mutation({
 export const deletePerson = mutation({
   args: { personId: v.id('people') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
-      ownerUserId,
+      owner,
       'Person not found.',
     )
     const [mealRefs, cookingRefs] = await Promise.all([
@@ -902,12 +1312,12 @@ export const deletePerson = mutation({
         .query('meals')
         .withIndex('by_person_eatenOn', (q) => q.eq('personId', args.personId))
         .collect()
-        .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId)),
+        .then((rows) => rows.filter((row) => isOwnedBy(row, owner))),
       ctx.db
         .query('cookSessions')
         .withIndex('by_person', (q) => q.eq('cookedByPersonId', args.personId))
         .collect()
-        .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId)),
+        .then((rows) => rows.filter((row) => isOwnedBy(row, owner))),
     ])
     if (
       mealRefs.length > 0 ||
@@ -921,7 +1331,7 @@ export const deletePerson = mutation({
       .query('personGoalHistory')
       .withIndex('by_person_createdAt', (q) => q.eq('personId', args.personId))
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     await Promise.all(goalRows.map((row) => ctx.db.delete(row._id)))
     await ctx.db.delete(args.personId)
   },
@@ -933,11 +1343,11 @@ export const createFoodGroup = mutation({
     appliesTo: groupScopeValidator,
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Group name')
     const now = Date.now()
     return await ctx.db.insert('foodGroups', {
-      ownerUserId,
+      ...ownerFields(owner),
       name: args.name.trim(),
       appliesTo: args.appliesTo,
       archived: false,
@@ -953,11 +1363,11 @@ export const updateFoodGroup = mutation({
     appliesTo: groupScopeValidator,
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Group name')
     assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
-      ownerUserId,
+      owner,
       'Group not found.',
     )
     await ctx.db.patch(args.groupId, {
@@ -973,10 +1383,10 @@ export const setFoodGroupArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
-      ownerUserId,
+      owner,
       'Group not found.',
     )
     await ctx.db.patch(args.groupId, { archived: args.archived })
@@ -986,10 +1396,11 @@ export const setFoodGroupArchived = mutation({
 export const deleteFoodGroup = mutation({
   args: { groupId: v.id('foodGroups') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
     assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
-      ownerUserId,
+      owner,
       'Group not found.',
     )
     const [ingredients, cookedFoods] = await Promise.all([
@@ -1003,8 +1414,12 @@ export const deleteFoodGroup = mutation({
         .collect(),
     ])
     const inUse =
-      ingredients.some((item) => item.groupIds.includes(args.groupId)) ||
-      cookedFoods.some((item) => item.groupIds.includes(args.groupId))
+      filterOwnedRows(ingredients, owner).some((item) =>
+        item.groupIds.includes(args.groupId),
+      ) ||
+      filterOwnedRows(cookedFoods, owner).some((item) =>
+        item.groupIds.includes(args.groupId),
+      )
     if (inUse) {
       throw new Error(
         'Group is used by records. Archive instead or remove references first.',
@@ -1024,7 +1439,7 @@ export const createIngredient = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Ingredient name')
     const normalizedKcalPer100 = normalizeKcalPer100(args.kcalPer100, {
       allowZero: args.ignoreCalories,
@@ -1033,13 +1448,13 @@ export const createIngredient = mutation({
     const groups = await Promise.all(
       args.groupIds.map((groupId) => ctx.db.get(groupId)),
     )
-    if (groups.some((group) => !group || group.ownerUserId !== ownerUserId)) {
+    if (groups.some((group) => !isOwnedBy(group, owner))) {
       throw new Error('One or more groups are missing.')
     }
 
     const now = Date.now()
     return await ctx.db.insert('ingredients', {
-      ownerUserId,
+      ...ownerFields(owner),
       name: args.name.trim(),
       brand: args.brand?.trim() || undefined,
       kcalPer100: normalizedKcalPer100,
@@ -1063,10 +1478,10 @@ export const updateIngredient = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
-      ownerUserId,
+      owner,
       'Ingredient not found.',
     )
     assertNonEmpty(args.name, 'Ingredient name')
@@ -1085,12 +1500,14 @@ export const updateIngredient = mutation({
   },
 })
 
-export const normalizeKcalValuesToIntegers = mutation({
+export const normalizeKcalValuesToIntegers = internalMutation({
   args: {
+    ownerUserId: v.string(),
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const ownerUserId = args.ownerUserId.trim()
+    assertNonEmpty(ownerUserId, 'Owner user id')
     const dryRun = Boolean(args.dryRun)
     const summary = {
       ingredients: 0,
@@ -1232,10 +1649,10 @@ export const setIngredientArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
-      ownerUserId,
+      owner,
       'Ingredient not found.',
     )
     await ctx.db.patch(args.ingredientId, { archived: args.archived })
@@ -1245,10 +1662,10 @@ export const setIngredientArchived = mutation({
 export const deleteIngredient = mutation({
   args: { ingredientId: v.id('ingredients') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
-      ownerUserId,
+      owner,
       'Ingredient not found.',
     )
     const [recipeRefs, cookedRefs, mealRefs] = await Promise.all([
@@ -1258,21 +1675,21 @@ export const deleteIngredient = mutation({
           q.eq('ingredientId', args.ingredientId),
         )
         .collect()
-        .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId)),
+        .then((rows) => rows.filter((row) => isOwnedBy(row, owner))),
       ctx.db
         .query('cookedFoodIngredients')
         .withIndex('by_ingredient', (q) =>
           q.eq('ingredientId', args.ingredientId),
         )
         .collect()
-        .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId)),
+        .then((rows) => rows.filter((row) => isOwnedBy(row, owner))),
       ctx.db
         .query('mealItems')
         .withIndex('by_ingredient', (q) =>
           q.eq('ingredientId', args.ingredientId),
         )
         .collect()
-        .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId)),
+        .then((rows) => rows.filter((row) => isOwnedBy(row, owner))),
     ])
     const used =
       recipeRefs.some((item) => item.ingredientId === args.ingredientId) ||
@@ -1294,17 +1711,17 @@ export const createRecipe = mutation({
     ingredientLines: v.array(recipeIngredientValidator),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Recipe name')
     const resolvedLines = await resolveRecipeIngredientLines(
       ctx.db,
-      ownerUserId,
+      owner,
       args.ingredientLines,
     )
 
     const now = Date.now()
     const recipeId = await ctx.db.insert('recipes', {
-      ownerUserId,
+      ...ownerFields(owner),
       name: args.name.trim(),
       description: args.description?.trim() || undefined,
       archived: false,
@@ -1313,7 +1730,7 @@ export const createRecipe = mutation({
     })
 
     const versionId = await ctx.db.insert('recipeVersions', {
-      ownerUserId,
+      ...ownerFields(owner),
       recipeId,
       versionNumber: 1,
       name: args.name.trim(),
@@ -1326,7 +1743,7 @@ export const createRecipe = mutation({
     await Promise.all(
       resolvedLines.map((line) =>
         ctx.db.insert('recipeVersionIngredients', {
-          ownerUserId,
+          ...ownerFields(owner),
           recipeVersionId: versionId,
           sourceType: line.sourceType,
           ingredientId: line.ingredientId,
@@ -1355,16 +1772,16 @@ export const updateRecipeCurrentVersion = mutation({
     ingredientLines: v.array(recipeIngredientValidator),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
-    assertOwnedOrThrow(
+    const owner = await requireAuthenticatedUser(ctx)
+    const recipe = assertOwnedOrThrow(
       await ctx.db.get(args.recipeId),
-      ownerUserId,
+      owner,
       'Recipe not found.',
     )
     assertNonEmpty(args.name, 'Recipe name')
     const resolvedLines = await resolveRecipeIngredientLines(
       ctx.db,
-      ownerUserId,
+      owner,
       args.ingredientLines,
     )
 
@@ -1372,36 +1789,38 @@ export const updateRecipeCurrentVersion = mutation({
       .query('recipeVersions')
       .withIndex('by_recipe', (q) => q.eq('recipeId', args.recipeId))
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     const current = versions.find((version) => version.isCurrent)
     if (!current) {
       throw new Error('Current recipe version not found.')
     }
+    const nextVersionNumber = recipe.latestVersionNumber + 1
 
     await ctx.db.patch(args.recipeId, {
       name: args.name.trim(),
       description: args.description?.trim() || undefined,
+      latestVersionNumber: nextVersionNumber,
     })
     await ctx.db.patch(current._id, {
+      isCurrent: false,
+    })
+
+    const nextVersionId = await ctx.db.insert('recipeVersions', {
+      ...ownerFields(owner),
+      recipeId: args.recipeId,
+      versionNumber: nextVersionNumber,
       name: args.name.trim(),
       instructions: args.instructions?.trim() || undefined,
       notes: args.notes?.trim() || undefined,
+      isCurrent: true,
+      createdAt: Date.now(),
     })
 
-    const oldIngredients = await ctx.db
-      .query('recipeVersionIngredients')
-      .withIndex('by_recipeVersion', (q) =>
-        q.eq('recipeVersionId', current._id),
-      )
-      .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
-
-    await Promise.all([
-      ...oldIngredients.map((line) => ctx.db.delete(line._id)),
-      ...resolvedLines.map((line) =>
+    await Promise.all(
+      resolvedLines.map((line) =>
         ctx.db.insert('recipeVersionIngredients', {
-          ownerUserId,
-          recipeVersionId: current._id,
+          ...ownerFields(owner),
+          recipeVersionId: nextVersionId,
           sourceType: line.sourceType,
           ingredientId: line.ingredientId,
           ingredientNameSnapshot: line.ingredientNameSnapshot,
@@ -1413,7 +1832,9 @@ export const updateRecipeCurrentVersion = mutation({
           notes: line.notes?.trim() || undefined,
         }),
       ),
-    ])
+    )
+
+    return { recipeVersionId: nextVersionId, versionNumber: nextVersionNumber }
   },
 })
 
@@ -1423,10 +1844,10 @@ export const setRecipeArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.recipeId),
-      ownerUserId,
+      owner,
       'Recipe not found.',
     )
     await ctx.db.patch(args.recipeId, { archived: args.archived })
@@ -1436,10 +1857,11 @@ export const setRecipeArchived = mutation({
 export const deleteRecipe = mutation({
   args: { recipeId: v.id('recipes') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
     assertOwnedOrThrow(
       await ctx.db.get(args.recipeId),
-      ownerUserId,
+      owner,
       'Recipe not found.',
     )
     const cookedRef = (
@@ -1447,7 +1869,7 @@ export const deleteRecipe = mutation({
         .query('cookedFoods')
         .withIndex('by_recipe', (q) => q.eq('recipeId', args.recipeId))
         .collect()
-        .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+        .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     ).some((item) => item.recipeId === args.recipeId)
     if (cookedRef) {
       throw new Error('Recipe has cooked history. Archive instead.')
@@ -1457,12 +1879,13 @@ export const deleteRecipe = mutation({
       .query('recipeVersions')
       .withIndex('by_recipe', (q) => q.eq('recipeId', args.recipeId))
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     const versionIds = new Set(versions.map((version) => version._id))
     const versionIngredients = await ctx.db
       .query('recipeVersionIngredients')
       .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
       .collect()
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     await Promise.all([
       ...versionIngredients
         .filter((line) => versionIds.has(line.recipeVersionId))
@@ -1481,18 +1904,18 @@ export const createCookSession = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     if (args.cookedByPersonId) {
       assertOwnedOrThrow(
         await ctx.db.get(args.cookedByPersonId),
-        ownerUserId,
+        owner,
         'Cook person not found.',
       )
     }
 
     const now = Date.now()
     return await ctx.db.insert('cookSessions', {
-      ownerUserId,
+      ...ownerFields(owner),
       label: args.label?.trim() || undefined,
       cookedAt: args.cookedAt ?? now,
       cookedByPersonId: args.cookedByPersonId,
@@ -1513,16 +1936,16 @@ export const updateCookSession = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     const session = assertOwnedOrThrow(
       await ctx.db.get(args.sessionId),
-      ownerUserId,
+      owner,
       'Cook session not found.',
     )
     if (args.cookedByPersonId) {
       assertOwnedOrThrow(
         await ctx.db.get(args.cookedByPersonId),
-        ownerUserId,
+        owner,
         'Cook person not found.',
       )
     }
@@ -1542,10 +1965,10 @@ export const setCookSessionArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.sessionId),
-      ownerUserId,
+      owner,
       'Cook session not found.',
     )
     await ctx.db.patch(args.sessionId, { archived: args.archived })
@@ -1555,22 +1978,24 @@ export const setCookSessionArchived = mutation({
 export const deleteCookSession = mutation({
   args: { sessionId: v.id('cookSessions') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
+    const ownerUserId = owner.ownerUserId
     assertOwnedOrThrow(
       await ctx.db.get(args.sessionId),
-      ownerUserId,
+      owner,
       'Cook session not found.',
     )
     const cookedFoods = await ctx.db
       .query('cookedFoods')
       .withIndex('by_session', (q) => q.eq('cookSessionId', args.sessionId))
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     const cookedFoodIds = new Set(cookedFoods.map((food) => food._id))
     const mealRefs = await ctx.db
       .query('mealItems')
       .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
       .collect()
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     if (
       mealRefs.some(
         (row) => row.cookedFoodId && cookedFoodIds.has(row.cookedFoodId),
@@ -1582,7 +2007,7 @@ export const deleteCookSession = mutation({
     }
 
     for (const food of cookedFoods) {
-      await deleteCookedFoodWithChildren(ctx, ownerUserId, food._id)
+      await deleteCookedFoodWithChildren(ctx, owner, food._id)
     }
     await ctx.db.delete(args.sessionId)
   },
@@ -1602,11 +2027,11 @@ export const createCookedFood = mutation({
     ingredients: v.array(cookedFoodIngredientValidator),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Cooked food name')
     assertOwnedOrThrow(
       await ctx.db.get(args.cookSessionId),
-      ownerUserId,
+      owner,
       'Cook session not found.',
     )
     if (args.saveAsRecipe && (args.recipeId || args.recipeVersionId)) {
@@ -1618,14 +2043,14 @@ export const createCookedFood = mutation({
       if (args.recipeId) {
         assertOwnedOrThrow(
           await ctx.db.get(args.recipeId),
-          ownerUserId,
+          owner,
           'Recipe not found.',
         )
       }
       if (args.recipeVersionId) {
         assertOwnedOrThrow(
           await ctx.db.get(args.recipeVersionId),
-          ownerUserId,
+          owner,
           'Recipe version not found.',
         )
       }
@@ -1633,13 +2058,13 @@ export const createCookedFood = mutation({
     const groups = await Promise.all(
       args.groupIds.map((groupId) => ctx.db.get(groupId)),
     )
-    if (groups.some((group) => !group || group.ownerUserId !== ownerUserId)) {
+    if (groups.some((group) => !isOwnedBy(group, owner))) {
       throw new Error('One or more groups are missing.')
     }
 
     const nutrition = await buildCookedFoodNutrition(
       ctx.db,
-      ownerUserId,
+      owner,
       args.ingredients,
       args.finishedWeightGrams,
       {
@@ -1656,7 +2081,7 @@ export const createCookedFood = mutation({
       const recipeLines = nutrition.ingredientSnapshots
 
       linkedRecipeId = await ctx.db.insert('recipes', {
-        ownerUserId,
+        ...ownerFields(owner),
         name: recipeName,
         description: args.recipeDraft?.description?.trim() || undefined,
         archived: false,
@@ -1664,7 +2089,7 @@ export const createCookedFood = mutation({
         createdAt: now,
       })
       linkedRecipeVersionId = await ctx.db.insert('recipeVersions', {
-        ownerUserId,
+        ...ownerFields(owner),
         recipeId: linkedRecipeId,
         versionNumber: 1,
         name: recipeName,
@@ -1676,7 +2101,7 @@ export const createCookedFood = mutation({
       await Promise.all(
         recipeLines.map((line) =>
           ctx.db.insert('recipeVersionIngredients', {
-            ownerUserId,
+            ...ownerFields(owner),
             recipeVersionId: linkedRecipeVersionId as Id<'recipeVersions'>,
             sourceType: line.sourceType,
             ingredientId: line.ingredientId,
@@ -1693,7 +2118,7 @@ export const createCookedFood = mutation({
     }
 
     const cookedFoodId = await ctx.db.insert('cookedFoods', {
-      ownerUserId,
+      ...ownerFields(owner),
       cookSessionId: args.cookSessionId,
       name: args.name.trim(),
       recipeId: linkedRecipeId,
@@ -1711,7 +2136,7 @@ export const createCookedFood = mutation({
     await Promise.all(
       nutrition.ingredientSnapshots.map((snapshot) =>
         ctx.db.insert('cookedFoodIngredients', {
-          ownerUserId,
+          ...ownerFields(owner),
           cookedFoodId,
           sourceType: snapshot.sourceType,
           ingredientId: snapshot.ingredientId,
@@ -1733,7 +2158,7 @@ export const createCookedFood = mutation({
       ),
     )
 
-    await touchCookSession(ctx, ownerUserId, args.cookSessionId, now)
+    await touchCookSession(ctx, owner, args.cookSessionId, now)
     return cookedFoodId
   },
 })
@@ -1751,42 +2176,42 @@ export const updateCookedFood = mutation({
     ingredients: v.array(cookedFoodIngredientValidator),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
-      ownerUserId,
+      owner,
       'Cooked food not found.',
     )
     assertNonEmpty(args.name, 'Cooked food name')
     assertOwnedOrThrow(
       await ctx.db.get(args.cookSessionId),
-      ownerUserId,
+      owner,
       'Cook session not found.',
     )
     if (args.recipeId) {
       assertOwnedOrThrow(
         await ctx.db.get(args.recipeId),
-        ownerUserId,
+        owner,
         'Recipe not found.',
       )
     }
     if (args.recipeVersionId) {
       assertOwnedOrThrow(
         await ctx.db.get(args.recipeVersionId),
-        ownerUserId,
+        owner,
         'Recipe version not found.',
       )
     }
     const groups = await Promise.all(
       args.groupIds.map((groupId) => ctx.db.get(groupId)),
     )
-    if (groups.some((group) => !group || group.ownerUserId !== ownerUserId)) {
+    if (groups.some((group) => !isOwnedBy(group, owner))) {
       throw new Error('One or more groups are missing.')
     }
 
     const nutrition = await buildCookedFoodNutrition(
       ctx.db,
-      ownerUserId,
+      owner,
       args.ingredients,
       args.finishedWeightGrams,
     )
@@ -1810,12 +2235,12 @@ export const updateCookedFood = mutation({
         q.eq('cookedFoodId', args.cookedFoodId),
       )
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     await Promise.all(oldRows.map((row) => ctx.db.delete(row._id)))
     await Promise.all(
       nutrition.ingredientSnapshots.map((snapshot) =>
         ctx.db.insert('cookedFoodIngredients', {
-          ownerUserId,
+          ...ownerFields(owner),
           cookedFoodId: args.cookedFoodId,
           sourceType: snapshot.sourceType,
           ingredientId: snapshot.ingredientId,
@@ -1836,9 +2261,9 @@ export const updateCookedFood = mutation({
         }),
       ),
     )
-    await touchCookSession(ctx, ownerUserId, args.cookSessionId, now)
+    await touchCookSession(ctx, owner, args.cookSessionId, now)
     if (cookedFood.cookSessionId !== args.cookSessionId) {
-      await touchCookSession(ctx, ownerUserId, cookedFood.cookSessionId, now)
+      await touchCookSession(ctx, owner, cookedFood.cookSessionId, now)
     }
   },
 })
@@ -1849,27 +2274,27 @@ export const setCookedFoodArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
-      ownerUserId,
+      owner,
       'Cooked food not found.',
     )
     await ctx.db.patch(args.cookedFoodId, { archived: args.archived })
-    await touchCookSession(ctx, ownerUserId, cookedFood.cookSessionId)
+    await touchCookSession(ctx, owner, cookedFood.cookSessionId)
   },
 })
 
 export const deleteCookedFood = mutation({
   args: { cookedFoodId: v.id('cookedFoods') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     const sessionId = await deleteCookedFoodWithChildren(
       ctx,
-      ownerUserId,
+      owner,
       args.cookedFoodId,
     )
-    await touchCookSession(ctx, ownerUserId, sessionId)
+    await touchCookSession(ctx, owner, sessionId)
   },
 })
 
@@ -1882,20 +2307,20 @@ export const createMeal = mutation({
     items: v.array(mealItemInputValidator),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
-      ownerUserId,
+      owner,
       'Person not found.',
     )
     const now = Date.now()
     const itemSnapshots = await buildMealItemSnapshots(
       ctx.db,
-      ownerUserId,
+      owner,
       args.items,
     )
     const mealId = await ctx.db.insert('meals', {
-      ownerUserId,
+      ...ownerFields(owner),
       personId: args.personId,
       name: args.name?.trim() || undefined,
       eatenOn: normalizeDate(args.eatenOn, now),
@@ -1906,7 +2331,7 @@ export const createMeal = mutation({
     await Promise.all(
       itemSnapshots.map((item) =>
         ctx.db.insert('mealItems', {
-          ownerUserId,
+          ...ownerFields(owner),
           mealId,
           sourceType: item.sourceType,
           ingredientId: item.ingredientId,
@@ -1935,20 +2360,20 @@ export const updateMeal = mutation({
     items: v.array(mealItemInputValidator),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.mealId),
-      ownerUserId,
+      owner,
       'Meal not found.',
     )
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
-      ownerUserId,
+      owner,
       'Person not found.',
     )
     const snapshots = await buildMealItemSnapshots(
       ctx.db,
-      ownerUserId,
+      owner,
       args.items,
     )
     await ctx.db.patch(args.mealId, {
@@ -1961,12 +2386,12 @@ export const updateMeal = mutation({
       .query('mealItems')
       .withIndex('by_meal', (q) => q.eq('mealId', args.mealId))
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
     await Promise.all(
       snapshots.map((item) =>
         ctx.db.insert('mealItems', {
-          ownerUserId,
+          ...ownerFields(owner),
           mealId: args.mealId,
           sourceType: item.sourceType,
           ingredientId: item.ingredientId,
@@ -1990,10 +2415,10 @@ export const setMealArchived = mutation({
     archived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.mealId),
-      ownerUserId,
+      owner,
       'Meal not found.',
     )
     await ctx.db.patch(args.mealId, { archived: args.archived })
@@ -2003,17 +2428,17 @@ export const setMealArchived = mutation({
 export const deleteMeal = mutation({
   args: { mealId: v.id('meals') },
   handler: async (ctx, args) => {
-    const ownerUserId = await requireAuthenticatedUserId(ctx)
+    const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
       await ctx.db.get(args.mealId),
-      ownerUserId,
+      owner,
       'Meal not found.',
     )
     const items = await ctx.db
       .query('mealItems')
       .withIndex('by_meal', (q) => q.eq('mealId', args.mealId))
       .collect()
-      .then((rows) => rows.filter((row) => row.ownerUserId === ownerUserId))
+      .then((rows) => rows.filter((row) => isOwnedBy(row, owner)))
     await Promise.all(items.map((item) => ctx.db.delete(item._id)))
     await ctx.db.delete(args.mealId)
   },

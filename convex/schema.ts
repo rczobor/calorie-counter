@@ -24,14 +24,18 @@ const mealSourceValidator = v.union(
 export default defineSchema({
   people: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     name: v.string(),
     notes: v.optional(v.string()),
     currentDailyGoalKcal: v.number(),
     active: v.boolean(),
     createdAt: v.number(),
-  }).index('by_owner', ['ownerUserId']),
+  })
+    .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier']),
   personGoalHistory: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     personId: v.id('people'),
     effectiveDate: v.string(),
     goalKcal: v.number(),
@@ -39,16 +43,26 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
-    .index('by_person_createdAt', ['personId', 'createdAt']),
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_person_createdAt', ['personId', 'createdAt'])
+    .index('by_ownerTokenIdentifier_and_personId_and_createdAt', [
+      'ownerTokenIdentifier',
+      'personId',
+      'createdAt',
+    ]),
   foodGroups: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     name: v.string(),
     appliesTo: groupScopeValidator,
     archived: v.boolean(),
     createdAt: v.number(),
-  }).index('by_owner', ['ownerUserId']),
+  })
+    .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier']),
   ingredients: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     name: v.string(),
     brand: v.optional(v.string()),
     kcalPer100: v.number(),
@@ -58,17 +72,23 @@ export default defineSchema({
     notes: v.optional(v.string()),
     archived: v.boolean(),
     createdAt: v.number(),
-  }).index('by_owner', ['ownerUserId']),
+  })
+    .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier']),
   recipes: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     name: v.string(),
     description: v.optional(v.string()),
     archived: v.boolean(),
     latestVersionNumber: v.number(),
     createdAt: v.number(),
-  }).index('by_owner', ['ownerUserId']),
+  })
+    .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier']),
   recipeVersions: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     recipeId: v.id('recipes'),
     versionNumber: v.number(),
     name: v.string(),
@@ -78,9 +98,15 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
-    .index('by_recipe', ['recipeId']),
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_recipe', ['recipeId'])
+    .index('by_ownerTokenIdentifier_and_recipeId', [
+      'ownerTokenIdentifier',
+      'recipeId',
+    ]),
   recipeVersionIngredients: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     recipeVersionId: v.id('recipeVersions'),
     sourceType: v.union(v.literal('ingredient'), v.literal('custom')),
     ingredientId: v.optional(v.id('ingredients')),
@@ -93,10 +119,20 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_recipeVersion', ['recipeVersionId'])
-    .index('by_ingredient', ['ingredientId']),
+    .index('by_ingredient', ['ingredientId'])
+    .index('by_ownerTokenIdentifier_and_recipeVersionId', [
+      'ownerTokenIdentifier',
+      'recipeVersionId',
+    ])
+    .index('by_ownerTokenIdentifier_and_ingredientId', [
+      'ownerTokenIdentifier',
+      'ingredientId',
+    ]),
   cookSessions: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     label: v.optional(v.string()),
     cookedAt: v.number(),
     cookedByPersonId: v.optional(v.id('people')),
@@ -106,9 +142,15 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
-    .index('by_person', ['cookedByPersonId']),
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_person', ['cookedByPersonId'])
+    .index('by_ownerTokenIdentifier_and_cookedByPersonId', [
+      'ownerTokenIdentifier',
+      'cookedByPersonId',
+    ]),
   cookedFoods: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     cookSessionId: v.id('cookSessions'),
     name: v.string(),
     recipeId: v.optional(v.id('recipes')),
@@ -123,10 +165,20 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_session', ['cookSessionId'])
-    .index('by_recipe', ['recipeId']),
+    .index('by_recipe', ['recipeId'])
+    .index('by_ownerTokenIdentifier_and_cookSessionId', [
+      'ownerTokenIdentifier',
+      'cookSessionId',
+    ])
+    .index('by_ownerTokenIdentifier_and_recipeId', [
+      'ownerTokenIdentifier',
+      'recipeId',
+    ]),
   cookedFoodIngredients: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     cookedFoodId: v.id('cookedFoods'),
     sourceType: v.union(v.literal('ingredient'), v.literal('custom')),
     ingredientId: v.optional(v.id('ingredients')),
@@ -141,10 +193,20 @@ export default defineSchema({
     ingredientCaloriesSnapshot: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_cookedFood', ['cookedFoodId'])
-    .index('by_ingredient', ['ingredientId']),
+    .index('by_ingredient', ['ingredientId'])
+    .index('by_ownerTokenIdentifier_and_cookedFoodId', [
+      'ownerTokenIdentifier',
+      'cookedFoodId',
+    ])
+    .index('by_ownerTokenIdentifier_and_ingredientId', [
+      'ownerTokenIdentifier',
+      'ingredientId',
+    ]),
   meals: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     personId: v.id('people'),
     name: v.optional(v.string()),
     eatenOn: v.string(),
@@ -153,9 +215,21 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_owner', ['ownerUserId'])
-    .index('by_person_eatenOn', ['personId', 'eatenOn']),
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_ownerUserId_and_eatenOn', ['ownerUserId', 'eatenOn'])
+    .index('by_person_eatenOn', ['personId', 'eatenOn'])
+    .index('by_ownerTokenIdentifier_and_eatenOn', [
+      'ownerTokenIdentifier',
+      'eatenOn',
+    ])
+    .index('by_ownerTokenIdentifier_and_personId_and_eatenOn', [
+      'ownerTokenIdentifier',
+      'personId',
+      'eatenOn',
+    ]),
   mealItems: defineTable({
     ownerUserId: v.optional(v.string()),
+    ownerTokenIdentifier: v.optional(v.string()),
     mealId: v.id('meals'),
     sourceType: mealSourceValidator,
     ingredientId: v.optional(v.id('ingredients')),
@@ -169,7 +243,20 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index('by_owner', ['ownerUserId'])
+    .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_meal', ['mealId'])
     .index('by_cookedFood', ['cookedFoodId'])
-    .index('by_ingredient', ['ingredientId']),
+    .index('by_ingredient', ['ingredientId'])
+    .index('by_ownerTokenIdentifier_and_mealId', [
+      'ownerTokenIdentifier',
+      'mealId',
+    ])
+    .index('by_ownerTokenIdentifier_and_cookedFoodId', [
+      'ownerTokenIdentifier',
+      'cookedFoodId',
+    ])
+    .index('by_ownerTokenIdentifier_and_ingredientId', [
+      'ownerTokenIdentifier',
+      'ingredientId',
+    ]),
 })

@@ -39,7 +39,7 @@ vi.mock('@/integrations/convex/config', () => ({
 }))
 
 vi.mock('@/hooks/use-management-data', () => ({
-  useManagementData: () => ({
+  useCookingData: () => ({
     data: mockManagementData,
     isLoading: false,
   }),

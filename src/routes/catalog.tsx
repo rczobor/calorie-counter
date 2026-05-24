@@ -29,7 +29,7 @@ import { FoodGroupsSection } from '@/features/manage/food-groups'
 import { IngredientsSection } from '@/features/manage/ingredients'
 import { RecipesSection } from '@/features/manage/recipes'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { useManagementData } from '@/hooks/use-management-data'
+import { useCatalogData } from '@/hooks/use-management-data'
 import {
   NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
@@ -167,7 +167,7 @@ function ManagePageContent() {
     Record<string, string>
   >({})
 
-  const { data, isLoading } = useManagementData()
+  const { data, isLoading } = useCatalogData()
 
   const createFoodGroup = useMutation(api.nutrition.createFoodGroup)
   const updateFoodGroup = useMutation(api.nutrition.updateFoodGroup)

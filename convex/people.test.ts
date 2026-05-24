@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from './_generated/api'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
   insertCookSession,
   insertMeal,
@@ -51,6 +52,52 @@ describe('nutrition people mutations', () => {
       goalKcal: 2200,
       reason: 'Initial goal',
     })
+  })
+
+  it('stores the canonical auth token identifier for new owned records', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+
+    const personId = await user.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+    })
+
+    const records = await t.run(async (ctx) => {
+      const person = await ctx.db.get(personId)
+      const history = await ctx.db
+        .query('personGoalHistory')
+        .withIndex('by_person_createdAt', (q) => q.eq('personId', personId))
+        .collect()
+      return { person, history }
+    })
+
+    expect(records.person).toMatchObject({
+      ownerUserId: 'user-1',
+      ownerTokenIdentifier: 'user-1|token',
+    })
+    expect(records.history[0]).toMatchObject({
+      ownerUserId: 'user-1',
+      ownerTokenIdentifier: 'user-1|token',
+    })
+  })
+
+  it('rejects writes from a different token with the same subject', async () => {
+    const t = createConvexTest()
+    const owner = asTestUser(t)
+    const sameSubjectDifferentToken = asTestUserWithToken(t, 'user-1|other-token')
+
+    const personId = await owner.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+    })
+
+    await expect(
+      sameSubjectDifferentToken.mutation(api.nutrition.updatePerson, {
+        personId,
+        name: 'Intruder',
+      }),
+    ).rejects.toThrowError('Person not found.')
   })
 
   it('updates the current goal and appends goal history', async () => {

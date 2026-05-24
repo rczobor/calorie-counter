@@ -40,7 +40,7 @@ import {
   type CookingDraft,
 } from '@/features/cooking/draft-helpers'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { useManagementData } from '@/hooks/use-management-data'
+import { useCookingData } from '@/hooks/use-management-data'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import {
   NUTRITION_UNIT_OPTIONS,
@@ -121,7 +121,7 @@ function CookingPageContent() {
   )
   const [sessionPersonId, setSessionPersonId] = useState<Id<'people'> | ''>('')
 
-  const { data, isLoading } = useManagementData()
+  const { data, isLoading } = useCookingData()
 
   const createCookSession = useMutation(api.nutrition.createCookSession)
   const updateCookSession = useMutation(api.nutrition.updateCookSession)

@@ -28,7 +28,7 @@ import { MealFormSection } from '@/features/meals/meal-form'
 import { MealsMetrics } from '@/features/meals/metrics'
 import { MealTableSection } from '@/features/meals/meal-table'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { useManagementData } from '@/hooks/use-management-data'
+import { useMealDashboardData } from '@/hooks/use-management-data'
 import {
   formatCookSessionLabel,
   formatKcalPer100,
@@ -138,7 +138,7 @@ function MealDashboardPageContent() {
     confirmPendingAction,
   } = useConfirmableAction()
 
-  const { data, isLoading } = useManagementData()
+  const { data, isLoading } = useMealDashboardData({ eatenOn: mealDate })
 
   const createMeal = useMutation(api.nutrition.createMeal)
   const updateMeal = useMutation(api.nutrition.updateMeal)

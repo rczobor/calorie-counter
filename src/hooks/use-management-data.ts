@@ -33,11 +33,43 @@ const EMPTY_MANAGEMENT_DATA: ManagementData = {
   mealItems: [],
 }
 
+function withEmptyManagementData(dataResult: Partial<ManagementData> | undefined) {
+  return {
+    data: {
+      ...EMPTY_MANAGEMENT_DATA,
+      ...(dataResult ?? {}),
+    },
+    isLoading: dataResult === undefined,
+  }
+}
+
 export function useManagementData() {
   const dataResult = useQuery(api.nutrition.getManagementData)
 
-  return {
-    data: (dataResult ?? EMPTY_MANAGEMENT_DATA) as ManagementData,
-    isLoading: dataResult === undefined,
-  }
+  return withEmptyManagementData(dataResult)
+}
+
+export function useMealDashboardData(args: { eatenOn: string }) {
+  const dataResult = useQuery(api.nutrition.getMealDashboardData, args)
+  return withEmptyManagementData(dataResult)
+}
+
+export function usePeopleData(args: { today: string }) {
+  const dataResult = useQuery(api.nutrition.getPeopleData, args)
+  return withEmptyManagementData(dataResult)
+}
+
+export function useHistoryData(args: { startDate: string; endDate: string }) {
+  const dataResult = useQuery(api.nutrition.getHistoryData, args)
+  return withEmptyManagementData(dataResult)
+}
+
+export function useCatalogData() {
+  const dataResult = useQuery(api.nutrition.getCatalogData)
+  return withEmptyManagementData(dataResult)
+}
+
+export function useCookingData() {
+  const dataResult = useQuery(api.nutrition.getCookingData)
+  return withEmptyManagementData(dataResult)
 }
