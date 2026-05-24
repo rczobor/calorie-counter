@@ -79,11 +79,38 @@ bun run dev
 
 App runs at [http://localhost:3000](http://localhost:3000).
 
+## Seed Data
+
+Preview deployments can be seeded during Convex deploys with:
+
+```bash
+bunx --bun convex deploy --cmd 'bun --bun run build' --preview-run seed:defaults
+```
+
+The seed function creates default people, catalog items, a recipe, a cook
+session, cooked food, and today's sample meal. It is idempotent for the target
+owner. Since app data is scoped to Clerk users, configure `SEED_OWNER_USER_ID`
+as a Convex project default for preview deployments before running it without
+arguments. For an existing selected dev deployment, set the deployment env var:
+
+```bash
+bunx convex env set SEED_OWNER_USER_ID user_...
+```
+
+For a selected dev deployment, you can also pass the owner directly:
+
+```bash
+bun run seed:defaults -- '{"ownerUserId":"user_..."}'
+```
+
+If you need strict token scoping, also set or pass `SEED_OWNER_TOKEN_IDENTIFIER`.
+
 ## Scripts
 
 - `bun run dev`: Start local dev server (port `3000`)
 - `bun run build`: Production build (client + SSR bundles)
 - `bun run preview`: Preview production build
+- `bun run seed:defaults`: Seed the selected Convex deployment with default data
 - `bun run lint`: Run ESLint
 - `bun run lint:fix`: Run ESLint with autofix
 - `bun run test`: Run Vitest (currently exits with code `1` because no test files exist yet)
