@@ -23,6 +23,17 @@ export function asTestUser(t: ReturnType<typeof createConvexTest>) {
   })
 }
 
+export function asTestUserWithToken(
+  t: ReturnType<typeof createConvexTest>,
+  tokenIdentifier: string,
+) {
+  return t.withIdentity({
+    subject: TEST_USER_ID,
+    tokenIdentifier,
+    issuer: 'https://example.test',
+  })
+}
+
 export async function insertPerson(
   t: ReturnType<typeof createConvexTest>,
   overrides: Partial<Doc<'people'>> = {},

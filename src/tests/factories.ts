@@ -41,6 +41,24 @@ export function createFoodGroupDoc(
   }
 }
 
+export function createPersonGoalHistoryDoc(
+  id: string,
+  personId: string,
+  overrides: Partial<Doc<'personGoalHistory'>> = {},
+): Doc<'personGoalHistory'> {
+  return {
+    _id: asId<'personGoalHistory'>(id),
+    _creationTime: 1,
+    ownerUserId: 'user-1',
+    personId: asId<'people'>(personId),
+    effectiveDate: '2026-04-04',
+    goalKcal: 2000,
+    reason: undefined,
+    createdAt: 1,
+    ...overrides,
+  }
+}
+
 export function createIngredientDoc(
   id: string,
   name: string,

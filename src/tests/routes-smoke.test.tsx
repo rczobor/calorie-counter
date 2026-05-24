@@ -13,7 +13,19 @@ vi.mock('@/integrations/convex/config', () => ({
 }))
 
 vi.mock('@/hooks/use-management-data', () => ({
-  useManagementData: () => ({
+  useMealDashboardData: () => ({
+    data: emptyData,
+    isLoading: false,
+  }),
+  usePeopleData: () => ({
+    data: emptyData,
+    isLoading: false,
+  }),
+  useCatalogData: () => ({
+    data: emptyData,
+    isLoading: false,
+  }),
+  useCookingData: () => ({
     data: emptyData,
     isLoading: false,
   }),

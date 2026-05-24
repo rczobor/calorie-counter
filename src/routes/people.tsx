@@ -21,7 +21,7 @@ import { GoalHistorySection } from '@/features/people/goal-history'
 import { PeopleTableSection } from '@/features/people/people-table'
 import { PersonFormSection } from '@/features/people/person-form'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { useManagementData } from '@/hooks/use-management-data'
+import { usePeopleData } from '@/hooks/use-management-data'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { getMealDateKey, toLocalDateString } from '@/lib/nutrition'
 
@@ -56,15 +56,15 @@ function PeoplePageContent() {
     confirmPendingAction,
   } = useConfirmableAction()
 
-  const { data, isLoading } = useManagementData()
+  const [today] = useState(() => toLocalDateString(Date.now()))
+
+  const { data, isLoading } = usePeopleData({ today })
 
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
   const updatePersonGoal = useMutation(api.nutrition.updatePersonGoal)
   const setPersonArchived = useMutation(api.nutrition.setPersonArchived)
   const deletePerson = useMutation(api.nutrition.deletePerson)
-
-  const [today] = useState(() => toLocalDateString(Date.now()))
 
   const mealItemsByMealId = useMemo(() => {
     const map = new Map<Id<'meals'>, Doc<'mealItems'>[]>()

@@ -14,7 +14,7 @@ import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select } from '@/components/ui/select'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import { useManagementData } from '@/hooks/use-management-data'
+import { useHistoryData } from '@/hooks/use-management-data'
 import { getMealDateKey, toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 
@@ -88,7 +88,7 @@ function HistoryPageContent() {
   )
   const [endDate, setEndDate] = useState(() => toLocalDateString(Date.now()))
 
-  const { data, isLoading } = useManagementData()
+  const { data, isLoading } = useHistoryData({ startDate, endDate })
 
   const people = useMemo(
     () => data.people.filter((person) => person.active),
@@ -142,7 +142,6 @@ function HistoryPageContent() {
       )
     }
 
-    const goal = selectedPerson?.currentDailyGoalKcal ?? 0
     const result: DayRow[] = []
     let current = parseISO(startDate)
     const end = parseISO(endDate)
@@ -150,6 +149,9 @@ function HistoryPageContent() {
     while (current <= end) {
       const dateKey = toLocalDateString(current.getTime())
       const consumed = caloriesByDate.get(dateKey) ?? 0
+      const goal = selectedPerson
+        ? getEffectiveGoalKcal(selectedPerson, data.personGoalHistory, dateKey)
+        : 0
       result.push({
         date: dateKey,
         consumed,
@@ -163,6 +165,7 @@ function HistoryPageContent() {
     return result
   }, [
     data.meals,
+    data.personGoalHistory,
     mealItemsByMealId,
     effectiveSelectedPersonId,
     selectedPerson,
@@ -251,4 +254,24 @@ function HistoryPageContent() {
       </div>
     </PageShell>
   )
+}
+
+function getEffectiveGoalKcal(
+  person: Doc<'people'>,
+  goalHistory: Doc<'personGoalHistory'>[],
+  dateKey: string,
+) {
+  const effectiveGoal = goalHistory
+    .filter(
+      (entry) => entry.personId === person._id && entry.effectiveDate <= dateKey,
+    )
+    .sort((a, b) => {
+      const byEffectiveDate = b.effectiveDate.localeCompare(a.effectiveDate)
+      if (byEffectiveDate !== 0) {
+        return byEffectiveDate
+      }
+      return b.createdAt - a.createdAt
+    })[0]
+
+  return effectiveGoal?.goalKcal ?? person.currentDailyGoalKcal
 }
