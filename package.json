@@ -7,7 +7,7 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
-    "seed:defaults": "bunx --bun convex run seed:defaults",
+    "seed:defaults": "bun --bun scripts/seed-defaults.ts",
     "format": "bunx prettier . --write",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -103,6 +103,12 @@ For a selected dev deployment, you can also pass the owner directly:
 bun run seed:defaults -- '{"ownerUserId":"user_..."}'
 ```
 
+For local runs, `bun run seed:defaults` forwards `SEED_OWNER_USER_ID` and
+`SEED_OWNER_TOKEN_IDENTIFIER` from your shell or `.env.local` as Convex function
+arguments. For `--preview-run`, those values must be configured as Convex
+deployment env vars because the function runs on Convex, not in the Vercel build
+shell.
+
 If you need strict token scoping, also set or pass `SEED_OWNER_TOKEN_IDENTIFIER`.
 
 ## Scripts
