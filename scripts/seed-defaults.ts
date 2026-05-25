@@ -87,8 +87,16 @@ export async function runSeedDefaults(rawArgs = process.argv.slice(2)) {
     readLocalSeedEnv(),
   )
   const child = spawn(
-    'bunx',
-    ['--bun', 'convex', 'run', 'seed:defaults', ...convexArgs],
+    'bun',
+    [
+      'x',
+      '--no-install',
+      '--bun',
+      'convex',
+      'run',
+      'seed:defaults',
+      ...convexArgs,
+    ],
     {
       stdio: 'inherit',
     },

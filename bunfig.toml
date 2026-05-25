@@ -1,0 +1,13 @@
+env = false
+telemetry = false
+
+[install]
+auto = "disable"
+exact = true
+ignoreScripts = true
+linker = "isolated"
+minimumReleaseAge = 259200
+
+[run]
+shell = "bun"
+noOrphans = true
