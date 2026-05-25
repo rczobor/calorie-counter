@@ -1009,7 +1009,7 @@ function CookingPageContent() {
   const sessionColumns: ColumnDef<SessionTableRow>[] = [
     {
       accessorKey: 'label',
-      header: 'Session',
+      header: 'Batch',
     },
     {
       accessorKey: 'cookedAt',
@@ -1017,7 +1017,7 @@ function CookingPageContent() {
     },
     {
       accessorKey: 'countsLabel',
-      header: 'Workspace',
+      header: 'Foods',
     },
     {
       accessorKey: 'status',
@@ -1257,16 +1257,15 @@ function CookingPageContent() {
           <section>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Session workspace</h2>
+                <h2 className="text-sm font-semibold text-foreground">Cooking batches</h2>
                 <p className="text-xs text-muted-foreground">
-                  Pick a session, then manage several cookings side by side
-                  without losing in-progress work.
+                  Choose a batch date, then start or reopen foods you are preparing.
                 </p>
               </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button variant="outline" onClick={openNewSessionEditor}>
                     <Plus className="h-3.5 w-3.5" />
-                    New session
+                    New batch
                   </Button>
                   <Button
                     variant="outline"
@@ -1277,7 +1276,7 @@ function CookingPageContent() {
                       }
                     }}
                   >
-                    Edit selected
+                    Edit batch
                   </Button>
                 </div>
             </div>
@@ -1290,7 +1289,7 @@ function CookingPageContent() {
                     setSelectedCookSessionId(value as Id<'cookSessions'> | '')
                     setShowAllCookedFoods(false)
                   }}
-                  placeholder="Search or switch session"
+                  placeholder="Search or switch batch"
                   options={sessionOptions}
                 />
                 <div>
@@ -1304,7 +1303,7 @@ function CookingPageContent() {
                     }}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    New cooking
+                    Start cooking
                   </Button>
                 </div>
                 <div>
@@ -1327,17 +1326,16 @@ function CookingPageContent() {
               {selectedCookSession ? (
                 <div className="rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">
-                    {formatCookSessionLabel(selectedCookSession)}
+                    {selectedCookSession.label?.trim() ||
+                      toLocalDateString(selectedCookSession.cookedAt)}
                   </span>
-                  {' · '}
-                  {toLocalDateString(selectedCookSession.cookedAt)}
                   {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
                   {selectedCookSession.archived ? ' · Archived' : ''}
                 </div>
               ) : (
                 <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-                  Create your first session to start cooking. Sessions hold the
-                  shared date/person context while each cooking stays separate.
+                  Create your first batch to start cooking. Batches group foods
+                  by date and person.
                 </div>
               )}
 
@@ -1345,7 +1343,7 @@ function CookingPageContent() {
                 <div className="rounded-md border border-border/70 bg-muted/20 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium text-foreground">
-                      {editingSessionId ? 'Edit session' : 'New session'}
+                      {editingSessionId ? 'Edit batch' : 'New batch'}
                     </p>
                     <Button
                       type="button"
@@ -1392,7 +1390,7 @@ function CookingPageContent() {
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button onClick={saveSession}>
-                      {editingSessionId ? 'Save session' : 'Create session'}
+                      {editingSessionId ? 'Save batch' : 'Create batch'}
                     </Button>
                     <Button variant="outline" onClick={closeSessionEditor}>
                       Cancel
@@ -1406,24 +1404,23 @@ function CookingPageContent() {
           <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
             <section>
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground">In progress</h2>
+                <h2 className="text-sm font-semibold text-foreground">Current foods</h2>
                 <p className="text-xs text-muted-foreground">
-                  Drafts stay attached to the selected session until you save or
-                  discard them.
+                  Unsaved foods stay here until you save or discard them.
                 </p>
               </div>
               <div className="space-y-3">
                 {noSessions ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-                    Start by creating a session. Your first cooking draft opens
+                    Start by creating a batch. Your first food opens
                     automatically right after.
                   </div>
                 ) : sessionDrafts.length === 0 ? (
                   <div className="space-y-3 rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-                    <p>No drafts in this session yet.</p>
+                    <p>No foods in progress for this batch.</p>
                     <p>
-                      Open a saved food to edit it here, or start a new cooking
-                      draft for a fridge batch.
+                      Open a saved food to edit it here, or start cooking a new
+                      food for this batch.
                     </p>
                     <Button
                       variant="outline"
@@ -1434,7 +1431,7 @@ function CookingPageContent() {
                       }}
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Start first draft
+                      Start cooking
                     </Button>
                   </div>
                 ) : (
@@ -1491,14 +1488,14 @@ function CookingPageContent() {
                   <h2 className="text-sm font-semibold text-foreground">
                     {activeDraft
                       ? activeDraft.persistedCookedFoodId
-                        ? 'Edit saved cooking'
-                        : 'Draft editor'
-                      : 'Draft editor'}
+                        ? 'Edit saved food'
+                        : 'Food editor'
+                      : 'Food editor'}
                   </h2>
                   <p className="text-xs text-muted-foreground">
                     {selectedCookSession
-                      ? `Working inside ${formatCookSessionLabel(selectedCookSession)}`
-                      : 'Select a session to start editing.'}
+                      ? `Working in ${formatCookSessionLabel(selectedCookSession)}`
+                      : 'Select a batch to start editing.'}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1511,7 +1508,7 @@ function CookingPageContent() {
                       }
                     }}
                   >
-                    Discard draft
+                    Discard
                   </Button>
                   <Button
                     variant="outline"
@@ -1531,12 +1528,12 @@ function CookingPageContent() {
               <div className="mt-3 space-y-3">
                 {!selectedCookSession ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
-                    Choose a session first. Sessions keep the shared cooking
-                    context while each draft stays independent.
+                    Choose a batch first. Batches keep the shared date/person
+                    context while each food stays independent.
                   </div>
                 ) : !activeDraft ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
-                    Open a saved food or create a new draft to start editing.
+                    Open a saved food or start cooking to begin editing.
                   </div>
                 ) : (
                   <>
@@ -1546,8 +1543,8 @@ function CookingPageContent() {
                       </span>
                       {' · '}
                       {activeDraft.persistedCookedFoodId
-                        ? 'Linked to a saved cooked food'
-                        : 'Unsaved draft'}
+                        ? 'Saved food'
+                        : 'Unsaved food'}
                       {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
                     </div>
 
@@ -2118,7 +2115,7 @@ function CookingPageContent() {
                 emptyText={
                   showAllCookedFoods
                     ? 'No cooked foods found.'
-                    : 'No saved foods for this session yet.'
+                    : 'No saved foods for this batch yet.'
                 }
                 toolbarActions={
                   <>
@@ -2127,7 +2124,7 @@ function CookingPageContent() {
                       variant={showAllCookedFoods ? 'outline' : 'secondary'}
                       onClick={() => setShowAllCookedFoods(false)}
                     >
-                      Selected session
+                      Selected batch
                     </Button>
                     <Button
                       size="sm"
@@ -2143,15 +2140,15 @@ function CookingPageContent() {
 
             <section className="min-w-0">
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground">Sessions</h2>
+                <h2 className="text-sm font-semibold text-foreground">Batches</h2>
                 <p className="text-xs text-muted-foreground">{sessionRows.length} total</p>
               </div>
               <DataTable
                 columns={sessionColumns}
                 data={sessionRows}
                 searchColumnId="label"
-                searchPlaceholder="Search sessions"
-                emptyText="No sessions found."
+                searchPlaceholder="Search batches"
+                emptyText="No batches found."
               />
             </section>
           </div>

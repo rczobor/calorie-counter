@@ -9,6 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import {
@@ -27,7 +28,7 @@ interface DataTableProps<TData, TValue> {
   searchColumnId?: string
   searchPlaceholder?: string
   toolbarActions?: ReactNode
-  emptyText?: string
+  emptyText?: ReactNode
   className?: string
 }
 
@@ -95,14 +96,47 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  const sortDirection = header.column.getIsSorted()
+                  const canSort =
+                    header.column.getCanSort() &&
+                    typeof header.column.columnDef.header === 'string'
+                  const headerContent = header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )
                   return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
+                    <TableHead
+                      key={header.id}
+                      aria-sort={
+                        sortDirection === 'asc'
+                          ? 'ascending'
+                          : sortDirection === 'desc'
+                            ? 'descending'
+                            : undefined
+                      }
+                    >
+                      {canSort && headerContent ? (
+                        <button
+                          type="button"
+                          className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md px-1.5 text-left font-medium text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          <span className="min-w-0 truncate">
+                            {headerContent}
+                          </span>
+                          {sortDirection === 'asc' ? (
+                            <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : sortDirection === 'desc' ? (
+                            <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : (
+                            <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground/70" />
                           )}
+                        </button>
+                      ) : (
+                        headerContent
+                      )}
                     </TableHead>
                   )
                 })}
@@ -130,7 +164,7 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-28 text-center text-muted-foreground"
                 >
                   {emptyText}
                 </TableCell>
