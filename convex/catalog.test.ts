@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from './_generated/api'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
+  insertCookSession,
   insertIngredient,
   insertPerson,
 } from '../src/tests/convex-test-utils'
@@ -65,6 +67,30 @@ describe('nutrition catalog mutations', () => {
     await expect(
       user.mutation(api.nutrition.deleteIngredient, { ingredientId }),
     ).rejects.toThrowError('Ingredient is in historical records. Archive instead.')
+  })
+
+  it('rejects updating ingredients with groups owned by another token', async () => {
+    const t = createConvexTest()
+    const owner = asTestUser(t)
+    const sameSubjectDifferentToken = asTestUserWithToken(t, 'user-1|other-token')
+    const ingredientId = await insertIngredient(t, { name: 'Greek yogurt' })
+    const foreignGroupId = await sameSubjectDifferentToken.mutation(
+      api.nutrition.createFoodGroup,
+      {
+        name: 'Other catalog',
+        appliesTo: 'ingredient',
+      },
+    )
+
+    await expect(
+      owner.mutation(api.nutrition.updateIngredient, {
+        ingredientId,
+        name: 'Greek yogurt',
+        kcalPer100: 100,
+        ignoreCalories: false,
+        groupIds: [foreignGroupId],
+      }),
+    ).rejects.toThrowError('One or more groups are missing.')
   })
 
   it('creates a new current recipe version while preserving the old version', async () => {
@@ -196,5 +222,48 @@ describe('nutrition catalog mutations', () => {
     expect(currentVersionLines).toHaveLength(1)
     expect(currentVersionLines[0]?.ingredientId).toBe(ingredientB)
     expect(currentVersionLines[0]?.referenceAmount).toBe(50)
+  })
+
+  it('blocks deleting recipes that have cooked history', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const sessionId = await insertCookSession(t)
+    const ingredientId = await insertIngredient(t, {
+      name: 'Rice',
+      kcalPer100: 130,
+    })
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Rice bowl',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+
+    await user.mutation(api.nutrition.createCookedFood, {
+      cookSessionId: sessionId,
+      name: 'Rice batch',
+      recipeId: created.recipeId,
+      recipeVersionId: created.recipeVersionId,
+      groupIds: [],
+      finishedWeightGrams: 100,
+      ingredients: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+          countedAmount: 100,
+        },
+      ],
+    })
+
+    await expect(
+      user.mutation(api.nutrition.deleteRecipe, { recipeId: created.recipeId }),
+    ).rejects.toThrowError('Recipe has cooked history. Archive instead.')
   })
 })

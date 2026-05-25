@@ -190,6 +190,51 @@ describe('nutrition cooking and meal mutations', () => {
     })
   })
 
+  it('keeps historical meal item snapshots after ingredient updates', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await insertPerson(t)
+    const ingredientId = await insertIngredient(t, {
+      name: 'Chicken',
+      kcalPer100: 300,
+    })
+
+    const mealId = await user.mutation(api.nutrition.createMeal, {
+      personId,
+      items: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          consumedWeightGrams: 60,
+        },
+      ],
+    })
+
+    await user.mutation(api.nutrition.updateIngredient, {
+      ingredientId,
+      name: 'Turkey',
+      kcalPer100: 120,
+      ignoreCalories: false,
+      groupIds: [],
+    })
+
+    const items = await t.run(async (ctx) => {
+      return await ctx.db
+        .query('mealItems')
+        .withIndex('by_meal', (q) => q.eq('mealId', mealId))
+        .collect()
+    })
+
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      ingredientId,
+      nameSnapshot: 'Chicken',
+      kcalPer100Snapshot: 300,
+      consumedWeightGrams: 60,
+      caloriesSnapshot: 180,
+    })
+  })
+
   it('deletes a meal and its child meal items', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)

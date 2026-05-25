@@ -1489,6 +1489,12 @@ export const updateIngredient = mutation({
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
+    const groups = await Promise.all(
+      args.groupIds.map((groupId) => ctx.db.get(groupId)),
+    )
+    if (groups.some((group) => !isOwnedBy(group, owner))) {
+      throw new Error('One or more groups are missing.')
+    }
     await ctx.db.patch(args.ingredientId, {
       name: args.name.trim(),
       brand: args.brand?.trim() || undefined,
