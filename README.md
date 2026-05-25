@@ -34,7 +34,7 @@ Main backend logic lives in `convex/nutrition.ts`.
 1. Install dependencies.
 
 ```bash
-bun install
+bun ci
 ```
 
 2. Create `.env.local`.
@@ -60,7 +60,7 @@ In Clerk Dashboard:
 4. Configure Convex auth provider env for Clerk.
 
 ```bash
-bunx convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-clerk-domain>
+bun x --no-install --bun convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-clerk-domain>
 ```
 
 This value is used by `convex/auth.config.ts` and is required for signed-in users to access Convex queries/mutations.
@@ -68,7 +68,7 @@ This value is used by `convex/auth.config.ts` and is required for signed-in user
 5. Start Convex in a separate terminal.
 
 ```bash
-bunx convex dev
+bun x --no-install --bun convex dev
 ```
 
 6. Start the app.
@@ -84,7 +84,7 @@ App runs at [http://localhost:3000](http://localhost:3000).
 Preview deployments can be seeded during Convex deploys with:
 
 ```bash
-bunx --bun convex deploy --cmd 'bun --bun run build' --preview-run seed:defaults
+bun x --no-install --bun convex deploy --cmd 'bun --bun run build' --preview-run seed:defaults
 ```
 
 The seed function creates default people, catalog items, a recipe, a cook
@@ -94,7 +94,7 @@ as a Convex project default for preview deployments before running it without
 arguments. For an existing selected dev deployment, set the deployment env var:
 
 ```bash
-bunx convex env set SEED_OWNER_USER_ID user_...
+bun x --no-install --bun convex env set SEED_OWNER_USER_ID user_...
 ```
 
 For a selected dev deployment, you can also pass the owner directly:
@@ -120,3 +120,23 @@ If you need strict token scoping, also set or pass `SEED_OWNER_TOKEN_IDENTIFIER`
 - `bun run lint`: Run ESLint
 - `bun run lint:fix`: Run ESLint with autofix
 - `bun run test`: Run Vitest (currently exits with code `1` because no test files exist yet)
+
+## Dependency Security
+
+This project commits `bunfig.toml` to make Bun safer by default:
+
+- Runtime auto-install is disabled, so missing packages fail instead of being fetched on demand.
+- New package resolutions must be at least 3 days old.
+- Install lifecycle scripts are ignored unless this config is explicitly bypassed.
+- Package scripts run through Bun Shell instead of the system shell.
+
+Use exact, local tooling instead of `bunx` auto-installs. These defaults reduce package-manager risk, but they do not sandbox build or dev-server code. For dependency updates, prefer targeted updates inside a container or dedicated OS user without personal secrets mounted:
+
+```bash
+bun outdated
+bun update <package>
+bun pm untrusted
+bun run lint
+bun run typecheck
+bun run build
+```
