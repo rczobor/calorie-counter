@@ -16,6 +16,7 @@ import { StatusBadge } from '@/components/page/status-badge'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { GoalHistorySection } from '@/features/people/goal-history'
 import { PeopleTableSection } from '@/features/people/people-table'
@@ -24,6 +25,7 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { usePeopleData } from '@/hooks/use-management-data'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { getMealDateKey, toLocalDateString } from '@/lib/nutrition'
+import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/people')({
   ssr: false,
@@ -104,6 +106,7 @@ function PeoplePageContent() {
     setGoal('2200')
     setGoalReason('')
   }
+  const canSavePerson = name.trim().length > 0 && Number(goal) > 0
 
   const startEdit = (personId: Id<'people'>) => {
     const person = data.people.find((item) => item._id === personId)
@@ -150,7 +153,32 @@ function PeoplePageContent() {
     {
       accessorKey: 'consumedKcal',
       header: 'Consumed',
-      cell: ({ row }) => `${row.original.consumedKcal.toFixed(0)} kcal`,
+      cell: ({ row }) => {
+        const percent =
+          row.original.goalKcal > 0
+            ? Math.min(
+                100,
+                Math.max(
+                  0,
+                  (row.original.consumedKcal / row.original.goalKcal) * 100,
+                ),
+              )
+            : 0
+        return (
+          <div className="min-w-32 space-y-1.5">
+            <span>{row.original.consumedKcal.toFixed(0)} kcal</span>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  'h-full rounded-full',
+                  row.original.remainingKcal < 0 ? 'bg-destructive' : 'bg-primary',
+                )}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'remainingKcal',
@@ -332,27 +360,40 @@ function PeoplePageContent() {
       >
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
           <PersonFormSection isEditing={Boolean(editingPersonId)}>
-            <Input
-              aria-label="Person name"
-              placeholder="Name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            <Input
-              type="number"
-              aria-label="Daily calorie goal"
-              placeholder="Daily kcal goal"
-              value={goal}
-              onChange={(event) => setGoal(event.target.value)}
-            />
-            <Input
-              aria-label="Goal change reason"
-              placeholder="Reason for goal change (optional)"
-              value={goalReason}
-              onChange={(event) => setGoalReason(event.target.value)}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="personName">Name</Label>
+              <Input
+                id="personName"
+                aria-label="Person name"
+                placeholder="Name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dailyGoal">Daily calorie goal</Label>
+              <Input
+                id="dailyGoal"
+                type="number"
+                aria-label="Daily calorie goal"
+                placeholder="Daily kcal goal"
+                value={goal}
+                onChange={(event) => setGoal(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="goalReason">Goal change reason</Label>
+              <Input
+                id="goalReason"
+                aria-label="Goal change reason"
+                placeholder="Optional"
+                value={goalReason}
+                onChange={(event) => setGoalReason(event.target.value)}
+              />
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
+                disabled={!canSavePerson}
                 onClick={() =>
                   void runAction(
                     editingPersonId ? 'Person updated.' : 'Person created.',

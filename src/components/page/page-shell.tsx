@@ -37,12 +37,12 @@ export function PageShell({
     <main className={SHELL_BACKGROUND_CLASS}>
       <section
         className={cn(
-          'mx-auto w-full px-4 py-4 sm:px-6',
+          'mx-auto w-full px-4 py-5 sm:px-6 sm:py-6',
           WIDTH_CLASS_MAP[maxWidth],
           contentClassName,
         )}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {icon ? (
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -50,7 +50,7 @@ export function PageShell({
               </span>
             ) : null}
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">
                 {title}
               </h1>
               {subtitle ? (
@@ -59,7 +59,7 @@ export function PageShell({
             </div>
           </div>
           {typeof showArchived === 'boolean' && onShowArchivedChange ? (
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent">
+            <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent">
               <input
                 type="checkbox"
                 checked={showArchived}
