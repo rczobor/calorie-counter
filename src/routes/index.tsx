@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { SearchablePicker } from '@/components/ui/searchable-picker'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -299,6 +300,11 @@ function MealDashboardPageContent() {
     ? selectedPerson.currentDailyGoalKcal - consumedToday
     : 0
   const remainingAfterDraft = remainingToday - draftCalories
+  const canQuickAdd =
+    itemQuickName.trim().length > 0 &&
+    Number.isFinite(Number(itemQuickCalories)) &&
+    Number(itemQuickCalories) > 0
+  const canSubmitMeal = Boolean(effectiveSelectedPersonId) && mealItems.length > 0
 
   const mealTableRows: MealTableRow[] = mealsForSelection.map((meal) => {
     const itemRows = mealItemsByMealId.get(meal._id) ?? []
@@ -520,11 +526,13 @@ function MealDashboardPageContent() {
   const upsertDraftItem = () => {
     const parsedAmount = Number(itemWeight)
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      toast.error('Enter an amount greater than 0.')
       return
     }
 
     if (itemMode === 'catalog') {
       if (!itemIngredientId) {
+        toast.error('Select an ingredient first.')
         return
       }
       const ingredient = ingredientById.get(itemIngredientId)
@@ -542,6 +550,7 @@ function MealDashboardPageContent() {
 
     if (itemMode === 'new') {
       if (!itemCustomName.trim()) {
+        toast.error('Name is required for a new ingredient.')
         return
       }
       const parsedKcal = Number(itemCustomKcalPer100)
@@ -549,6 +558,7 @@ function MealDashboardPageContent() {
         !itemCustomIgnoreCalories &&
         (!Number.isFinite(parsedKcal) || parsedKcal <= 0)
       ) {
+        toast.error('Calories per 100g must be greater than 0.')
         return
       }
       const kcalPer100 =
@@ -568,6 +578,7 @@ function MealDashboardPageContent() {
     }
 
     if (!itemCookedFoodId) {
+      toast.error('Select a cooked food first.')
       return
     }
     upsertDraft({
@@ -736,9 +747,10 @@ function MealDashboardPageContent() {
         showArchivedLabel="Show archived meals"
       >
         <MealsMetrics
-          targetKcal={`${selectedPerson?.currentDailyGoalKcal.toFixed(0) ?? '--'} kcal`}
-          consumedTodayKcal={`${consumedToday.toFixed(0)} kcal`}
-          remainingAfterDraftKcal={`${remainingAfterDraft.toFixed(0)} kcal`}
+          targetKcal={selectedPerson?.currentDailyGoalKcal}
+          consumedTodayKcal={consumedToday}
+          remainingAfterDraftKcal={remainingAfterDraft}
+          draftKcal={draftCalories}
         />
 
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -752,9 +764,9 @@ function MealDashboardPageContent() {
           >
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                <Label className="uppercase tracking-[0.08em] text-muted-foreground">
                   Person
-                </p>
+                </Label>
                 {people.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Add an active person in Manage before creating meals.
@@ -774,19 +786,29 @@ function MealDashboardPageContent() {
                   />
                 )}
               </div>
-              <DatePicker
-                value={mealDate}
-                onChange={setMealDate}
-                ariaLabel="Meal date"
-              />
+              <div className="space-y-2">
+                <Label className="uppercase tracking-[0.08em] text-muted-foreground">
+                  Date
+                </Label>
+                <DatePicker
+                  value={mealDate}
+                  onChange={setMealDate}
+                  ariaLabel="Meal date"
+                  className="w-full justify-start"
+                />
+              </div>
             </div>
 
-            <Input
-              aria-label="Meal name"
-              placeholder="Meal name, e.g. Breakfast (optional)"
-              value={mealName}
-              onChange={(event) => setMealName(event.target.value)}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="mealName">Meal name</Label>
+              <Input
+                id="mealName"
+                aria-label="Meal name"
+                placeholder="Breakfast, lunch, snack"
+                value={mealName}
+                onChange={(event) => setMealName(event.target.value)}
+              />
+            </div>
             <div className="mt-1 border-t border-border/40 pt-4">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 Add items
@@ -834,29 +856,40 @@ function MealDashboardPageContent() {
               <div className="mt-3 space-y-3">
                 {itemMode === 'quick' ? (
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
-                    <Input
-                      aria-label="Quick add name"
-                      placeholder="What did you eat? (e.g. soda)"
-                      value={itemQuickName}
-                      onChange={(event) =>
-                        setItemQuickName(event.target.value)
-                      }
-                    />
-                    <Input
-                      type="number"
-                      aria-label="Quick add calories"
-                      placeholder="Calories (e.g. 150)"
-                      value={itemQuickCalories}
-                      onChange={(event) =>
-                        setItemQuickCalories(event.target.value)
-                      }
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="quickName">Food</Label>
+                      <Input
+                        id="quickName"
+                        aria-label="Quick add name"
+                        placeholder="What did you eat?"
+                        value={itemQuickName}
+                        onChange={(event) =>
+                          setItemQuickName(event.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quickCalories">Calories</Label>
+                      <Input
+                        id="quickCalories"
+                        type="number"
+                        aria-label="Quick add calories"
+                        placeholder="150"
+                        value={itemQuickCalories}
+                        onChange={(event) =>
+                          setItemQuickCalories(event.target.value)
+                        }
+                      />
+                    </div>
                     <Button
                       variant="outline"
+                      className="self-end"
+                      disabled={!canQuickAdd}
                       onClick={() => {
                         const name = itemQuickName.trim()
                         const calories = Number(itemQuickCalories)
                         if (!name || !Number.isFinite(calories) || calories <= 0) {
+                          toast.error('Enter a food name and calories greater than 0.')
                           return
                         }
                         upsertDraft({
@@ -911,7 +944,11 @@ function MealDashboardPageContent() {
                           setItemWeight(event.target.value)
                         }
                       />
-                      <Button variant="outline" onClick={upsertDraftItem}>
+                      <Button
+                        variant="outline"
+                        onClick={upsertDraftItem}
+                        disabled={!itemIngredientId || Number(itemWeight) <= 0}
+                      >
                         <Plus className="h-3.5 w-3.5" />
                         {editingDraftItemIndex === null ? 'Add' : 'Update'}
                       </Button>
@@ -953,7 +990,16 @@ function MealDashboardPageContent() {
                         setItemWeight(event.target.value)
                       }
                     />
-                    <Button variant="outline" onClick={upsertDraftItem}>
+                    <Button
+                      variant="outline"
+                      onClick={upsertDraftItem}
+                      disabled={
+                        !itemCustomName.trim() ||
+                        Number(itemWeight) <= 0 ||
+                        (!itemCustomIgnoreCalories &&
+                          Number(itemCustomKcalPer100) <= 0)
+                      }
+                    >
                       {editingDraftItemIndex === null ? 'Add' : 'Update'}
                     </Button>
                     <CustomIngredientSwitchRow
@@ -1001,7 +1047,11 @@ function MealDashboardPageContent() {
                         value={itemWeight}
                         onChange={(event) => setItemWeight(event.target.value)}
                       />
-                      <Button variant="outline" onClick={upsertDraftItem}>
+                      <Button
+                        variant="outline"
+                        onClick={upsertDraftItem}
+                        disabled={!itemCookedFoodId || Number(itemWeight) <= 0}
+                      >
                         <Plus className="h-3.5 w-3.5" />
                         {editingDraftItemIndex === null ? 'Add' : 'Update'}
                       </Button>
@@ -1087,8 +1137,10 @@ function MealDashboardPageContent() {
 
             <div className="flex flex-wrap gap-2">
               <Button
+                disabled={!canSubmitMeal}
                 onClick={() => {
                   if (!effectiveSelectedPersonId || mealItems.length === 0) {
+                    toast.error('Add at least one item before saving a meal.')
                     return
                   }
                   void runAction(
@@ -1138,7 +1190,16 @@ function MealDashboardPageContent() {
               data={mealTableRows}
               searchColumnId="mealName"
               searchPlaceholder="Search meals"
-              emptyText="No meals for this selection."
+              emptyText={
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">
+                    No meals logged for this person and date.
+                  </p>
+                  <p className="text-sm">
+                    Use quick add on the left to log the first item.
+                  </p>
+                </div>
+              }
             />
           </MealTableSection>
         </div>

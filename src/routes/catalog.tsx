@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   CustomIngredientSwitchRow,
@@ -1114,169 +1115,125 @@ function ManagePageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="order-2 mt-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <FoodGroupsSection>
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-              <Input
-                aria-label="Group name"
-                placeholder="Group name"
-                value={groupName}
-                onChange={(event) => setGroupName(event.target.value)}
-              />
-              <Select
-                ariaLabel="Group scope"
-                value={groupScope}
-                onValueChange={(value) =>
-                  setGroupScope(
-                    (value as 'ingredient' | 'cookedFood' | null) ??
-                      'ingredient',
-                  )
-                }
-                options={[
-                  { value: 'ingredient', label: 'Ingredient only' },
-                  { value: 'cookedFood', label: 'Cooked food only' },
-                ]}
-              />
-              <Button
-                onClick={() =>
-                  void runAction(
-                    editingGroupId ? 'Group updated.' : 'Group created.',
-                    async () => {
-                      if (editingGroupId) {
-                        await updateFoodGroup({
-                          groupId: editingGroupId,
-                          name: groupName,
-                          appliesTo: groupScope,
-                        })
-                      } else {
-                        await createFoodGroup({
-                          name: groupName,
-                          appliesTo: groupScope,
-                        })
-                      }
-                      resetGroupForm()
-                    },
-                  )
-                }
-              >
-                {editingGroupId ? 'Save' : 'Create'}
-              </Button>
-            </div>
-            <DataTable
-              columns={foodGroupColumns}
-              data={foodGroupRows}
-              searchColumnId="name"
-              searchPlaceholder="Search food groups"
-              emptyText="No food groups found."
-            />
-          </FoodGroupsSection>
+        <Tabs defaultValue="ingredients" className="mt-5">
+          <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+            <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
+            <TabsTrigger value="recipes">Recipes</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
+          </TabsList>
 
-          <IngredientsSection>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                aria-label="Ingredient name"
-                placeholder="Ingredient name"
-                value={ingredientName}
-                onChange={(event) => setIngredientName(event.target.value)}
-              />
-              <Input
-                aria-label="Ingredient brand"
-                placeholder="Brand"
-                value={ingredientBrand}
-                onChange={(event) => setIngredientBrand(event.target.value)}
-              />
-              <Input
-                type="number"
-                aria-label="Ingredient kcal per 100"
-                placeholder="kcal / 100"
-                value={ingredientKcal}
-                onChange={(event) => setIngredientKcal(event.target.value)}
-              />
-              <Select
-                ariaLabel="Ingredient group"
-                value={ingredientGroupId}
-                onValueChange={(value) =>
-                  setIngredientGroupId(
-                    (value as Id<'foodGroups'> | '' | null) ?? '',
-                  )
-                }
-                placeholder="Group (optional)"
-                options={[
-                  { value: '', label: 'No group' },
-                  ...groups
-                    .filter((group) => group.appliesTo === 'ingredient')
-                    .map((group) => ({
-                      value: group._id,
-                      label: group.name,
-                    })),
-                ]}
-              />
-              <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
-                Ignore calories
-                <Switch
-                  checked={ingredientIgnoreCalories}
-                  onCheckedChange={(checked) =>
-                    setIngredientIgnoreCalories(Boolean(checked))
-                  }
+          <TabsContent value="ingredients" className="mt-4">
+            <div className="grid grid-cols-1 gap-6">
+              <IngredientsSection>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input
+                    aria-label="Ingredient name"
+                    placeholder="Ingredient name"
+                    value={ingredientName}
+                    onChange={(event) => setIngredientName(event.target.value)}
+                  />
+                  <Input
+                    aria-label="Ingredient brand"
+                    placeholder="Brand"
+                    value={ingredientBrand}
+                    onChange={(event) => setIngredientBrand(event.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    aria-label="Ingredient kcal per 100"
+                    placeholder="kcal / 100"
+                    value={ingredientKcal}
+                    onChange={(event) => setIngredientKcal(event.target.value)}
+                  />
+                  <Select
+                    ariaLabel="Ingredient group"
+                    value={ingredientGroupId}
+                    onValueChange={(value) =>
+                      setIngredientGroupId(
+                        (value as Id<'foodGroups'> | '' | null) ?? '',
+                      )
+                    }
+                    placeholder="Group (optional)"
+                    options={[
+                      { value: '', label: 'No group' },
+                      ...groups
+                        .filter((group) => group.appliesTo === 'ingredient')
+                        .map((group) => ({
+                          value: group._id,
+                          label: group.name,
+                        })),
+                    ]}
+                  />
+                  <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+                    Ignore calories
+                    <Switch
+                      checked={ingredientIgnoreCalories}
+                      onCheckedChange={(checked) =>
+                        setIngredientIgnoreCalories(Boolean(checked))
+                      }
+                    />
+                  </label>
+                </div>
+                <Textarea
+                  aria-label="Ingredient notes"
+                  placeholder="Notes"
+                  value={ingredientNotes}
+                  onChange={(event) => setIngredientNotes(event.target.value)}
                 />
-              </label>
-            </div>
-            <Textarea
-              aria-label="Ingredient notes"
-              placeholder="Notes"
-              value={ingredientNotes}
-              onChange={(event) => setIngredientNotes(event.target.value)}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() =>
-                  void runAction(
-                    editingIngredientId
-                      ? 'Ingredient updated.'
-                      : 'Ingredient created.',
-                    async () => {
-                      const payload = {
-                        name: ingredientName,
-                        brand: ingredientBrand.trim() || undefined,
-                        kcalPer100: Number(ingredientKcal),
-                        ignoreCalories: ingredientIgnoreCalories,
-                        groupIds: ingredientGroupId ? [ingredientGroupId] : [],
-                        notes: ingredientNotes.trim() || undefined,
-                      }
-                      if (editingIngredientId) {
-                        await updateIngredient({
-                          ingredientId: editingIngredientId,
-                          ...payload,
-                        })
-                      } else {
-                        await createIngredient(payload)
-                      }
-                      resetIngredientForm()
-                    },
-                  )
-                }
-              >
-                {editingIngredientId ? 'Save ingredient' : 'Add ingredient'}
-              </Button>
-              {editingIngredientId ? (
-                <Button variant="outline" onClick={resetIngredientForm}>
-                  Cancel
-                </Button>
-              ) : null}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() =>
+                      void runAction(
+                        editingIngredientId
+                          ? 'Ingredient updated.'
+                          : 'Ingredient created.',
+                        async () => {
+                          const payload = {
+                            name: ingredientName,
+                            brand: ingredientBrand.trim() || undefined,
+                            kcalPer100: Number(ingredientKcal),
+                            ignoreCalories: ingredientIgnoreCalories,
+                            groupIds: ingredientGroupId
+                              ? [ingredientGroupId]
+                              : [],
+                            notes: ingredientNotes.trim() || undefined,
+                          }
+                          if (editingIngredientId) {
+                            await updateIngredient({
+                              ingredientId: editingIngredientId,
+                              ...payload,
+                            })
+                          } else {
+                            await createIngredient(payload)
+                          }
+                          resetIngredientForm()
+                        },
+                      )
+                    }
+                  >
+                    {editingIngredientId ? 'Save ingredient' : 'Add ingredient'}
+                  </Button>
+                  {editingIngredientId ? (
+                    <Button variant="outline" onClick={resetIngredientForm}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
 
-            <DataTable
-              columns={ingredientColumns}
-              data={ingredientRows}
-              searchColumnId="name"
-              searchPlaceholder="Search ingredients"
-              emptyText="No ingredients found."
-            />
-          </IngredientsSection>
-        </div>
+                <DataTable
+                  columns={ingredientColumns}
+                  data={ingredientRows}
+                  searchColumnId="name"
+                  searchPlaceholder="Search ingredients"
+                  emptyText="No ingredients found."
+                />
+              </IngredientsSection>
+            </div>
+          </TabsContent>
 
-        <div className="order-1 mt-3 grid grid-cols-1 gap-3">
-          <RecipesSection>
+          <TabsContent value="recipes" className="mt-4">
+            <div className="grid grid-cols-1 gap-3">
+              <RecipesSection>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 aria-label="Recipe name"
@@ -1482,8 +1439,79 @@ function ManagePageContent() {
               searchPlaceholder="Search recipes"
               emptyText="No recipes found."
             />
-          </RecipesSection>
-        </div>
+              </RecipesSection>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="groups" className="mt-4">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <FoodGroupsSection>
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <Input
+                    aria-label="Group name"
+                    placeholder="Group name"
+                    value={groupName}
+                    onChange={(event) => setGroupName(event.target.value)}
+                  />
+                  <Select
+                    ariaLabel="Group scope"
+                    value={groupScope}
+                    onValueChange={(value) =>
+                      setGroupScope(
+                        (value as 'ingredient' | 'cookedFood' | null) ??
+                          'ingredient',
+                      )
+                    }
+                    options={[
+                      { value: 'ingredient', label: 'Ingredient only' },
+                      { value: 'cookedFood', label: 'Cooked food only' },
+                    ]}
+                  />
+                  <Button
+                    onClick={() =>
+                      void runAction(
+                        editingGroupId ? 'Group updated.' : 'Group created.',
+                        async () => {
+                          if (editingGroupId) {
+                            await updateFoodGroup({
+                              groupId: editingGroupId,
+                              name: groupName,
+                              appliesTo: groupScope,
+                            })
+                          } else {
+                            await createFoodGroup({
+                              name: groupName,
+                              appliesTo: groupScope,
+                            })
+                          }
+                          resetGroupForm()
+                        },
+                      )
+                    }
+                  >
+                    {editingGroupId ? 'Save group' : 'Create group'}
+                  </Button>
+                </div>
+                <DataTable
+                  columns={foodGroupColumns}
+                  data={foodGroupRows}
+                  searchColumnId="name"
+                  searchPlaceholder="Search food groups"
+                  emptyText={
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">
+                        No food groups yet.
+                      </p>
+                      <p className="text-sm">
+                        Groups are optional; add them when filtering becomes useful.
+                      </p>
+                    </div>
+                  }
+                />
+              </FoodGroupsSection>
+            </div>
+          </TabsContent>
+        </Tabs>
       </PageShell>
 
       <ConfirmDestructiveDialog

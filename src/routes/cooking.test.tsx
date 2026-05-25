@@ -84,7 +84,7 @@ describe('Cooking route', () => {
 
     renderCookingRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
 
     fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Oat jars' },
@@ -93,7 +93,7 @@ describe('Cooking route', () => {
       target: { value: '400' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
 
     expect(
       (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
@@ -120,7 +120,7 @@ describe('Cooking route', () => {
 
     renderCookingRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
     fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Chicken base' },
     })
@@ -158,7 +158,7 @@ describe('Cooking route', () => {
 
     renderCookingRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: /new cooking/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
     fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
 
     fireEvent.change(screen.getByLabelText(/^ingredient$/i), {

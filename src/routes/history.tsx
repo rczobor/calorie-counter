@@ -10,6 +10,7 @@ import {
   ConfigMissingState,
   LoadingSkeletonState,
 } from '@/components/page/page-states'
+import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select } from '@/components/ui/select'
@@ -177,6 +178,10 @@ function HistoryPageContent() {
     if (rows.length === 0) return 0
     return rows.reduce((sum, row) => sum + row.consumed, 0) / rows.length
   }, [rows])
+  const setPresetDays = (days: number) => {
+    setEndDate(toLocalDateString(Date.now()))
+    setStartDate(toLocalDateString(addDays(new Date(), -(days - 1)).getTime()))
+  }
 
   if (isLoading) {
     return <LoadingSkeletonState title="History" icon={<History className="h-5 w-5" />} />
@@ -219,6 +224,14 @@ function HistoryPageContent() {
             </p>
             <DatePicker value={endDate} onChange={setEndDate} />
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setPresetDays(7)}>
+              7 days
+            </Button>
+            <Button variant="outline" onClick={() => setPresetDays(30)}>
+              30 days
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-4">
@@ -244,6 +257,8 @@ function HistoryPageContent() {
           </div>
         </div>
 
+        <HistoryChart rows={rows} />
+
         <div>
           <DataTable
             columns={columns}
@@ -253,6 +268,72 @@ function HistoryPageContent() {
         </div>
       </div>
     </PageShell>
+  )
+}
+
+function HistoryChart({ rows }: { rows: DayRow[] }) {
+  const chronologicalRows = [...rows].reverse()
+  const maxValue = Math.max(
+    1,
+    ...chronologicalRows.map((row) => Math.max(row.consumed, row.goal)),
+  )
+
+  if (chronologicalRows.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
+        No chart data for the selected range.
+      </div>
+    )
+  }
+
+  return (
+    <section className="rounded-lg border border-border/60 bg-card p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Trend</h2>
+          <p className="text-xs text-muted-foreground">
+            Daily consumed calories compared with goal.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            Consumed
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-accent-foreground" />
+            Goal
+          </span>
+        </div>
+      </div>
+      <div className="flex h-52 items-end gap-2 overflow-x-auto pb-2">
+        {chronologicalRows.map((row) => {
+          const consumedHeight = Math.max(2, (row.consumed / maxValue) * 100)
+          const goalHeight = Math.max(2, (row.goal / maxValue) * 100)
+          return (
+            <div
+              key={row.date}
+              className="flex min-w-10 flex-1 flex-col items-center gap-2"
+              title={`${row.date}: ${Math.round(row.consumed)} / ${Math.round(row.goal)} kcal`}
+            >
+              <div className="flex h-40 w-full items-end justify-center gap-1 rounded-md bg-muted/35 px-1 py-2">
+                <div
+                  className="w-2 rounded-t bg-primary"
+                  style={{ height: `${consumedHeight}%` }}
+                />
+                <div
+                  className="w-2 rounded-t bg-accent-foreground/75"
+                  style={{ height: `${goalHeight}%` }}
+                />
+              </div>
+              <span className="text-[0.7rem] text-muted-foreground">
+                {format(parseISO(row.date), 'MMM d')}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 

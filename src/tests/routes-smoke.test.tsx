@@ -100,7 +100,8 @@ describe('route smoke', () => {
     expect(
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: /^create$/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /ingredients/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /add ingredient/i })).toBeTruthy()
     expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
   })
 
@@ -112,7 +113,7 @@ describe('route smoke', () => {
     expect(
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: /new session/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /new batch/i })).toBeTruthy()
     expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
   })
 
