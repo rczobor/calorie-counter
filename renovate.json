@@ -1,0 +1,73 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":configMigration",
+    "security:minimumReleaseAgeNpm",
+    ":maintainLockFilesWeekly",
+    ":approveMajorUpdates"
+  ],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Group TanStack packages.",
+      "matchPackageNames": ["@tanstack/**"],
+      "groupName": "TanStack packages"
+    },
+    {
+      "description": "Group Convex packages.",
+      "matchPackageNames": ["convex", "convex-test", "@convex-dev/**"],
+      "groupName": "Convex packages"
+    },
+    {
+      "description": "Group React core packages.",
+      "matchPackageNames": [
+        "react",
+        "react-dom",
+        "@types/react",
+        "@types/react-dom"
+      ],
+      "groupName": "React core"
+    },
+    {
+      "description": "Group Tailwind packages.",
+      "matchPackageNames": [
+        "tailwindcss",
+        "@tailwindcss/**",
+        "tailwind-merge",
+        "tw-animate-css"
+      ],
+      "groupName": "Tailwind CSS"
+    },
+    {
+      "description": "Group linting non-major updates.",
+      "matchPackageNames": [
+        "eslint",
+        "@eslint/js",
+        "eslint-plugin-react",
+        "eslint-plugin-react-hooks",
+        "typescript-eslint",
+        "globals"
+      ],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "ESLint packages"
+    },
+    {
+      "description": "Group build and test non-major updates.",
+      "matchPackageNames": [
+        "vite",
+        "vitest",
+        "@vitejs/plugin-react",
+        "@vitest/**",
+        "jsdom",
+        "@edge-runtime/vm",
+        "nitro"
+      ],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Build and test tooling"
+    }
+  ]
+}
