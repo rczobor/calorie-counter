@@ -5,7 +5,7 @@
     "": {
       "name": "calorie-counter",
       "dependencies": {
-        "@base-ui/react": "^1.5.0",
+        "@base-ui/react": "^1.6.0",
         "@clerk/clerk-react": "^5.61.3",
         "@convex-dev/react-query": "0.1.0",
         "@fontsource-variable/inter": "^5.2.8",
