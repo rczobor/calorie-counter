@@ -12,8 +12,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "bun run typecheck:app && bun run typecheck:convex",
-    "typecheck:app": "tsc --noEmit",
-    "typecheck:convex": "tsc --noEmit -p convex/tsconfig.json",
+    "typecheck:app": "node ./node_modules/@typescript/native/bin/tsc --noEmit",
+    "typecheck:convex": "node ./node_modules/@typescript/native/bin/tsc --noEmit -p convex/tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
@@ -56,6 +56,7 @@
     "@types/node": "^25.9.5",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^4.1.10",
     "babel-plugin-react-compiler": "^1.0.0",
