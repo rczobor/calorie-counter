@@ -4,8 +4,7 @@
     "config:recommended",
     ":configMigration",
     "security:minimumReleaseAgeNpm",
-    ":maintainLockFilesWeekly",
-    ":approveMajorUpdates"
+    ":maintainLockFilesWeekly"
   ],
   "labels": ["dependencies"],
   "prConcurrentLimit": 5,
@@ -43,31 +42,15 @@
       "groupName": "Tailwind CSS"
     },
     {
-      "description": "Group linting non-major updates.",
-      "matchPackageNames": [
-        "eslint",
-        "@eslint/js",
-        "eslint-plugin-react",
-        "eslint-plugin-react-hooks",
-        "typescript-eslint",
-        "globals"
-      ],
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "ESLint packages"
+      "description": "Keep TypeScript 6 as the API provider for typescript-eslint.",
+      "matchPackageNames": ["typescript"],
+      "matchCurrentVersion": "/^6\\./",
+      "allowedVersions": "<7"
     },
     {
-      "description": "Group build and test non-major updates.",
-      "matchPackageNames": [
-        "vite",
-        "vitest",
-        "@vitejs/plugin-react",
-        "@vitest/**",
-        "jsdom",
-        "@edge-runtime/vm",
-        "nitro"
-      ],
+      "description": "Group all non-major dependency updates.",
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "Build and test tooling"
+      "groupName": "All non-major dependencies"
     }
   ]
 }
