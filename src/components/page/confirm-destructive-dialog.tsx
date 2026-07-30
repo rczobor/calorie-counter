@@ -18,6 +18,7 @@ type ConfirmDestructiveDialogProps = {
   description?: string
   title?: string
   confirmLabel?: string
+  disabled?: boolean
 }
 
 export function ConfirmDestructiveDialog({
@@ -27,6 +28,7 @@ export function ConfirmDestructiveDialog({
   description,
   title = 'Confirm deletion',
   confirmLabel = 'Delete',
+  disabled = false,
 }: ConfirmDestructiveDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -40,6 +42,7 @@ export function ConfirmDestructiveDialog({
           <AlertDialogAction
             className="gap-2"
             variant="destructive"
+            disabled={disabled}
             onClick={onConfirm}
           >
             <Trash2 className="h-4 w-4" />

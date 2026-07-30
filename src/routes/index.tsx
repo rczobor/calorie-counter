@@ -133,6 +133,7 @@ function MealDashboardPageContent() {
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
@@ -202,8 +203,8 @@ function MealDashboardPageContent() {
     [data.cookedFoods, effectiveCookSessionId],
   )
   const ingredientById = useMemo(
-    () => new Map(ingredients.map((item) => [item._id, item])),
-    [ingredients],
+    () => new Map(data.ingredients.map((item) => [item._id, item])),
+    [data.ingredients],
   )
   const cookedFoodById = useMemo(
     () => new Map(data.cookedFoods.map((item) => [item._id, item])),
@@ -391,6 +392,7 @@ function MealDashboardPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   meal.archived ? 'Meal restored.' : 'Meal archived.',
@@ -408,6 +410,7 @@ function MealDashboardPageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${meal.name?.trim() || 'meal'}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -670,6 +673,25 @@ function MealDashboardPageContent() {
     setMealItems(
       itemRows.map((row) => {
         if (row.sourceType === 'ingredient' && row.ingredientId) {
+          const ingredient = ingredientById.get(row.ingredientId)
+          const kcalBasisUnit =
+            row.kcalBasisUnitSnapshot ?? ingredient?.kcalBasisUnit ?? 'g'
+          if (kcalBasisUnit !== 'g') {
+            return {
+              sourceType: 'custom' as const,
+              name: row.nameSnapshot ?? ingredient?.name ?? 'Legacy ingredient',
+              kcalPer100:
+                row.kcalPer100Snapshot ??
+                (row.consumedWeightGrams > 0
+                  ? (row.caloriesSnapshot * 100) / row.consumedWeightGrams
+                  : 0),
+              ignoreCalories:
+                row.ignoreCaloriesSnapshot ??
+                Boolean(ingredient?.ignoreCalories),
+              consumedWeightGrams: row.consumedWeightGrams,
+              saveToCatalog: false,
+            }
+          }
           return {
             sourceType: 'ingredient' as const,
             ingredientId: row.ingredientId,
@@ -1139,7 +1161,7 @@ function MealDashboardPageContent() {
 
             <div className="flex flex-wrap gap-2">
               <Button
-                disabled={!canSubmitMeal}
+                disabled={!canSubmitMeal || isRunning}
                 onClick={() => {
                   if (!effectiveSelectedPersonId || mealItems.length === 0) {
                     toast.error('Add at least one item before saving a meal.')
@@ -1210,6 +1232,7 @@ function MealDashboardPageContent() {
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
         onConfirm={confirmPendingAction}
+        disabled={isRunning}
         description={pendingConfirmation?.message}
       />
     </>

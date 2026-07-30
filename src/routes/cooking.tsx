@@ -108,6 +108,7 @@ function CookingPageContent() {
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
@@ -1061,6 +1062,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   session.archived ? 'Session restored.' : 'Session archived.',
@@ -1078,6 +1080,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${session.label?.trim() || 'session'}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -1155,6 +1158,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   food.archived
@@ -1174,6 +1178,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${food.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -1407,7 +1412,7 @@ function CookingPageContent() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button onClick={saveSession}>
+                    <Button disabled={isRunning} onClick={saveSession}>
                       {editingSessionId ? 'Save batch' : 'Create batch'}
                     </Button>
                     <Button variant="outline" onClick={closeSessionEditor}>
@@ -1492,6 +1497,7 @@ function CookingPageContent() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          disabled={isRunning}
                           aria-label={`Discard ${getCookingDraftLabel(draft)}`}
                           onClick={() => discardDraft(draft)}
                         >
@@ -1523,7 +1529,7 @@ function CookingPageContent() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
-                    disabled={!activeDraft}
+                    disabled={!activeDraft || isRunning}
                     onClick={() => {
                       if (activeDraft) {
                         discardDraft(activeDraft)
@@ -1534,13 +1540,13 @@ function CookingPageContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={!activeDraft}
+                    disabled={!activeDraft || isRunning}
                     onClick={() => saveActiveDraft({ addAnother: true })}
                   >
                     Save and add another
                   </Button>
                   <Button
-                    disabled={!activeDraft}
+                    disabled={!activeDraft || isRunning}
                     onClick={() => saveActiveDraft()}
                   >
                     Save
@@ -2208,6 +2214,7 @@ function CookingPageContent() {
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
         onConfirm={confirmPendingAction}
+        disabled={isRunning}
         description={pendingConfirmation?.message}
       />
     </>

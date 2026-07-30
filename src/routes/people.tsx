@@ -52,6 +52,7 @@ function PeoplePageContent() {
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
@@ -222,6 +223,7 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   person.active ? 'Person archived.' : 'Person restored.',
@@ -239,6 +241,7 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${person.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -394,7 +397,7 @@ function PeoplePageContent() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
-                disabled={!canSavePerson}
+                disabled={!canSavePerson || isRunning}
                 onClick={() =>
                   void runAction(
                     editingPersonId ? 'Person updated.' : 'Person created.',
@@ -456,6 +459,7 @@ function PeoplePageContent() {
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
         onConfirm={confirmPendingAction}
+        disabled={isRunning}
         description={pendingConfirmation?.message}
       />
     </>

@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ManagementData } from '@/hooks/use-management-data'
-import { createManagementData } from '@/tests/factories'
+import {
+  createIngredientDoc,
+  createManagementData,
+  createMealDoc,
+  createMealItemDoc,
+} from '@/tests/factories'
 
 const mockUseMutation = vi.fn()
 
@@ -37,6 +36,7 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
   useConfirmableAction: () => ({
     pendingConfirmation: null,
     isConfirmDialogOpen: false,
+    isRunning: false,
     runAction: async (_successText: string, action: () => Promise<unknown>) =>
       action(),
     confirmAndRunAction: vi.fn(),
@@ -91,6 +91,59 @@ describe('Meals route', () => {
           kcalPer100: 250,
           ignoreCalories: false,
           consumedWeightGrams: 100,
+          saveToCatalog: false,
+        },
+      ],
+    })
+  })
+
+  it('preserves legacy non-gram meal snapshots as editable custom items', async () => {
+    const ingredient = createIngredientDoc('ingredient-piece', 'Energy cube', {
+      kcalPer100: 250,
+      kcalBasisUnit: 'piece',
+    })
+    const meal = createMealDoc('meal-legacy', 'person-1', {
+      name: 'Legacy meal',
+    })
+    mockManagementData = createManagementData({
+      ingredients: [ingredient],
+      meals: [meal],
+      mealItems: [
+        createMealItemDoc('meal-item-legacy', meal._id, {
+          sourceType: 'ingredient',
+          ingredientId: ingredient._id,
+          nameSnapshot: 'Energy cube',
+          kcalPer100Snapshot: 250,
+          kcalBasisUnitSnapshot: 'piece',
+          consumedWeightGrams: 2,
+          caloriesSnapshot: 5,
+        }),
+      ],
+    })
+    const mutations = configureMutationMocks()
+    renderMealsRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByText(/Energy cube.*\(\+5 kcal\)/i)).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /save meal changes/i }),
+      )
+    })
+
+    expect(mutations.updateMeal).toHaveBeenCalledWith({
+      mealId: meal._id,
+      personId: mockManagementData.people[0]?._id,
+      name: 'Legacy meal',
+      eatenOn: '2026-04-04',
+      items: [
+        {
+          sourceType: 'custom',
+          name: 'Energy cube',
+          kcalPer100: 250,
+          ignoreCalories: false,
+          consumedWeightGrams: 2,
           saveToCatalog: false,
         },
       ],

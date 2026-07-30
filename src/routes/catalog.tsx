@@ -112,6 +112,7 @@ function ManagePageContent() {
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
@@ -315,6 +316,7 @@ function ManagePageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   group.archived ? 'Group restored.' : 'Group archived.',
@@ -332,6 +334,7 @@ function ManagePageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${group.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -429,6 +432,7 @@ function ManagePageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   ingredient.archived
@@ -448,6 +452,7 @@ function ManagePageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${ingredient.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -623,6 +628,7 @@ function ManagePageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   recipe.archived ? 'Recipe restored.' : 'Recipe archived.',
@@ -640,6 +646,7 @@ function ManagePageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${recipe.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -1181,6 +1188,7 @@ function ManagePageContent() {
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button
+                    disabled={isRunning}
                     onClick={() =>
                       void runAction(
                         editingIngredientId
@@ -1392,6 +1400,7 @@ function ManagePageContent() {
 
                 <div className="flex flex-wrap gap-2">
                   <Button
+                    disabled={isRunning}
                     onClick={() =>
                       void runAction(
                         editingRecipeId ? 'Recipe updated.' : 'Recipe created.',
@@ -1480,6 +1489,7 @@ function ManagePageContent() {
                     ]}
                   />
                   <Button
+                    disabled={isRunning}
                     onClick={() =>
                       void runAction(
                         editingGroupId ? 'Group updated.' : 'Group created.',
@@ -1531,6 +1541,7 @@ function ManagePageContent() {
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
         onConfirm={confirmPendingAction}
+        disabled={isRunning}
         description={pendingConfirmation?.message}
       />
     </>

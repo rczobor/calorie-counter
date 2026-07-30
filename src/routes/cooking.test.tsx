@@ -53,6 +53,7 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
   useConfirmableAction: () => ({
     pendingConfirmation: null,
     isConfirmDialogOpen: false,
+    isRunning: false,
     runAction: async (_successText: string, action: () => Promise<unknown>) =>
       action(),
     confirmAndRunAction: confirmAndRunActionMock,
