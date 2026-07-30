@@ -2,9 +2,9 @@
   "name": "calorie-counter",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.16.0",
+  "packageManager": "pnpm@11.17.0",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.18.1"
   },
   "scripts": {
     "dev": "vite dev --port 3000",
