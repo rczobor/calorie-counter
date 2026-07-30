@@ -59,9 +59,12 @@ export function usePeopleData(args: { today: string }) {
   return withEmptyManagementData(dataResult)
 }
 
-export function useHistoryData(args: { startDate: string; endDate: string }) {
+export function useHistoryData(
+  args: { startDate: string; endDate: string } | 'skip',
+) {
   const dataResult = useQuery(api.nutrition.getHistoryData, args)
-  return withEmptyManagementData(dataResult)
+  const result = withEmptyManagementData(dataResult)
+  return args === 'skip' ? { ...result, isLoading: false } : result
 }
 
 export function useCatalogData() {

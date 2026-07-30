@@ -1116,7 +1116,7 @@ function ManagePageContent() {
         onShowArchivedChange={setShowArchived}
       >
         <Tabs defaultValue="ingredients" className="mt-5">
-          <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
+          <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden sm:w-fit">
             <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
             <TabsTrigger value="recipes">Recipes</TabsTrigger>
             <TabsTrigger value="groups">Groups</TabsTrigger>
