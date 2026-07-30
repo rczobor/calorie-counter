@@ -1,11 +1,10 @@
-import { ConvexQueryClient } from '@convex-dev/react-query'
-import { ConvexProvider } from 'convex/react'
+import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import { useAuth } from '@clerk/clerk-react'
 import { convexUrl, isConvexConfigured } from './config'
 import { isClerkConfigured } from '../clerk/config'
 
-let convexQueryClient: ConvexQueryClient | null = null
+let convexClient: ConvexReactClient | null = null
 
 if (!isConvexConfigured) {
   console.warn(
@@ -14,10 +13,10 @@ if (!isConvexConfigured) {
 }
 
 function getConvexClient() {
-  if (!convexQueryClient && convexUrl) {
-    convexQueryClient = new ConvexQueryClient(convexUrl)
+  if (!convexClient && convexUrl) {
+    convexClient = new ConvexReactClient(convexUrl)
   }
-  return convexQueryClient
+  return convexClient
 }
 
 export default function AppConvexProvider({
@@ -36,13 +35,11 @@ export default function AppConvexProvider({
 
   if (isClerkConfigured) {
     return (
-      <ConvexProviderWithClerk client={client.convexClient} useAuth={useAuth}>
+      <ConvexProviderWithClerk client={client} useAuth={useAuth}>
         {children}
       </ConvexProviderWithClerk>
     )
   }
 
-  return (
-    <ConvexProvider client={client.convexClient}>{children}</ConvexProvider>
-  )
+  return <ConvexProvider client={client}>{children}</ConvexProvider>
 }

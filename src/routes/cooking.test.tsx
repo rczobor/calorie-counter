@@ -27,6 +27,10 @@ vi.mock('convex/react', () => ({
   useMutation: (reference: unknown) => mockUseMutation(reference),
 }))
 
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
+}))
+
 vi.mock('sonner', () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccess(...args),
@@ -49,6 +53,7 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
   useConfirmableAction: () => ({
     pendingConfirmation: null,
     isConfirmDialogOpen: false,
+    isRunning: false,
     runAction: async (_successText: string, action: () => Promise<unknown>) =>
       action(),
     confirmAndRunAction: confirmAndRunActionMock,
@@ -69,6 +74,7 @@ beforeEach(() => {
   window.scrollTo = vi.fn()
   mutationQueue = []
   mutationCursor = 0
+  window.localStorage.clear()
 })
 
 afterEach(() => {
@@ -84,7 +90,9 @@ describe('Cooking route', () => {
 
     renderCookingRoute()
 
-    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
 
     fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Oat jars' },
@@ -93,20 +101,24 @@ describe('Cooking route', () => {
       target: { value: '400' },
     })
 
-    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
 
-    expect(
-      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
-    ).toBe('')
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      '',
+    )
     expect(screen.getAllByText(/^Oat jars$/i).length).toBeGreaterThan(0)
 
     fireEvent.click(
-      screen.getAllByText(/^Oat jars$/i)[0].closest('button') as HTMLButtonElement,
+      screen
+        .getAllByText(/^Oat jars$/i)[0]
+        .closest('button') as HTMLButtonElement,
     )
 
-    expect(
-      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
-    ).toBe('Oat jars')
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'Oat jars',
+    )
     expect(
       (screen.getByLabelText(/finished weight/i) as HTMLInputElement).value,
     ).toBe('400')
@@ -120,7 +132,9 @@ describe('Cooking route', () => {
 
     renderCookingRoute()
 
-    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
     fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Chicken base' },
     })
@@ -130,24 +144,26 @@ describe('Cooking route', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /duplicate current/i }))
 
-    expect(
-      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
-    ).toBe('Chicken base')
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'Chicken base',
+    )
 
     fireEvent.change(screen.getByLabelText(/^name$/i), {
       target: { value: 'Chicken base split' },
     })
 
-    expect(screen.getAllByText(/^Chicken base split$/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/^Chicken base split$/i).length).toBeGreaterThan(
+      0,
+    )
     fireEvent.click(
       screen
         .getAllByText(/^Chicken base$/i)[0]
         .closest('button') as HTMLButtonElement,
     )
 
-    expect(
-      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
-    ).toBe('Chicken base')
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'Chicken base',
+    )
   })
 
   it('saves a draft and starts a fresh one when using save and add another', async () => {
@@ -158,7 +174,9 @@ describe('Cooking route', () => {
 
     renderCookingRoute()
 
-    fireEvent.click(screen.getAllByRole('button', { name: /start cooking/i })[0])
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
     fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
 
     fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
@@ -179,7 +197,9 @@ describe('Cooking route', () => {
       target: { value: '300' },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /save and add another/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /save and add another/i }),
+    )
 
     await waitFor(() => {
       expect(mutations.createCookedFood).toHaveBeenCalledTimes(1)
@@ -200,9 +220,9 @@ describe('Cooking route', () => {
         ],
       }),
     )
-    expect(
-      (screen.getByLabelText(/^name$/i) as HTMLInputElement).value,
-    ).toBe('')
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      '',
+    )
   })
 
   it('shows saved foods from the selected session by default and can expand to all sessions', () => {

@@ -39,6 +39,7 @@ import {
   shouldAutoFillReferenceFields,
   type CookingDraft,
 } from '@/features/cooking/draft-helpers'
+import { usePersistedCookingDrafts } from '@/features/cooking/use-persisted-cooking-drafts'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { useCookingData } from '@/hooks/use-management-data'
 import { isConvexConfigured } from '@/integrations/convex/config'
@@ -102,11 +103,12 @@ function CookingPageContent() {
   const [selectedCookSessionId, setSelectedCookSessionId] = useState<
     Id<'cookSessions'> | ''
   >('')
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
-  const [drafts, setDrafts] = useState<CookingDraft[]>([])
+  const { activeDraftId, setActiveDraftId, drafts, setDrafts } =
+    usePersistedCookingDrafts()
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
@@ -262,7 +264,8 @@ function CookingPageContent() {
   )
 
   const effectiveActiveDraftId =
-    activeDraftId && sessionDrafts.some((draft) => draft.draftId === activeDraftId)
+    activeDraftId &&
+    sessionDrafts.some((draft) => draft.draftId === activeDraftId)
       ? activeDraftId
       : (sessionDrafts[0]?.draftId ?? null)
 
@@ -531,7 +534,11 @@ function CookingPageContent() {
       removeDraft(draft.draftId)
       return Promise.resolve()
     }
-    if (!draft.persistedCookedFoodId && !draft.isDirty && !draftHasUserContent(draft)) {
+    if (
+      !draft.persistedCookedFoodId &&
+      !draft.isDirty &&
+      !draftHasUserContent(draft)
+    ) {
       void remove()
       return
     }
@@ -582,8 +589,7 @@ function CookingPageContent() {
     return Boolean(
       (
         ingredientById.get(ingredientId) as
-          | { ignoreCalories?: boolean }
-          | undefined
+          { ignoreCalories?: boolean } | undefined
       )?.ignoreCalories,
     )
   }
@@ -748,7 +754,9 @@ function CookingPageContent() {
     }
 
     if (line.sourceType === 'ingredient') {
-      const basisUnit = getIngredientBasisUnit(ingredientById.get(line.ingredientId))
+      const basisUnit = getIngredientBasisUnit(
+        ingredientById.get(line.ingredientId),
+      )
       const autoFilled = shouldAutoFillReferenceFields(basisUnit)
       updateActiveDraft((draft) => ({
         ...draft,
@@ -800,7 +808,7 @@ function CookingPageContent() {
       ? recipeVersionById.get(recipeVersionId)
       : undefined
     const recipeLines = recipeVersionId
-      ? recipeIngredientsByVersionId.get(recipeVersionId) ?? []
+      ? (recipeIngredientsByVersionId.get(recipeVersionId) ?? [])
       : []
 
     updateActiveDraft((draft) => ({
@@ -808,7 +816,9 @@ function CookingPageContent() {
       recipeVersionId,
       saveAsRecipe: recipeVersionId ? false : draft.saveAsRecipe,
       name:
-        recipeVersion && draft.name.trim() === '' ? recipeVersion.name : draft.name,
+        recipeVersion && draft.name.trim() === ''
+          ? recipeVersion.name
+          : draft.name,
       ingredientLines:
         recipeVersionId === ''
           ? draft.ingredientLines
@@ -832,8 +842,8 @@ function CookingPageContent() {
                     (line as { ingredientNameSnapshot?: string })
                       .ingredientNameSnapshot ?? 'Custom ingredient',
                   kcalPer100:
-                    (line as { kcalPer100Snapshot?: number }).kcalPer100Snapshot ??
-                    0,
+                    (line as { kcalPer100Snapshot?: number })
+                      .kcalPer100Snapshot ?? 0,
                   kcalBasisUnit:
                     (line as { kcalBasisUnitSnapshot?: NutritionUnit })
                       .kcalBasisUnitSnapshot ?? 'g',
@@ -982,7 +992,8 @@ function CookingPageContent() {
             recipeDraft: draftToSave.saveAsRecipe
               ? {
                   name:
-                    draftToSave.recipeDraftName.trim() || resolvedCookedFoodName,
+                    draftToSave.recipeDraftName.trim() ||
+                    resolvedCookedFoodName,
                   instructions:
                     draftToSave.recipeDraftInstructions.trim() || undefined,
                 }
@@ -1051,6 +1062,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   session.archived ? 'Session restored.' : 'Session archived.',
@@ -1068,6 +1080,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${session.label?.trim() || 'session'}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -1076,7 +1089,9 @@ function CookingPageContent() {
                   async () => {
                     await deleteCookSession({ sessionId: session._id })
                     setDrafts((current) =>
-                      current.filter((draft) => draft.sessionId !== session._id),
+                      current.filter(
+                        (draft) => draft.sessionId !== session._id,
+                      ),
                     )
                     if (editingSessionId === session._id) {
                       closeSessionEditor()
@@ -1143,6 +1158,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   food.archived
@@ -1162,6 +1178,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${food.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -1257,28 +1274,31 @@ function CookingPageContent() {
           <section>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Cooking batches</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Cooking batches
+                </h2>
                 <p className="text-xs text-muted-foreground">
-                  Choose a batch date, then start or reopen foods you are preparing.
+                  Choose a batch date, then start or reopen foods you are
+                  preparing.
                 </p>
               </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" onClick={openNewSessionEditor}>
-                    <Plus className="h-3.5 w-3.5" />
-                    New batch
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={!selectedCookSession}
-                    onClick={() => {
-                      if (selectedCookSession) {
-                        openEditSessionEditor(selectedCookSession)
-                      }
-                    }}
-                  >
-                    Edit batch
-                  </Button>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" onClick={openNewSessionEditor}>
+                  <Plus className="h-3.5 w-3.5" />
+                  New batch
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!selectedCookSession}
+                  onClick={() => {
+                    if (selectedCookSession) {
+                      openEditSessionEditor(selectedCookSession)
+                    }
+                  }}
+                >
+                  Edit batch
+                </Button>
+              </div>
             </div>
             <div className="mt-3 space-y-3">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
@@ -1313,7 +1333,10 @@ function CookingPageContent() {
                     disabled={!activeDraft}
                     onClick={() => {
                       if (activeDraft) {
-                        createDraftForSession(activeDraft.sessionId, activeDraft)
+                        createDraftForSession(
+                          activeDraft.sessionId,
+                          activeDraft,
+                        )
                       }
                     }}
                   >
@@ -1389,7 +1412,7 @@ function CookingPageContent() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button onClick={saveSession}>
+                    <Button disabled={isRunning} onClick={saveSession}>
                       {editingSessionId ? 'Save batch' : 'Create batch'}
                     </Button>
                     <Button variant="outline" onClick={closeSessionEditor}>
@@ -1404,7 +1427,9 @@ function CookingPageContent() {
           <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
             <section>
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground">Current foods</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Current foods
+                </h2>
                 <p className="text-xs text-muted-foreground">
                   Unsaved foods stay here until you save or discard them.
                 </p>
@@ -1449,7 +1474,9 @@ function CookingPageContent() {
                         <button
                           type="button"
                           className="min-w-0 flex-1 text-left"
-                          onClick={() => selectDraft(draft.draftId, draft.sessionId)}
+                          onClick={() =>
+                            selectDraft(draft.draftId, draft.sessionId)
+                          }
                         >
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="truncate font-medium text-foreground">
@@ -1470,6 +1497,7 @@ function CookingPageContent() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          disabled={isRunning}
                           aria-label={`Discard ${getCookingDraftLabel(draft)}`}
                           onClick={() => discardDraft(draft)}
                         >
@@ -1501,7 +1529,7 @@ function CookingPageContent() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
-                    disabled={!activeDraft}
+                    disabled={!activeDraft || isRunning}
                     onClick={() => {
                       if (activeDraft) {
                         discardDraft(activeDraft)
@@ -1512,13 +1540,13 @@ function CookingPageContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={!activeDraft}
+                    disabled={!activeDraft || isRunning}
                     onClick={() => saveActiveDraft({ addAnother: true })}
                   >
                     Save and add another
                   </Button>
                   <Button
-                    disabled={!activeDraft}
+                    disabled={!activeDraft || isRunning}
                     onClick={() => saveActiveDraft()}
                   >
                     Save
@@ -1545,7 +1573,9 @@ function CookingPageContent() {
                       {activeDraft.persistedCookedFoodId
                         ? 'Saved food'
                         : 'Unsaved food'}
-                      {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
+                      {selectedCookPersonName
+                        ? ` · ${selectedCookPersonName}`
+                        : ''}
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -1696,7 +1726,8 @@ function CookingPageContent() {
                                       updateActiveDraft((draft) => ({
                                         ...draft,
                                         lineReferenceUnit:
-                                          (value as NutritionUnit | null) ?? 'g',
+                                          (value as NutritionUnit | null) ??
+                                          'g',
                                       }))
                                     }
                                     className="w-full"
@@ -1836,7 +1867,8 @@ function CookingPageContent() {
                                       updateActiveDraft((draft) => ({
                                         ...draft,
                                         lineReferenceUnit:
-                                          (value as NutritionUnit | null) ?? 'g',
+                                          (value as NutritionUnit | null) ??
+                                          'g',
                                       }))
                                     }
                                     className="w-full"
@@ -1879,14 +1911,18 @@ function CookingPageContent() {
                               </p>
                             ) : null}
                             <CustomIngredientSwitchRow
-                              ignoreCalories={activeDraft.lineCustomIgnoreCalories}
+                              ignoreCalories={
+                                activeDraft.lineCustomIgnoreCalories
+                              }
                               onIgnoreCaloriesChange={(value) =>
                                 updateActiveDraft((draft) => ({
                                   ...draft,
                                   lineCustomIgnoreCalories: value,
                                 }))
                               }
-                              saveToCatalog={activeDraft.lineCustomSaveToCatalog}
+                              saveToCatalog={
+                                activeDraft.lineCustomSaveToCatalog
+                              }
                               onSaveToCatalogChange={(value) =>
                                 updateActiveDraft((draft) => ({
                                   ...draft,
@@ -1964,16 +2000,24 @@ function CookingPageContent() {
                               />
                               {(() => {
                                 const rv = activeDraft.recipeVersionId
-                                  ? recipeVersionById.get(activeDraft.recipeVersionId)
+                                  ? recipeVersionById.get(
+                                      activeDraft.recipeVersionId,
+                                    )
                                   : undefined
-                                const instructions = (rv as { instructions?: string } | undefined)?.instructions?.trim()
+                                const instructions = (
+                                  rv as { instructions?: string } | undefined
+                                )?.instructions?.trim()
                                 if (!instructions) {
                                   return null
                                 }
                                 return (
                                   <div className="rounded-md border border-border/60 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-                                    <p className="font-medium text-foreground">Instructions</p>
-                                    <p className="mt-1 whitespace-pre-wrap">{instructions}</p>
+                                    <p className="font-medium text-foreground">
+                                      Instructions
+                                    </p>
+                                    <p className="mt-1 whitespace-pre-wrap">
+                                      {instructions}
+                                    </p>
                                   </div>
                                 )
                               })()}
@@ -2008,8 +2052,7 @@ function CookingPageContent() {
                                 onChange={(event) =>
                                   updateActiveDraft((draft) => ({
                                     ...draft,
-                                    recipeDraftInstructions:
-                                      event.target.value,
+                                    recipeDraftInstructions: event.target.value,
                                   }))
                                 }
                               />
@@ -2041,8 +2084,8 @@ function CookingPageContent() {
                                   : line.ignoreCalories
                               const lineName =
                                 line.sourceType === 'ingredient'
-                                  ? ingredientById.get(line.ingredientId)?.name ??
-                                    'Unknown ingredient'
+                                  ? (ingredientById.get(line.ingredientId)
+                                      ?.name ?? 'Unknown ingredient')
                                   : line.name
                               return (
                                 <div
@@ -2056,7 +2099,9 @@ function CookingPageContent() {
                                       </p>
                                       <p className="mt-1 text-xs text-muted-foreground">
                                         {line.referenceAmount}{' '}
-                                        {getNutritionUnitLabel(line.referenceUnit)}
+                                        {getNutritionUnitLabel(
+                                          line.referenceUnit,
+                                        )}
                                         {ignored
                                           ? ' · Calories ignored'
                                           : line.countedAmount ===
@@ -2070,7 +2115,9 @@ function CookingPageContent() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() =>
-                                          editCookedFoodIngredientLine(line.draftId)
+                                          editCookedFoodIngredientLine(
+                                            line.draftId,
+                                          )
                                         }
                                       >
                                         Edit
@@ -2104,8 +2151,12 @@ function CookingPageContent() {
           <div className="grid gap-6">
             <section className="min-w-0">
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground">{savedFoodsCardTitle}</h2>
-                <p className="text-xs text-muted-foreground">{cookedFoodRows.length} total</p>
+                <h2 className="text-sm font-semibold text-foreground">
+                  {savedFoodsCardTitle}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {cookedFoodRows.length} total
+                </p>
               </div>
               <DataTable
                 columns={cookedFoodColumns}
@@ -2140,8 +2191,12 @@ function CookingPageContent() {
 
             <section className="min-w-0">
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground">Batches</h2>
-                <p className="text-xs text-muted-foreground">{sessionRows.length} total</p>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Batches
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {sessionRows.length} total
+                </p>
               </div>
               <DataTable
                 columns={sessionColumns}
@@ -2159,6 +2214,7 @@ function CookingPageContent() {
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
         onConfirm={confirmPendingAction}
+        disabled={isRunning}
         description={pendingConfirmation?.message}
       />
     </>

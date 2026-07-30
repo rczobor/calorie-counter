@@ -49,15 +49,17 @@ describe('nutrition cooking and meal mutations', () => {
       ],
     })
 
-    const { cookedFood, ingredientLines, session } = await t.run(async (ctx) => {
-      const cookedFood = await ctx.db.get(cookedFoodId)
-      const ingredientLines = await ctx.db
-        .query('cookedFoodIngredients')
-        .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
-        .collect()
-      const session = await ctx.db.get(sessionId)
-      return { cookedFood, ingredientLines, session }
-    })
+    const { cookedFood, ingredientLines, session } = await t.run(
+      async (ctx) => {
+        const cookedFood = await ctx.db.get(cookedFoodId)
+        const ingredientLines = await ctx.db
+          .query('cookedFoodIngredients')
+          .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
+          .collect()
+        const session = await ctx.db.get(sessionId)
+        return { cookedFood, ingredientLines, session }
+      },
+    )
 
     expect(cookedFood).toMatchObject({
       name: 'Oat base',
@@ -136,9 +138,60 @@ describe('nutrition cooking and meal mutations', () => {
       name: 'Breakfast jars',
       instructions: 'Mix and chill',
     })
-    expect(records.versionLines[0]?.ingredientId).toBe(records.ingredients[0]?._id)
+    expect(records.versionLines[0]?.ingredientId).toBe(
+      records.ingredients[0]?._id,
+    )
     expect(records.cookedFood?.recipeId).toBe(records.recipes[0]?._id)
     expect(records.cookedFood?.recipeVersionId).toBe(records.versions[0]?._id)
+  })
+
+  it('preserves non-gram basis units in custom ingredient snapshots and catalog saves', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const sessionId = await insertCookSession(t)
+
+    const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
+      cookSessionId: sessionId,
+      name: 'Stock cubes',
+      groupIds: [],
+      finishedWeightGrams: 100,
+      ingredients: [
+        {
+          sourceType: 'custom',
+          name: 'Stock cube',
+          kcalPer100: 200,
+          kcalBasisUnit: 'piece',
+          ignoreCalories: false,
+          referenceAmount: 2,
+          referenceUnit: 'piece',
+          countedAmount: 2,
+          saveToCatalog: true,
+        },
+      ],
+    })
+
+    const records = await t.run(async (ctx) => ({
+      cookedFood: await ctx.db.get(cookedFoodId),
+      lines: await ctx.db
+        .query('cookedFoodIngredients')
+        .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
+        .collect(),
+      ingredients: await ctx.db
+        .query('ingredients')
+        .withIndex('by_owner', (q) => q.eq('ownerUserId', 'user-1'))
+        .collect(),
+    }))
+
+    expect(records.cookedFood).toMatchObject({
+      totalRawWeightGrams: 0,
+      totalCalories: 4,
+    })
+    expect(records.lines[0]).toMatchObject({
+      ingredientKcalBasisUnitSnapshot: 'piece',
+      countedAmount: 2,
+    })
+    expect(records.lines[0]?.rawWeightGrams).toBeUndefined()
+    expect(records.ingredients[0]?.kcalBasisUnit).toBe('piece')
   })
 
   it('normalizes meal dates and stores calorie snapshots', async () => {
@@ -233,6 +286,41 @@ describe('nutrition cooking and meal mutations', () => {
       consumedWeightGrams: 60,
       caloriesSnapshot: 180,
     })
+  })
+
+  it('preserves meal notes when an edit omits the notes field', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await insertPerson(t)
+    const ingredientId = await insertIngredient(t, { name: 'Chicken' })
+    const mealId = await user.mutation(api.nutrition.createMeal, {
+      personId,
+      notes: 'Keep this note',
+      items: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          consumedWeightGrams: 50,
+        },
+      ],
+    })
+
+    await user.mutation(api.nutrition.updateMeal, {
+      mealId,
+      personId,
+      name: 'Updated meal',
+      items: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          consumedWeightGrams: 60,
+        },
+      ],
+    })
+
+    expect(await t.run(async (ctx) => (await ctx.db.get(mealId))?.notes)).toBe(
+      'Keep this note',
+    )
   })
 
   it('deletes a meal and its child meal items', async () => {
