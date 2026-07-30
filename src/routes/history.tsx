@@ -89,7 +89,10 @@ function HistoryPageContent() {
   )
   const [endDate, setEndDate] = useState(() => toLocalDateString(Date.now()))
 
-  const { data, isLoading } = useHistoryData({ startDate, endDate })
+  const isDateRangeValid = startDate <= endDate
+  const { data, isLoading } = useHistoryData(
+    isDateRangeValid ? { startDate, endDate } : 'skip',
+  )
 
   const people = useMemo(
     () => data.people.filter((person) => person.active),
@@ -123,7 +126,14 @@ function HistoryPageContent() {
   }, [data.mealItems])
 
   const rows = useMemo(() => {
-    if (!effectiveSelectedPersonId || !startDate || !endDate) return []
+    if (
+      !isDateRangeValid ||
+      !effectiveSelectedPersonId ||
+      !startDate ||
+      !endDate
+    ) {
+      return []
+    }
 
     const caloriesByDate = new Map<string, number>()
 
@@ -172,6 +182,7 @@ function HistoryPageContent() {
     selectedPerson,
     startDate,
     endDate,
+    isDateRangeValid,
   ])
 
   const avgConsumed = useMemo(() => {
@@ -216,13 +227,21 @@ function HistoryPageContent() {
             <p className="mb-1 text-xs font-medium text-muted-foreground">
               From
             </p>
-            <DatePicker value={startDate} onChange={setStartDate} />
+            <DatePicker
+              value={startDate}
+              onChange={setStartDate}
+              ariaLabel="History start date"
+            />
           </div>
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">
               To
             </p>
-            <DatePicker value={endDate} onChange={setEndDate} />
+            <DatePicker
+              value={endDate}
+              onChange={setEndDate}
+              ariaLabel="History end date"
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setPresetDays(7)}>
@@ -234,38 +253,51 @@ function HistoryPageContent() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Daily Goal</span>
-            <span className="text-sm font-semibold">
-              {selectedPerson
-                ? `${selectedPerson.currentDailyGoalKcal.toFixed(0)} kcal`
-                : '--'}
-            </span>
+        {!isDateRangeValid ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          >
+            The start date must be on or before the end date.
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Avg. Consumed / Day
-            </span>
-            <span className="text-sm font-semibold">
-              {rows.length > 0 ? `${Math.round(avgConsumed)} kcal` : '--'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Days</span>
-            <span className="text-sm font-semibold">{rows.length}</span>
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Current daily goal
+                </span>
+                <span className="text-sm font-semibold">
+                  {selectedPerson
+                    ? `${selectedPerson.currentDailyGoalKcal.toFixed(0)} kcal`
+                    : '--'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Avg. Consumed / Day
+                </span>
+                <span className="text-sm font-semibold">
+                  {rows.length > 0 ? `${Math.round(avgConsumed)} kcal` : '--'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Days</span>
+                <span className="text-sm font-semibold">{rows.length}</span>
+              </div>
+            </div>
 
-        <HistoryChart rows={rows} />
+            <HistoryChart rows={rows} />
 
-        <div>
-          <DataTable
-            columns={columns}
-            data={rows}
-            emptyText="No data for the selected range."
-          />
-        </div>
+            <div>
+              <DataTable
+                columns={columns}
+                data={rows}
+                emptyText="No data for the selected range."
+              />
+            </div>
+          </>
+        )}
       </div>
     </PageShell>
   )

@@ -1214,7 +1214,7 @@ function CookingPageContent() {
               <Skeleton className="h-96 w-full" />
             </div>
           </div>
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+          <div className="grid gap-6">
             <div>
               <Skeleton className="h-4 w-32" />
               <Skeleton className="mt-1 h-3 w-48" />
@@ -2101,7 +2101,7 @@ function CookingPageContent() {
             </section>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)]">
+          <div className="grid gap-6">
             <section className="min-w-0">
               <div className="mb-3">
                 <h2 className="text-sm font-semibold text-foreground">{savedFoodsCardTitle}</h2>

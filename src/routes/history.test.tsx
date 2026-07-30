@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,16 +13,41 @@ import {
 } from '@/tests/factories'
 
 let mockManagementData: ManagementData = createEmptyManagementData()
+let mockHistoryArgs: { startDate: string; endDate: string } | 'skip'
 
 vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
 }))
 
 vi.mock('@/hooks/use-management-data', () => ({
-  useHistoryData: () => ({
-    data: mockManagementData,
-    isLoading: false,
-  }),
+  useHistoryData: (
+    args: { startDate: string; endDate: string } | 'skip',
+  ) => {
+    mockHistoryArgs = args
+    return {
+      data: mockManagementData,
+      isLoading: false,
+    }
+  },
+}))
+
+vi.mock('@/components/ui/date-picker', () => ({
+  DatePicker: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string
+    onChange: (value: string) => void
+    ariaLabel?: string
+  }) => (
+    <input
+      type="date"
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
 }))
 
 import { Route as HistoryRoute } from '@/routes/history'
@@ -118,6 +143,7 @@ describe('History route', () => {
     expect(aprilFourthRow?.textContent).toContain('1700 kcal')
     expect(aprilSecondRow?.textContent).toContain('2000 kcal')
     expect(aprilSecondRow?.textContent).toContain('1500 kcal')
+    expect(screen.getByText('Current daily goal')).toBeTruthy()
   })
 
   it('shows empty-state guidance when there are no active people', () => {
@@ -130,5 +156,20 @@ describe('History route', () => {
 
     expect(screen.getByText('No active people.')).toBeTruthy()
     expect(screen.getByText('No data for the selected range.')).toBeTruthy()
+  })
+
+  it('shows inline feedback and skips loading an invalid date range', () => {
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+
+    fireEvent.change(screen.getByLabelText('History start date'), {
+      target: { value: '2026-04-05' },
+    })
+
+    expect(mockHistoryArgs).toBe('skip')
+    expect(screen.getByRole('alert').textContent).toContain(
+      'start date must be on or before the end date',
+    )
+    expect(screen.queryByText('No data for the selected range.')).toBeNull()
   })
 })

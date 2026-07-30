@@ -67,24 +67,28 @@ export function CustomIngredientSwitchRow({
   className,
 }: CustomIngredientSwitchRowProps) {
   return (
-    <label
+    <div
       className={cn(
-        'col-span-full flex items-center gap-3 text-xs text-muted-foreground',
+        'col-span-full flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground',
         className,
       )}
     >
-      Ignore calories
-      <Switch
-        size="sm"
-        checked={ignoreCalories}
-        onCheckedChange={(checked) => onIgnoreCaloriesChange(Boolean(checked))}
-      />
-      Save to ingredient catalog
-      <Switch
-        size="sm"
-        checked={saveToCatalog}
-        onCheckedChange={(checked) => onSaveToCatalogChange(Boolean(checked))}
-      />
-    </label>
+      <label className="inline-flex items-center gap-2">
+        <span>Ignore calories</span>
+        <Switch
+          size="sm"
+          checked={ignoreCalories}
+          onCheckedChange={(checked) => onIgnoreCaloriesChange(Boolean(checked))}
+        />
+      </label>
+      <label className="inline-flex items-center gap-2">
+        <span>Save to ingredient catalog</span>
+        <Switch
+          size="sm"
+          checked={saveToCatalog}
+          onCheckedChange={(checked) => onSaveToCatalogChange(Boolean(checked))}
+        />
+      </label>
+    </div>
   )
 }
