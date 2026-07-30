@@ -9,7 +9,7 @@ Minimal guidance for AI/code agents working in this repository.
 - Styling/UI: Tailwind CSS v4, shadcn/ui.
 - Backend: Convex (`convex/schema.ts`, `convex/nutrition.ts`).
 - Auth: Clerk.
-- Package manager/runtime: Bun.
+- Package manager/runtime: pnpm + Node.js 24.
 
 ## Required Environment
 
@@ -39,14 +39,14 @@ When schema/validator changes may conflict with existing production data, use ex
 
 1. Expand:
    - Deploy compatibility code first.
-   - Run `bunx convex deploy`.
+   - Run `pnpm exec convex deploy`.
 2. Migrate:
    - Run one-off migration functions on prod.
-   - Example: `bunx convex run --prod <module:function> '{}'`.
+   - Example: `pnpm exec convex run --prod <module:function> '{}'`.
    - Important: new migration functions are not runnable until after they are deployed.
 3. Contract:
    - Remove temporary compatibility code and one-off migration functions.
-   - Run `bunx convex deploy` again.
+   - Run `pnpm exec convex deploy` again.
 
 Migration conventions:
 
@@ -64,25 +64,25 @@ Migration conventions:
 
 ## Local Commands
 
-- Install deps: `bun install`
-- Run app: `bun run dev` (Vite on port `3000`)
-- Build: `bun run build`
-- Preview build: `bun run preview`
-- Lint: `bun run lint`
-- Lint autofix: `bun run lint:fix`
-- Type check: `bun run typecheck`
-- Tests: `bun run test` (Vitest; currently no tests in repo)
-- Convex dev (separate terminal): `bunx convex dev`
+- Install deps: `pnpm install`
+- Run app: `pnpm run dev` (Vite on port `3000`)
+- Build: `pnpm run build`
+- Preview build: `pnpm run preview`
+- Lint: `pnpm run lint`
+- Lint autofix: `pnpm run lint:fix`
+- Type check: `pnpm run typecheck`
+- Tests: `pnpm run test`
+- Convex dev (separate terminal): `pnpm exec convex dev`
 
 ## Validation Before Handoff
 
 For non-trivial edits, run:
 
-1. `bun run lint`
-2. `bun run typecheck`
-3. `bun run build`
+1. `pnpm run lint`
+2. `pnpm run typecheck`
+3. `pnpm run build`
 
-If tests are added or changed, run `bun run test`.
+If tests are added or changed, run `pnpm run test`.
 
 <!-- convex-ai-start -->
 

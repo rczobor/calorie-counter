@@ -1,7 +1,9 @@
+import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import {
   buildSeedDefaultsArgs,
+  createConvexCliInvocation,
   parseSeedEnvFile,
 } from '../../scripts/seed-defaults'
 
@@ -45,13 +47,9 @@ describe('seed defaults script args', () => {
 
   it('uses parsed env file values when shell env is missing', () => {
     expect(
-      buildSeedDefaultsArgs(
-        {},
-        [],
-        {
-          SEED_OWNER_USER_ID: 'user_from_file',
-        },
-      ),
+      buildSeedDefaultsArgs({}, [], {
+        SEED_OWNER_USER_ID: 'user_from_file',
+      }),
     ).toEqual(['{"ownerUserId":"user_from_file"}'])
   })
 
@@ -67,6 +65,18 @@ describe('seed defaults script args', () => {
         },
       ),
     ).toEqual(['{"ownerUserId":"user_from_shell"}'])
+  })
+
+  it('launches the local Convex CLI through the current Node executable', () => {
+    const invocation = createConvexCliInvocation(['{"dryRun":true}'])
+
+    expect(invocation.command).toBe(process.execPath)
+    expect(existsSync(invocation.args[0] ?? '')).toBe(true)
+    expect(invocation.args.slice(1)).toEqual([
+      'run',
+      'seed:defaults',
+      '{"dryRun":true}',
+    ])
   })
 })
 

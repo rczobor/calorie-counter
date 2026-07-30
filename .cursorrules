@@ -96,5 +96,5 @@ Sourced from: https://github.com/PatrickJS/awesome-cursorrules/blob/main/rules/c
 Use the latest version of Shadcn to install new components, like this command to add a button component:
 
 ```bash
-bunx --bun shadcn@latest add button
+pnpm exec shadcn add button
 ```

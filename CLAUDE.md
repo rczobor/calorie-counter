@@ -8,20 +8,21 @@ Multi-person calorie tracking app. Users log meals, manage people with daily cal
 
 ## Commands
 
-- **Install**: `bun install`
-- **Dev server**: `bun run dev` (port 3000) — also run `bunx convex dev` in a separate terminal
-- **Build**: `bun run build`
-- **Lint**: `bun run lint` / `bun run lint:fix`
-- **Type check**: `bun run typecheck` (checks both app and convex)
-- **Test**: `bun run test` (Vitest, jsdom env, files matching `src/**/*.test.{ts,tsx}`)
-- **Format**: `bun run format` (Prettier: no semicolons, single quotes, trailing commas)
-- **Add shadcn component**: `bunx --bun shadcn@latest add <component>`
+- **Install**: `pnpm install`
+- **Dev server**: `pnpm run dev` (port 3000) — also run `pnpm exec convex dev` in a separate terminal
+- **Build**: `pnpm run build`
+- **Lint**: `pnpm run lint` / `pnpm run lint:fix`
+- **Type check**: `pnpm run typecheck` (checks both app and convex)
+- **Test**: `pnpm run test` (Vitest, jsdom env, files matching `src/**/*.test.{ts,tsx}`)
+- **Format**: `pnpm run format` (Prettier: no semicolons, single quotes, trailing commas)
+- **Add shadcn component**: `pnpm exec shadcn add <component>`
 
-Before submitting changes, run: `bun run lint && bun run typecheck && bun run build`
+Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run build`
 
 ## Architecture
 
 **Frontend** (`src/`):
+
 - `routes/` — File-based TanStack Router pages. Route tree is auto-generated in `routeTree.gen.ts` (do not edit).
 - `features/` — Feature modules organized by domain (cooking, manage, meals, people).
 - `components/ui/` — Shared shadcn/ui primitives (style: `base-mira`, icons: `lucide-react`).
@@ -29,14 +30,16 @@ Before submitting changes, run: `bun run lint && bun run typecheck && bun run bu
 - `lib/` — Shared utilities. Path alias: `@/*` maps to `./src/*`.
 
 **Backend** (`convex/`):
+
 - `schema.ts` — Database schema (tables: people, personGoalHistory, foodGroups, ingredients, recipes, recipeVersions, recipeVersionIngredients, cookSessions, cookedFoods, cookedFoodIngredients, meals, mealItems).
 - `nutrition.ts` — Main query/mutation logic for the domain.
 - `auth.config.ts` — Clerk JWT auth config for Convex.
 - `_generated/` — Auto-generated Convex code (do not edit).
 
 **Key patterns**:
+
 - React Compiler is enabled via `@rolldown/plugin-babel` with `reactCompilerPreset`.
-- `@convex-dev/react-query` bridges Convex with TanStack Query.
+- The app provides a `ConvexReactClient` directly, with Clerk auth when configured.
 - TypeScript strict mode with `noUnusedLocals` and `noUnusedParameters`.
 
 ## Convex Conventions
@@ -49,13 +52,14 @@ Before submitting changes, run: `bun run lint && bun run typecheck && bun run bu
 
 ### Schema Migrations (expand-migrate-contract)
 
-1. **Expand**: Deploy compatibility code (`bunx convex deploy`)
-2. **Migrate**: Run one-off `internalMutation`/`internalAction` on prod (`bunx convex run --prod <module:function> '{}'`)
+1. **Expand**: Deploy compatibility code (`pnpm exec convex deploy`)
+2. **Migrate**: Run one-off `internalMutation`/`internalAction` on prod (`pnpm exec convex run --prod <module:function> '{}'`)
 3. **Contract**: Remove migration code and redeploy
 
 ## Environment Variables
 
 Required in `.env.local`:
+
 - `VITE_CONVEX_URL` — Convex deployment URL
 - `CONVEX_DEPLOYMENT` — Convex deployment name
 - `VITE_CLERK_PUBLISHABLE_KEY` — Clerk publishable key (for auth UI)
