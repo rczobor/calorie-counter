@@ -10,6 +10,7 @@
 
 import type * as nutrition from "../nutrition.js";
 import type * as seed from "../seed.js";
+import type * as validators from "../validators.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   nutrition: typeof nutrition;
   seed: typeof seed;
+  validators: typeof validators;
 }>;
 
 /**

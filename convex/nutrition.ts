@@ -8,20 +8,28 @@ import {
 } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import { v } from 'convex/values'
+import {
+  cookSessionValidator,
+  cookedFoodIngredientValidator as cookedFoodIngredientDocumentValidator,
+  cookedFoodValidator,
+  foodGroupValidator,
+  groupScopeValidator,
+  ingredientValidator,
+  mealItemValidator,
+  mealValidator,
+  nutritionUnitValidator,
+  personGoalHistoryValidator,
+  personValidator,
+  recipeValidator,
+  recipeVersionIngredientValidator,
+  recipeVersionValidator,
+} from './validators'
 
-const nutritionUnitValidator = v.union(
-  v.literal('pinch'),
-  v.literal('teaspoon'),
-  v.literal('tablespoon'),
-  v.literal('piece'),
-  v.literal('g'),
-  v.literal('ml'),
+const optionalNullableStringValidator = v.optional(
+  v.union(v.string(), v.null()),
 )
-
-const groupScopeValidator = v.union(
-  v.literal('ingredient'),
-  v.literal('cookedFood'),
-)
+const MAX_INGREDIENT_LINES = 100
+const MAX_GROUPS_PER_ITEM = 20
 
 const recipeIngredientValidator = v.union(
   v.object({
@@ -35,6 +43,7 @@ const recipeIngredientValidator = v.union(
     sourceType: v.literal('custom'),
     name: v.string(),
     kcalPer100: v.number(),
+    kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
@@ -112,6 +121,16 @@ function assertPositive(value: number, fieldName: string) {
 function assertNonNegative(value: number, fieldName: string) {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(`${fieldName} must be 0 or greater.`)
+  }
+}
+
+function assertArrayLimit(
+  values: readonly unknown[],
+  maximum: number,
+  fieldName: string,
+) {
+  if (values.length > maximum) {
+    throw new Error(`${fieldName} cannot contain more than ${maximum} items.`)
   }
 }
 
@@ -204,6 +223,7 @@ function normalizeDate(value: string | undefined, fallbackDate: number) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     throw new Error('Date must be in YYYY-MM-DD format.')
   }
+  assertRealCalendarDate(trimmed, 'Date')
   return trimmed
 }
 
@@ -212,7 +232,24 @@ function normalizeRequiredDate(value: string, fieldName: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     throw new Error(`${fieldName} must be in YYYY-MM-DD format.`)
   }
+  assertRealCalendarDate(trimmed, fieldName)
   return trimmed
+}
+
+function assertRealCalendarDate(value: string, fieldName: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`${fieldName} must be a valid calendar date.`)
+  }
+}
+
+function normalizeNullableText(value: string | null) {
+  return value === null ? undefined : value.trim() || undefined
 }
 
 function mealDateKey(meal: { eatenOn: string }) {
@@ -236,6 +273,53 @@ function getIngredientIgnoreCalories(ingredient: { ignoreCalories?: boolean }) {
   return Boolean(ingredient.ignoreCalories)
 }
 
+async function assertGroupsForScope(
+  db: DatabaseWriter,
+  owner: AuthenticatedOwner,
+  groupIds: Id<'foodGroups'>[],
+  appliesTo: 'ingredient' | 'cookedFood',
+) {
+  assertArrayLimit(groupIds, MAX_GROUPS_PER_ITEM, 'Groups')
+  if (new Set(groupIds).size !== groupIds.length) {
+    throw new Error('Groups cannot contain duplicates.')
+  }
+  const groups = await Promise.all(groupIds.map((groupId) => db.get(groupId)))
+  if (
+    groups.some(
+      (group) => !isOwnedBy(group, owner) || group.appliesTo !== appliesTo,
+    )
+  ) {
+    throw new Error(
+      `One or more groups are missing or do not apply to ${appliesTo === 'ingredient' ? 'ingredients' : 'cooked foods'}.`,
+    )
+  }
+}
+
+async function resolveRecipeLink(
+  db: DatabaseWriter,
+  owner: AuthenticatedOwner,
+  recipeId?: Id<'recipes'>,
+  recipeVersionId?: Id<'recipeVersions'>,
+) {
+  const recipe = recipeId
+    ? assertOwnedOrThrow(await db.get(recipeId), owner, 'Recipe not found.')
+    : undefined
+  const recipeVersion = recipeVersionId
+    ? assertOwnedOrThrow(
+        await db.get(recipeVersionId),
+        owner,
+        'Recipe version not found.',
+      )
+    : undefined
+  if (recipe && recipeVersion && recipeVersion.recipeId !== recipe._id) {
+    throw new Error('Recipe version does not belong to the selected recipe.')
+  }
+  return {
+    recipeId: recipe?._id ?? recipeVersion?.recipeId,
+    recipeVersionId: recipeVersion?._id,
+  }
+}
+
 async function saveCustomIngredientToCatalog(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
@@ -244,6 +328,7 @@ async function saveCustomIngredientToCatalog(
   customIngredient: {
     name: string
     kcalPer100: number
+    kcalBasisUnit: NutritionUnit
     ignoreCalories: boolean
   },
 ) {
@@ -257,6 +342,7 @@ async function saveCustomIngredientToCatalog(
   const dedupeKey = [
     customIngredient.name.toLowerCase(),
     String(normalizedKcalPer100),
+    customIngredient.kcalBasisUnit,
     customIngredient.ignoreCalories ? 'ignore' : 'count',
   ].join('::')
 
@@ -270,6 +356,7 @@ async function saveCustomIngredientToCatalog(
     name: customIngredient.name,
     brand: undefined,
     kcalPer100: normalizedKcalPer100,
+    kcalBasisUnit: customIngredient.kcalBasisUnit,
     ignoreCalories: customIngredient.ignoreCalories,
     groupIds: [],
     notes: undefined,
@@ -314,6 +401,7 @@ async function buildCookedFoodNutrition(
   if (ingredients.length === 0) {
     throw new Error('At least one ingredient is required.')
   }
+  assertArrayLimit(ingredients, MAX_INGREDIENT_LINES, 'Ingredients')
 
   const now = Date.now()
   const createdIngredientByKey = new Map<string, Id<'ingredients'>>()
@@ -353,7 +441,9 @@ async function buildCookedFoodNutrition(
           : undefined
       if (countedAmount !== undefined) {
         assertPositive(countedAmount, 'Counted amount')
-        totalRawWeightGrams += countedAmount
+        if (getIngredientBasisUnit(ingredient) === 'g') {
+          totalRawWeightGrams += countedAmount
+        }
       }
       const ingredientCalories =
         ignoreCalories || countedAmount === undefined
@@ -382,6 +472,7 @@ async function buildCookedFoodNutrition(
       fieldName: 'Custom ingredient kcal/100',
     })
     const ingredientName = line.name.trim()
+    const kcalBasisUnit = line.kcalBasisUnit ?? 'g'
     const ignoreCalories = Boolean(line.ignoreCalories)
     if (!ignoreCalories) {
       assertPositive(line.countedAmount ?? NaN, 'Counted amount')
@@ -392,7 +483,9 @@ async function buildCookedFoodNutrition(
         : undefined
     if (countedAmount !== undefined) {
       assertPositive(countedAmount, 'Counted amount')
-      totalRawWeightGrams += countedAmount
+      if (kcalBasisUnit === 'g') {
+        totalRawWeightGrams += countedAmount
+      }
     }
     const shouldSaveToCatalog =
       persistAllCustomIngredients || Boolean(line.saveToCatalog)
@@ -406,6 +499,7 @@ async function buildCookedFoodNutrition(
         {
           name: ingredientName,
           kcalPer100: normalizedKcalPer100,
+          kcalBasisUnit,
           ignoreCalories,
         },
       )
@@ -424,7 +518,7 @@ async function buildCookedFoodNutrition(
       referenceUnit: line.referenceUnit,
       countedAmount,
       ingredientKcalPer100Snapshot: normalizedKcalPer100,
-      ingredientKcalBasisUnitSnapshot: 'g',
+      ingredientKcalBasisUnitSnapshot: kcalBasisUnit,
       ignoreCaloriesSnapshot: ignoreCalories,
       ingredientCaloriesSnapshot: ingredientCalories,
       notes: line.notes?.trim() || undefined,
@@ -454,6 +548,7 @@ async function resolveRecipeIngredientLines(
         sourceType: 'custom'
         name: string
         kcalPer100: number
+        kcalBasisUnit?: NutritionUnit
         ignoreCalories: boolean
         referenceAmount: number
         referenceUnit: NutritionUnit
@@ -468,6 +563,7 @@ async function resolveRecipeIngredientLines(
   if (ingredientLines.length === 0) {
     throw new Error('Recipe needs at least one ingredient.')
   }
+  assertArrayLimit(ingredientLines, MAX_INGREDIENT_LINES, 'Recipe ingredients')
   const now = Date.now()
   const persistAllCustomIngredients =
     options?.persistAllCustomIngredients ?? false
@@ -515,6 +611,7 @@ async function resolveRecipeIngredientLines(
       fieldName: 'Custom ingredient kcal/100',
     })
     const ingredientName = line.name.trim()
+    const kcalBasisUnit = line.kcalBasisUnit ?? 'g'
     const ignoreCalories = Boolean(line.ignoreCalories)
     const shouldSaveToCatalog =
       persistAllCustomIngredients || Boolean(line.saveToCatalog)
@@ -528,6 +625,7 @@ async function resolveRecipeIngredientLines(
         {
           name: ingredientName,
           kcalPer100: normalizedKcalPer100,
+          kcalBasisUnit,
           ignoreCalories,
         },
       )
@@ -538,7 +636,7 @@ async function resolveRecipeIngredientLines(
       ingredientId,
       ingredientNameSnapshot: ingredientName,
       kcalPer100Snapshot: normalizedKcalPer100,
-      kcalBasisUnitSnapshot: 'g',
+      kcalBasisUnitSnapshot: kcalBasisUnit,
       ignoreCaloriesSnapshot: ignoreCalories,
       referenceAmount: line.referenceAmount,
       referenceUnit: line.referenceUnit,
@@ -579,6 +677,7 @@ async function buildMealItemSnapshots(
   if (items.length === 0) {
     throw new Error('At least one meal item is required.')
   }
+  assertArrayLimit(items, MAX_INGREDIENT_LINES, 'Meal items')
   const createdIngredientByKey = new Map<string, Id<'ingredients'>>()
   const now = Date.now()
 
@@ -596,6 +695,12 @@ async function buildMealItemSnapshots(
         const consumedWeightGrams = item.consumedWeightGrams
         const ignoreCalories = getIngredientIgnoreCalories(ingredient)
         const ingredientKcalPer100 = getIngredientKcalPer100(ingredient)
+        const kcalBasisUnit = getIngredientBasisUnit(ingredient)
+        if (kcalBasisUnit !== 'g') {
+          throw new Error(
+            'Only gram-based ingredients can be added directly to meals.',
+          )
+        }
         if (!ignoreCalories) {
           assertPositive(ingredientKcalPer100, 'Ingredient kcal/100')
         }
@@ -609,7 +714,7 @@ async function buildMealItemSnapshots(
           nameSnapshot: ingredient.name,
           consumedWeightGrams,
           kcalPer100Snapshot: ingredientKcalPer100,
-          kcalBasisUnitSnapshot: 'g' as const,
+          kcalBasisUnitSnapshot: kcalBasisUnit,
           ignoreCaloriesSnapshot: ignoreCalories,
           caloriesSnapshot: calories,
           notes: item.notes?.trim() || undefined,
@@ -635,6 +740,7 @@ async function buildMealItemSnapshots(
             {
               name: ingredientName,
               kcalPer100: normalizedKcalPer100,
+              kcalBasisUnit: 'g',
               ignoreCalories: item.ignoreCalories,
             },
           )
@@ -834,6 +940,20 @@ function sortMeals(meals: Doc<'meals'>[]) {
 
 export const getManagementData = query({
   args: {},
+  returns: v.object({
+    people: v.array(personValidator),
+    personGoalHistory: v.array(personGoalHistoryValidator),
+    foodGroups: v.array(foodGroupValidator),
+    ingredients: v.array(ingredientValidator),
+    recipes: v.array(recipeValidator),
+    recipeVersions: v.array(recipeVersionValidator),
+    recipeVersionIngredients: v.array(recipeVersionIngredientValidator),
+    cookSessions: v.array(cookSessionValidator),
+    cookedFoods: v.array(cookedFoodValidator),
+    cookedFoodIngredients: v.array(cookedFoodIngredientDocumentValidator),
+    meals: v.array(mealValidator),
+    mealItems: v.array(mealItemValidator),
+  }),
   handler: async (ctx) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -941,6 +1061,14 @@ export const getMealDashboardData = query({
   args: {
     eatenOn: v.string(),
   },
+  returns: v.object({
+    people: v.array(personValidator),
+    ingredients: v.array(ingredientValidator),
+    cookSessions: v.array(cookSessionValidator),
+    cookedFoods: v.array(cookedFoodValidator),
+    meals: v.array(mealValidator),
+    mealItems: v.array(mealItemValidator),
+  }),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -990,6 +1118,12 @@ export const getPeopleData = query({
   args: {
     today: v.string(),
   },
+  returns: v.object({
+    people: v.array(personValidator),
+    personGoalHistory: v.array(personGoalHistoryValidator),
+    meals: v.array(mealValidator),
+    mealItems: v.array(mealItemValidator),
+  }),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -1025,6 +1159,12 @@ export const getHistoryData = query({
     startDate: v.string(),
     endDate: v.string(),
   },
+  returns: v.object({
+    people: v.array(personValidator),
+    personGoalHistory: v.array(personGoalHistoryValidator),
+    meals: v.array(mealValidator),
+    mealItems: v.array(mealItemValidator),
+  }),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -1061,6 +1201,13 @@ export const getHistoryData = query({
 
 export const getCatalogData = query({
   args: {},
+  returns: v.object({
+    foodGroups: v.array(foodGroupValidator),
+    ingredients: v.array(ingredientValidator),
+    recipes: v.array(recipeValidator),
+    recipeVersions: v.array(recipeVersionValidator),
+    recipeVersionIngredients: v.array(recipeVersionIngredientValidator),
+  }),
   handler: async (ctx) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -1116,6 +1263,17 @@ export const getCatalogData = query({
 
 export const getCookingData = query({
   args: {},
+  returns: v.object({
+    people: v.array(personValidator),
+    foodGroups: v.array(foodGroupValidator),
+    ingredients: v.array(ingredientValidator),
+    recipes: v.array(recipeValidator),
+    recipeVersions: v.array(recipeVersionValidator),
+    recipeVersionIngredients: v.array(recipeVersionIngredientValidator),
+    cookSessions: v.array(cookSessionValidator),
+    cookedFoods: v.array(cookedFoodValidator),
+    cookedFoodIngredients: v.array(cookedFoodIngredientDocumentValidator),
+  }),
   handler: async (ctx) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -1206,6 +1364,7 @@ export const createPerson = mutation({
     notes: v.optional(v.string()),
     effectiveDate: v.optional(v.string()),
   },
+  returns: v.id('people'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Name')
@@ -1235,20 +1394,47 @@ export const updatePerson = mutation({
   args: {
     personId: v.id('people'),
     name: v.string(),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
+    goalKcal: v.optional(v.number()),
+    effectiveDate: v.optional(v.string()),
+    reason: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
-    assertOwnedOrThrow(
+    const person = assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
       'Person not found.',
     )
     assertNonEmpty(args.name, 'Name')
-    await ctx.db.patch(args.personId, {
+    const personPatch: Partial<Doc<'people'>> = {
       name: args.name.trim(),
-      notes: args.notes?.trim() || undefined,
-    })
+    }
+    if (args.notes !== undefined) {
+      personPatch.notes = normalizeNullableText(args.notes)
+    }
+    const goalChanged =
+      args.goalKcal !== undefined &&
+      args.goalKcal !== person.currentDailyGoalKcal
+    if (args.goalKcal !== undefined) {
+      assertPositive(args.goalKcal, 'Goal')
+      if (goalChanged) {
+        personPatch.currentDailyGoalKcal = args.goalKcal
+      }
+    }
+    await ctx.db.patch(args.personId, personPatch)
+    if (goalChanged && args.goalKcal !== undefined) {
+      const now = Date.now()
+      await ctx.db.insert('personGoalHistory', {
+        ...ownerFields(owner),
+        personId: args.personId,
+        effectiveDate: normalizeDate(args.effectiveDate, now),
+        goalKcal: args.goalKcal,
+        reason: args.reason?.trim() || undefined,
+        createdAt: now,
+      })
+    }
   },
 })
 
@@ -1259,14 +1445,18 @@ export const updatePersonGoal = mutation({
     effectiveDate: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertPositive(args.goalKcal, 'Goal')
-    assertOwnedOrThrow(
+    const person = assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
       'Person not found.',
     )
+    if (args.goalKcal === person.currentDailyGoalKcal) {
+      return
+    }
     const now = Date.now()
     await ctx.db.patch(args.personId, {
       currentDailyGoalKcal: args.goalKcal,
@@ -1287,6 +1477,7 @@ export const setPersonArchived = mutation({
     personId: v.id('people'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1300,6 +1491,7 @@ export const setPersonArchived = mutation({
 
 export const deletePerson = mutation({
   args: { personId: v.id('people') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1342,6 +1534,7 @@ export const createFoodGroup = mutation({
     name: v.string(),
     appliesTo: groupScopeValidator,
   },
+  returns: v.id('foodGroups'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Group name')
@@ -1362,14 +1555,37 @@ export const updateFoodGroup = mutation({
     name: v.string(),
     appliesTo: groupScopeValidator,
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Group name')
-    assertOwnedOrThrow(
+    const group = assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
       owner,
       'Group not found.',
     )
+    if (group.appliesTo !== args.appliesTo) {
+      const [ingredients, cookedFoods] = await Promise.all([
+        ctx.db
+          .query('ingredients')
+          .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+          .collect(),
+        ctx.db
+          .query('cookedFoods')
+          .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+          .collect(),
+      ])
+      if (
+        [
+          ...filterOwnedRows(ingredients, owner),
+          ...filterOwnedRows(cookedFoods, owner),
+        ].some((item) => item.groupIds.includes(args.groupId))
+      ) {
+        throw new Error(
+          'Group scope cannot change while the group is assigned to records.',
+        )
+      }
+    }
     await ctx.db.patch(args.groupId, {
       name: args.name.trim(),
       appliesTo: args.appliesTo,
@@ -1382,6 +1598,7 @@ export const setFoodGroupArchived = mutation({
     groupId: v.id('foodGroups'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1395,6 +1612,7 @@ export const setFoodGroupArchived = mutation({
 
 export const deleteFoodGroup = mutation({
   args: { groupId: v.id('foodGroups') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -1434,10 +1652,12 @@ export const createIngredient = mutation({
     name: v.string(),
     brand: v.optional(v.string()),
     kcalPer100: v.number(),
+    kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
     groupIds: v.array(v.id('foodGroups')),
     notes: v.optional(v.string()),
   },
+  returns: v.id('ingredients'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Ingredient name')
@@ -1445,12 +1665,7 @@ export const createIngredient = mutation({
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
-    const groups = await Promise.all(
-      args.groupIds.map((groupId) => ctx.db.get(groupId)),
-    )
-    if (groups.some((group) => !isOwnedBy(group, owner))) {
-      throw new Error('One or more groups are missing.')
-    }
+    await assertGroupsForScope(ctx.db, owner, args.groupIds, 'ingredient')
 
     const now = Date.now()
     return await ctx.db.insert('ingredients', {
@@ -1458,6 +1673,7 @@ export const createIngredient = mutation({
       name: args.name.trim(),
       brand: args.brand?.trim() || undefined,
       kcalPer100: normalizedKcalPer100,
+      kcalBasisUnit: args.kcalBasisUnit ?? 'g',
       ignoreCalories: args.ignoreCalories,
       groupIds: args.groupIds,
       notes: args.notes?.trim() || undefined,
@@ -1473,13 +1689,15 @@ export const updateIngredient = mutation({
     name: v.string(),
     brand: v.optional(v.string()),
     kcalPer100: v.number(),
+    kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
     groupIds: v.array(v.id('foodGroups')),
     notes: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
-    assertOwnedOrThrow(
+    const ingredient = assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
       owner,
       'Ingredient not found.',
@@ -1489,16 +1707,12 @@ export const updateIngredient = mutation({
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
-    const groups = await Promise.all(
-      args.groupIds.map((groupId) => ctx.db.get(groupId)),
-    )
-    if (groups.some((group) => !isOwnedBy(group, owner))) {
-      throw new Error('One or more groups are missing.')
-    }
+    await assertGroupsForScope(ctx.db, owner, args.groupIds, 'ingredient')
     await ctx.db.patch(args.ingredientId, {
       name: args.name.trim(),
       brand: args.brand?.trim() || undefined,
       kcalPer100: normalizedKcalPer100,
+      kcalBasisUnit: args.kcalBasisUnit ?? getIngredientBasisUnit(ingredient),
       ignoreCalories: args.ignoreCalories,
       groupIds: args.groupIds,
       notes: args.notes?.trim() || undefined,
@@ -1511,6 +1725,15 @@ export const normalizeKcalValuesToIntegers = internalMutation({
     ownerUserId: v.string(),
     dryRun: v.optional(v.boolean()),
   },
+  returns: v.object({
+    dryRun: v.boolean(),
+    ingredients: v.number(),
+    recipeVersionIngredients: v.number(),
+    cookedFoods: v.number(),
+    cookedFoodIngredients: v.number(),
+    mealItems: v.number(),
+    totalPatched: v.number(),
+  }),
   handler: async (ctx, args) => {
     const ownerUserId = args.ownerUserId.trim()
     assertNonEmpty(ownerUserId, 'Owner user id')
@@ -1654,6 +1877,7 @@ export const setIngredientArchived = mutation({
     ingredientId: v.id('ingredients'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1667,6 +1891,7 @@ export const setIngredientArchived = mutation({
 
 export const deleteIngredient = mutation({
   args: { ingredientId: v.id('ingredients') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1716,6 +1941,10 @@ export const createRecipe = mutation({
     notes: v.optional(v.string()),
     ingredientLines: v.array(recipeIngredientValidator),
   },
+  returns: v.object({
+    recipeId: v.id('recipes'),
+    recipeVersionId: v.id('recipeVersions'),
+  }),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Recipe name')
@@ -1772,11 +2001,15 @@ export const updateRecipeCurrentVersion = mutation({
   args: {
     recipeId: v.id('recipes'),
     name: v.string(),
-    description: v.optional(v.string()),
-    instructions: v.optional(v.string()),
-    notes: v.optional(v.string()),
+    description: optionalNullableStringValidator,
+    instructions: optionalNullableStringValidator,
+    notes: optionalNullableStringValidator,
     ingredientLines: v.array(recipeIngredientValidator),
   },
+  returns: v.object({
+    recipeVersionId: v.id('recipeVersions'),
+    versionNumber: v.number(),
+  }),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const recipe = assertOwnedOrThrow(
@@ -1802,11 +2035,18 @@ export const updateRecipeCurrentVersion = mutation({
     }
     const nextVersionNumber = recipe.latestVersionNumber + 1
 
-    await ctx.db.patch(args.recipeId, {
+    const recipePatch: {
+      name: string
+      description?: string
+      latestVersionNumber: number
+    } = {
       name: args.name.trim(),
-      description: args.description?.trim() || undefined,
       latestVersionNumber: nextVersionNumber,
-    })
+    }
+    if (args.description !== undefined) {
+      recipePatch.description = normalizeNullableText(args.description)
+    }
+    await ctx.db.patch(args.recipeId, recipePatch)
     await ctx.db.patch(current._id, {
       isCurrent: false,
     })
@@ -1816,8 +2056,14 @@ export const updateRecipeCurrentVersion = mutation({
       recipeId: args.recipeId,
       versionNumber: nextVersionNumber,
       name: args.name.trim(),
-      instructions: args.instructions?.trim() || undefined,
-      notes: args.notes?.trim() || undefined,
+      instructions:
+        args.instructions === undefined
+          ? current.instructions
+          : normalizeNullableText(args.instructions),
+      notes:
+        args.notes === undefined
+          ? current.notes
+          : normalizeNullableText(args.notes),
       isCurrent: true,
       createdAt: Date.now(),
     })
@@ -1849,6 +2095,7 @@ export const setRecipeArchived = mutation({
     recipeId: v.id('recipes'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1862,6 +2109,7 @@ export const setRecipeArchived = mutation({
 
 export const deleteRecipe = mutation({
   args: { recipeId: v.id('recipes') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -1909,6 +2157,7 @@ export const createCookSession = mutation({
     cookedByPersonId: v.optional(v.id('people')),
     notes: v.optional(v.string()),
   },
+  returns: v.id('cookSessions'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     if (args.cookedByPersonId) {
@@ -1939,8 +2188,9 @@ export const updateCookSession = mutation({
     label: v.optional(v.string()),
     cookedAt: v.optional(v.number()),
     cookedByPersonId: v.optional(v.id('people')),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const session = assertOwnedOrThrow(
@@ -1955,13 +2205,22 @@ export const updateCookSession = mutation({
         'Cook person not found.',
       )
     }
-    await ctx.db.patch(args.sessionId, {
+    const sessionPatch: {
+      label?: string
+      cookedAt: number
+      cookedByPersonId?: Id<'people'>
+      notes?: string
+      updatedAt: number
+    } = {
       label: args.label?.trim() || undefined,
       cookedAt: args.cookedAt ?? session.cookedAt,
       cookedByPersonId: args.cookedByPersonId,
-      notes: args.notes?.trim() || undefined,
       updatedAt: Date.now(),
-    })
+    }
+    if (args.notes !== undefined) {
+      sessionPatch.notes = normalizeNullableText(args.notes)
+    }
+    await ctx.db.patch(args.sessionId, sessionPatch)
   },
 })
 
@@ -1970,6 +2229,7 @@ export const setCookSessionArchived = mutation({
     sessionId: v.id('cookSessions'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -1983,6 +2243,7 @@ export const setCookSessionArchived = mutation({
 
 export const deleteCookSession = mutation({
   args: { sessionId: v.id('cookSessions') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const ownerUserId = owner.ownerUserId
@@ -2032,6 +2293,7 @@ export const createCookedFood = mutation({
     notes: v.optional(v.string()),
     ingredients: v.array(cookedFoodIngredientValidator),
   },
+  returns: v.id('cookedFoods'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertNonEmpty(args.name, 'Cooked food name')
@@ -2045,28 +2307,19 @@ export const createCookedFood = mutation({
         'Cannot select an existing recipe while saving as a new recipe.',
       )
     }
+    let existingRecipeLink: {
+      recipeId?: Id<'recipes'>
+      recipeVersionId?: Id<'recipeVersions'>
+    } = {}
     if (!args.saveAsRecipe) {
-      if (args.recipeId) {
-        assertOwnedOrThrow(
-          await ctx.db.get(args.recipeId),
-          owner,
-          'Recipe not found.',
-        )
-      }
-      if (args.recipeVersionId) {
-        assertOwnedOrThrow(
-          await ctx.db.get(args.recipeVersionId),
-          owner,
-          'Recipe version not found.',
-        )
-      }
+      existingRecipeLink = await resolveRecipeLink(
+        ctx.db,
+        owner,
+        args.recipeId,
+        args.recipeVersionId,
+      )
     }
-    const groups = await Promise.all(
-      args.groupIds.map((groupId) => ctx.db.get(groupId)),
-    )
-    if (groups.some((group) => !isOwnedBy(group, owner))) {
-      throw new Error('One or more groups are missing.')
-    }
+    await assertGroupsForScope(ctx.db, owner, args.groupIds, 'cookedFood')
 
     const nutrition = await buildCookedFoodNutrition(
       ctx.db,
@@ -2079,8 +2332,8 @@ export const createCookedFood = mutation({
     )
 
     const now = Date.now()
-    let linkedRecipeId = args.recipeId
-    let linkedRecipeVersionId = args.recipeVersionId
+    let linkedRecipeId = existingRecipeLink.recipeId
+    let linkedRecipeVersionId = existingRecipeLink.recipeVersionId
     if (args.saveAsRecipe) {
       const recipeName = args.recipeDraft?.name?.trim() || args.name.trim()
       assertNonEmpty(recipeName, 'Recipe name')
@@ -2151,10 +2404,12 @@ export const createCookedFood = mutation({
           referenceUnit: snapshot.referenceUnit,
           countedAmount: snapshot.countedAmount,
           rawWeightGrams:
-            snapshot.countedAmount ??
-            (snapshot.referenceUnit === 'g'
-              ? snapshot.referenceAmount
-              : undefined),
+            snapshot.ingredientKcalBasisUnitSnapshot === 'g'
+              ? (snapshot.countedAmount ??
+                (snapshot.referenceUnit === 'g'
+                  ? snapshot.referenceAmount
+                  : undefined))
+              : undefined,
           ingredientKcalPer100Snapshot: snapshot.ingredientKcalPer100Snapshot,
           ingredientKcalBasisUnitSnapshot:
             snapshot.ingredientKcalBasisUnitSnapshot,
@@ -2181,6 +2436,7 @@ export const updateCookedFood = mutation({
     notes: v.optional(v.string()),
     ingredients: v.array(cookedFoodIngredientValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const cookedFood = assertOwnedOrThrow(
@@ -2194,26 +2450,13 @@ export const updateCookedFood = mutation({
       owner,
       'Cook session not found.',
     )
-    if (args.recipeId) {
-      assertOwnedOrThrow(
-        await ctx.db.get(args.recipeId),
-        owner,
-        'Recipe not found.',
-      )
-    }
-    if (args.recipeVersionId) {
-      assertOwnedOrThrow(
-        await ctx.db.get(args.recipeVersionId),
-        owner,
-        'Recipe version not found.',
-      )
-    }
-    const groups = await Promise.all(
-      args.groupIds.map((groupId) => ctx.db.get(groupId)),
+    const recipeLink = await resolveRecipeLink(
+      ctx.db,
+      owner,
+      args.recipeId,
+      args.recipeVersionId,
     )
-    if (groups.some((group) => !isOwnedBy(group, owner))) {
-      throw new Error('One or more groups are missing.')
-    }
+    await assertGroupsForScope(ctx.db, owner, args.groupIds, 'cookedFood')
 
     const nutrition = await buildCookedFoodNutrition(
       ctx.db,
@@ -2225,8 +2468,8 @@ export const updateCookedFood = mutation({
     await ctx.db.patch(args.cookedFoodId, {
       cookSessionId: args.cookSessionId,
       name: args.name.trim(),
-      recipeId: args.recipeId,
-      recipeVersionId: args.recipeVersionId,
+      recipeId: recipeLink.recipeId,
+      recipeVersionId: recipeLink.recipeVersionId,
       groupIds: args.groupIds,
       finishedWeightGrams: args.finishedWeightGrams,
       totalRawWeightGrams: nutrition.totalRawWeightGrams,
@@ -2255,10 +2498,12 @@ export const updateCookedFood = mutation({
           referenceUnit: snapshot.referenceUnit,
           countedAmount: snapshot.countedAmount,
           rawWeightGrams:
-            snapshot.countedAmount ??
-            (snapshot.referenceUnit === 'g'
-              ? snapshot.referenceAmount
-              : undefined),
+            snapshot.ingredientKcalBasisUnitSnapshot === 'g'
+              ? (snapshot.countedAmount ??
+                (snapshot.referenceUnit === 'g'
+                  ? snapshot.referenceAmount
+                  : undefined))
+              : undefined,
           ingredientKcalPer100Snapshot: snapshot.ingredientKcalPer100Snapshot,
           ingredientKcalBasisUnitSnapshot:
             snapshot.ingredientKcalBasisUnitSnapshot,
@@ -2279,6 +2524,7 @@ export const setCookedFoodArchived = mutation({
     cookedFoodId: v.id('cookedFoods'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const cookedFood = assertOwnedOrThrow(
@@ -2293,6 +2539,7 @@ export const setCookedFoodArchived = mutation({
 
 export const deleteCookedFood = mutation({
   args: { cookedFoodId: v.id('cookedFoods') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     const sessionId = await deleteCookedFoodWithChildren(
@@ -2312,6 +2559,7 @@ export const createMeal = mutation({
     notes: v.optional(v.string()),
     items: v.array(mealItemInputValidator),
   },
+  returns: v.id('meals'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertOwnedOrThrow(
@@ -2362,32 +2610,33 @@ export const updateMeal = mutation({
     personId: v.id('people'),
     name: v.optional(v.string()),
     eatenOn: v.optional(v.string()),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
     items: v.array(mealItemInputValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
-    assertOwnedOrThrow(
-      await ctx.db.get(args.mealId),
-      owner,
-      'Meal not found.',
-    )
+    assertOwnedOrThrow(await ctx.db.get(args.mealId), owner, 'Meal not found.')
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
       'Person not found.',
     )
-    const snapshots = await buildMealItemSnapshots(
-      ctx.db,
-      owner,
-      args.items,
-    )
-    await ctx.db.patch(args.mealId, {
+    const snapshots = await buildMealItemSnapshots(ctx.db, owner, args.items)
+    const mealPatch: {
+      personId: Id<'people'>
+      name?: string
+      eatenOn: string
+      notes?: string
+    } = {
       personId: args.personId,
       name: args.name?.trim() || undefined,
       eatenOn: normalizeDate(args.eatenOn, Date.now()),
-      notes: args.notes?.trim() || undefined,
-    })
+    }
+    if (args.notes !== undefined) {
+      mealPatch.notes = normalizeNullableText(args.notes)
+    }
+    await ctx.db.patch(args.mealId, mealPatch)
     const existingItems = await ctx.db
       .query('mealItems')
       .withIndex('by_meal', (q) => q.eq('mealId', args.mealId))
@@ -2420,26 +2669,20 @@ export const setMealArchived = mutation({
     mealId: v.id('meals'),
     archived: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
-    assertOwnedOrThrow(
-      await ctx.db.get(args.mealId),
-      owner,
-      'Meal not found.',
-    )
+    assertOwnedOrThrow(await ctx.db.get(args.mealId), owner, 'Meal not found.')
     await ctx.db.patch(args.mealId, { archived: args.archived })
   },
 })
 
 export const deleteMeal = mutation({
   args: { mealId: v.id('meals') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
-    assertOwnedOrThrow(
-      await ctx.db.get(args.mealId),
-      owner,
-      'Meal not found.',
-    )
+    assertOwnedOrThrow(await ctx.db.get(args.mealId), owner, 'Meal not found.')
     const items = await ctx.db
       .query('mealItems')
       .withIndex('by_meal', (q) => q.eq('mealId', args.mealId))

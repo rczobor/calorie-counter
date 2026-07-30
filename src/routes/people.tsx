@@ -64,7 +64,6 @@ function PeoplePageContent() {
 
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
-  const updatePersonGoal = useMutation(api.nutrition.updatePersonGoal)
   const setPersonArchived = useMutation(api.nutrition.setPersonArchived)
   const deletePerson = useMutation(api.nutrition.deletePerson)
 
@@ -171,7 +170,9 @@ function PeoplePageContent() {
               <div
                 className={cn(
                   'h-full rounded-full',
-                  row.original.remainingKcal < 0 ? 'bg-destructive' : 'bg-primary',
+                  row.original.remainingKcal < 0
+                    ? 'bg-destructive'
+                    : 'bg-primary',
                 )}
                 style={{ width: `${percent}%` }}
               />
@@ -403,9 +404,6 @@ function PeoplePageContent() {
                         await updatePerson({
                           personId: editingPersonId,
                           name,
-                        })
-                        await updatePersonGoal({
-                          personId: editingPersonId,
                           goalKcal: goalValue,
                           reason: goalReason.trim() || undefined,
                           effectiveDate: today,

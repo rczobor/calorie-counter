@@ -163,7 +163,10 @@ function MealDashboardPageContent() {
     return people[0]._id
   }, [people, selectedPersonId])
   const ingredients = useMemo(
-    () => data.ingredients.filter((item) => !item.archived),
+    () =>
+      data.ingredients.filter(
+        (item) => !item.archived && (item.kcalBasisUnit ?? 'g') === 'g',
+      ),
     [data.ingredients],
   )
   const cookSessions = useMemo(
@@ -304,7 +307,8 @@ function MealDashboardPageContent() {
     itemQuickName.trim().length > 0 &&
     Number.isFinite(Number(itemQuickCalories)) &&
     Number(itemQuickCalories) > 0
-  const canSubmitMeal = Boolean(effectiveSelectedPersonId) && mealItems.length > 0
+  const canSubmitMeal =
+    Boolean(effectiveSelectedPersonId) && mealItems.length > 0
 
   const mealTableRows: MealTableRow[] = mealsForSelection.map((meal) => {
     const itemRows = mealItemsByMealId.get(meal._id) ?? []
@@ -602,8 +606,7 @@ function MealDashboardPageContent() {
       return
     }
     if (item.sourceType === 'custom') {
-      const isQuickAdd =
-        item.consumedWeightGrams === 100 && !item.saveToCatalog
+      const isQuickAdd = item.consumedWeightGrams === 100 && !item.saveToCatalog
       if (isQuickAdd) {
         setItemMode('quick')
         setItemQuickName(item.name)
@@ -700,10 +703,7 @@ function MealDashboardPageContent() {
 
   if (isLoading) {
     return (
-      <LoadingSkeletonState
-        title="Meals"
-        icon={<Flame className="h-4 w-4" />}
-      >
+      <LoadingSkeletonState title="Meals" icon={<Flame className="h-4 w-4" />}>
         <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 border-b border-border/40 pb-4">
           <Skeleton className="h-5 w-28" />
           <Skeleton className="h-5 w-28" />
@@ -888,8 +888,14 @@ function MealDashboardPageContent() {
                       onClick={() => {
                         const name = itemQuickName.trim()
                         const calories = Number(itemQuickCalories)
-                        if (!name || !Number.isFinite(calories) || calories <= 0) {
-                          toast.error('Enter a food name and calories greater than 0.')
+                        if (
+                          !name ||
+                          !Number.isFinite(calories) ||
+                          calories <= 0
+                        ) {
+                          toast.error(
+                            'Enter a food name and calories greater than 0.',
+                          )
                           return
                         }
                         upsertDraft({
@@ -940,9 +946,7 @@ function MealDashboardPageContent() {
                         aria-label="Ingredient grams"
                         placeholder="Weight in grams"
                         value={itemWeight}
-                        onChange={(event) =>
-                          setItemWeight(event.target.value)
-                        }
+                        onChange={(event) => setItemWeight(event.target.value)}
                       />
                       <Button
                         variant="outline"
@@ -986,9 +990,7 @@ function MealDashboardPageContent() {
                       aria-label="Custom ingredient grams"
                       placeholder="Weight in grams"
                       value={itemWeight}
-                      onChange={(event) =>
-                        setItemWeight(event.target.value)
-                      }
+                      onChange={(event) => setItemWeight(event.target.value)}
                     />
                     <Button
                       variant="outline"
@@ -1060,78 +1062,78 @@ function MealDashboardPageContent() {
                 )}
               </div>
               {mealItems.length > 0 || editingDraftItemIndex !== null ? (
-              <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
-                {editingDraftItemIndex !== null ? (
-                  <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10">
-                    <p className="text-xs font-medium">
-                      Editing item #{editingDraftItemIndex + 1}
-                    </p>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={resetDraftItemInputs}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Cancel
-                    </Button>
-                  </div>
-                ) : null}
-                {mealItems.map((item, index) => {
-                  const itemCalories = getDraftItemCalories(item)
-                  const isQuickAdd =
-                    item.sourceType === 'custom' &&
-                    item.consumedWeightGrams === 100 &&
-                    !item.saveToCatalog
-                  const label =
-                    item.sourceType === 'ingredient'
-                      ? (ingredientById.get(item.ingredientId)?.name ??
-                        'Ingredient')
-                      : item.sourceType === 'custom'
-                        ? item.name
-                        : (cookedFoodById.get(item.cookedFoodId)?.name ??
-                          'Cooked food')
-                  return (
-                    <div
-                      key={`draft-item-${index}`}
-                      className="flex items-center justify-between gap-2 rounded-md border border-border/65 bg-background/45 px-2 py-1.5"
-                    >
-                      <p className="min-w-0 pr-2 text-xs text-foreground">
-                        <span className="font-medium">
-                          {isQuickAdd
-                            ? 'Quick'
-                            : item.sourceType === 'ingredient'
-                              ? 'From saved'
-                              : item.sourceType === 'custom'
-                                ? 'New ingredient'
-                                : 'Home-cooked'}
-                        </span>
-                        : {label}
-                        {isQuickAdd
-                          ? ` (+${itemCalories.toFixed(0)} kcal)`
-                          : ` - ${item.consumedWeightGrams.toFixed(0)} g (+${itemCalories.toFixed(0)} kcal)`}
+                <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+                  {editingDraftItemIndex !== null ? (
+                    <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10">
+                      <p className="text-xs font-medium">
+                        Editing item #{editingDraftItemIndex + 1}
                       </p>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => editDraftItem(index)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => removeDraftItem(index)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Remove
-                        </Button>
-                      </div>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={resetDraftItemInputs}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Cancel
+                      </Button>
                     </div>
-                  )
-                })}
-              </div>
+                  ) : null}
+                  {mealItems.map((item, index) => {
+                    const itemCalories = getDraftItemCalories(item)
+                    const isQuickAdd =
+                      item.sourceType === 'custom' &&
+                      item.consumedWeightGrams === 100 &&
+                      !item.saveToCatalog
+                    const label =
+                      item.sourceType === 'ingredient'
+                        ? (ingredientById.get(item.ingredientId)?.name ??
+                          'Ingredient')
+                        : item.sourceType === 'custom'
+                          ? item.name
+                          : (cookedFoodById.get(item.cookedFoodId)?.name ??
+                            'Cooked food')
+                    return (
+                      <div
+                        key={`draft-item-${index}`}
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/65 bg-background/45 px-2 py-1.5"
+                      >
+                        <p className="min-w-0 pr-2 text-xs text-foreground">
+                          <span className="font-medium">
+                            {isQuickAdd
+                              ? 'Quick'
+                              : item.sourceType === 'ingredient'
+                                ? 'From saved'
+                                : item.sourceType === 'custom'
+                                  ? 'New ingredient'
+                                  : 'Home-cooked'}
+                          </span>
+                          : {label}
+                          {isQuickAdd
+                            ? ` (+${itemCalories.toFixed(0)} kcal)`
+                            : ` - ${item.consumedWeightGrams.toFixed(0)} g (+${itemCalories.toFixed(0)} kcal)`}
+                        </p>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => editDraftItem(index)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => removeDraftItem(index)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               ) : null}
             </div>
 

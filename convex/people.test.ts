@@ -85,7 +85,10 @@ describe('nutrition people mutations', () => {
   it('rejects writes from a different token with the same subject', async () => {
     const t = createConvexTest()
     const owner = asTestUser(t)
-    const sameSubjectDifferentToken = asTestUserWithToken(t, 'user-1|other-token')
+    const sameSubjectDifferentToken = asTestUserWithToken(
+      t,
+      'user-1|other-token',
+    )
 
     const personId = await owner.mutation(api.nutrition.createPerson, {
       name: 'Alex',
@@ -131,6 +134,63 @@ describe('nutrition people mutations', () => {
       goalKcal: 1800,
       reason: 'Cutting',
     })
+  })
+
+  it('updates profile and goal atomically without erasing notes or duplicating history', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await user.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+      notes: 'Keep this note',
+    })
+
+    await user.mutation(api.nutrition.updatePerson, {
+      personId,
+      name: 'Alex Updated',
+      goalKcal: 1800,
+      effectiveDate: '2026-04-05',
+      reason: 'Cutting',
+    })
+    await user.mutation(api.nutrition.updatePerson, {
+      personId,
+      name: 'Alex Updated',
+      goalKcal: 1800,
+      effectiveDate: '2026-04-05',
+    })
+
+    const { person, history } = await t.run(async (ctx) => ({
+      person: await ctx.db.get(personId),
+      history: await ctx.db
+        .query('personGoalHistory')
+        .withIndex('by_person_createdAt', (q) => q.eq('personId', personId))
+        .collect(),
+    }))
+
+    expect(person).toMatchObject({
+      name: 'Alex Updated',
+      notes: 'Keep this note',
+      currentDailyGoalKcal: 1800,
+    })
+    expect(history).toHaveLength(2)
+    expect(history[1]).toMatchObject({
+      effectiveDate: '2026-04-05',
+      goalKcal: 1800,
+      reason: 'Cutting',
+    })
+  })
+
+  it('rejects impossible calendar dates', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+
+    await expect(
+      user.mutation(api.nutrition.createPerson, {
+        name: 'Alex',
+        currentDailyGoalKcal: 2200,
+        effectiveDate: '2026-02-30',
+      }),
+    ).rejects.toThrowError('Date must be a valid calendar date.')
   })
 
   it('refuses to delete a person with meal history', async () => {

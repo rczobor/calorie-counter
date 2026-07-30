@@ -69,10 +69,7 @@ async function resolveSeedOwner(
   }
 }
 
-function findByName<TDoc extends { name: string }>(
-  rows: TDoc[],
-  name: string,
-) {
+function findByName<TDoc extends { name: string }>(rows: TDoc[], name: string) {
   return rows.find((row) => row.name === name)
 }
 
@@ -89,6 +86,15 @@ export const defaults = internalMutation({
     ownerUserId: v.optional(v.string()),
     ownerTokenIdentifier: v.optional(v.string()),
   },
+  returns: v.object({
+    people: v.number(),
+    foodGroups: v.number(),
+    ingredients: v.number(),
+    recipes: v.number(),
+    cookSessions: v.number(),
+    cookedFoods: v.number(),
+    meals: v.number(),
+  }),
   handler: async (ctx, args): Promise<SeedSummary> => {
     const owner = await resolveSeedOwner(ctx, args)
     const now = Date.now()
@@ -225,10 +231,7 @@ export const defaults = internalMutation({
     const alexId = await ensurePerson('Alex', 2200)
     await ensurePerson('Taylor', 1800)
 
-    const pantryGroupId = await ensureFoodGroup(
-      'Pantry staples',
-      'ingredient',
-    )
+    const pantryGroupId = await ensureFoodGroup('Pantry staples', 'ingredient')
     const mealPrepGroupId = await ensureFoodGroup('Meal prep', 'cookedFood')
 
     const rolledOatsId = await ensureIngredient({
@@ -429,11 +432,7 @@ export const defaults = internalMutation({
       summary.cookedFoods += 1
     }
 
-    let mealId = findMealByName(
-      existingMeals,
-      'Preview breakfast',
-      today,
-    )?._id
+    let mealId = findMealByName(existingMeals, 'Preview breakfast', today)?._id
     if (!mealId) {
       const oatsWeightGrams = 60
       const yogurtWeightGrams = 250

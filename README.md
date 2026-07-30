@@ -15,7 +15,8 @@ A multi-person calorie tracking app built with TanStack Start + Convex, with opt
 
 - `/`: Meal dashboard for logging meals, editing entries, and tracking daily target/consumed/remaining calories.
 - `/people`: People management with daily goal updates and goal history.
-- `/manage`: Catalog/cooking management for food groups, ingredients, recipes, cook sessions, and cooked foods.
+- `/catalog`: Catalog management for food groups, ingredients, and recipes.
+- `/cooking`: Cooking batches, reusable recipes, and cooked-food drafts.
 
 ## Convex Domain Model
 
@@ -119,7 +120,8 @@ If you need strict token scoping, also set or pass `SEED_OWNER_TOKEN_IDENTIFIER`
 - `bun run seed:defaults`: Seed the selected Convex deployment with default data
 - `bun run lint`: Run ESLint
 - `bun run lint:fix`: Run ESLint with autofix
-- `bun run test`: Run Vitest (currently exits with code `1` because no test files exist yet)
+- `bun run typecheck`: Type-check the app and Convex backend
+- `bun run test`: Run the Vitest unit, route, and Convex test suites
 
 ## Dependency Security
 

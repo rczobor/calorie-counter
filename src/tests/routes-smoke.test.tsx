@@ -12,6 +12,10 @@ vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
 }))
 
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
+}))
+
 vi.mock('@/hooks/use-management-data', () => ({
   useMealDashboardData: () => ({
     data: emptyData,
