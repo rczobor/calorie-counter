@@ -34,7 +34,9 @@ describe('nutrition catalog mutations', () => {
       notes: '  Breakfast  ',
     })
 
-    const ingredient = await t.run(async (ctx) => await ctx.db.get(ingredientId))
+    const ingredient = await t.run(
+      async (ctx) => await ctx.db.get(ingredientId),
+    )
 
     expect(ingredient).toMatchObject({
       name: 'Greek yogurt',
@@ -66,13 +68,18 @@ describe('nutrition catalog mutations', () => {
 
     await expect(
       user.mutation(api.nutrition.deleteIngredient, { ingredientId }),
-    ).rejects.toThrowError('Ingredient is in historical records. Archive instead.')
+    ).rejects.toThrowError(
+      'Ingredient is in historical records. Archive instead.',
+    )
   })
 
   it('rejects updating ingredients with groups owned by another token', async () => {
     const t = createConvexTest()
     const owner = asTestUser(t)
-    const sameSubjectDifferentToken = asTestUserWithToken(t, 'user-1|other-token')
+    const sameSubjectDifferentToken = asTestUserWithToken(
+      t,
+      'user-1|other-token',
+    )
     const ingredientId = await insertIngredient(t, { name: 'Greek yogurt' })
     const foreignGroupId = await sameSubjectDifferentToken.mutation(
       api.nutrition.createFoodGroup,
@@ -90,7 +97,32 @@ describe('nutrition catalog mutations', () => {
         ignoreCalories: false,
         groupIds: [foreignGroupId],
       }),
-    ).rejects.toThrowError('One or more groups are missing.')
+    ).rejects.toThrowError(
+      'One or more groups are missing or do not apply to ingredients.',
+    )
+  })
+
+  it('rejects groups whose scope does not match the record type', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const cookedFoodGroupId = await user.mutation(
+      api.nutrition.createFoodGroup,
+      {
+        name: 'Dinner',
+        appliesTo: 'cookedFood',
+      },
+    )
+
+    await expect(
+      user.mutation(api.nutrition.createIngredient, {
+        name: 'Rice',
+        kcalPer100: 130,
+        ignoreCalories: false,
+        groupIds: [cookedFoodGroupId],
+      }),
+    ).rejects.toThrowError(
+      'One or more groups are missing or do not apply to ingredients.',
+    )
   })
 
   it('creates a new current recipe version while preserving the old version', async () => {
@@ -171,6 +203,52 @@ describe('nutrition catalog mutations', () => {
     expect(newVersionLines[0]?.referenceAmount).toBe(50)
   })
 
+  it('preserves omitted recipe metadata when creating a new version', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const ingredientId = await insertIngredient(t, { name: 'Oats' })
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Breakfast bowl',
+      description: 'A useful description',
+      instructions: 'Mix carefully',
+      notes: 'Private note',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+
+    const updated = await user.mutation(
+      api.nutrition.updateRecipeCurrentVersion,
+      {
+        recipeId: created.recipeId,
+        name: 'Breakfast bowl v2',
+        ingredientLines: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            referenceAmount: 120,
+            referenceUnit: 'g',
+          },
+        ],
+      },
+    )
+
+    const { recipe, version } = await t.run(async (ctx) => ({
+      recipe: await ctx.db.get(created.recipeId),
+      version: await ctx.db.get(updated.recipeVersionId),
+    }))
+    expect(recipe?.description).toBe('A useful description')
+    expect(version).toMatchObject({
+      instructions: 'Mix carefully',
+      notes: 'Private note',
+    })
+  })
+
   it('replaces lines within each created recipe version without duplicating them', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
@@ -222,6 +300,82 @@ describe('nutrition catalog mutations', () => {
     expect(currentVersionLines).toHaveLength(1)
     expect(currentVersionLines[0]?.ingredientId).toBe(ingredientB)
     expect(currentVersionLines[0]?.referenceAmount).toBe(50)
+  })
+
+  it('blocks changing the scope of a group that is already assigned', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const groupId = await user.mutation(api.nutrition.createFoodGroup, {
+      name: 'Pantry',
+      appliesTo: 'ingredient',
+    })
+    await user.mutation(api.nutrition.createIngredient, {
+      name: 'Rice',
+      kcalPer100: 130,
+      ignoreCalories: false,
+      groupIds: [groupId],
+    })
+
+    await expect(
+      user.mutation(api.nutrition.updateFoodGroup, {
+        groupId,
+        name: 'Prepared food',
+        appliesTo: 'cookedFood',
+      }),
+    ).rejects.toThrowError(
+      'Group scope cannot change while the group is assigned to records.',
+    )
+  })
+
+  it('rejects recipe versions linked to a different recipe', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const sessionId = await insertCookSession(t)
+    const ingredientId = await insertIngredient(t, { name: 'Rice' })
+    const recipeA = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Recipe A',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+    const recipeB = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Recipe B',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+
+    await expect(
+      user.mutation(api.nutrition.createCookedFood, {
+        cookSessionId: sessionId,
+        name: 'Invalid link',
+        recipeId: recipeA.recipeId,
+        recipeVersionId: recipeB.recipeVersionId,
+        groupIds: [],
+        finishedWeightGrams: 100,
+        ingredients: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            referenceAmount: 100,
+            referenceUnit: 'g',
+            countedAmount: 100,
+          },
+        ],
+      }),
+    ).rejects.toThrowError(
+      'Recipe version does not belong to the selected recipe.',
+    )
   })
 
   it('blocks deleting recipes that have cooked history', async () => {

@@ -52,6 +52,7 @@ function PeoplePageContent() {
   const {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
@@ -64,7 +65,6 @@ function PeoplePageContent() {
 
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
-  const updatePersonGoal = useMutation(api.nutrition.updatePersonGoal)
   const setPersonArchived = useMutation(api.nutrition.setPersonArchived)
   const deletePerson = useMutation(api.nutrition.deletePerson)
 
@@ -171,7 +171,9 @@ function PeoplePageContent() {
               <div
                 className={cn(
                   'h-full rounded-full',
-                  row.original.remainingKcal < 0 ? 'bg-destructive' : 'bg-primary',
+                  row.original.remainingKcal < 0
+                    ? 'bg-destructive'
+                    : 'bg-primary',
                 )}
                 style={{ width: `${percent}%` }}
               />
@@ -221,6 +223,7 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() =>
                 void runAction(
                   person.active ? 'Person archived.' : 'Person restored.',
@@ -238,6 +241,7 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant="destructive"
+              disabled={isRunning}
               aria-label={`Delete ${person.name}`}
               onClick={() =>
                 confirmAndRunAction(
@@ -393,7 +397,7 @@ function PeoplePageContent() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
-                disabled={!canSavePerson}
+                disabled={!canSavePerson || isRunning}
                 onClick={() =>
                   void runAction(
                     editingPersonId ? 'Person updated.' : 'Person created.',
@@ -403,9 +407,6 @@ function PeoplePageContent() {
                         await updatePerson({
                           personId: editingPersonId,
                           name,
-                        })
-                        await updatePersonGoal({
-                          personId: editingPersonId,
                           goalKcal: goalValue,
                           reason: goalReason.trim() || undefined,
                           effectiveDate: today,
@@ -458,6 +459,7 @@ function PeoplePageContent() {
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
         onConfirm={confirmPendingAction}
+        disabled={isRunning}
         description={pendingConfirmation?.message}
       />
     </>

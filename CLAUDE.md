@@ -22,6 +22,7 @@ Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run
 ## Architecture
 
 **Frontend** (`src/`):
+
 - `routes/` — File-based TanStack Router pages. Route tree is auto-generated in `routeTree.gen.ts` (do not edit).
 - `features/` — Feature modules organized by domain (cooking, manage, meals, people).
 - `components/ui/` — Shared shadcn/ui primitives (style: `base-mira`, icons: `lucide-react`).
@@ -29,14 +30,16 @@ Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run
 - `lib/` — Shared utilities. Path alias: `@/*` maps to `./src/*`.
 
 **Backend** (`convex/`):
+
 - `schema.ts` — Database schema (tables: people, personGoalHistory, foodGroups, ingredients, recipes, recipeVersions, recipeVersionIngredients, cookSessions, cookedFoods, cookedFoodIngredients, meals, mealItems).
 - `nutrition.ts` — Main query/mutation logic for the domain.
 - `auth.config.ts` — Clerk JWT auth config for Convex.
 - `_generated/` — Auto-generated Convex code (do not edit).
 
 **Key patterns**:
+
 - React Compiler is enabled via `@rolldown/plugin-babel` with `reactCompilerPreset`.
-- `@convex-dev/react-query` bridges Convex with TanStack Query.
+- The app provides a `ConvexReactClient` directly, with Clerk auth when configured.
 - TypeScript strict mode with `noUnusedLocals` and `noUnusedParameters`.
 
 ## Convex Conventions
@@ -56,6 +59,7 @@ Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run
 ## Environment Variables
 
 Required in `.env.local`:
+
 - `VITE_CONVEX_URL` — Convex deployment URL
 - `CONVEX_DEPLOYMENT` — Convex deployment name
 - `VITE_CLERK_PUBLISHABLE_KEY` — Clerk publishable key (for auth UI)

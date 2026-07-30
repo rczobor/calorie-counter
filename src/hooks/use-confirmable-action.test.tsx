@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
@@ -15,6 +15,10 @@ vi.mock('sonner', () => ({
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 
 describe('useConfirmableAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('runs actions and reports success', async () => {
     const action = vi.fn(async () => undefined)
     const { result } = renderHook(() => useConfirmableAction())
@@ -50,5 +54,33 @@ describe('useConfirmableAction', () => {
 
     expect(action).toHaveBeenCalledTimes(1)
     expect(toastSuccess).toHaveBeenCalledWith('Deleted.')
+  })
+
+  it('ignores duplicate actions while one is running', async () => {
+    let resolveAction: (() => void) | undefined
+    const action = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveAction = resolve
+        }),
+    )
+    const { result } = renderHook(() => useConfirmableAction())
+
+    let firstRun: Promise<boolean> | undefined
+    await act(async () => {
+      firstRun = result.current.runAction('Saved.', action)
+      await result.current.runAction('Saved twice.', action)
+    })
+
+    expect(action).toHaveBeenCalledTimes(1)
+    expect(result.current.isRunning).toBe(true)
+
+    await act(async () => {
+      resolveAction?.()
+      await firstRun
+    })
+
+    expect(result.current.isRunning).toBe(false)
+    expect(toastSuccess).toHaveBeenCalledTimes(1)
   })
 })

@@ -42,7 +42,10 @@ export default function Header() {
             </Link>
             {isClerkConfigured ? (
               <SignedIn>
-                <nav className="hidden items-center gap-1 md:flex">
+                <nav
+                  aria-label="Primary navigation"
+                  className="hidden items-center gap-1 md:flex"
+                >
                   {NAV_ITEMS.map((item) => (
                     <Link
                       key={item.to}
@@ -65,19 +68,28 @@ export default function Header() {
         </div>
         {isClerkConfigured ? (
           <SignedIn>
-            <nav className="flex items-center gap-1 overflow-x-auto pb-3 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {NAV_ITEMS.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={NAV_LINK_CLASS}
-                  activeProps={{ className: NAV_LINK_ACTIVE_CLASS }}
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="relative md:hidden">
+              <nav
+                aria-label="Primary navigation"
+                className="flex items-center gap-1 overflow-x-auto pb-3 pr-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {NAV_ITEMS.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={NAV_LINK_CLASS}
+                    activeProps={{ className: NAV_LINK_ACTIVE_CLASS }}
+                  >
+                    <item.icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background via-background/80 to-transparent"
+              />
+            </div>
           </SignedIn>
         ) : null}
       </div>

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { dirname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 type SeedDefaultsEnv = {
   SEED_OWNER_USER_ID?: string
@@ -54,10 +54,7 @@ export function parseSeedEnvFile(contents: string): SeedDefaultsEnv {
     }
 
     const key = match[1]
-    if (
-      key !== 'SEED_OWNER_USER_ID' &&
-      key !== 'SEED_OWNER_TOKEN_IDENTIFIER'
-    ) {
+    if (key !== 'SEED_OWNER_USER_ID' && key !== 'SEED_OWNER_TOKEN_IDENTIFIER') {
       continue
     }
 
@@ -80,19 +77,30 @@ function readLocalSeedEnv() {
   return parseSeedEnvFile(readFileSync(envPath, 'utf8'))
 }
 
+export function resolveConvexCliPath() {
+  const packageJsonPath = fileURLToPath(
+    import.meta.resolve('convex/package.json'),
+  )
+  return join(dirname(packageJsonPath), 'bin', 'main.js')
+}
+
+export function createConvexCliInvocation(convexArgs: string[]) {
+  return {
+    command: process.execPath,
+    args: [resolveConvexCliPath(), 'run', 'seed:defaults', ...convexArgs],
+  }
+}
+
 export async function runSeedDefaults(rawArgs = process.argv.slice(2)) {
   const convexArgs = buildSeedDefaultsArgs(
     process.env,
     rawArgs,
     readLocalSeedEnv(),
   )
-  const child = spawn(
-    'pnpm',
-    ['exec', 'convex', 'run', 'seed:defaults', ...convexArgs],
-    {
-      stdio: 'inherit',
-    },
-  )
+  const invocation = createConvexCliInvocation(convexArgs)
+  const child = spawn(invocation.command, invocation.args, {
+    stdio: 'inherit',
+  })
 
   const exitCode = await new Promise<number>((resolve, reject) => {
     child.on('error', reject)

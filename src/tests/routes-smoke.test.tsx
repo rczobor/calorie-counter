@@ -12,6 +12,10 @@ vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
 }))
 
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
+}))
+
 vi.mock('@/hooks/use-management-data', () => ({
   useMealDashboardData: () => ({
     data: emptyData,
@@ -39,6 +43,7 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
       action: async () => undefined,
     },
     isConfirmDialogOpen: confirmOpen,
+    isRunning: false,
     runAction: async (_successText: string, action: () => Promise<unknown>) =>
       action(),
     confirmAndRunAction: vi.fn(),

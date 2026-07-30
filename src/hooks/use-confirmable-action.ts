@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { toErrorMessage } from '@/lib/nutrition'
@@ -13,14 +13,26 @@ export function useConfirmableAction() {
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation | null>(null)
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
+  const isRunningRef = useRef(false)
 
   const runAction = useCallback(
     async (successText: string, action: () => Promise<unknown>) => {
+      if (isRunningRef.current) {
+        return false
+      }
+      isRunningRef.current = true
+      setIsRunning(true)
       try {
         await action()
         toast.success(successText)
+        return true
       } catch (error) {
         toast.error(toErrorMessage(error))
+        return false
+      } finally {
+        isRunningRef.current = false
+        setIsRunning(false)
       }
     },
     [],
@@ -55,6 +67,7 @@ export function useConfirmableAction() {
   return {
     pendingConfirmation,
     isConfirmDialogOpen,
+    isRunning,
     runAction,
     confirmAndRunAction,
     handleConfirmDialogOpenChange,
