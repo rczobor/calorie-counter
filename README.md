@@ -34,7 +34,7 @@ Main backend logic lives in `convex/nutrition.ts`.
 1. Install dependencies.
 
 ```bash
-bun ci
+pnpm install --frozen-lockfile
 ```
 
 2. Create `.env.local`.
@@ -60,7 +60,7 @@ In Clerk Dashboard:
 4. Configure Convex auth provider env for Clerk.
 
 ```bash
-bun x --no-install --bun convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-clerk-domain>
+pnpm exec convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-clerk-domain>
 ```
 
 This value is used by `convex/auth.config.ts` and is required for signed-in users to access Convex queries/mutations.
@@ -68,13 +68,13 @@ This value is used by `convex/auth.config.ts` and is required for signed-in user
 5. Start Convex in a separate terminal.
 
 ```bash
-bun x --no-install --bun convex dev
+pnpm exec convex dev
 ```
 
 6. Start the app.
 
 ```bash
-bun run dev
+pnpm run dev
 ```
 
 App runs at [http://localhost:3000](http://localhost:3000).
@@ -84,7 +84,7 @@ App runs at [http://localhost:3000](http://localhost:3000).
 Preview deployments can be seeded during Convex deploys with:
 
 ```bash
-bun x --no-install --bun convex deploy --cmd 'bun --bun run build' --preview-run seed:defaults
+pnpm exec convex deploy --cmd 'pnpm run build' --preview-run seed:defaults
 ```
 
 The seed function creates default people, catalog items, a recipe, a cook
@@ -94,16 +94,16 @@ as a Convex project default for preview deployments before running it without
 arguments. For an existing selected dev deployment, set the deployment env var:
 
 ```bash
-bun x --no-install --bun convex env set SEED_OWNER_USER_ID user_...
+pnpm exec convex env set SEED_OWNER_USER_ID user_...
 ```
 
 For a selected dev deployment, you can also pass the owner directly:
 
 ```bash
-bun run seed:defaults -- '{"ownerUserId":"user_..."}'
+pnpm run seed:defaults -- '{"ownerUserId":"user_..."}'
 ```
 
-For local runs, `bun run seed:defaults` forwards `SEED_OWNER_USER_ID` and
+For local runs, `pnpm run seed:defaults` forwards `SEED_OWNER_USER_ID` and
 `SEED_OWNER_TOKEN_IDENTIFIER` from your shell or `.env.local` as Convex function
 arguments. For `--preview-run`, those values must be configured as Convex
 deployment env vars because the function runs on Convex, not in the Vercel build
@@ -113,30 +113,29 @@ If you need strict token scoping, also set or pass `SEED_OWNER_TOKEN_IDENTIFIER`
 
 ## Scripts
 
-- `bun run dev`: Start local dev server (port `3000`)
-- `bun run build`: Production build (client + SSR bundles)
-- `bun run preview`: Preview production build
-- `bun run seed:defaults`: Seed the selected Convex deployment with default data
-- `bun run lint`: Run ESLint
-- `bun run lint:fix`: Run ESLint with autofix
-- `bun run test`: Run Vitest (currently exits with code `1` because no test files exist yet)
+- `pnpm run dev`: Start local dev server (port `3000`)
+- `pnpm run build`: Production build (client + SSR bundles)
+- `pnpm run preview`: Preview production build
+- `pnpm run seed:defaults`: Seed the selected Convex deployment with default data
+- `pnpm run lint`: Run ESLint
+- `pnpm run lint:fix`: Run ESLint with autofix
+- `pnpm run test`: Run Vitest
 
 ## Dependency Security
 
-This project commits `bunfig.toml` to make Bun safer by default:
+This project commits `pnpm-workspace.yaml` to keep installs predictable:
 
-- Runtime auto-install is disabled, so missing packages fail instead of being fetched on demand.
+- Peer dependencies are not installed implicitly.
 - New package resolutions must be at least 3 days old.
-- Install lifecycle scripts are ignored unless this config is explicitly bypassed.
-- Package scripts run through Bun Shell instead of the system shell.
+- Only explicitly allowed dependency build scripts may run.
+- The `esbuild` override remains pinned for reproducible builds.
 
-Use exact, local tooling instead of `bunx` auto-installs. These defaults reduce package-manager risk, but they do not sandbox build or dev-server code. For dependency updates, prefer targeted updates inside a container or dedicated OS user without personal secrets mounted:
+Use checked-in tooling through `pnpm exec` instead of ad-hoc downloads. These defaults reduce package-manager risk, but they do not sandbox build or dev-server code. For dependency updates, prefer targeted updates inside a container or dedicated OS user without personal secrets mounted:
 
 ```bash
-bun outdated
-bun update <package>
-bun pm untrusted
-bun run lint
-bun run typecheck
-bun run build
+pnpm outdated
+pnpm update <package>
+pnpm run lint
+pnpm run typecheck
+pnpm run build
 ```

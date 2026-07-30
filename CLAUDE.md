@@ -8,16 +8,16 @@ Multi-person calorie tracking app. Users log meals, manage people with daily cal
 
 ## Commands
 
-- **Install**: `bun install`
-- **Dev server**: `bun run dev` (port 3000) — also run `bunx convex dev` in a separate terminal
-- **Build**: `bun run build`
-- **Lint**: `bun run lint` / `bun run lint:fix`
-- **Type check**: `bun run typecheck` (checks both app and convex)
-- **Test**: `bun run test` (Vitest, jsdom env, files matching `src/**/*.test.{ts,tsx}`)
-- **Format**: `bun run format` (Prettier: no semicolons, single quotes, trailing commas)
-- **Add shadcn component**: `bunx --bun shadcn@latest add <component>`
+- **Install**: `pnpm install`
+- **Dev server**: `pnpm run dev` (port 3000) — also run `pnpm exec convex dev` in a separate terminal
+- **Build**: `pnpm run build`
+- **Lint**: `pnpm run lint` / `pnpm run lint:fix`
+- **Type check**: `pnpm run typecheck` (checks both app and convex)
+- **Test**: `pnpm run test` (Vitest, jsdom env, files matching `src/**/*.test.{ts,tsx}`)
+- **Format**: `pnpm run format` (Prettier: no semicolons, single quotes, trailing commas)
+- **Add shadcn component**: `pnpm exec shadcn add <component>`
 
-Before submitting changes, run: `bun run lint && bun run typecheck && bun run build`
+Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run build`
 
 ## Architecture
 
@@ -49,8 +49,8 @@ Before submitting changes, run: `bun run lint && bun run typecheck && bun run bu
 
 ### Schema Migrations (expand-migrate-contract)
 
-1. **Expand**: Deploy compatibility code (`bunx convex deploy`)
-2. **Migrate**: Run one-off `internalMutation`/`internalAction` on prod (`bunx convex run --prod <module:function> '{}'`)
+1. **Expand**: Deploy compatibility code (`pnpm exec convex deploy`)
+2. **Migrate**: Run one-off `internalMutation`/`internalAction` on prod (`pnpm exec convex run --prod <module:function> '{}'`)
 3. **Contract**: Remove migration code and redeploy
 
 ## Environment Variables

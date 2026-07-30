@@ -194,7 +194,7 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
     return (
       <AuthStatusCard
         title="Session verification failed"
-        description="Sign out and sign in again. If this persists, create a Clerk JWT template named `convex` (audience `convex`), verify CLERK_JWT_ISSUER_DOMAIN, then restart `bunx convex dev`."
+        description="Sign out and sign in again. If this persists, create a Clerk JWT template named `convex` (audience `convex`), verify CLERK_JWT_ISSUER_DOMAIN, then restart `pnpm exec convex dev`."
       />
     )
   }
