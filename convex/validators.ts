@@ -147,6 +147,8 @@ export const mealsFields = {
   name: v.optional(v.string()),
   eatenOn: v.string(),
   notes: v.optional(v.string()),
+  // Deprecated compatibility field for meals created before mealItems.
+  totalCalories: v.optional(v.number()),
   archived: v.optional(v.boolean()),
   createdAt: v.number(),
 }

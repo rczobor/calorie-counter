@@ -19,7 +19,7 @@ describe('nutrition scoped queries', () => {
     vi.useRealTimers()
   })
 
-  it('normalizes the dashboard meal date before querying', async () => {
+  it('normalizes dashboard dates and accepts legacy meal totals', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
     const personId = await user.mutation(api.nutrition.createPerson, {
@@ -28,6 +28,7 @@ describe('nutrition scoped queries', () => {
     })
     const mealId = await insertMeal(t, personId, {
       eatenOn: '2026-04-04',
+      totalCalories: 500,
     })
     await insertMealItem(t, mealId, { caloriesSnapshot: 500 })
 
@@ -36,6 +37,10 @@ describe('nutrition scoped queries', () => {
     })
 
     expect(data.meals).toHaveLength(1)
+    expect(data.meals[0]).toMatchObject({
+      _id: mealId,
+      totalCalories: 500,
+    })
     expect(data.mealItems).toHaveLength(1)
   })
 })
