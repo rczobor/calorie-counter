@@ -36,7 +36,7 @@ describe('nutrition cooking and meal mutations', () => {
       cookSessionId: sessionId,
       name: '  Oat base  ',
       groupIds: [],
-      finishedWeightGrams: 200,
+      finishedWeightGrams: 180,
       notes: '  Batch  ',
       ingredients: [
         {
@@ -65,7 +65,7 @@ describe('nutrition cooking and meal mutations', () => {
       name: 'Oat base',
       totalRawWeightGrams: 150,
       totalCalories: 300,
-      kcalPer100: 150,
+      kcalPer100: 167,
       notes: 'Batch',
     })
     expect(session?.updatedAt).toBe(Date.now())
@@ -288,13 +288,14 @@ describe('nutrition cooking and meal mutations', () => {
     })
   })
 
-  it('preserves meal notes when an edit omits the notes field', async () => {
+  it('preserves meal notes and date when an edit omits them', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
     const personId = await insertPerson(t)
     const ingredientId = await insertIngredient(t, { name: 'Chicken' })
     const mealId = await user.mutation(api.nutrition.createMeal, {
       personId,
+      eatenOn: '2026-04-01',
       notes: 'Keep this note',
       items: [
         {
@@ -318,9 +319,40 @@ describe('nutrition cooking and meal mutations', () => {
       ],
     })
 
-    expect(await t.run(async (ctx) => (await ctx.db.get(mealId))?.notes)).toBe(
-      'Keep this note',
-    )
+    expect(await t.run(async (ctx) => await ctx.db.get(mealId))).toMatchObject({
+      eatenOn: '2026-04-01',
+      notes: 'Keep this note',
+    })
+
+    await user.mutation(api.nutrition.updateMeal, {
+      mealId,
+      personId,
+      eatenOn: ' 2026-04-02 ',
+      items: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          consumedWeightGrams: 60,
+        },
+      ],
+    })
+    expect(
+      await t.run(async (ctx) => (await ctx.db.get(mealId))?.eatenOn),
+    ).toBe('2026-04-02')
+    await expect(
+      user.mutation(api.nutrition.updateMeal, {
+        mealId,
+        personId,
+        eatenOn: '2026-02-30',
+        items: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            consumedWeightGrams: 60,
+          },
+        ],
+      }),
+    ).rejects.toThrow('Date must be a valid calendar date.')
   })
 
   it('deletes a meal and its child meal items', async () => {

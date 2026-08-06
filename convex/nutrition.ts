@@ -528,7 +528,10 @@ async function buildCookedFoodNutrition(
   return {
     totalRawWeightGrams,
     totalCalories,
-    kcalPer100: (totalCalories / finishedWeightGrams) * 100,
+    kcalPer100: normalizeKcalPer100(
+      (totalCalories / finishedWeightGrams) * 100,
+      { allowZero: true, fieldName: 'Cooked food kcal/100' },
+    ),
     ingredientSnapshots,
   }
 }
@@ -1720,154 +1723,335 @@ export const updateIngredient = mutation({
   },
 })
 
-export const normalizeKcalValuesToIntegers = internalMutation({
-  args: {
-    ownerUserId: v.string(),
-    dryRun: v.optional(v.boolean()),
-  },
+export const prepareDataContract = internalMutation({
+  args: { dryRun: v.optional(v.boolean()) },
   returns: v.object({
     dryRun: v.boolean(),
-    ingredients: v.number(),
-    recipeVersionIngredients: v.number(),
-    cookedFoods: v.number(),
-    cookedFoodIngredients: v.number(),
-    mealItems: v.number(),
-    totalPatched: v.number(),
+    canApply: v.boolean(),
+    missingOwnerTokenIdentifiers: v.object({
+      people: v.number(),
+      personGoalHistory: v.number(),
+      foodGroups: v.number(),
+      ingredients: v.number(),
+      recipes: v.number(),
+      recipeVersions: v.number(),
+      recipeVersionIngredients: v.number(),
+      cookSessions: v.number(),
+      cookedFoods: v.number(),
+      cookedFoodIngredients: v.number(),
+      meals: v.number(),
+      mealItems: v.number(),
+      total: v.number(),
+    }),
+    nonIntegerCalories: v.object({
+      ingredients: v.number(),
+      recipeVersionIngredients: v.number(),
+      cookedFoods: v.number(),
+      cookedFoodIngredients: v.number(),
+      mealItems: v.number(),
+      total: v.number(),
+    }),
+    invalidCalories: v.object({
+      ingredients: v.number(),
+      recipeVersionIngredients: v.number(),
+      cookedFoods: v.number(),
+      cookedFoodIngredients: v.number(),
+      mealItems: v.number(),
+      total: v.number(),
+    }),
+    legacyMealTotals: v.number(),
+    mismatchedMealTotals: v.number(),
+    invalidMealItemRelationships: v.number(),
   }),
   handler: async (ctx, args) => {
-    const ownerUserId = args.ownerUserId.trim()
-    assertNonEmpty(ownerUserId, 'Owner user id')
     const dryRun = Boolean(args.dryRun)
-    const summary = {
-      ingredients: 0,
-      recipeVersionIngredients: 0,
-      cookedFoods: 0,
-      cookedFoodIngredients: 0,
-      mealItems: 0,
-    }
-
     const [
+      people,
+      personGoalHistory,
+      foodGroups,
       ingredients,
+      recipes,
+      recipeVersions,
       recipeVersionIngredients,
+      cookSessions,
       cookedFoods,
       cookedFoodIngredients,
+      meals,
       mealItems,
     ] = await Promise.all([
-      ctx.db
-        .query('ingredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
-        .collect(),
-      ctx.db
-        .query('recipeVersionIngredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
-        .collect(),
-      ctx.db
-        .query('cookedFoods')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
-        .collect(),
-      ctx.db
-        .query('cookedFoodIngredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
-        .collect(),
-      ctx.db
-        .query('mealItems')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', ownerUserId))
-        .collect(),
+      ctx.db.query('people').collect(),
+      ctx.db.query('personGoalHistory').collect(),
+      ctx.db.query('foodGroups').collect(),
+      ctx.db.query('ingredients').collect(),
+      ctx.db.query('recipes').collect(),
+      ctx.db.query('recipeVersions').collect(),
+      ctx.db.query('recipeVersionIngredients').collect(),
+      ctx.db.query('cookSessions').collect(),
+      ctx.db.query('cookedFoods').collect(),
+      ctx.db.query('cookedFoodIngredients').collect(),
+      ctx.db.query('meals').collect(),
+      ctx.db.query('mealItems').collect(),
     ])
+    const isMissingOwnerToken = (doc: { ownerTokenIdentifier?: string }) =>
+      !doc.ownerTokenIdentifier?.trim()
+    const missingOwnerTokenIdentifiers = {
+      people: people.filter(isMissingOwnerToken).length,
+      personGoalHistory: personGoalHistory.filter(isMissingOwnerToken).length,
+      foodGroups: foodGroups.filter(isMissingOwnerToken).length,
+      ingredients: ingredients.filter(isMissingOwnerToken).length,
+      recipes: recipes.filter(isMissingOwnerToken).length,
+      recipeVersions: recipeVersions.filter(isMissingOwnerToken).length,
+      recipeVersionIngredients:
+        recipeVersionIngredients.filter(isMissingOwnerToken).length,
+      cookSessions: cookSessions.filter(isMissingOwnerToken).length,
+      cookedFoods: cookedFoods.filter(isMissingOwnerToken).length,
+      cookedFoodIngredients:
+        cookedFoodIngredients.filter(isMissingOwnerToken).length,
+      meals: meals.filter(isMissingOwnerToken).length,
+      mealItems: mealItems.filter(isMissingOwnerToken).length,
+      total: 0,
+    }
+    missingOwnerTokenIdentifiers.total = Object.values(
+      missingOwnerTokenIdentifiers,
+    ).reduce((total, count) => total + count, 0)
 
-    for (const ingredient of ingredients) {
-      const normalized = normalizeKcalPer100(ingredient.kcalPer100, {
-        allowZero: Boolean(ingredient.ignoreCalories),
-        fieldName: 'Ingredient kcal/100',
-      })
-      if (ingredient.kcalPer100 !== normalized) {
-        summary.ingredients += 1
-        if (!dryRun) {
-          await ctx.db.patch(ingredient._id, { kcalPer100: normalized })
+    const inspectKcal = (
+      value: number,
+      allowZero: boolean,
+      fieldName: string,
+    ) => {
+      try {
+        const normalized = normalizeKcalPer100(value, {
+          allowZero,
+          fieldName,
+        })
+        return {
+          invalid: false,
+          normalized,
+          needsNormalization: value !== normalized,
         }
+      } catch {
+        return { invalid: true, normalized: value, needsNormalization: false }
       }
     }
-
-    for (const line of recipeVersionIngredients) {
-      if (line.kcalPer100Snapshot === undefined) {
-        continue
-      }
-      const normalized = normalizeKcalPer100(line.kcalPer100Snapshot, {
-        allowZero: Boolean(line.ignoreCaloriesSnapshot),
-        fieldName: 'Recipe ingredient kcal/100',
-      })
-      if (line.kcalPer100Snapshot !== normalized) {
-        summary.recipeVersionIngredients += 1
-        if (!dryRun) {
-          await ctx.db.patch(line._id, { kcalPer100Snapshot: normalized })
-        }
-      }
+    const ingredientKcal = ingredients.map((document) => ({
+      document,
+      inspection: inspectKcal(
+        document.kcalPer100,
+        Boolean(document.ignoreCalories),
+        'Ingredient kcal/100',
+      ),
+    }))
+    const recipeLineKcal = recipeVersionIngredients.map((document) => ({
+      document,
+      inspection:
+        document.kcalPer100Snapshot === undefined
+          ? null
+          : inspectKcal(
+              document.kcalPer100Snapshot,
+              Boolean(document.ignoreCaloriesSnapshot),
+              'Recipe ingredient kcal/100',
+            ),
+    }))
+    const cookedFoodKcal = cookedFoods.map((document) => ({
+      document,
+      inspection:
+        document.kcalPer100 === undefined
+          ? null
+          : inspectKcal(
+              document.kcalPer100,
+              true,
+              'Cooked food kcal/100',
+            ),
+    }))
+    const cookedFoodLineKcal = cookedFoodIngredients.map((document) => ({
+      document,
+      inspection:
+        document.ingredientKcalPer100Snapshot === undefined
+          ? null
+          : inspectKcal(
+              document.ingredientKcalPer100Snapshot,
+              Boolean(document.ignoreCaloriesSnapshot),
+              'Cooked food ingredient kcal/100',
+            ),
+    }))
+    const mealItemKcal = mealItems.map((document) => ({
+      document,
+      inspection:
+        document.kcalPer100Snapshot === undefined
+          ? null
+          : inspectKcal(
+              document.kcalPer100Snapshot,
+              Boolean(document.ignoreCaloriesSnapshot) ||
+                document.sourceType === 'cookedFood',
+              'Meal item kcal/100',
+            ),
+    }))
+    const countInspections = (
+      rows: Array<{
+        inspection: {
+          invalid: boolean
+          needsNormalization: boolean
+        } | null
+      }>,
+      field: 'invalid' | 'needsNormalization',
+    ) => rows.filter(({ inspection }) => Boolean(inspection?.[field])).length
+    const nonIntegerCalories = {
+      ingredients: countInspections(ingredientKcal, 'needsNormalization'),
+      recipeVersionIngredients: countInspections(
+        recipeLineKcal,
+        'needsNormalization',
+      ),
+      cookedFoods: countInspections(cookedFoodKcal, 'needsNormalization'),
+      cookedFoodIngredients: countInspections(
+        cookedFoodLineKcal,
+        'needsNormalization',
+      ),
+      mealItems: countInspections(mealItemKcal, 'needsNormalization'),
+      total: 0,
     }
-
-    for (const cookedFood of cookedFoods) {
-      if (cookedFood.kcalPer100 === undefined) {
-        continue
-      }
-      const normalized = normalizeKcalPer100(cookedFood.kcalPer100, {
-        allowZero: true,
-        fieldName: 'Cooked food kcal/100',
-      })
-      if (cookedFood.kcalPer100 !== normalized) {
-        summary.cookedFoods += 1
-        if (!dryRun) {
-          await ctx.db.patch(cookedFood._id, { kcalPer100: normalized })
-        }
-      }
+    nonIntegerCalories.total = Object.values(nonIntegerCalories).reduce(
+      (total, count) => total + count,
+      0,
+    )
+    const invalidCalories = {
+      ingredients: countInspections(ingredientKcal, 'invalid'),
+      recipeVersionIngredients: countInspections(recipeLineKcal, 'invalid'),
+      cookedFoods: countInspections(cookedFoodKcal, 'invalid'),
+      cookedFoodIngredients: countInspections(
+        cookedFoodLineKcal,
+        'invalid',
+      ),
+      mealItems: countInspections(mealItemKcal, 'invalid'),
+      total: 0,
     }
+    invalidCalories.total = Object.values(invalidCalories).reduce(
+      (total, count) => total + count,
+      0,
+    )
 
-    for (const line of cookedFoodIngredients) {
-      if (line.ingredientKcalPer100Snapshot === undefined) {
-        continue
-      }
-      const normalized = normalizeKcalPer100(
-        line.ingredientKcalPer100Snapshot,
-        {
-          allowZero: Boolean(line.ignoreCaloriesSnapshot),
-          fieldName: 'Cooked food ingredient kcal/100',
-        },
+    const legacyMeals = meals.filter(
+      (meal) => meal.totalCalories !== undefined,
+    )
+    const mealsById = new Map(meals.map((meal) => [meal._id, meal]))
+    const invalidMealItemRelationships = mealItems.filter((item) => {
+      const meal = mealsById.get(item.mealId)
+      return (
+        !meal || item.ownerTokenIdentifier !== meal.ownerTokenIdentifier
       )
-      if (line.ingredientKcalPer100Snapshot !== normalized) {
-        summary.cookedFoodIngredients += 1
-        if (!dryRun) {
-          await ctx.db.patch(line._id, {
-            ingredientKcalPer100Snapshot: normalized,
+    }).length
+    const itemsByMealId = new Map<Id<'meals'>, Doc<'mealItems'>[]>()
+    for (const item of mealItems) {
+      itemsByMealId.set(item.mealId, [
+        ...(itemsByMealId.get(item.mealId) ?? []),
+        item,
+      ])
+    }
+    const mismatchedMealTotals = legacyMeals.filter(
+      (meal) => {
+        const storedTotal = meal.totalCalories!
+        const items = (itemsByMealId.get(meal._id) ?? []).filter(
+          (item) =>
+            item.ownerTokenIdentifier === meal.ownerTokenIdentifier,
+        )
+        if (
+          !Number.isFinite(storedTotal) ||
+          storedTotal < 0 ||
+          items.some(
+            (item) =>
+              !Number.isFinite(item.caloriesSnapshot) ||
+              item.caloriesSnapshot < 0,
+          )
+        ) {
+          return true
+        }
+        const itemTotal = items.reduce(
+          (total, item) => total + item.caloriesSnapshot,
+          0,
+        )
+        const tolerance =
+          1e-9 *
+          Math.max(1, Math.abs(storedTotal), Math.abs(itemTotal))
+        return Math.abs(storedTotal - itemTotal) > tolerance
+      },
+    ).length
+    const canApply =
+      missingOwnerTokenIdentifiers.total === 0 &&
+      mismatchedMealTotals === 0 &&
+      invalidMealItemRelationships === 0 &&
+      invalidCalories.total === 0
+
+    if (!dryRun && missingOwnerTokenIdentifiers.total > 0) {
+      throw new Error(
+        `Data contract preparation refused: ${missingOwnerTokenIdentifiers.total} documents are missing ownerTokenIdentifier.`,
+      )
+    }
+    if (!dryRun && mismatchedMealTotals > 0) {
+      throw new Error(
+        `Data contract preparation refused: ${mismatchedMealTotals} legacy meal totals do not match their item sums.`,
+      )
+    }
+    if (!dryRun && invalidMealItemRelationships > 0) {
+      throw new Error(
+        `Data contract preparation refused: ${invalidMealItemRelationships} meal items have missing or cross-owner meals.`,
+      )
+    }
+    if (!dryRun && invalidCalories.total > 0) {
+      throw new Error(
+        `Data contract preparation refused: ${invalidCalories.total} calorie values are invalid.`,
+      )
+    }
+
+    if (!dryRun) {
+      for (const { document, inspection } of ingredientKcal) {
+        if (inspection.needsNormalization) {
+          await ctx.db.patch(document._id, {
+            kcalPer100: inspection.normalized,
           })
         }
       }
-    }
-
-    for (const item of mealItems) {
-      if (item.kcalPer100Snapshot === undefined) {
-        continue
-      }
-      const normalized = normalizeKcalPer100(item.kcalPer100Snapshot, {
-        allowZero: Boolean(item.ignoreCaloriesSnapshot),
-        fieldName: 'Meal item kcal/100',
-      })
-      if (item.kcalPer100Snapshot !== normalized) {
-        summary.mealItems += 1
-        if (!dryRun) {
-          await ctx.db.patch(item._id, { kcalPer100Snapshot: normalized })
+      for (const { document, inspection } of recipeLineKcal) {
+        if (inspection?.needsNormalization) {
+          await ctx.db.patch(document._id, {
+            kcalPer100Snapshot: inspection.normalized,
+          })
         }
       }
+      for (const { document, inspection } of cookedFoodKcal) {
+        if (inspection?.needsNormalization) {
+          await ctx.db.patch(document._id, {
+            kcalPer100: inspection.normalized,
+          })
+        }
+      }
+      for (const { document, inspection } of cookedFoodLineKcal) {
+        if (inspection?.needsNormalization) {
+          await ctx.db.patch(document._id, {
+            ingredientKcalPer100Snapshot: inspection.normalized,
+          })
+        }
+      }
+      for (const { document, inspection } of mealItemKcal) {
+        if (inspection?.needsNormalization) {
+          await ctx.db.patch(document._id, {
+            kcalPer100Snapshot: inspection.normalized,
+          })
+        }
+      }
+      for (const meal of legacyMeals) {
+        await ctx.db.patch(meal._id, { totalCalories: undefined })
+      }
     }
-
-    const totalPatched =
-      summary.ingredients +
-      summary.recipeVersionIngredients +
-      summary.cookedFoods +
-      summary.cookedFoodIngredients +
-      summary.mealItems
 
     return {
       dryRun,
-      ...summary,
-      totalPatched,
+      canApply,
+      missingOwnerTokenIdentifiers,
+      nonIntegerCalories,
+      invalidCalories,
+      legacyMealTotals: legacyMeals.length,
+      mismatchedMealTotals,
+      invalidMealItemRelationships,
     }
   },
 })
@@ -2616,7 +2800,11 @@ export const updateMeal = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
-    assertOwnedOrThrow(await ctx.db.get(args.mealId), owner, 'Meal not found.')
+    const meal = assertOwnedOrThrow(
+      await ctx.db.get(args.mealId),
+      owner,
+      'Meal not found.',
+    )
     assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
@@ -2631,7 +2819,10 @@ export const updateMeal = mutation({
     } = {
       personId: args.personId,
       name: args.name?.trim() || undefined,
-      eatenOn: normalizeDate(args.eatenOn, Date.now()),
+      eatenOn:
+        args.eatenOn === undefined
+          ? meal.eatenOn
+          : normalizeRequiredDate(args.eatenOn, 'Date'),
     }
     if (args.notes !== undefined) {
       mealPatch.notes = normalizeNullableText(args.notes)
