@@ -2,6 +2,8 @@ import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 
 import type { ManagementData } from '@/hooks/use-management-data'
 
+const OWNER_TOKEN_IDENTIFIER = 'user-1|token'
+
 export function asId<TableName extends TableNames>(value: string) {
   return value as Id<TableName>
 }
@@ -15,6 +17,7 @@ export function createPersonDoc(
     _id: asId<'people'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     name,
     notes: undefined,
     currentDailyGoalKcal: 2000,
@@ -33,6 +36,7 @@ export function createFoodGroupDoc(
     _id: asId<'foodGroups'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     name,
     appliesTo: 'cookedFood',
     archived: false,
@@ -50,6 +54,7 @@ export function createPersonGoalHistoryDoc(
     _id: asId<'personGoalHistory'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     personId: asId<'people'>(personId),
     effectiveDate: '2026-04-04',
     goalKcal: 2000,
@@ -68,6 +73,7 @@ export function createIngredientDoc(
     _id: asId<'ingredients'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     name,
     brand: undefined,
     kcalPer100: 100,
@@ -90,6 +96,7 @@ export function createCookSessionDoc(
     _id: asId<'cookSessions'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     label,
     cookedAt: 1,
     cookedByPersonId: asId<'people'>('person-1'),
@@ -111,6 +118,7 @@ export function createCookedFoodDoc(
     _id: asId<'cookedFoods'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     cookSessionId: asId<'cookSessions'>(sessionId),
     name,
     recipeId: undefined,
@@ -136,6 +144,7 @@ export function createCookedFoodIngredientDoc(
     _id: asId<'cookedFoodIngredients'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     cookedFoodId: asId<'cookedFoods'>(cookedFoodId),
     sourceType: 'ingredient',
     ingredientId: asId<'ingredients'>('ingredient-1'),
@@ -161,6 +170,7 @@ export function createMealDoc(
     _id: asId<'meals'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     personId: asId<'people'>(personId),
     name: undefined,
     eatenOn: '2026-04-04',
@@ -180,6 +190,7 @@ export function createMealItemDoc(
     _id: asId<'mealItems'>(id),
     _creationTime: 1,
     ownerUserId: 'user-1',
+    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     mealId: asId<'meals'>(mealId),
     sourceType: 'custom',
     ingredientId: undefined,

@@ -43,12 +43,6 @@ function withEmptyManagementData(dataResult: Partial<ManagementData> | undefined
   }
 }
 
-export function useManagementData() {
-  const dataResult = useQuery(api.nutrition.getManagementData)
-
-  return withEmptyManagementData(dataResult)
-}
-
 export function useMealDashboardData(args: { eatenOn: string }) {
   const dataResult = useQuery(api.nutrition.getMealDashboardData, args)
   return withEmptyManagementData(dataResult)

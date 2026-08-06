@@ -8,6 +8,7 @@ import {
   createConvexTest,
   insertCookSession,
   insertMeal,
+  TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
 describe('nutrition people mutations', () => {
@@ -34,7 +35,13 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_person_createdAt', (q) => q.eq('personId', personId))
+        .withIndex(
+          'by_ownerTokenIdentifier_and_personId_and_createdAt',
+          (q) =>
+            q
+              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('personId', personId),
+        )
         .collect()
       return { person, history }
     })
@@ -67,7 +74,13 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_person_createdAt', (q) => q.eq('personId', personId))
+        .withIndex(
+          'by_ownerTokenIdentifier_and_personId_and_createdAt',
+          (q) =>
+            q
+              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('personId', personId),
+        )
         .collect()
       return { person, history }
     })
@@ -122,7 +135,13 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_person_createdAt', (q) => q.eq('personId', personId))
+        .withIndex(
+          'by_ownerTokenIdentifier_and_personId_and_createdAt',
+          (q) =>
+            q
+              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('personId', personId),
+        )
         .collect()
       return { person, history }
     })
@@ -163,7 +182,13 @@ describe('nutrition people mutations', () => {
       person: await ctx.db.get(personId),
       history: await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_person_createdAt', (q) => q.eq('personId', personId))
+        .withIndex(
+          'by_ownerTokenIdentifier_and_personId_and_createdAt',
+          (q) =>
+            q
+              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('personId', personId),
+        )
         .collect(),
     }))
 

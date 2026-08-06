@@ -4,10 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from './_generated/api'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
   insertCookSession,
   insertIngredient,
+  insertMeal,
+  insertMealItem,
   insertPerson,
+  TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
 describe('nutrition cooking and meal mutations', () => {
@@ -54,7 +58,11 @@ describe('nutrition cooking and meal mutations', () => {
         const cookedFood = await ctx.db.get(cookedFoodId)
         const ingredientLines = await ctx.db
           .query('cookedFoodIngredients')
-          .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
+          .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+            q
+              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('cookedFoodId', cookedFoodId),
+          )
           .collect()
         const session = await ctx.db.get(sessionId)
         return { cookedFood, ingredientLines, session }
@@ -112,19 +120,27 @@ describe('nutrition cooking and meal mutations', () => {
       const cookedFood = await ctx.db.get(cookedFoodId)
       const ingredients = await ctx.db
         .query('ingredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', 'user-1'))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        )
         .collect()
       const recipes = await ctx.db
         .query('recipes')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', 'user-1'))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        )
         .collect()
       const versions = await ctx.db
         .query('recipeVersions')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', 'user-1'))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        )
         .collect()
       const versionLines = await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', 'user-1'))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        )
         .collect()
       return { cookedFood, ingredients, recipes, versions, versionLines }
     })
@@ -174,11 +190,17 @@ describe('nutrition cooking and meal mutations', () => {
       cookedFood: await ctx.db.get(cookedFoodId),
       lines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_cookedFood', (q) => q.eq('cookedFoodId', cookedFoodId))
+        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('cookedFoodId', cookedFoodId),
+        )
         .collect(),
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', 'user-1'))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        )
         .collect(),
     }))
 
@@ -222,7 +244,11 @@ describe('nutrition cooking and meal mutations', () => {
       const meal = await ctx.db.get(mealId)
       const items = await ctx.db
         .query('mealItems')
-        .withIndex('by_meal', (q) => q.eq('mealId', mealId))
+        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('mealId', mealId),
+        )
         .collect()
       return { meal, items }
     })
@@ -274,7 +300,11 @@ describe('nutrition cooking and meal mutations', () => {
     const items = await t.run(async (ctx) => {
       return await ctx.db
         .query('mealItems')
-        .withIndex('by_meal', (q) => q.eq('mealId', mealId))
+        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('mealId', mealId),
+        )
         .collect()
     })
 
@@ -380,12 +410,99 @@ describe('nutrition cooking and meal mutations', () => {
       const meal = await ctx.db.get(mealId)
       const items = await ctx.db
         .query('mealItems')
-        .withIndex('by_meal', (q) => q.eq('mealId', mealId))
+        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('mealId', mealId),
+        )
         .collect()
       return { meal, items }
     })
 
     expect(meal).toBeNull()
     expect(items).toHaveLength(0)
+  })
+
+  it('rolls back the whole cook-session cascade when history blocks a later food', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await insertPerson(t)
+    const sessionId = await insertCookSession(t)
+    const createFood = (name: string) =>
+      user.mutation(api.nutrition.createCookedFood, {
+        cookSessionId: sessionId,
+        name,
+        groupIds: [],
+        finishedWeightGrams: 100,
+        ingredients: [
+          {
+            sourceType: 'custom' as const,
+            name: `${name} ingredient`,
+            kcalPer100: 100,
+            ignoreCalories: false,
+            referenceAmount: 100,
+            referenceUnit: 'g' as const,
+            countedAmount: 100,
+          },
+        ],
+      })
+    const firstFoodId = await createFood('First food')
+    const referencedFoodId = await createFood('Referenced food')
+    await user.mutation(api.nutrition.createMeal, {
+      personId,
+      items: [
+        {
+          sourceType: 'cookedFood',
+          cookedFoodId: referencedFoodId,
+          consumedWeightGrams: 50,
+        },
+      ],
+    })
+
+    await expect(
+      user.mutation(api.nutrition.deleteCookSession, { sessionId }),
+    ).rejects.toThrow('Archive instead')
+
+    const remaining = await t.run(async (ctx) => ({
+      session: await ctx.db.get(sessionId),
+      firstFood: await ctx.db.get(firstFoodId),
+      referencedFood: await ctx.db.get(referencedFoodId),
+      firstLines: await ctx.db
+        .query('cookedFoodIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('cookedFoodId', firstFoodId),
+        )
+        .collect(),
+      referencedLines: await ctx.db
+        .query('cookedFoodIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('cookedFoodId', referencedFoodId),
+        )
+        .collect(),
+    }))
+    expect(remaining.session).not.toBeNull()
+    expect(remaining.firstFood).not.toBeNull()
+    expect(remaining.referencedFood).not.toBeNull()
+    expect(remaining.firstLines).toHaveLength(1)
+    expect(remaining.referencedLines).toHaveLength(1)
+  })
+
+  it("rejects another token before deleting a meal's children", async () => {
+    const t = createConvexTest()
+    const foreignUser = asTestUserWithToken(t, 'user-1|other-token')
+    const personId = await insertPerson(t)
+    const mealId = await insertMeal(t, personId)
+    const ownItemId = await insertMealItem(t, mealId)
+
+    await expect(
+      foreignUser.mutation(api.nutrition.deleteMeal, { mealId }),
+    ).rejects.toThrow('Meal not found.')
+
+    expect(await t.run(async (ctx) => ctx.db.get(mealId))).not.toBeNull()
+    expect(await t.run(async (ctx) => ctx.db.get(ownItemId))).not.toBeNull()
   })
 })

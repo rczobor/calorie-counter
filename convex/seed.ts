@@ -4,8 +4,8 @@ import { internalMutation, type MutationCtx } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 
 type SeedOwner = {
-  ownerUserId: string
-  ownerTokenIdentifier?: string
+  ownerUserId?: string
+  ownerTokenIdentifier: string
 }
 
 type SeedSummary = {
@@ -35,8 +35,8 @@ function toLocalDateString(timestamp: number) {
 
 function ownerFields(owner: SeedOwner) {
   return {
-    ownerUserId: owner.ownerUserId,
     ownerTokenIdentifier: owner.ownerTokenIdentifier,
+    ...(owner.ownerUserId ? { ownerUserId: owner.ownerUserId } : {}),
   }
 }
 
@@ -52,20 +52,37 @@ async function resolveSeedOwner(
     normalizeOptionalString(args.ownerUserId) ??
     normalizeOptionalString(process.env.SEED_OWNER_USER_ID) ??
     identity?.subject
+  const configuredIssuer = normalizeOptionalString(
+    process.env.CLERK_JWT_ISSUER_DOMAIN,
+  )
   const ownerTokenIdentifier =
     normalizeOptionalString(args.ownerTokenIdentifier) ??
     normalizeOptionalString(process.env.SEED_OWNER_TOKEN_IDENTIFIER) ??
+    (configuredIssuer && ownerUserId
+      ? `${configuredIssuer}|${ownerUserId}`
+      : undefined) ??
     identity?.tokenIdentifier
 
-  if (!ownerUserId) {
+  if (!ownerTokenIdentifier) {
     throw new Error(
-      'Seed owner user id is required. Pass ownerUserId or set SEED_OWNER_USER_ID.',
+      'Seed owner token identifier is required. Pass ownerTokenIdentifier, set SEED_OWNER_TOKEN_IDENTIFIER, or authenticate the seed call.',
     )
+  }
+  const [rawIssuer, rawSubject, ...extra] = ownerTokenIdentifier.split('|')
+  const issuer = rawIssuer?.trim()
+  const subject = rawSubject?.trim()
+  if (!issuer || !subject || extra.length > 0) {
+    throw new Error(
+      'Seed owner token identifier must use the issuer|subject format.',
+    )
+  }
+  if (ownerUserId && ownerUserId !== subject) {
+    throw new Error('Seed owner user id must match the token subject.')
   }
 
   return {
     ownerUserId,
-    ownerTokenIdentifier,
+    ownerTokenIdentifier: `${issuer}|${subject}`,
   }
 }
 
@@ -121,35 +138,51 @@ export const defaults = internalMutation({
     ] = await Promise.all([
       ctx.db
         .query('people')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('foodGroups')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('ingredients')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('recipes')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('recipeVersions')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('cookSessions')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('cookedFoods')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
       ctx.db
         .query('meals')
-        .withIndex('by_owner', (q) => q.eq('ownerUserId', owner.ownerUserId))
+        .withIndex('by_ownerTokenIdentifier', (q) =>
+          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
+        )
         .collect(),
     ])
 
