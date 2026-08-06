@@ -33,24 +33,27 @@ describe('seed defaults script args', () => {
     ])
   })
 
-  it('omits blank local seed env values', () => {
+  it('rejects blank local seed token values', () => {
     expect(
-      buildSeedDefaultsArgs(
+      () => buildSeedDefaultsArgs(
         {
           SEED_OWNER_USER_ID: '  ',
           SEED_OWNER_TOKEN_IDENTIFIER: '',
         },
         [],
       ),
-    ).toEqual([])
+    ).toThrow('SEED_OWNER_TOKEN_IDENTIFIER is required')
   })
 
   it('uses parsed env file values when shell env is missing', () => {
     expect(
       buildSeedDefaultsArgs({}, [], {
         SEED_OWNER_USER_ID: 'user_from_file',
+        SEED_OWNER_TOKEN_IDENTIFIER: 'issuer|user_from_file',
       }),
-    ).toEqual(['{"ownerUserId":"user_from_file"}'])
+    ).toEqual([
+      '{"ownerUserId":"user_from_file","ownerTokenIdentifier":"issuer|user_from_file"}',
+    ])
   })
 
   it('prefers shell env over parsed env file values', () => {
@@ -58,13 +61,16 @@ describe('seed defaults script args', () => {
       buildSeedDefaultsArgs(
         {
           SEED_OWNER_USER_ID: 'user_from_shell',
+          SEED_OWNER_TOKEN_IDENTIFIER: 'issuer|user_from_shell',
         },
         [],
         {
           SEED_OWNER_USER_ID: 'user_from_file',
         },
       ),
-    ).toEqual(['{"ownerUserId":"user_from_shell"}'])
+    ).toEqual([
+      '{"ownerUserId":"user_from_shell","ownerTokenIdentifier":"issuer|user_from_shell"}',
+    ])
   })
 
   it('launches the local Convex CLI through the current Node executable', () => {

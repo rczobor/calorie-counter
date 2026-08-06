@@ -7,6 +7,7 @@ import schema from '../../convex/schema'
 const modules = import.meta.glob('../../convex/**/*.ts')
 
 export const TEST_USER_ID = 'user-1'
+export const TEST_TOKEN_IDENTIFIER = `${TEST_USER_ID}|token`
 
 export function createConvexTest() {
   return convexTest({
@@ -18,7 +19,7 @@ export function createConvexTest() {
 export function asTestUser(t: ReturnType<typeof createConvexTest>) {
   return t.withIdentity({
     subject: TEST_USER_ID,
-    tokenIdentifier: `${TEST_USER_ID}|token`,
+    tokenIdentifier: TEST_TOKEN_IDENTIFIER,
     issuer: 'https://example.test',
   })
 }
@@ -41,6 +42,7 @@ export async function insertPerson(
   return await t.run(async (ctx) => {
     return await ctx.db.insert('people', {
       ownerUserId: TEST_USER_ID,
+      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Alex',
       notes: undefined,
       currentDailyGoalKcal: 2000,
@@ -58,6 +60,7 @@ export async function insertFoodGroup(
   return await t.run(async (ctx) => {
     return await ctx.db.insert('foodGroups', {
       ownerUserId: TEST_USER_ID,
+      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Prep',
       appliesTo: 'ingredient',
       archived: false,
@@ -74,6 +77,7 @@ export async function insertIngredient(
   return await t.run(async (ctx) => {
     return await ctx.db.insert('ingredients', {
       ownerUserId: TEST_USER_ID,
+      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Ingredient',
       brand: undefined,
       kcalPer100: 100,
@@ -95,6 +99,7 @@ export async function insertCookSession(
   return await t.run(async (ctx) => {
     return await ctx.db.insert('cookSessions', {
       ownerUserId: TEST_USER_ID,
+      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       label: 'Session',
       cookedAt: Date.now(),
       cookedByPersonId: undefined,
@@ -115,6 +120,7 @@ export async function insertMeal(
   return await t.run(async (ctx) => {
     return await ctx.db.insert('meals', {
       ownerUserId: TEST_USER_ID,
+      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       personId,
       name: undefined,
       eatenOn: '2026-04-04',
@@ -134,6 +140,7 @@ export async function insertMealItem(
   return await t.run(async (ctx) => {
     return await ctx.db.insert('mealItems', {
       ownerUserId: TEST_USER_ID,
+      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       mealId,
       sourceType: 'custom',
       ingredientId: undefined,

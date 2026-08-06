@@ -30,12 +30,17 @@ export function buildSeedDefaultsArgs(
   const ownerTokenIdentifier = normalizeOptionalString(
     seedEnv.SEED_OWNER_TOKEN_IDENTIFIER,
   )
+  if (!ownerTokenIdentifier) {
+    throw new Error(
+      'SEED_OWNER_TOKEN_IDENTIFIER is required when seed arguments are omitted.',
+    )
+  }
   const args = {
     ...(ownerUserId ? { ownerUserId } : {}),
-    ...(ownerTokenIdentifier ? { ownerTokenIdentifier } : {}),
+    ownerTokenIdentifier,
   }
 
-  return Object.keys(args).length > 0 ? [JSON.stringify(args)] : []
+  return [JSON.stringify(args)]
 }
 
 export function parseSeedEnvFile(contents: string): SeedDefaultsEnv {

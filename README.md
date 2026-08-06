@@ -91,26 +91,26 @@ pnpm exec convex deploy --cmd 'pnpm run build' --preview-run seed:defaults
 The seed function creates default people, catalog items, a recipe, a cook
 session, cooked food, and today's sample meal. It is idempotent for the target
 owner. Since app data is scoped to Clerk users, configure `SEED_OWNER_USER_ID`
-as a Convex project default for preview deployments before running it without
-arguments. For an existing selected dev deployment, set the deployment env var:
+only as optional legacy metadata. Seeding requires an issuer-qualified
+`SEED_OWNER_TOKEN_IDENTIFIER` in `issuer|subject` form unless the call is
+authenticated. For an existing selected deployment, set:
 
 ```bash
+pnpm exec convex env set SEED_OWNER_TOKEN_IDENTIFIER 'https://issuer.example|user_...'
 pnpm exec convex env set SEED_OWNER_USER_ID user_...
 ```
 
 For a selected dev deployment, you can also pass the owner directly:
 
 ```bash
-pnpm run seed:defaults -- '{"ownerUserId":"user_..."}'
+pnpm run seed:defaults -- '{"ownerTokenIdentifier":"https://issuer.example|user_...","ownerUserId":"user_..."}'
 ```
 
 For local runs, `pnpm run seed:defaults` forwards `SEED_OWNER_USER_ID` and
 `SEED_OWNER_TOKEN_IDENTIFIER` from your shell or `.env.local` as Convex function
 arguments. For `--preview-run`, those values must be configured as Convex
 deployment env vars because the function runs on Convex, not in the Vercel build
-shell.
-
-If you need strict token scoping, also set or pass `SEED_OWNER_TOKEN_IDENTIFIER`.
+shell. `ownerUserId` alone is not sufficient.
 
 ## Scripts
 
