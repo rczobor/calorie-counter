@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-react'
+import { useAuth } from '@clerk/react'
 import {
   type Dispatch,
   type SetStateAction,
@@ -20,6 +20,7 @@ type PersistedDraftState = {
 
 type DraftStore = Omit<PersistedDraftState, 'version'> & {
   storageKey: string | null
+  persistenceEnabled: boolean
 }
 
 function getStorageKey(userId: string) {
@@ -144,12 +145,30 @@ export function usePersistedCookingDrafts(): {
 } {
   const { isLoaded, userId } = useAuth()
   const storageKey = isLoaded && userId ? getStorageKey(userId) : null
-  const createStore = (key: string | null): DraftStore => ({
-    storageKey: key,
-    ...(key
-      ? parsePersistedCookingDrafts(window.localStorage.getItem(key))
-      : { activeDraftId: null, drafts: [] }),
-  })
+  const createStore = (key: string | null): DraftStore => {
+    if (!key) {
+      return {
+        storageKey: null,
+        persistenceEnabled: false,
+        activeDraftId: null,
+        drafts: [],
+      }
+    }
+    try {
+      return {
+        storageKey: key,
+        persistenceEnabled: true,
+        ...parsePersistedCookingDrafts(window.localStorage.getItem(key)),
+      }
+    } catch {
+      return {
+        storageKey: key,
+        persistenceEnabled: false,
+        activeDraftId: null,
+        drafts: [],
+      }
+    }
+  }
   const [store, setStore] = useState<DraftStore>(() => createStore(storageKey))
   if (store.storageKey !== storageKey) {
     setStore(createStore(storageKey))
@@ -181,7 +200,7 @@ export function usePersistedCookingDrafts(): {
   )
 
   useEffect(() => {
-    if (!store.storageKey) {
+    if (!store.storageKey || !store.persistenceEnabled) {
       return
     }
     const state: PersistedDraftState = {

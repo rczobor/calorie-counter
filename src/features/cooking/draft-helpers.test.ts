@@ -9,6 +9,7 @@ import {
   formatRelativeDraftTime,
   getCookingDraftLabel,
   getIngredientBasisUnit,
+  getRecipeCountedAmount,
   shouldAutoFillReferenceFields,
 } from '@/features/cooking/draft-helpers'
 import {
@@ -45,6 +46,29 @@ describe('cooking draft helpers', () => {
     expect(shouldAutoFillReferenceFields('ml')).toBe(true)
     expect(shouldAutoFillReferenceFields('piece')).toBe(false)
   })
+
+  it.each(
+    [
+      ['g', 'g', false, 120],
+      ['ml', 'ml', false, 120],
+      ['piece', 'piece', false, 120],
+      ['g', 'piece', false, undefined],
+      ['ml', 'g', false, undefined],
+      ['g', 'g', true, undefined],
+    ] as const,
+  )(
+    'infers recipe counted amounts for %s references and %s calorie basis',
+    (referenceUnit, kcalBasisUnit, ignoreCalories, expected) => {
+      expect(
+        getRecipeCountedAmount(
+          120,
+          referenceUnit,
+          kcalBasisUnit,
+          ignoreCalories,
+        ),
+      ).toBe(expected)
+    },
+  )
 
   it('builds a draft from cooked food snapshots', () => {
     const food = createCookedFoodDoc('food-1', 'session-1', 'Overnight oats', {

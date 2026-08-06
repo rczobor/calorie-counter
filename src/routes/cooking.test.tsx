@@ -27,7 +27,7 @@ vi.mock('convex/react', () => ({
   useMutation: (reference: unknown) => mockUseMutation(reference),
 }))
 
-vi.mock('@clerk/clerk-react', () => ({
+vi.mock('@clerk/react', () => ({
   useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
 }))
 

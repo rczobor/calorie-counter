@@ -36,6 +36,7 @@ import {
   formatRelativeDraftTime,
   getCookingDraftLabel,
   getIngredientBasisUnit,
+  getRecipeCountedAmount,
   shouldAutoFillReferenceFields,
   type CookingDraft,
 } from '@/features/cooking/draft-helpers'
@@ -831,10 +832,15 @@ function CookingPageContent() {
                   (line as { ignoreCaloriesSnapshot?: boolean })
                     .ignoreCaloriesSnapshot,
                 )
-                const countedAmount =
-                  !ignoreCalories && referenceUnit === 'g'
-                    ? referenceAmount
-                    : undefined
+                const kcalBasisUnit =
+                  (line as { kcalBasisUnitSnapshot?: NutritionUnit })
+                    .kcalBasisUnitSnapshot ?? 'g'
+                const countedAmount = getRecipeCountedAmount(
+                  referenceAmount,
+                  referenceUnit,
+                  kcalBasisUnit,
+                  ignoreCalories,
+                )
                 return {
                   draftId: createDraftId(),
                   sourceType: 'custom' as const,
@@ -844,9 +850,7 @@ function CookingPageContent() {
                   kcalPer100:
                     (line as { kcalPer100Snapshot?: number })
                       .kcalPer100Snapshot ?? 0,
-                  kcalBasisUnit:
-                    (line as { kcalBasisUnitSnapshot?: NutritionUnit })
-                      .kcalBasisUnitSnapshot ?? 'g',
+                  kcalBasisUnit,
                   ignoreCalories,
                   referenceAmount,
                   referenceUnit,
@@ -855,17 +859,19 @@ function CookingPageContent() {
                 }
               }
 
+              const ingredient = ingredientById.get(line.ingredientId)
               return {
                 draftId: createDraftId(),
                 sourceType: 'ingredient' as const,
                 ingredientId: line.ingredientId,
                 referenceAmount,
                 referenceUnit,
-                countedAmount: isIngredientIgnored(line.ingredientId)
-                  ? undefined
-                  : referenceUnit === 'g'
-                    ? referenceAmount
-                    : undefined,
+                countedAmount: getRecipeCountedAmount(
+                  referenceAmount,
+                  referenceUnit,
+                  getIngredientBasisUnit(ingredient),
+                  isIngredientIgnored(line.ingredientId),
+                ),
               }
             }),
     }))
