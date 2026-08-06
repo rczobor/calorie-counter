@@ -10,6 +10,7 @@ count.txt
 .wrangler
 .output
 coverage
+.convex-backups/
 .vinxi
 .vercel
 __unconfig*
