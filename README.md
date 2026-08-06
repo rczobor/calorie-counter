@@ -93,7 +93,9 @@ session, cooked food, and today's sample meal. It is idempotent for the target
 owner. Since app data is scoped to Clerk users, configure `SEED_OWNER_USER_ID`
 only as optional legacy metadata. Seeding requires an issuer-qualified
 `SEED_OWNER_TOKEN_IDENTIFIER` in `issuer|subject` form unless the call is
-authenticated. For an existing selected deployment, set:
+authenticated. Preview deployments may derive it from
+`CLERK_JWT_ISSUER_DOMAIN` plus `SEED_OWNER_USER_ID`. For an existing selected
+deployment, set:
 
 ```bash
 pnpm exec convex env set SEED_OWNER_TOKEN_IDENTIFIER 'https://issuer.example|user_...'

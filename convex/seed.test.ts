@@ -192,10 +192,12 @@ describe('default seed data', () => {
   const originalSeedOwnerUserId = process.env.SEED_OWNER_USER_ID
   const originalSeedOwnerTokenIdentifier =
     process.env.SEED_OWNER_TOKEN_IDENTIFIER
+  const originalClerkIssuerDomain = process.env.CLERK_JWT_ISSUER_DOMAIN
 
   beforeEach(() => {
     delete process.env.SEED_OWNER_USER_ID
     delete process.env.SEED_OWNER_TOKEN_IDENTIFIER
+    delete process.env.CLERK_JWT_ISSUER_DOMAIN
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-04T12:00:00'))
   })
@@ -210,6 +212,11 @@ describe('default seed data', () => {
       process.env.SEED_OWNER_TOKEN_IDENTIFIER = originalSeedOwnerTokenIdentifier
     } else {
       delete process.env.SEED_OWNER_TOKEN_IDENTIFIER
+    }
+    if (originalClerkIssuerDomain) {
+      process.env.CLERK_JWT_ISSUER_DOMAIN = originalClerkIssuerDomain
+    } else {
+      delete process.env.CLERK_JWT_ISSUER_DOMAIN
     }
     vi.useRealTimers()
   })
@@ -277,10 +284,10 @@ describe('default seed data', () => {
     )
   })
 
-  it('resolves token and optional user metadata from the deployment environment', async () => {
+  it('derives a token from the configured Clerk issuer and seed user', async () => {
     const t = createConvexTest()
     const token = 'https://issuer.example|env-user'
-    process.env.SEED_OWNER_TOKEN_IDENTIFIER = token
+    process.env.CLERK_JWT_ISSUER_DOMAIN = 'https://issuer.example'
     process.env.SEED_OWNER_USER_ID = 'env-user'
 
     await t.mutation(seedDefaults, {})

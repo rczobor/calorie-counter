@@ -52,9 +52,15 @@ async function resolveSeedOwner(
     normalizeOptionalString(args.ownerUserId) ??
     normalizeOptionalString(process.env.SEED_OWNER_USER_ID) ??
     identity?.subject
+  const configuredIssuer = normalizeOptionalString(
+    process.env.CLERK_JWT_ISSUER_DOMAIN,
+  )
   const ownerTokenIdentifier =
     normalizeOptionalString(args.ownerTokenIdentifier) ??
     normalizeOptionalString(process.env.SEED_OWNER_TOKEN_IDENTIFIER) ??
+    (configuredIssuer && ownerUserId
+      ? `${configuredIssuer}|${ownerUserId}`
+      : undefined) ??
     identity?.tokenIdentifier
 
   const [issuer, subject, ...extra] = ownerTokenIdentifier?.split('|') ?? []
