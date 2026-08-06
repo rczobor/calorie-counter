@@ -377,7 +377,7 @@ export const defaults = internalMutation({
         finishedWeightGrams,
         totalRawWeightGrams: 665,
         totalCalories,
-        kcalPer100: (totalCalories / finishedWeightGrams) * 100,
+        kcalPer100: Math.round((totalCalories / finishedWeightGrams) * 100),
         notes: SEEDED_NOTE,
         archived: false,
         createdAt: now,

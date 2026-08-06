@@ -95,6 +95,7 @@ describe('default seed data', () => {
     expect(data.cookSessions[0]).toMatchObject({ label: 'Sunday prep' })
     expect(data.cookedFoods[0]).toMatchObject({
       name: 'Chicken rice bowl portions',
+      kcalPer100: 120,
     })
     expect(data.meals[0]).toMatchObject({
       name: 'Preview breakfast',
