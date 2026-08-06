@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { SignedIn } from '@clerk/clerk-react'
+import { Show } from '@clerk/react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import {
   BookOpen,
@@ -41,7 +41,7 @@ export default function Header() {
               </span>
             </Link>
             {isClerkConfigured ? (
-              <SignedIn>
+              <Show when="signed-in">
                 <nav
                   aria-label="Primary navigation"
                   className="hidden items-center gap-1 md:flex"
@@ -58,7 +58,7 @@ export default function Header() {
                     </Link>
                   ))}
                 </nav>
-              </SignedIn>
+              </Show>
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -67,7 +67,7 @@ export default function Header() {
           </div>
         </div>
         {isClerkConfigured ? (
-          <SignedIn>
+          <Show when="signed-in">
             <div className="relative md:hidden">
               <nav
                 aria-label="Primary navigation"
@@ -90,7 +90,7 @@ export default function Header() {
                 className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background via-background/80 to-transparent"
               />
             </div>
-          </SignedIn>
+          </Show>
         ) : null}
       </div>
     </header>

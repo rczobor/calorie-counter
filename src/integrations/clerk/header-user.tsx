@@ -1,9 +1,8 @@
 import {
-  SignedIn,
+  Show,
   SignInButton,
-  SignedOut,
   UserButton,
-} from '@clerk/clerk-react'
+} from '@clerk/react'
 import { Button } from '@/components/ui/button'
 import { isClerkConfigured } from './config'
 
@@ -18,16 +17,16 @@ export default function HeaderUser() {
 
   return (
     <>
-      <SignedIn>
+      <Show when="signed-in">
         <UserButton />
-      </SignedIn>
-      <SignedOut>
+      </Show>
+      <Show when="signed-out">
         <SignInButton mode="modal">
           <Button size="sm" className="w-full sm:w-auto">
             Sign in
           </Button>
         </SignInButton>
-      </SignedOut>
+      </Show>
     </>
   )
 }

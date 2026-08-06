@@ -12,7 +12,7 @@ vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
 }))
 
-vi.mock('@clerk/clerk-react', () => ({
+vi.mock('@clerk/react', () => ({
   useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
 }))
 

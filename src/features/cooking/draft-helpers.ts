@@ -62,6 +62,17 @@ export function getIngredientBasisUnit(ingredient?: {
   return ingredient?.kcalBasisUnit ?? 'g'
 }
 
+export function getRecipeCountedAmount(
+  referenceAmount: number,
+  referenceUnit: NutritionUnit,
+  kcalBasisUnit: NutritionUnit,
+  ignoreCalories: boolean,
+) {
+  return !ignoreCalories && referenceUnit === kcalBasisUnit
+    ? referenceAmount
+    : undefined
+}
+
 export function shouldAutoFillReferenceFields(unit: NutritionUnit) {
   return unit === 'g' || unit === 'ml'
 }

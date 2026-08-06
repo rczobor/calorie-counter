@@ -1,6 +1,6 @@
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
-import { useAuth } from '@clerk/clerk-react'
+import { useAuth } from '@clerk/react'
 import { convexUrl, isConvexConfigured } from './config'
 import { isClerkConfigured } from '../clerk/config'
 

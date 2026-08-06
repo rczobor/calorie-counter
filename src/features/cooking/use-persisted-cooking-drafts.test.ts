@@ -1,8 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Id } from '../../../convex/_generated/dataModel'
 import { createCookingDraft } from './draft-helpers'
-import { parsePersistedCookingDrafts } from './use-persisted-cooking-drafts'
+import {
+  parsePersistedCookingDrafts,
+  usePersistedCookingDrafts,
+} from './use-persisted-cooking-drafts'
+
+vi.mock('@clerk/react', () => ({
+  useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
+}))
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('persisted cooking drafts', () => {
   it('restores valid drafts and their active selection', () => {
@@ -33,5 +45,18 @@ describe('persisted cooking drafts', () => {
         JSON.stringify({ version: 2, activeDraftId: null, drafts: [] }),
       ),
     ).toEqual({ activeDraftId: null, drafts: [] })
+  })
+
+  it('falls back to an empty in-memory store when storage reads fail', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Blocked', 'SecurityError')
+    })
+
+    const { result } = renderHook(() => usePersistedCookingDrafts())
+
+    expect(result.current.activeDraftId).toBeNull()
+    expect(result.current.drafts).toEqual([])
+    expect(setItem).not.toHaveBeenCalled()
   })
 })

@@ -6,10 +6,9 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import {
   ClerkLoaded,
   ClerkLoading,
+  Show,
   SignInButton,
-  SignedIn,
-  SignedOut,
-} from '@clerk/clerk-react'
+} from '@clerk/react'
 import { useConvexAuth } from 'convex/react'
 
 import Header from '../components/Header'
@@ -18,6 +17,7 @@ import ClerkProvider from '../integrations/clerk/provider'
 import { isClerkConfigured } from '../integrations/clerk/config'
 
 import ConvexProvider from '../integrations/convex/provider'
+import { isConvexConfigured } from '../integrations/convex/config'
 import { ThemeProvider } from '../components/theme-provider'
 import { Toaster } from '../components/ui/sonner'
 import { Button } from '../components/ui/button'
@@ -133,7 +133,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!isClerkConfigured) {
     return (
       <main className="min-h-[calc(100vh-2.5rem)] px-4 py-10 sm:px-6">
@@ -150,6 +150,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     )
   }
 
+  if (!isConvexConfigured) {
+    return (
+      <AuthStatusCard
+        title="Data setup required"
+        description="Add `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` to your project `.env.local` to connect authenticated sessions to data."
+      />
+    )
+  }
+
   return (
     <>
       <ClerkLoading>
@@ -159,10 +168,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         />
       </ClerkLoading>
       <ClerkLoaded>
-        <SignedIn>
+        <Show when="signed-in">
           <ConvexAuthReady>{children}</ConvexAuthReady>
-        </SignedIn>
-        <SignedOut>
+        </Show>
+        <Show when="signed-out">
           <AuthStatusCard
             title="Sign in required"
             description="You must be signed in to view or manage calorie data."
@@ -172,7 +181,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               </SignInButton>
             }
           />
-        </SignedOut>
+        </Show>
       </ClerkLoaded>
     </>
   )
