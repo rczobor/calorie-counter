@@ -63,13 +63,15 @@ async function resolveSeedOwner(
       : undefined) ??
     identity?.tokenIdentifier
 
-  const [issuer, subject, ...extra] = ownerTokenIdentifier?.split('|') ?? []
   if (!ownerTokenIdentifier) {
     throw new Error(
       'Seed owner token identifier is required. Pass ownerTokenIdentifier, set SEED_OWNER_TOKEN_IDENTIFIER, or authenticate the seed call.',
     )
   }
-  if (!issuer?.trim() || !subject?.trim() || extra.length > 0) {
+  const [rawIssuer, rawSubject, ...extra] = ownerTokenIdentifier.split('|')
+  const issuer = rawIssuer?.trim()
+  const subject = rawSubject?.trim()
+  if (!issuer || !subject || extra.length > 0) {
     throw new Error(
       'Seed owner token identifier must use the issuer|subject format.',
     )
@@ -80,7 +82,7 @@ async function resolveSeedOwner(
 
   return {
     ownerUserId,
-    ownerTokenIdentifier,
+    ownerTokenIdentifier: `${issuer}|${subject}`,
   }
 }
 

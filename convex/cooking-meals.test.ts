@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from './_generated/api'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
   insertCookSession,
   insertIngredient,
@@ -490,22 +491,18 @@ describe('nutrition cooking and meal mutations', () => {
     expect(remaining.referencedLines).toHaveLength(1)
   })
 
-  it('never deletes another token\'s child during a cascade', async () => {
+  it("rejects another token before deleting a meal's children", async () => {
     const t = createConvexTest()
-    const user = asTestUser(t)
+    const foreignUser = asTestUserWithToken(t, 'user-1|other-token')
     const personId = await insertPerson(t)
     const mealId = await insertMeal(t, personId)
     const ownItemId = await insertMealItem(t, mealId)
-    const foreignItemId = await insertMealItem(t, mealId, {
-      ownerTokenIdentifier: 'user-1|other-token',
-    })
 
-    await user.mutation(api.nutrition.deleteMeal, { mealId })
+    await expect(
+      foreignUser.mutation(api.nutrition.deleteMeal, { mealId }),
+    ).rejects.toThrow('Meal not found.')
 
-    expect(await t.run(async (ctx) => ctx.db.get(ownItemId))).toBeNull()
-    expect(await t.run(async (ctx) => ctx.db.get(foreignItemId))).toMatchObject({
-      mealId,
-      ownerTokenIdentifier: 'user-1|other-token',
-    })
+    expect(await t.run(async (ctx) => ctx.db.get(mealId))).not.toBeNull()
+    expect(await t.run(async (ctx) => ctx.db.get(ownItemId))).not.toBeNull()
   })
 })

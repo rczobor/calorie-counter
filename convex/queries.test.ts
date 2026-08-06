@@ -81,7 +81,14 @@ describe('nutrition scoped queries', () => {
     const results = await queryPages(userA)
 
     expect(Object.keys(results[0]).sort()).toEqual(
-      ['people', 'ingredients', 'cookSessions', 'cookedFoods', 'meals', 'mealItems'].sort(),
+      [
+        'people',
+        'ingredients',
+        'cookSessions',
+        'cookedFoods',
+        'meals',
+        'mealItems',
+      ].sort(),
     )
     expect(Object.keys(results[1]).sort()).toEqual(
       ['people', 'personGoalHistory', 'meals', 'mealItems'].sort(),
@@ -90,7 +97,13 @@ describe('nutrition scoped queries', () => {
       ['people', 'personGoalHistory', 'meals', 'mealItems'].sort(),
     )
     expect(Object.keys(results[3]).sort()).toEqual(
-      ['foodGroups', 'ingredients', 'recipes', 'recipeVersions', 'recipeVersionIngredients'].sort(),
+      [
+        'foodGroups',
+        'ingredients',
+        'recipes',
+        'recipeVersions',
+        'recipeVersionIngredients',
+      ].sort(),
     )
     expect(Object.keys(results[4]).sort()).toEqual(
       [
@@ -135,10 +148,9 @@ describe('nutrition scoped queries', () => {
     const userA = asTestUserWithToken(t, tokenA)
     const userB = asTestUserWithToken(t, tokenB)
     const cooking = await userB.query(api.nutrition.getCookingData, {})
-    const dashboard = await userB.query(
-      api.nutrition.getMealDashboardData,
-      { eatenOn: '2026-04-04' },
-    )
+    const dashboard = await userB.query(api.nutrition.getMealDashboardData, {
+      eatenOn: '2026-04-04',
+    })
     const personId = cooking.people[0]!._id
     const groupId = cooking.foodGroups[0]!._id
     const ingredientId = cooking.ingredients[0]!._id
@@ -192,45 +204,43 @@ describe('nutrition scoped queries', () => {
       ).rejects.toThrow('not found'),
     ])
 
-    await Promise.all([
-      userB.mutation(api.nutrition.setPersonArchived, {
-        personId,
-        archived: true,
-      }),
-      userB.mutation(api.nutrition.setFoodGroupArchived, {
-        groupId,
-        archived: true,
-      }),
-      userB.mutation(api.nutrition.setIngredientArchived, {
-        ingredientId,
-        archived: true,
-      }),
-      userB.mutation(api.nutrition.setRecipeArchived, {
-        recipeId,
-        archived: true,
-      }),
-      userB.mutation(api.nutrition.setCookSessionArchived, {
-        sessionId,
-        archived: true,
-      }),
-      userB.mutation(api.nutrition.setCookedFoodArchived, {
-        cookedFoodId,
-        archived: true,
-      }),
-      userB.mutation(api.nutrition.setMealArchived, {
-        mealId,
-        archived: true,
-      }),
-    ])
+    await userB.mutation(api.nutrition.setPersonArchived, {
+      personId,
+      archived: true,
+    })
+    await userB.mutation(api.nutrition.setFoodGroupArchived, {
+      groupId,
+      archived: true,
+    })
+    await userB.mutation(api.nutrition.setIngredientArchived, {
+      ingredientId,
+      archived: true,
+    })
+    await userB.mutation(api.nutrition.setRecipeArchived, {
+      recipeId,
+      archived: true,
+    })
+    await userB.mutation(api.nutrition.setCookSessionArchived, {
+      sessionId,
+      archived: true,
+    })
+    await userB.mutation(api.nutrition.setCookedFoodArchived, {
+      cookedFoodId,
+      archived: true,
+    })
+    await userB.mutation(api.nutrition.setMealArchived, {
+      mealId,
+      archived: true,
+    })
 
     const archivedCooking = await userB.query(api.nutrition.getCookingData, {})
     const archivedDashboard = await userB.query(
       api.nutrition.getMealDashboardData,
       { eatenOn: '2026-04-04' },
     )
-    expect(archivedCooking.people.find((row) => row._id === personId)?.active).toBe(
-      false,
-    )
+    expect(
+      archivedCooking.people.find((row) => row._id === personId)?.active,
+    ).toBe(false)
     expect(
       archivedCooking.foodGroups.find((row) => row._id === groupId)?.archived,
     ).toBe(true)

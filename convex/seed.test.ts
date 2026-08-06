@@ -243,7 +243,7 @@ describe('default seed data', () => {
     const token = 'https://issuer.example|user-1'
 
     const summary = await t.mutation(seedDefaults, {
-      ownerTokenIdentifier: token,
+      ownerTokenIdentifier: ' https://issuer.example | user-1 ',
     })
     const data = await readSeedData(t, token)
 
@@ -279,9 +279,11 @@ describe('default seed data', () => {
       name: 'Preview breakfast',
       eatenOn: '2026-04-04',
     })
-    expect(Object.values(data).flat().every((row) => !row.ownerUserId)).toBe(
-      true,
-    )
+    expect(
+      Object.values(data)
+        .flat()
+        .every((row) => !row.ownerUserId),
+    ).toBe(true)
   })
 
   it('derives a token from the configured Clerk issuer and seed user', async () => {
@@ -294,7 +296,9 @@ describe('default seed data', () => {
     const data = await readSeedData(t, token)
 
     expect(data.people).toHaveLength(2)
-    expect(data.people.every((row) => row.ownerUserId === 'env-user')).toBe(true)
+    expect(data.people.every((row) => row.ownerUserId === 'env-user')).toBe(
+      true,
+    )
   })
 
   it('resolves ownership from an authenticated identity', async () => {
