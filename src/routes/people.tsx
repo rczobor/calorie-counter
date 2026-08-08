@@ -1,4 +1,3 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { Target, Trash2, UserRound } from 'lucide-react'
@@ -14,7 +13,10 @@ import {
 } from '@/components/page/page-states'
 import { StatusBadge } from '@/components/page/status-badge'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/ui/data-table'
+import {
+  DataTable,
+  type DataTableColumnDef,
+} from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -137,7 +139,7 @@ function PeoplePageContent() {
     [dailyConsumedByPersonId, visiblePeople],
   )
 
-  const peopleColumns: ColumnDef<PersonTableRow>[] = [
+  const peopleColumns: DataTableColumnDef<PersonTableRow>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
@@ -281,7 +283,7 @@ function PeoplePageContent() {
     [data.personGoalHistory, personNameById],
   )
 
-  const goalHistoryColumns: ColumnDef<GoalHistoryTableRow>[] = [
+  const goalHistoryColumns: DataTableColumnDef<GoalHistoryTableRow>[] = [
     {
       accessorKey: 'personName',
       header: 'Person',

@@ -1,4 +1,3 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { ChefHat, Copy, Plus, Trash2 } from 'lucide-react'
@@ -18,7 +17,10 @@ import {
   IngredientLineModeToggle,
 } from '@/components/nutrition/ingredient-line-controls'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/ui/data-table'
+import {
+  DataTable,
+  type DataTableColumnDef,
+} from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -435,7 +437,7 @@ function CookingPageContent() {
     [ingredients],
   )
 
-  const ingredientSelectionColumns: ColumnDef<IngredientSelectionRow>[] = [
+  const ingredientSelectionColumns: DataTableColumnDef<IngredientSelectionRow>[] = [
     {
       accessorKey: 'name',
       header: 'Ingredient',
@@ -1023,7 +1025,7 @@ function CookingPageContent() {
     )
   }
 
-  const sessionColumns: ColumnDef<SessionTableRow>[] = [
+  const sessionColumns: DataTableColumnDef<SessionTableRow>[] = [
     {
       accessorKey: 'label',
       header: 'Batch',
@@ -1117,7 +1119,7 @@ function CookingPageContent() {
     },
   ]
 
-  const cookedFoodColumns: ColumnDef<CookedFoodTableRow>[] = [
+  const cookedFoodColumns: DataTableColumnDef<CookedFoodTableRow>[] = [
     {
       accessorKey: 'name',
       header: 'Saved food',

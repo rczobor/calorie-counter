@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { ColumnDef } from '@tanstack/react-table'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { DataTable } from '@/components/ui/data-table'
+import {
+  DataTable,
+  type DataTableColumnDef,
+} from '@/components/ui/data-table'
 
 type Row = {
   name: string
   status: string
 }
 
-const columns: ColumnDef<Row>[] = [
+const columns: DataTableColumnDef<Row>[] = [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -31,8 +33,8 @@ describe('DataTable', () => {
       <DataTable
         columns={columns}
         data={[
-          { name: 'Greek yogurt', status: 'Active' },
           { name: 'Rolled oats', status: 'Archived' },
+          { name: 'Greek yogurt', status: 'Active' },
         ]}
         searchColumnId="name"
         searchPlaceholder="Search ingredients"
@@ -42,6 +44,14 @@ describe('DataTable', () => {
 
     expect(screen.getByText('Greek yogurt')).toBeTruthy()
     expect(screen.getByText('Rolled oats')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /name/i }))
+    expect(screen.getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
+      'Greek yogurt',
+      'Active',
+      'Rolled oats',
+      'Archived',
+    ])
 
     fireEvent.change(screen.getByLabelText(/table search/i), {
       target: { value: 'yogurt' },

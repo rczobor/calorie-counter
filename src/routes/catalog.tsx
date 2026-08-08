@@ -1,4 +1,3 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { useMemo, useState } from 'react'
@@ -15,7 +14,10 @@ import {
 import { StatusBadge } from '@/components/page/status-badge'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/ui/data-table'
+import {
+  DataTable,
+  type DataTableColumnDef,
+} from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -277,7 +279,7 @@ function ManagePageContent() {
     [groups],
   )
 
-  const foodGroupColumns: ColumnDef<FoodGroupTableRow>[] = [
+  const foodGroupColumns: DataTableColumnDef<FoodGroupTableRow>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
@@ -373,7 +375,7 @@ function ManagePageContent() {
     [ingredients],
   )
 
-  const ingredientColumns: ColumnDef<IngredientTableRow>[] = [
+  const ingredientColumns: DataTableColumnDef<IngredientTableRow>[] = [
     {
       accessorKey: 'name',
       header: 'Ingredient',
@@ -489,7 +491,7 @@ function ManagePageContent() {
     [ingredients],
   )
 
-  const recipeIngredientColumns: ColumnDef<RecipeIngredientPickerRow>[] = [
+  const recipeIngredientColumns: DataTableColumnDef<RecipeIngredientPickerRow>[] = [
     {
       id: 'name',
       accessorFn: (row) => `${row.name} ${row.brand}`.trim(),
@@ -548,7 +550,7 @@ function ManagePageContent() {
     [recipes],
   )
 
-  const recipeColumns: ColumnDef<RecipeTableRow>[] = [
+  const recipeColumns: DataTableColumnDef<RecipeTableRow>[] = [
     {
       accessorKey: 'name',
       header: 'Recipe',
@@ -836,7 +838,7 @@ function ManagePageContent() {
     })
   }
 
-  const recipeLineEditorColumns: ColumnDef<RecipeIngredientDraft>[] = [
+  const recipeLineEditorColumns: DataTableColumnDef<RecipeIngredientDraft>[] = [
     {
       id: 'name',
       header: () => <div className="w-[220px]">Name</div>,
