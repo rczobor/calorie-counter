@@ -1,4 +1,3 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { useMemo, useState } from 'react'
@@ -16,7 +15,10 @@ import {
 import { StatusBadge } from '@/components/page/status-badge'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/ui/data-table'
+import {
+  DataTable,
+  type DataTableColumnDef,
+} from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -343,7 +345,7 @@ function MealDashboardPageContent() {
     }
   })
 
-  const mealColumns: ColumnDef<MealTableRow>[] = [
+  const mealColumns: DataTableColumnDef<MealTableRow>[] = [
     {
       accessorKey: 'mealName',
       header: 'Meal',
@@ -447,7 +449,7 @@ function MealDashboardPageContent() {
     [ingredients],
   )
 
-  const ingredientSelectionColumns: ColumnDef<IngredientSelectionRow>[] = [
+  const ingredientSelectionColumns: DataTableColumnDef<IngredientSelectionRow>[] = [
     {
       accessorKey: 'name',
       header: 'Ingredient',

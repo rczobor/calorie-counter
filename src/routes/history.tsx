@@ -1,4 +1,3 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
@@ -11,7 +10,10 @@ import {
   LoadingSkeletonState,
 } from '@/components/page/page-states'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/ui/data-table'
+import {
+  DataTable,
+  type DataTableColumnDef,
+} from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select } from '@/components/ui/select'
 import { isConvexConfigured } from '@/integrations/convex/config'
@@ -31,7 +33,7 @@ type DayRow = {
   remaining: number
 }
 
-const columns: ColumnDef<DayRow>[] = [
+const columns: DataTableColumnDef<DayRow>[] = [
   {
     accessorKey: 'date',
     header: 'Date',
