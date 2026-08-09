@@ -78,7 +78,9 @@ export function CustomIngredientSwitchRow({
         <Switch
           size="sm"
           checked={ignoreCalories}
-          onCheckedChange={(checked) => onIgnoreCaloriesChange(Boolean(checked))}
+          onCheckedChange={(checked) =>
+            onIgnoreCaloriesChange(Boolean(checked))
+          }
         />
       </label>
       <label className="inline-flex items-center gap-2">

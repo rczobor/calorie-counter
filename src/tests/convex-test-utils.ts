@@ -41,12 +41,11 @@ export async function insertPerson(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('people', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Alex',
       notes: undefined,
       currentDailyGoalKcal: 2000,
-      active: true,
+      archived: false,
       createdAt: Date.now(),
       ...overrides,
     })
@@ -59,7 +58,6 @@ export async function insertFoodGroup(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('foodGroups', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Prep',
       appliesTo: 'ingredient',
@@ -76,14 +74,13 @@ export async function insertIngredient(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('ingredients', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Ingredient',
       brand: undefined,
       kcalPer100: 100,
       kcalBasisUnit: 'g',
       ignoreCalories: false,
-      groupIds: [],
+      groupId: undefined,
       notes: undefined,
       archived: false,
       createdAt: Date.now(),
@@ -98,9 +95,9 @@ export async function insertCookSession(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('cookSessions', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       label: 'Session',
+      searchText: '2026-04-04 Session',
       cookedAt: Date.now(),
       cookedByPersonId: undefined,
       notes: undefined,
@@ -119,13 +116,14 @@ export async function insertMeal(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('meals', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       personId,
       name: undefined,
       eatenOn: '2026-04-04',
       notes: undefined,
       archived: false,
+      totalCalories: 100,
+      itemCount: 1,
       createdAt: Date.now(),
       ...overrides,
     })
@@ -135,16 +133,19 @@ export async function insertMeal(
 export async function insertMealItem(
   t: ReturnType<typeof createConvexTest>,
   mealId: Id<'meals'>,
-  overrides: Partial<Doc<'mealItems'>> = {},
+  overrides: Partial<
+    Omit<
+      Extract<Doc<'mealItems'>, { sourceType: 'customByWeight' }>,
+      '_id' | '_creationTime'
+    >
+  > = {},
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('mealItems', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       mealId,
-      sourceType: 'custom',
+      sourceType: 'customByWeight',
       ingredientId: undefined,
-      cookedFoodId: undefined,
       nameSnapshot: 'Item',
       kcalPer100Snapshot: 100,
       kcalBasisUnitSnapshot: 'g',

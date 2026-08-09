@@ -39,7 +39,6 @@ describe('nutrition cooking and meal mutations', () => {
     const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
       cookSessionId: sessionId,
       name: '  Oat base  ',
-      groupIds: [],
       finishedWeightGrams: 180,
       notes: '  Batch  ',
       ingredients: [
@@ -100,7 +99,6 @@ describe('nutrition cooking and meal mutations', () => {
         name: '  Breakfast jars  ',
         instructions: '  Mix and chill  ',
       },
-      groupIds: [],
       finishedWeightGrams: 100,
       ingredients: [
         {
@@ -169,7 +167,6 @@ describe('nutrition cooking and meal mutations', () => {
     const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
       cookSessionId: sessionId,
       name: 'Stock cubes',
-      groupIds: [],
       finishedWeightGrams: 100,
       ingredients: [
         {
@@ -212,7 +209,7 @@ describe('nutrition cooking and meal mutations', () => {
       ingredientKcalBasisUnitSnapshot: 'piece',
       countedAmount: 2,
     })
-    expect(records.lines[0]?.rawWeightGrams).toBeUndefined()
+    expect(records.lines[0]).not.toHaveProperty('rawWeightGrams')
     expect(records.ingredients[0]?.kcalBasisUnit).toBe('piece')
   })
 
@@ -269,6 +266,158 @@ describe('nutrition cooking and meal mutations', () => {
     })
   })
 
+  it('stores fixed-calorie meal items without synthetic weight fields', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await insertPerson(t)
+
+    const mealId = await user.mutation(api.nutrition.createMeal, {
+      personId,
+      eatenOn: '2026-04-04',
+      items: [
+        {
+          sourceType: 'fixedCalories',
+          name: '  Restaurant estimate  ',
+          calories: 725,
+          notes: '  Menu value  ',
+        },
+      ],
+    })
+
+    const { meal, item } = await t.run(async (ctx) => ({
+      meal: await ctx.db.get(mealId),
+      item: await ctx.db
+        .query('mealItems')
+        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('mealId', mealId),
+        )
+        .unique(),
+    }))
+
+    expect(meal).toMatchObject({ totalCalories: 725, itemCount: 1 })
+    expect(item).toMatchObject({
+      sourceType: 'fixedCalories',
+      nameSnapshot: 'Restaurant estimate',
+      caloriesSnapshot: 725,
+      notes: 'Menu value',
+    })
+    expect(item).not.toHaveProperty('consumedWeightGrams')
+    expect(item).not.toHaveProperty('kcalPer100Snapshot')
+  })
+
+  it('keeps daily summaries consistent across meal lifecycle changes', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const alexId = await insertPerson(t, { name: 'Alex' })
+    const samId = await insertPerson(t, { name: 'Sam' })
+    const readSummary = async (personId: typeof alexId, eatenOn: string) =>
+      await t.run(
+        async (ctx) =>
+          await ctx.db
+            .query('dailySummaries')
+            .withIndex(
+              'by_ownerTokenIdentifier_and_personId_and_eatenOn',
+              (q) =>
+                q
+                  .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+                  .eq('personId', personId)
+                  .eq('eatenOn', eatenOn),
+            )
+            .unique(),
+      )
+
+    const mealId = await user.mutation(api.nutrition.createMeal, {
+      personId: alexId,
+      eatenOn: '2026-04-04',
+      items: [{ sourceType: 'fixedCalories', name: 'Estimate', calories: 400 }],
+    })
+    expect(await readSummary(alexId, '2026-04-04')).toMatchObject({
+      consumedCalories: 400,
+      mealCount: 1,
+    })
+
+    await user.mutation(api.nutrition.updateMeal, {
+      mealId,
+      personId: alexId,
+      eatenOn: '2026-04-04',
+      items: [{ sourceType: 'fixedCalories', name: 'Estimate', calories: 550 }],
+    })
+    expect(await readSummary(alexId, '2026-04-04')).toMatchObject({
+      consumedCalories: 550,
+      mealCount: 1,
+    })
+
+    await user.mutation(api.nutrition.updateMeal, {
+      mealId,
+      personId: samId,
+      eatenOn: '2026-04-05',
+      items: [{ sourceType: 'fixedCalories', name: 'Estimate', calories: 600 }],
+    })
+    expect(await readSummary(alexId, '2026-04-04')).toBeNull()
+    expect(await readSummary(samId, '2026-04-05')).toMatchObject({
+      consumedCalories: 600,
+      mealCount: 1,
+    })
+
+    await user.mutation(api.nutrition.setMealArchived, {
+      mealId,
+      archived: true,
+    })
+    expect(await readSummary(samId, '2026-04-05')).toBeNull()
+
+    await user.mutation(api.nutrition.setMealArchived, {
+      mealId,
+      archived: false,
+    })
+    expect(await readSummary(samId, '2026-04-05')).toMatchObject({
+      consumedCalories: 600,
+      mealCount: 1,
+    })
+
+    await user.mutation(api.nutrition.deleteMeal, { mealId })
+    expect(await readSummary(samId, '2026-04-05')).toBeNull()
+  })
+
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.MAX_SAFE_INTEGER,
+    -1,
+    1.5,
+  ])('rejects invalid cooking timestamps (%s)', async (cookedAt) => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+
+    await expect(
+      user.mutation(api.nutrition.createCookSession, {
+        cookedAt,
+      }),
+    ).rejects.toThrow('Cooked at must be a non-negative integer timestamp.')
+  })
+
+  it('applies shared text limits to nested meal item notes', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await insertPerson(t)
+
+    await expect(
+      user.mutation(api.nutrition.createMeal, {
+        personId,
+        eatenOn: '2026-04-04',
+        items: [
+          {
+            sourceType: 'fixedCalories',
+            name: 'Estimate',
+            calories: 500,
+            notes: 'x'.repeat(2_001),
+          },
+        ],
+      }),
+    ).rejects.toThrow('Item notes cannot exceed 2000 characters.')
+  })
+
   it('keeps historical meal item snapshots after ingredient updates', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
@@ -280,6 +429,7 @@ describe('nutrition cooking and meal mutations', () => {
 
     const mealId = await user.mutation(api.nutrition.createMeal, {
       personId,
+      eatenOn: '2026-04-04',
       items: [
         {
           sourceType: 'ingredient',
@@ -294,7 +444,6 @@ describe('nutrition cooking and meal mutations', () => {
       name: 'Turkey',
       kcalPer100: 120,
       ignoreCalories: false,
-      groupIds: [],
     })
 
     const items = await t.run(async (ctx) => {
@@ -318,7 +467,7 @@ describe('nutrition cooking and meal mutations', () => {
     })
   })
 
-  it('preserves meal notes and date when an edit omits them', async () => {
+  it('preserves meal notes when an edit omits them and requires an explicit date', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
     const personId = await insertPerson(t)
@@ -340,6 +489,7 @@ describe('nutrition cooking and meal mutations', () => {
       mealId,
       personId,
       name: 'Updated meal',
+      eatenOn: '2026-04-01',
       items: [
         {
           sourceType: 'ingredient',
@@ -382,7 +532,7 @@ describe('nutrition cooking and meal mutations', () => {
           },
         ],
       }),
-    ).rejects.toThrow('Date must be a valid calendar date.')
+    ).rejects.toThrow('Meal date must be a valid calendar date.')
   })
 
   it('deletes a meal and its child meal items', async () => {
@@ -395,6 +545,7 @@ describe('nutrition cooking and meal mutations', () => {
     })
     const mealId = await user.mutation(api.nutrition.createMeal, {
       personId,
+      eatenOn: '2026-04-04',
       items: [
         {
           sourceType: 'ingredient',
@@ -423,7 +574,7 @@ describe('nutrition cooking and meal mutations', () => {
     expect(items).toHaveLength(0)
   })
 
-  it('rolls back the whole cook-session cascade when history blocks a later food', async () => {
+  it('requires archiving a cook session that still has cooked foods', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
     const personId = await insertPerson(t)
@@ -432,7 +583,6 @@ describe('nutrition cooking and meal mutations', () => {
       user.mutation(api.nutrition.createCookedFood, {
         cookSessionId: sessionId,
         name,
-        groupIds: [],
         finishedWeightGrams: 100,
         ingredients: [
           {
@@ -450,6 +600,7 @@ describe('nutrition cooking and meal mutations', () => {
     const referencedFoodId = await createFood('Referenced food')
     await user.mutation(api.nutrition.createMeal, {
       personId,
+      eatenOn: '2026-04-04',
       items: [
         {
           sourceType: 'cookedFood',
@@ -461,7 +612,7 @@ describe('nutrition cooking and meal mutations', () => {
 
     await expect(
       user.mutation(api.nutrition.deleteCookSession, { sessionId }),
-    ).rejects.toThrow('Archive instead')
+    ).rejects.toThrow('Cook session has cooked foods. Archive instead.')
 
     const remaining = await t.run(async (ctx) => ({
       session: await ctx.db.get(sessionId),

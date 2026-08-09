@@ -1,0 +1,1 @@
+{"_id":"ingredient-1","_creationTime":1030,"ownerUserId":"legacy-user","ownerTokenIdentifier":"issuer|user","name":"Oats","brand":"Example","kcalPer100":400,"ignoreCalories":false,"groupIds":["group-ingredient-1","group-ingredient-2","missing-group"],"notes":"Synthetic fixture","archived":false,"createdAt":1030}

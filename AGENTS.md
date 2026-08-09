@@ -7,7 +7,7 @@ Minimal guidance for AI/code agents working in this repository.
 - App: Multi-person calorie tracking (meals, people/goals, recipes/cooking).
 - Frontend: TanStack Start + React 19 + TypeScript + Vite.
 - Styling/UI: Tailwind CSS v4, shadcn/ui.
-- Backend: Convex (`convex/schema.ts`, `convex/nutrition.ts`).
+- Backend: Convex (`convex/schema.ts`, mutation logic in `convex/nutrition.ts`, bounded domain queries in `convex/{catalog,cooking,history,meals,people,recipes}.ts`).
 - Auth: Clerk.
 - Package manager/runtime: pnpm + Node.js 24.
 
@@ -60,7 +60,8 @@ Migration conventions:
 - `src/integrations/*`: Integration config/providers (Clerk, Convex).
 - `src/router.tsx`, `src/routes/__root.tsx`: Router/root shell composition.
 - `convex/schema.ts`: Database schema.
-- `convex/nutrition.ts`: Main query/mutation domain logic.
+- `convex/nutrition.ts`: Authenticated domain mutations and shared write invariants.
+- `convex/{catalog,cooking,history,meals,people,recipes}.ts`: Bounded, owner-scoped domain queries.
 
 ## Local Commands
 
@@ -80,9 +81,10 @@ For non-trivial edits, run:
 
 1. `pnpm run lint`
 2. `pnpm run typecheck`
-3. `pnpm run build`
+3. `pnpm run test`
+4. `pnpm run build`
 
-If tests are added or changed, run `pnpm run test`.
+CI additionally enforces `pnpm run format:check`, coverage thresholds, and the Playwright browser smoke test.
 
 <!-- convex-ai-start -->
 

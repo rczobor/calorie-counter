@@ -89,13 +89,13 @@ describe('seed defaults script args', () => {
 })
 
 describe('seed env file parsing', () => {
-  it('extracts quoted seed variables from dotenv content', () => {
+  it('uses Node dotenv semantics and keeps only seed variables', () => {
     expect(
       parseSeedEnvFile(`
         # ignored
         VITE_CONVEX_URL=https://example.test
         SEED_OWNER_USER_ID="user_123"
-        export SEED_OWNER_TOKEN_IDENTIFIER='issuer|user_123'
+        export SEED_OWNER_TOKEN_IDENTIFIER='issuer|user_123' # comment
       `),
     ).toEqual({
       SEED_OWNER_USER_ID: 'user_123',

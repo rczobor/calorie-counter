@@ -41,6 +41,7 @@ const EXPECTED_TABLE_COUNTS = {
   cookedFoodIngredients: 3,
   meals: 1,
   mealItems: 2,
+  dailySummaries: 1,
 }
 
 function tableCounts(data: Record<string, unknown[]>) {
@@ -127,6 +128,12 @@ async function readSeedData(
           q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
         )
         .collect(),
+      dailySummaries: await ctx.db
+        .query('dailySummaries')
+        .withIndex('by_ownerTokenIdentifier_and_eatenOn', (q) =>
+          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        )
+        .collect(),
     }
   })
 }
@@ -179,13 +186,25 @@ function expectOwnedRelationships(
   ).toBe(true)
   expect(data.meals.every((row) => people.has(row.personId))).toBe(true)
   expect(
-    data.mealItems.every(
-      (row) =>
-        meals.has(row.mealId) &&
-        (!row.ingredientId || ingredients.has(row.ingredientId)) &&
-        (!row.cookedFoodId || cookedFoods.has(row.cookedFoodId)),
-    ),
+    data.mealItems.every((row) => {
+      if (!meals.has(row.mealId)) {
+        return false
+      }
+      if (row.sourceType === 'ingredient') {
+        return ingredients.has(row.ingredientId)
+      }
+      if (row.sourceType === 'customByWeight') {
+        return !row.ingredientId || ingredients.has(row.ingredientId)
+      }
+      if (row.sourceType === 'cookedFood') {
+        return cookedFoods.has(row.cookedFoodId)
+      }
+      return row.sourceType === 'fixedCalories'
+    }),
   ).toBe(true)
+  expect(data.dailySummaries.every((row) => people.has(row.personId))).toBe(
+    true,
+  )
 }
 
 describe('default seed data', () => {
@@ -282,7 +301,7 @@ describe('default seed data', () => {
     expect(
       Object.values(data)
         .flat()
-        .every((row) => !row.ownerUserId),
+        .every((row) => !('ownerUserId' in row)),
     ).toBe(true)
   })
 
@@ -296,9 +315,10 @@ describe('default seed data', () => {
     const data = await readSeedData(t, token)
 
     expect(data.people).toHaveLength(2)
-    expect(data.people.every((row) => row.ownerUserId === 'env-user')).toBe(
+    expect(data.people.every((row) => row.ownerTokenIdentifier === token)).toBe(
       true,
     )
+    expect(data.people.every((row) => !('ownerUserId' in row))).toBe(true)
   })
 
   it('resolves ownership from an authenticated identity', async () => {
@@ -309,7 +329,10 @@ describe('default seed data', () => {
     const data = await readSeedData(t, token)
 
     expect(data.people).toHaveLength(2)
-    expect(data.people.every((row) => row.ownerUserId === 'user-1')).toBe(true)
+    expect(data.people.every((row) => row.ownerTokenIdentifier === token)).toBe(
+      true,
+    )
+    expect(data.people.every((row) => !('ownerUserId' in row))).toBe(true)
   })
 
   it('is idempotent per token and ignores legacy metadata when finding defaults', async () => {

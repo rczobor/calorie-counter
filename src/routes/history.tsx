@@ -1,24 +1,29 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
-import { addDays, format, parseISO } from 'date-fns'
+import type { FunctionReturnType } from 'convex/server'
+import { usePaginatedQuery, useQuery } from 'convex/react'
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parseISO,
+} from 'date-fns'
 import { History } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { Doc, Id } from '../../convex/_generated/dataModel'
+import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import { PageShell } from '@/components/page/page-shell'
 import {
   ConfigMissingState,
   LoadingSkeletonState,
 } from '@/components/page/page-states'
 import { Button } from '@/components/ui/button'
-import {
-  DataTable,
-  type DataTableColumnDef,
-} from '@/components/ui/data-table'
+import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select } from '@/components/ui/select'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import { useHistoryData } from '@/hooks/use-management-data'
-import { getMealDateKey, toLocalDateString } from '@/lib/nutrition'
+import { toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/history')({
@@ -32,6 +37,13 @@ type DayRow = {
   goal: number
   remaining: number
 }
+
+type Person = FunctionReturnType<typeof api.people.list>['page'][number]
+type Goal = FunctionReturnType<typeof api.history.goalsForRange>[number]
+
+const HISTORY_PAGE_SIZE = 50
+const PEOPLE_PAGE_SIZE = 50
+const MAX_HISTORY_DAYS = 366
 
 const columns: DataTableColumnDef<DayRow>[] = [
   {
@@ -64,7 +76,9 @@ const columns: DataTableColumnDef<DayRow>[] = [
         <span
           className={cn(
             'font-medium',
-            remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+            remaining >= 0
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-red-600 dark:text-red-400',
           )}
         >
           {Math.round(remaining)} kcal
@@ -91,45 +105,82 @@ function HistoryPageContent() {
   )
   const [endDate, setEndDate] = useState(() => toLocalDateString(Date.now()))
 
-  const isDateRangeValid = startDate <= endDate
-  const { data, isLoading } = useHistoryData(
-    isDateRangeValid ? { startDate, endDate } : 'skip',
+  const inclusiveDayCount = getInclusiveDayCount(startDate, endDate)
+  const isDateRangeOrdered = inclusiveDayCount > 0
+  const isDateRangeValid =
+    isDateRangeOrdered && inclusiveDayCount <= MAX_HISTORY_DAYS
+  const {
+    results: loadedPeople,
+    status: peopleStatus,
+    loadMore: loadMorePeople,
+  } = usePaginatedQuery(
+    api.people.list,
+    { archived: false },
+    { initialNumItems: PEOPLE_PAGE_SIZE },
   )
 
+  const selectedPersonIsLoaded = loadedPeople.some(
+    (person) => person._id === selectedPersonId,
+  )
+  const pointLoadedPerson = useQuery(
+    api.people.get,
+    selectedPersonId && !selectedPersonIsLoaded
+      ? { personId: selectedPersonId }
+      : 'skip',
+  )
   const people = useMemo(
-    () => data.people.filter((person) => person.active),
-    [data.people],
+    () =>
+      pointLoadedPerson &&
+      !loadedPeople.some((person) => person._id === pointLoadedPerson._id)
+        ? [...loadedPeople, pointLoadedPerson]
+        : loadedPeople,
+    [loadedPeople, pointLoadedPerson],
   )
-
-  const effectiveSelectedPersonId = useMemo<Id<'people'> | ''>(() => {
-    if (people.length === 0) return ''
-    const hasSelected = people.some(
-      (person) => person._id === selectedPersonId,
-    )
-    if (hasSelected) return selectedPersonId
-    return people[0]._id
+  const defaultPersonAppliedRef = useRef(false)
+  useEffect(() => {
+    if (selectedPersonId) {
+      defaultPersonAppliedRef.current = true
+      return
+    }
+    const firstPerson = people[0]
+    if (defaultPersonAppliedRef.current || !firstPerson) {
+      return
+    }
+    defaultPersonAppliedRef.current = true
+    setSelectedPersonId(firstPerson._id)
   }, [people, selectedPersonId])
+
+  const effectiveSelectedPersonId: Id<'people'> | '' =
+    selectedPersonId && (selectedPersonIsLoaded || pointLoadedPerson !== null)
+      ? selectedPersonId
+      : ''
 
   const selectedPerson = people.find(
     (person) => person._id === effectiveSelectedPersonId,
   )
 
-  const mealItemsByMealId = useMemo(() => {
-    const map = new Map<Id<'meals'>, Doc<'mealItems'>[]>()
-    for (const item of data.mealItems) {
-      const existing = map.get(item.mealId)
-      if (existing) {
-        existing.push(item)
-      } else {
-        map.set(item.mealId, [item])
-      }
-    }
-    return map
-  }, [data.mealItems])
+  const historyArgs =
+    isDateRangeValid && effectiveSelectedPersonId
+      ? {
+          personId: effectiveSelectedPersonId,
+          startDate,
+          endDate,
+        }
+      : 'skip'
+  const {
+    results: summaries,
+    status: historyStatus,
+    loadMore: loadMoreHistory,
+  } = usePaginatedQuery(api.history.list, historyArgs, {
+    initialNumItems: HISTORY_PAGE_SIZE,
+  })
+  const goals = useQuery(api.history.goalsForRange, historyArgs)
+  const isHistoryComplete = historyStatus === 'Exhausted'
 
   const rows = useMemo(() => {
     if (
       !isDateRangeValid ||
+      !isHistoryComplete ||
       !effectiveSelectedPersonId ||
       !startDate ||
       !endDate
@@ -139,20 +190,8 @@ function HistoryPageContent() {
 
     const caloriesByDate = new Map<string, number>()
 
-    for (const meal of data.meals) {
-      if (meal.archived) continue
-      if (meal.personId !== effectiveSelectedPersonId) continue
-      const dateKey = getMealDateKey(meal)
-      if (dateKey < startDate || dateKey > endDate) continue
-
-      const mealCalories = (mealItemsByMealId.get(meal._id) ?? []).reduce(
-        (sum, item) => sum + item.caloriesSnapshot,
-        0,
-      )
-      caloriesByDate.set(
-        dateKey,
-        (caloriesByDate.get(dateKey) ?? 0) + mealCalories,
-      )
+    for (const summary of summaries) {
+      caloriesByDate.set(summary.eatenOn, summary.consumedCalories)
     }
 
     const result: DayRow[] = []
@@ -163,7 +202,7 @@ function HistoryPageContent() {
       const dateKey = toLocalDateString(current.getTime())
       const consumed = caloriesByDate.get(dateKey) ?? 0
       const goal = selectedPerson
-        ? getEffectiveGoalKcal(selectedPerson, data.personGoalHistory, dateKey)
+        ? getEffectiveGoalKcal(selectedPerson, goals ?? [], dateKey)
         : 0
       result.push({
         date: dateKey,
@@ -177,14 +216,14 @@ function HistoryPageContent() {
     result.reverse()
     return result
   }, [
-    data.meals,
-    data.personGoalHistory,
-    mealItemsByMealId,
+    summaries,
+    goals,
     effectiveSelectedPersonId,
     selectedPerson,
     startDate,
     endDate,
     isDateRangeValid,
+    isHistoryComplete,
   ])
 
   const avgConsumed = useMemo(() => {
@@ -196,8 +235,19 @@ function HistoryPageContent() {
     setStartDate(toLocalDateString(addDays(new Date(), -(days - 1)).getTime()))
   }
 
-  if (isLoading) {
-    return <LoadingSkeletonState title="History" icon={<History className="h-5 w-5" />} />
+  const isInitialLoading =
+    peopleStatus === 'LoadingFirstPage' ||
+    (Boolean(effectiveSelectedPersonId) &&
+      isDateRangeValid &&
+      (historyStatus === 'LoadingFirstPage' || goals === undefined))
+
+  if (isInitialLoading) {
+    return (
+      <LoadingSkeletonState
+        title="History"
+        icon={<History className="h-5 w-5" />}
+      />
+    )
   }
 
   return (
@@ -224,6 +274,20 @@ function HistoryPageContent() {
                 ariaLabel="Select person"
               />
             )}
+            {peopleStatus === 'CanLoadMore' ||
+            peopleStatus === 'LoadingMore' ? (
+              <Button
+                className="mt-2"
+                size="sm"
+                variant="ghost"
+                disabled={peopleStatus === 'LoadingMore'}
+                onClick={() => loadMorePeople(PEOPLE_PAGE_SIZE)}
+              >
+                {peopleStatus === 'LoadingMore'
+                  ? 'Loading people...'
+                  : 'Load more people'}
+              </Button>
+            ) : null}
           </div>
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">
@@ -236,9 +300,7 @@ function HistoryPageContent() {
             />
           </div>
           <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              To
-            </p>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">To</p>
             <DatePicker
               value={endDate}
               onChange={setEndDate}
@@ -260,7 +322,9 @@ function HistoryPageContent() {
             role="alert"
             className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           >
-            The start date must be on or before the end date.
+            {isDateRangeOrdered
+              ? `History ranges can include at most ${MAX_HISTORY_DAYS} days.`
+              : 'The start date must be on or before the end date.'}
           </div>
         ) : (
           <>
@@ -289,15 +353,41 @@ function HistoryPageContent() {
               </div>
             </div>
 
-            <HistoryChart rows={rows} />
+            {isHistoryComplete ? (
+              <>
+                <HistoryChart rows={rows} />
 
-            <div>
-              <DataTable
-                columns={columns}
-                data={rows}
-                emptyText="No data for the selected range."
-              />
-            </div>
+                <div>
+                  <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyText="No data for the selected range."
+                  />
+                </div>
+              </>
+            ) : null}
+
+            {historyStatus === 'CanLoadMore' ||
+            historyStatus === 'LoadingMore' ? (
+              <div
+                role="status"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3"
+              >
+                <p className="text-sm text-muted-foreground">
+                  More saved days exist in this range. Load every page before
+                  totals, averages, and zero-calorie days are shown.
+                </p>
+                <Button
+                  variant="outline"
+                  disabled={historyStatus === 'LoadingMore'}
+                  onClick={() => loadMoreHistory(HISTORY_PAGE_SIZE)}
+                >
+                  {historyStatus === 'LoadingMore'
+                    ? 'Loading history...'
+                    : 'Load more history'}
+                </Button>
+              </div>
+            ) : null}
           </>
         )}
       </div>
@@ -372,21 +462,33 @@ function HistoryChart({ rows }: { rows: DayRow[] }) {
 }
 
 function getEffectiveGoalKcal(
-  person: Doc<'people'>,
-  goalHistory: Doc<'personGoalHistory'>[],
+  person: Person,
+  goalHistory: Goal[],
   dateKey: string,
 ) {
-  const effectiveGoal = goalHistory
-    .filter(
-      (entry) => entry.personId === person._id && entry.effectiveDate <= dateKey,
-    )
-    .sort((a, b) => {
-      const byEffectiveDate = b.effectiveDate.localeCompare(a.effectiveDate)
-      if (byEffectiveDate !== 0) {
-        return byEffectiveDate
-      }
-      return b.createdAt - a.createdAt
-    })[0]
+  let effectiveGoal: Goal | undefined
+  for (const entry of goalHistory) {
+    if (entry.personId !== person._id || entry.effectiveDate > dateKey) {
+      continue
+    }
+    if (
+      effectiveGoal === undefined ||
+      entry.effectiveDate > effectiveGoal.effectiveDate ||
+      (entry.effectiveDate === effectiveGoal.effectiveDate &&
+        entry.createdAt > effectiveGoal.createdAt)
+    ) {
+      effectiveGoal = entry
+    }
+  }
 
   return effectiveGoal?.goalKcal ?? person.currentDailyGoalKcal
+}
+
+function getInclusiveDayCount(startDate: string, endDate: string) {
+  const start = parseISO(startDate)
+  const end = parseISO(endDate)
+  if (!isValid(start) || !isValid(end)) {
+    return 0
+  }
+  return differenceInCalendarDays(end, start) + 1
 }

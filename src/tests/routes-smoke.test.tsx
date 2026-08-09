@@ -2,9 +2,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createEmptyManagementData } from '@/tests/factories'
-
-const emptyData = createEmptyManagementData()
 
 let confirmOpen = false
 
@@ -14,25 +11,6 @@ vi.mock('@/integrations/convex/config', () => ({
 
 vi.mock('@clerk/react', () => ({
   useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
-}))
-
-vi.mock('@/hooks/use-management-data', () => ({
-  useMealDashboardData: () => ({
-    data: emptyData,
-    isLoading: false,
-  }),
-  usePeopleData: () => ({
-    data: emptyData,
-    isLoading: false,
-  }),
-  useCatalogData: () => ({
-    data: emptyData,
-    isLoading: false,
-  }),
-  useCookingData: () => ({
-    data: emptyData,
-    isLoading: false,
-  }),
 }))
 
 vi.mock('@/hooks/use-confirmable-action', () => ({
@@ -53,7 +31,15 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
 }))
 
 vi.mock('convex/react', () => ({
+  useConvex: () => ({ query: vi.fn(async () => null) }),
   useMutation: () => vi.fn(async () => undefined),
+  usePaginatedQuery: () => ({
+    results: [],
+    status: 'Exhausted',
+    isLoading: false,
+    loadMore: vi.fn(),
+  }),
+  useQuery: () => undefined,
 }))
 
 import { Route as MealsRoute } from '@/routes/index'
@@ -94,7 +80,8 @@ describe('route smoke', () => {
       screen.getByRole('checkbox', { name: /show archived records/i }),
     ).toBeTruthy()
     expect(screen.getByRole('button', { name: /create person/i })).toBeTruthy()
-    expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByLabelText(/table search/i)).toHaveLength(1)
+    expect(screen.getByText(/select history on a person/i)).toBeTruthy()
   })
 
   it('renders manage route shell', () => {
@@ -107,7 +94,7 @@ describe('route smoke', () => {
     ).toBeTruthy()
     expect(screen.getByRole('tab', { name: /ingredients/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /add ingredient/i })).toBeTruthy()
-    expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
+    expect(screen.getByLabelText(/search ingredients/i)).toBeTruthy()
   })
 
   it('renders cooking route shell', () => {

@@ -51,9 +51,12 @@ function isIngredientLine(value: unknown) {
   const line = value as Record<string, unknown>
   const sharedFieldsAreValid =
     typeof line.draftId === 'string' &&
+    (line.existingCookedFoodIngredientId === undefined ||
+      typeof line.existingCookedFoodIngredientId === 'string') &&
     typeof line.referenceAmount === 'number' &&
     isNutritionUnit(line.referenceUnit) &&
-    isOptionalNumber(line.countedAmount)
+    isOptionalNumber(line.countedAmount) &&
+    (line.notes === undefined || typeof line.notes === 'string')
   if (!sharedFieldsAreValid) {
     return false
   }
@@ -62,6 +65,8 @@ function isIngredientLine(value: unknown) {
   }
   return (
     line.sourceType === 'custom' &&
+    (line.ingredientId === undefined ||
+      typeof line.ingredientId === 'string') &&
     typeof line.name === 'string' &&
     typeof line.kcalPer100 === 'number' &&
     isNutritionUnit(line.kcalBasisUnit) &&
@@ -80,12 +85,15 @@ function isCookingDraft(value: unknown): value is CookingDraft {
     typeof draft.sessionId === 'string' &&
     (draft.persistedCookedFoodId === undefined ||
       typeof draft.persistedCookedFoodId === 'string') &&
+    (draft.hasAuthoritativeIngredientIds === undefined ||
+      typeof draft.hasAuthoritativeIngredientIds === 'boolean') &&
     typeof draft.isDirty === 'boolean' &&
     typeof draft.createdAt === 'number' &&
     typeof draft.updatedAt === 'number' &&
     typeof draft.name === 'string' &&
     typeof draft.groupId === 'string' &&
     typeof draft.finishedWeight === 'string' &&
+    (draft.recipeId === undefined || typeof draft.recipeId === 'string') &&
     typeof draft.recipeVersionId === 'string' &&
     typeof draft.saveAsRecipe === 'boolean' &&
     typeof draft.recipeDraftName === 'string' &&
@@ -93,6 +101,8 @@ function isCookingDraft(value: unknown): value is CookingDraft {
     typeof draft.notes === 'string' &&
     (draft.lineMode === 'ingredient' || draft.lineMode === 'custom') &&
     typeof draft.lineIngredientId === 'string' &&
+    (draft.lineCustomIngredientId === undefined ||
+      typeof draft.lineCustomIngredientId === 'string') &&
     typeof draft.lineCustomName === 'string' &&
     typeof draft.lineCustomKcal === 'string' &&
     isNutritionUnit(draft.lineCustomBasisUnit) &&
@@ -101,6 +111,21 @@ function isCookingDraft(value: unknown): value is CookingDraft {
     typeof draft.lineReferenceAmount === 'string' &&
     isNutritionUnit(draft.lineReferenceUnit) &&
     typeof draft.lineCountedAmount === 'string' &&
+    (draft.lineNotes === undefined || typeof draft.lineNotes === 'string') &&
+    (draft.lineExistingCookedFoodIngredientId === undefined ||
+      typeof draft.lineExistingCookedFoodIngredientId === 'string') &&
+    (draft.lineExistingIngredientId === undefined ||
+      typeof draft.lineExistingIngredientId === 'string') &&
+    (draft.lineExistingIngredientNameSnapshot === undefined ||
+      typeof draft.lineExistingIngredientNameSnapshot === 'string') &&
+    isOptionalNumber(draft.lineExistingIngredientKcalPer100Snapshot) &&
+    (draft.lineExistingIngredientKcalBasisUnitSnapshot === undefined ||
+      isNutritionUnit(draft.lineExistingIngredientKcalBasisUnitSnapshot)) &&
+    (draft.lineExistingIngredientIgnoreCaloriesSnapshot === undefined ||
+      typeof draft.lineExistingIngredientIgnoreCaloriesSnapshot ===
+        'boolean') &&
+    (draft.lineExistingCustomSignature === undefined ||
+      typeof draft.lineExistingCustomSignature === 'string') &&
     Array.isArray(draft.ingredientLines) &&
     draft.ingredientLines.every(isIngredientLine)
   )

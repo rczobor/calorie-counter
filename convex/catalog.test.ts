@@ -31,7 +31,6 @@ describe('nutrition catalog mutations', () => {
       brand: '  Farm  ',
       kcalPer100: 101.6,
       ignoreCalories: false,
-      groupIds: [],
       notes: '  Breakfast  ',
     })
 
@@ -58,6 +57,7 @@ describe('nutrition catalog mutations', () => {
 
     await user.mutation(api.nutrition.createMeal, {
       personId,
+      eatenOn: '2026-04-04',
       items: [
         {
           sourceType: 'ingredient',
@@ -96,7 +96,7 @@ describe('nutrition catalog mutations', () => {
         name: 'Greek yogurt',
         kcalPer100: 100,
         ignoreCalories: false,
-        groupIds: [foreignGroupId],
+        groupId: foreignGroupId,
       }),
     ).rejects.toThrowError(
       'One or more groups are missing or do not apply to ingredients.',
@@ -119,11 +119,53 @@ describe('nutrition catalog mutations', () => {
         name: 'Rice',
         kcalPer100: 130,
         ignoreCalories: false,
-        groupIds: [cookedFoodGroupId],
+        groupId: cookedFoodGroupId,
       }),
     ).rejects.toThrowError(
       'One or more groups are missing or do not apply to ingredients.',
     )
+  })
+
+  it('joins an owned archived group into bounded ingredient results', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const groupId = await user.mutation(api.nutrition.createFoodGroup, {
+      name: 'Legacy staples',
+      appliesTo: 'ingredient',
+    })
+    const ingredientId = await user.mutation(api.nutrition.createIngredient, {
+      name: 'Rice',
+      kcalPer100: 130,
+      ignoreCalories: false,
+      groupId,
+    })
+    await user.mutation(api.nutrition.setFoodGroupArchived, {
+      groupId,
+      archived: true,
+    })
+
+    const [listed, searched] = await Promise.all([
+      user.query(api.catalog.listIngredients, {
+        archived: false,
+        paginationOpts: { numItems: 10, cursor: null },
+      }),
+      user.query(api.catalog.searchIngredients, {
+        archived: false,
+        search: '',
+      }),
+    ])
+
+    for (const result of [listed.page, searched]) {
+      expect(result).toContainEqual(
+        expect.objectContaining({
+          _id: ingredientId,
+          groupId,
+          groupName: 'Legacy staples',
+          groupArchived: true,
+        }),
+      )
+      expect(result[0]).not.toHaveProperty('ownerTokenIdentifier')
+    }
   })
 
   it('creates a new current recipe version while preserving the old version', async () => {
@@ -157,8 +199,12 @@ describe('nutrition catalog mutations', () => {
       ],
     })
 
-    const { versions, oldVersionLines, newVersionLines } = await t.run(
+    const { recipe, versions, oldVersionLines, newVersionLines } = await t.run(
       async (ctx) => {
+        const recipe = await ctx.db.get(created.recipeId)
+        if (!recipe) {
+          throw new Error('Expected the recipe to exist.')
+        }
         const versions = await ctx.db
           .query('recipeVersions')
           .withIndex('by_ownerTokenIdentifier_and_recipeId', (q) =>
@@ -167,7 +213,9 @@ describe('nutrition catalog mutations', () => {
               .eq('recipeId', created.recipeId),
           )
           .collect()
-        const currentVersion = versions.find((version) => version.isCurrent)
+        const currentVersion = versions.find(
+          (version) => version.versionNumber === recipe.latestVersionNumber,
+        )
         if (!currentVersion) {
           throw new Error('Expected a current recipe version.')
         }
@@ -187,21 +235,20 @@ describe('nutrition catalog mutations', () => {
               .eq('recipeVersionId', currentVersion._id),
           )
           .collect()
-        return { versions, oldVersionLines, newVersionLines }
+        return { recipe, versions, oldVersionLines, newVersionLines }
       },
     )
 
+    expect(recipe.latestVersionNumber).toBe(2)
     expect(versions).toHaveLength(2)
     expect(versions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           _id: created.recipeVersionId,
           versionNumber: 1,
-          isCurrent: false,
         }),
         expect.objectContaining({
           versionNumber: 2,
-          isCurrent: true,
         }),
       ]),
     )
@@ -210,6 +257,13 @@ describe('nutrition catalog mutations', () => {
     expect(newVersionLines).toHaveLength(1)
     expect(newVersionLines[0]?.ingredientId).toBe(ingredientB)
     expect(newVersionLines[0]?.referenceAmount).toBe(50)
+    await expect(
+      user.mutation(api.nutrition.deleteRecipe, {
+        recipeId: created.recipeId,
+      }),
+    ).rejects.toThrow(
+      'Only single-version recipes can be deleted. Archive instead.',
+    )
   })
 
   it('preserves omitted recipe metadata when creating a new version', async () => {
@@ -290,6 +344,10 @@ describe('nutrition catalog mutations', () => {
     })
 
     const currentVersionLines = await t.run(async (ctx) => {
+      const recipe = await ctx.db.get(created.recipeId)
+      if (!recipe) {
+        throw new Error('Expected the recipe to exist.')
+      }
       const versions = await ctx.db
         .query('recipeVersions')
         .withIndex('by_ownerTokenIdentifier_and_recipeId', (q) =>
@@ -298,7 +356,9 @@ describe('nutrition catalog mutations', () => {
             .eq('recipeId', created.recipeId),
         )
         .collect()
-      const currentVersion = versions.find((version) => version.isCurrent)
+      const currentVersion = versions.find(
+        (version) => version.versionNumber === recipe.latestVersionNumber,
+      )
       if (!currentVersion) {
         throw new Error('Expected a current recipe version.')
       }
@@ -328,7 +388,7 @@ describe('nutrition catalog mutations', () => {
       name: 'Rice',
       kcalPer100: 130,
       ignoreCalories: false,
-      groupIds: [groupId],
+      groupId,
     })
 
     await expect(
@@ -376,7 +436,6 @@ describe('nutrition catalog mutations', () => {
         name: 'Invalid link',
         recipeId: recipeA.recipeId,
         recipeVersionId: recipeB.recipeVersionId,
-        groupIds: [],
         finishedWeightGrams: 100,
         ingredients: [
           {
@@ -418,7 +477,6 @@ describe('nutrition catalog mutations', () => {
       name: 'Rice batch',
       recipeId: created.recipeId,
       recipeVersionId: created.recipeVersionId,
-      groupIds: [],
       finishedWeightGrams: 100,
       ingredients: [
         {

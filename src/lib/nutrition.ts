@@ -1,10 +1,5 @@
 export type NutritionUnit =
-  | 'pinch'
-  | 'teaspoon'
-  | 'tablespoon'
-  | 'piece'
-  | 'g'
-  | 'ml'
+  'pinch' | 'teaspoon' | 'tablespoon' | 'piece' | 'g' | 'ml'
 
 export const NUTRITION_UNIT_OPTIONS: Array<{
   value: NutritionUnit
@@ -34,11 +29,23 @@ export function toLocalDateString(timestamp: number) {
 }
 
 export function toTimestampFromDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) {
-    return Date.now()
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) {
+    throw new Error('Date must be a valid YYYY-MM-DD calendar date.')
   }
-  return new Date(year, month - 1, day, 12, 0, 0, 0).getTime()
+  const [, yearText, monthText, dayText] = match
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    throw new Error('Date must be a valid YYYY-MM-DD calendar date.')
+  }
+  return date.getTime()
 }
 
 export function toErrorMessage(error: unknown) {
@@ -48,33 +55,15 @@ export function toErrorMessage(error: unknown) {
   return 'Request failed.'
 }
 
-export function getKcalPer100(entity: { kcalPer100?: number }) {
-  return entity.kcalPer100 ?? 0
-}
-
-export function formatKcalPer100(value: number | undefined) {
-  return Math.round(value ?? 0).toString()
-}
-
-export function getMealDateKey(meal: { eatenOn?: string; createdAt: number }) {
-  if (meal.eatenOn) {
-    return meal.eatenOn
-  }
-  return toLocalDateString(meal.createdAt)
-}
-
-export function getCookSessionModifiedAt(session: {
-  createdAt: number
-  updatedAt?: number
-}) {
-  return session.updatedAt ?? session.createdAt
+export function formatKcalPer100(value: number) {
+  return Math.round(value).toString()
 }
 
 export function formatCookSessionLabel(session: {
-  label?: string
+  label: string
   cookedAt: number
 }) {
   const cookedDate = toLocalDateString(session.cookedAt)
-  const label = session.label?.trim()
+  const label = session.label.trim()
   return label ? `${cookedDate} - ${label}` : cookedDate
 }

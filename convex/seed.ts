@@ -4,7 +4,6 @@ import { internalMutation, type MutationCtx } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 
 type SeedOwner = {
-  ownerUserId?: string
   ownerTokenIdentifier: string
 }
 
@@ -19,6 +18,7 @@ type SeedSummary = {
 }
 
 const SEEDED_NOTE = 'Seeded default data.'
+const MAX_SEED_ROWS_PER_TABLE = 5_000
 
 function normalizeOptionalString(value: string | undefined) {
   const trimmed = value?.trim()
@@ -36,7 +36,6 @@ function toLocalDateString(timestamp: number) {
 function ownerFields(owner: SeedOwner) {
   return {
     ownerTokenIdentifier: owner.ownerTokenIdentifier,
-    ...(owner.ownerUserId ? { ownerUserId: owner.ownerUserId } : {}),
   }
 }
 
@@ -81,7 +80,6 @@ async function resolveSeedOwner(
   }
 
   return {
-    ownerUserId,
     ownerTokenIdentifier: `${issuer}|${subject}`,
   }
 }
@@ -96,6 +94,14 @@ function findMealByName(rows: Doc<'meals'>[], name: string, eatenOn: string) {
 
 function caloriesFor(weightGrams: number, kcalPer100: number) {
   return (weightGrams * kcalPer100) / 100
+}
+
+function assertSeedRowsAreComplete(table: string, rows: unknown[]) {
+  if (rows.length > MAX_SEED_ROWS_PER_TABLE) {
+    throw new Error(
+      `Cannot seed ${table}: more than ${MAX_SEED_ROWS_PER_TABLE} existing rows require an explicit migration.`,
+    )
+  }
 }
 
 export const defaults = internalMutation({
@@ -141,50 +147,63 @@ export const defaults = internalMutation({
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('foodGroups')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('ingredients')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('recipes')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('recipeVersions')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('cookSessions')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('cookedFoods')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
       ctx.db
         .query('meals')
         .withIndex('by_ownerTokenIdentifier', (q) =>
           q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
         )
-        .collect(),
+        .take(MAX_SEED_ROWS_PER_TABLE + 1),
     ])
+
+    for (const [table, rows] of [
+      ['people', existingPeople],
+      ['foodGroups', existingFoodGroups],
+      ['ingredients', existingIngredients],
+      ['recipes', existingRecipes],
+      ['recipeVersions', existingRecipeVersions],
+      ['cookSessions', existingCookSessions],
+      ['cookedFoods', existingCookedFoods],
+      ['meals', existingMeals],
+    ] as const) {
+      assertSeedRowsAreComplete(table, rows)
+    }
 
     async function ensurePerson(name: string, currentDailyGoalKcal: number) {
       const existing = findByName(existingPeople, name)
@@ -197,7 +216,7 @@ export const defaults = internalMutation({
         name,
         notes: SEEDED_NOTE,
         currentDailyGoalKcal,
-        active: true,
+        archived: false,
         createdAt: now,
       })
       await ctx.db.insert('personGoalHistory', {
@@ -238,7 +257,7 @@ export const defaults = internalMutation({
       name: string
       brand?: string
       kcalPer100: number
-      groupIds: Id<'foodGroups'>[]
+      groupId?: Id<'foodGroups'>
     }) {
       const existing = findByName(existingIngredients, input.name)
       if (existing) {
@@ -252,7 +271,7 @@ export const defaults = internalMutation({
         kcalPer100: input.kcalPer100,
         kcalBasisUnit: 'g',
         ignoreCalories: false,
-        groupIds: input.groupIds,
+        groupId: input.groupId,
         notes: SEEDED_NOTE,
         archived: false,
         createdAt: now,
@@ -271,39 +290,43 @@ export const defaults = internalMutation({
       name: 'Rolled oats',
       brand: 'Default pantry',
       kcalPer100: 389,
-      groupIds: [pantryGroupId],
+      groupId: pantryGroupId,
     })
     const greekYogurtId = await ensureIngredient({
       name: 'Greek yogurt',
       brand: 'Default dairy',
       kcalPer100: 59,
-      groupIds: [pantryGroupId],
+      groupId: pantryGroupId,
     })
     await ensureIngredient({
       name: 'Blueberries',
       kcalPer100: 57,
-      groupIds: [pantryGroupId],
+      groupId: pantryGroupId,
     })
     const chickenId = await ensureIngredient({
       name: 'Chicken breast',
       kcalPer100: 165,
-      groupIds: [pantryGroupId],
+      groupId: pantryGroupId,
     })
     const riceId = await ensureIngredient({
       name: 'White rice',
       kcalPer100: 130,
-      groupIds: [pantryGroupId],
+      groupId: pantryGroupId,
     })
     const oliveOilId = await ensureIngredient({
       name: 'Olive oil',
       kcalPer100: 884,
-      groupIds: [pantryGroupId],
+      groupId: pantryGroupId,
     })
 
     let recipeId = findByName(existingRecipes, 'Chicken rice bowl')?._id
     let recipeVersionId = recipeId
       ? existingRecipeVersions.find(
-          (version) => version.recipeId === recipeId && version.isCurrent,
+          (version) =>
+            version.recipeId === recipeId &&
+            version.versionNumber ===
+              existingRecipes.find((recipe) => recipe._id === recipeId)
+                ?.latestVersionNumber,
         )?._id
       : undefined
 
@@ -327,7 +350,6 @@ export const defaults = internalMutation({
         name: 'Chicken rice bowl',
         instructions: 'Cook rice, sear chicken, and portion with olive oil.',
         notes: SEEDED_NOTE,
-        isCurrent: true,
         createdAt: now,
       })
       await Promise.all([
@@ -380,6 +402,7 @@ export const defaults = internalMutation({
       cookSessionId = await ctx.db.insert('cookSessions', {
         ...ownerFields(owner),
         label: 'Sunday prep',
+        searchText: `${today} Sunday prep`,
         cookedAt: now,
         cookedByPersonId: alexId,
         notes: SEEDED_NOTE,
@@ -406,7 +429,7 @@ export const defaults = internalMutation({
         name: 'Chicken rice bowl portions',
         recipeId,
         recipeVersionId,
-        groupIds: [mealPrepGroupId],
+        groupId: mealPrepGroupId,
         finishedWeightGrams,
         totalRawWeightGrams: 665,
         totalCalories,
@@ -425,7 +448,6 @@ export const defaults = internalMutation({
           referenceAmount: 300,
           referenceUnit: 'g',
           countedAmount: 300,
-          rawWeightGrams: 300,
           ingredientKcalPer100Snapshot: 165,
           ingredientKcalBasisUnitSnapshot: 'g',
           ignoreCaloriesSnapshot: false,
@@ -440,7 +462,6 @@ export const defaults = internalMutation({
           referenceAmount: 350,
           referenceUnit: 'g',
           countedAmount: 350,
-          rawWeightGrams: 350,
           ingredientKcalPer100Snapshot: 130,
           ingredientKcalBasisUnitSnapshot: 'g',
           ignoreCaloriesSnapshot: false,
@@ -455,7 +476,6 @@ export const defaults = internalMutation({
           referenceAmount: 15,
           referenceUnit: 'g',
           countedAmount: 15,
-          rawWeightGrams: 15,
           ingredientKcalPer100Snapshot: 884,
           ingredientKcalBasisUnitSnapshot: 'g',
           ignoreCaloriesSnapshot: false,
@@ -469,6 +489,8 @@ export const defaults = internalMutation({
     if (!mealId) {
       const oatsWeightGrams = 60
       const yogurtWeightGrams = 250
+      const mealTotalCalories =
+        caloriesFor(oatsWeightGrams, 389) + caloriesFor(yogurtWeightGrams, 59)
       mealId = await ctx.db.insert('meals', {
         ...ownerFields(owner),
         personId: alexId,
@@ -476,6 +498,8 @@ export const defaults = internalMutation({
         eatenOn: today,
         notes: SEEDED_NOTE,
         archived: false,
+        totalCalories: mealTotalCalories,
+        itemCount: 2,
         createdAt: now,
       })
       await Promise.all([
@@ -484,7 +508,6 @@ export const defaults = internalMutation({
           mealId,
           sourceType: 'ingredient',
           ingredientId: rolledOatsId,
-          cookedFoodId: undefined,
           nameSnapshot: 'Rolled oats',
           kcalPer100Snapshot: 389,
           kcalBasisUnitSnapshot: 'g',
@@ -498,7 +521,6 @@ export const defaults = internalMutation({
           mealId,
           sourceType: 'ingredient',
           ingredientId: greekYogurtId,
-          cookedFoodId: undefined,
           nameSnapshot: 'Greek yogurt',
           kcalPer100Snapshot: 59,
           kcalBasisUnitSnapshot: 'g',
@@ -508,6 +530,15 @@ export const defaults = internalMutation({
           notes: undefined,
         }),
       ])
+      await ctx.db.insert('dailySummaries', {
+        ...ownerFields(owner),
+        personId: alexId,
+        eatenOn: today,
+        consumedCalories: mealTotalCalories,
+        mealCount: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
       summary.meals += 1
     }
 

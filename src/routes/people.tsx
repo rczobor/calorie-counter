@@ -1,10 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
+import { useMutation, usePaginatedQuery } from 'convex/react'
+import type { FunctionReturnType } from 'convex/server'
 import { Target, Trash2, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { api } from '../../convex/_generated/api'
-import type { Doc, Id } from '../../convex/_generated/dataModel'
+import type { Id } from '../../convex/_generated/dataModel'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { PageShell } from '@/components/page/page-shell'
 import {
@@ -13,10 +14,7 @@ import {
 } from '@/components/page/page-states'
 import { StatusBadge } from '@/components/page/status-badge'
 import { Button } from '@/components/ui/button'
-import {
-  DataTable,
-  type DataTableColumnDef,
-} from '@/components/ui/data-table'
+import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,10 +22,11 @@ import { GoalHistorySection } from '@/features/people/goal-history'
 import { PeopleTableSection } from '@/features/people/people-table'
 import { PersonFormSection } from '@/features/people/person-form'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { usePeopleData } from '@/hooks/use-management-data'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import { getMealDateKey, toLocalDateString } from '@/lib/nutrition'
+import { toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
+
+const PAGE_SIZE = 20
 
 export const Route = createFileRoute('/people')({
   ssr: false,
@@ -50,6 +49,10 @@ function PeoplePageContent() {
   const [goal, setGoal] = useState('2200')
   const [goalReason, setGoalReason] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  const [selectedPerson, setSelectedPerson] = useState<{
+    id: Id<'people'>
+    name: string
+  } | null>(null)
 
   const {
     pendingConfirmation,
@@ -63,44 +66,53 @@ function PeoplePageContent() {
 
   const [today] = useState(() => toLocalDateString(Date.now()))
 
-  const { data, isLoading } = usePeopleData({ today })
+  const activePeople = usePaginatedQuery(
+    api.people.listWithToday,
+    { archived: false, today },
+    { initialNumItems: PAGE_SIZE },
+  )
+  const archivedPeople = usePaginatedQuery(
+    api.people.listWithToday,
+    showArchived ? { archived: true, today } : 'skip',
+    { initialNumItems: PAGE_SIZE },
+  )
+  const goalHistory = usePaginatedQuery(
+    api.people.listGoalHistory,
+    selectedPerson ? { personId: selectedPerson.id } : 'skip',
+    { initialNumItems: PAGE_SIZE },
+  )
 
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
   const setPersonArchived = useMutation(api.nutrition.setPersonArchived)
   const deletePerson = useMutation(api.nutrition.deletePerson)
 
-  const mealItemsByMealId = useMemo(() => {
-    const map = new Map<Id<'meals'>, Doc<'mealItems'>[]>()
-    for (const item of data.mealItems) {
-      const bucket = map.get(item.mealId)
-      if (bucket) {
-        bucket.push(item)
-      } else {
-        map.set(item.mealId, [item])
-      }
-    }
-    return map
-  }, [data.mealItems])
-
-  const dailyConsumedByPersonId = useMemo(() => {
-    const map = new Map<Id<'people'>, number>()
-    for (const meal of data.meals) {
-      if (Boolean(meal.archived) || getMealDateKey(meal) !== today) {
-        continue
-      }
-      const mealCalories = (mealItemsByMealId.get(meal._id) ?? []).reduce(
-        (sum, item) => sum + item.caloriesSnapshot,
-        0,
-      )
-      map.set(meal.personId, (map.get(meal.personId) ?? 0) + mealCalories)
-    }
-    return map
-  }, [data.meals, mealItemsByMealId, today])
-
-  const visiblePeople = data.people.filter((person) =>
-    showArchived ? true : person.active,
+  const visiblePeople = useMemo(
+    () =>
+      [
+        ...activePeople.results,
+        ...(showArchived ? archivedPeople.results : []),
+      ].sort((a, b) => a.name.localeCompare(b.name)),
+    [activePeople.results, archivedPeople.results, showArchived],
   )
+  const isLoading = activePeople.status === 'LoadingFirstPage'
+  const isLoadingMorePeople =
+    activePeople.status === 'LoadingMore' ||
+    (showArchived &&
+      (archivedPeople.status === 'LoadingFirstPage' ||
+        archivedPeople.status === 'LoadingMore'))
+  const canLoadMorePeople =
+    activePeople.status === 'CanLoadMore' ||
+    (showArchived && archivedPeople.status === 'CanLoadMore')
+
+  const loadMorePeople = () => {
+    if (activePeople.status === 'CanLoadMore') {
+      activePeople.loadMore(PAGE_SIZE)
+    }
+    if (showArchived && archivedPeople.status === 'CanLoadMore') {
+      archivedPeople.loadMore(PAGE_SIZE)
+    }
+  }
 
   const resetForm = () => {
     setEditingPersonId(null)
@@ -111,11 +123,12 @@ function PeoplePageContent() {
   const canSavePerson = name.trim().length > 0 && Number(goal) > 0
 
   const startEdit = (personId: Id<'people'>) => {
-    const person = data.people.find((item) => item._id === personId)
+    const person = visiblePeople.find((item) => item._id === personId)
     if (!person) {
       return
     }
 
+    setSelectedPerson({ id: person._id, name: person.name })
     setEditingPersonId(personId)
     setName(person.name)
     setGoal(person.currentDailyGoalKcal.toFixed(0))
@@ -125,18 +138,18 @@ function PeoplePageContent() {
   const peopleTableRows = useMemo<PersonTableRow[]>(
     () =>
       visiblePeople.map((person) => {
-        const consumedKcal = dailyConsumedByPersonId.get(person._id) ?? 0
+        const consumedKcal = person.consumedCalories
         return {
           id: person._id,
           person,
           name: person.name,
-          status: person.active ? 'Active' : 'Archived',
+          status: person.archived ? 'Archived' : 'Active',
           goalKcal: person.currentDailyGoalKcal,
           consumedKcal,
           remainingKcal: person.currentDailyGoalKcal - consumedKcal,
         }
       }),
-    [dailyConsumedByPersonId, visiblePeople],
+    [visiblePeople],
   )
 
   const peopleColumns: DataTableColumnDef<PersonTableRow>[] = [
@@ -217,6 +230,17 @@ function PeoplePageContent() {
           <div className="flex min-w-max items-center justify-end gap-2">
             <Button
               size="sm"
+              variant={
+                selectedPerson?.id === person._id ? 'secondary' : 'outline'
+              }
+              onClick={() =>
+                setSelectedPerson({ id: person._id, name: person.name })
+              }
+            >
+              History
+            </Button>
+            <Button
+              size="sm"
               variant="outline"
               onClick={() => startEdit(person._id)}
             >
@@ -228,17 +252,17 @@ function PeoplePageContent() {
               disabled={isRunning}
               onClick={() =>
                 void runAction(
-                  person.active ? 'Person archived.' : 'Person restored.',
+                  person.archived ? 'Person restored.' : 'Person archived.',
                   async () => {
                     await setPersonArchived({
                       personId: person._id,
-                      archived: person.active,
+                      archived: !person.archived,
                     })
                   },
                 )
               }
             >
-              {person.active ? 'Archive' : 'Unarchive'}
+              {person.archived ? 'Unarchive' : 'Archive'}
             </Button>
             <Button
               size="sm"
@@ -254,6 +278,9 @@ function PeoplePageContent() {
                     if (editingPersonId === person._id) {
                       resetForm()
                     }
+                    if (selectedPerson?.id === person._id) {
+                      setSelectedPerson(null)
+                    }
                   },
                 )
               }
@@ -266,21 +293,16 @@ function PeoplePageContent() {
     },
   ]
 
-  const personNameById = useMemo(
-    () => new Map(data.people.map((person) => [person._id, person.name])),
-    [data.people],
-  )
-
   const goalHistoryRows = useMemo<GoalHistoryTableRow[]>(
     () =>
-      data.personGoalHistory.map((entry) => ({
+      goalHistory.results.map((entry) => ({
         id: entry._id,
-        personName: personNameById.get(entry.personId) ?? 'Unknown',
+        personName: selectedPerson?.name ?? 'Unknown',
         effectiveDate: entry.effectiveDate,
         goalKcal: entry.goalKcal,
         reason: entry.reason ?? '',
       })),
-    [data.personGoalHistory, personNameById],
+    [goalHistory.results, selectedPerson?.name],
   )
 
   const goalHistoryColumns: DataTableColumnDef<GoalHistoryTableRow>[] = [
@@ -413,12 +435,19 @@ function PeoplePageContent() {
                           reason: goalReason.trim() || undefined,
                           effectiveDate: today,
                         })
+                        if (selectedPerson?.id === editingPersonId) {
+                          setSelectedPerson({
+                            id: editingPersonId,
+                            name: name.trim(),
+                          })
+                        }
                       } else {
-                        await createPerson({
+                        const personId = await createPerson({
                           name,
                           currentDailyGoalKcal: goalValue,
                           effectiveDate: today,
                         })
+                        setSelectedPerson({ id: personId, name: name.trim() })
                       }
                       resetForm()
                     },
@@ -442,18 +471,64 @@ function PeoplePageContent() {
               searchColumnId="name"
               searchPlaceholder="Search people"
               emptyText="No people found."
+              toolbarActions={
+                canLoadMorePeople || isLoadingMorePeople ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isLoadingMorePeople}
+                    onClick={loadMorePeople}
+                  >
+                    {isLoadingMorePeople
+                      ? 'Loading people…'
+                      : 'Load more people'}
+                  </Button>
+                ) : null
+              }
             />
           </PeopleTableSection>
         </div>
 
         <GoalHistorySection>
-          <DataTable
-            columns={goalHistoryColumns}
-            data={goalHistoryRows}
-            searchColumnId="personName"
-            searchPlaceholder="Search goal history"
-            emptyText="No goal history found."
-          />
+          {selectedPerson ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Showing goal history for{' '}
+                <span className="font-medium text-foreground">
+                  {selectedPerson.name}
+                </span>
+                .
+              </p>
+              <DataTable
+                columns={goalHistoryColumns}
+                data={goalHistoryRows}
+                emptyText={
+                  goalHistory.status === 'LoadingFirstPage'
+                    ? 'Loading goal history…'
+                    : 'No goal history found.'
+                }
+                toolbarActions={
+                  goalHistory.status === 'CanLoadMore' ||
+                  goalHistory.status === 'LoadingMore' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={goalHistory.status === 'LoadingMore'}
+                      onClick={() => goalHistory.loadMore(PAGE_SIZE)}
+                    >
+                      {goalHistory.status === 'LoadingMore'
+                        ? 'Loading history…'
+                        : 'Load more goal history'}
+                    </Button>
+                  ) : null
+                }
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Select History on a person to view their goal changes.
+            </p>
+          )}
         </GoalHistorySection>
       </PageShell>
 
@@ -470,13 +545,17 @@ function PeoplePageContent() {
 
 type PersonTableRow = {
   id: Id<'people'>
-  person: Doc<'people'>
+  person: PersonListItem
   name: string
   status: 'Active' | 'Archived'
   goalKcal: number
   consumedKcal: number
   remainingKcal: number
 }
+
+type PersonListItem = FunctionReturnType<
+  typeof api.people.listWithToday
+>['page'][number]
 
 type GoalHistoryTableRow = {
   id: Id<'personGoalHistory'>

@@ -1,0 +1,1 @@
+{"_id":"cooked-food-1","_creationTime":1060,"ownerTokenIdentifier":"issuer|user","cookSessionId":"session-1","name":"Cooked oats","recipeId":"recipe-1","recipeVersionId":"recipe-version-1","groupIds":["group-cooked-1"],"finishedWeightGrams":200,"totalRawWeightGrams":100,"totalCalories":300,"notes":"Synthetic cooked food","createdAt":1060}

@@ -29,18 +29,17 @@ describe('nutrition people mutations', () => {
       name: '  Alex  ',
       currentDailyGoalKcal: 2200,
       notes: '  Training block  ',
+      effectiveDate: '2026-04-04',
     })
 
     const { person, history } = await t.run(async (ctx) => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_personId_and_createdAt',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
-              .eq('personId', personId),
+        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('personId', personId),
         )
         .collect()
       return { person, history }
@@ -50,7 +49,7 @@ describe('nutrition people mutations', () => {
       name: 'Alex',
       notes: 'Training block',
       currentDailyGoalKcal: 2200,
-      active: true,
+      archived: false,
     })
     expect(history).toHaveLength(1)
     expect(history[0]).toMatchObject({
@@ -68,31 +67,30 @@ describe('nutrition people mutations', () => {
     const personId = await user.mutation(api.nutrition.createPerson, {
       name: 'Alex',
       currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
     })
 
     const records = await t.run(async (ctx) => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_personId_and_createdAt',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
-              .eq('personId', personId),
+        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('personId', personId),
         )
         .collect()
       return { person, history }
     })
 
     expect(records.person).toMatchObject({
-      ownerUserId: 'user-1',
       ownerTokenIdentifier: 'user-1|token',
     })
     expect(records.history[0]).toMatchObject({
-      ownerUserId: 'user-1',
       ownerTokenIdentifier: 'user-1|token',
     })
+    expect(records.person).not.toHaveProperty('ownerUserId')
+    expect(records.history[0]).not.toHaveProperty('ownerUserId')
   })
 
   it('rejects writes from a different token with the same subject', async () => {
@@ -106,14 +104,35 @@ describe('nutrition people mutations', () => {
     const personId = await owner.mutation(api.nutrition.createPerson, {
       name: 'Alex',
       currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
     })
 
     await expect(
       sameSubjectDifferentToken.mutation(api.nutrition.updatePerson, {
         personId,
         name: 'Intruder',
+        effectiveDate: '2026-04-04',
       }),
     ).rejects.toThrowError('Person not found.')
+  })
+
+  it('point-loads only an owned person without exposing owner metadata', async () => {
+    const t = createConvexTest()
+    const owner = asTestUser(t)
+    const otherUser = asTestUserWithToken(t, 'user-2|token')
+    const personId = await owner.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
+    })
+
+    const person = await owner.query(api.people.get, { personId })
+
+    expect(person).toMatchObject({ _id: personId, name: 'Alex' })
+    expect(person).not.toHaveProperty('ownerTokenIdentifier')
+    await expect(
+      otherUser.query(api.people.get, { personId }),
+    ).resolves.toBeNull()
   })
 
   it('updates the current goal and appends goal history', async () => {
@@ -122,6 +141,7 @@ describe('nutrition people mutations', () => {
     const personId = await user.mutation(api.nutrition.createPerson, {
       name: 'Alex',
       currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
     })
 
     await user.mutation(api.nutrition.updatePersonGoal, {
@@ -135,12 +155,10 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_personId_and_createdAt',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
-              .eq('personId', personId),
+        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('personId', personId),
         )
         .collect()
       return { person, history }
@@ -162,6 +180,7 @@ describe('nutrition people mutations', () => {
       name: 'Alex',
       currentDailyGoalKcal: 2200,
       notes: 'Keep this note',
+      effectiveDate: '2026-04-04',
     })
 
     await user.mutation(api.nutrition.updatePerson, {
@@ -182,12 +201,10 @@ describe('nutrition people mutations', () => {
       person: await ctx.db.get(personId),
       history: await ctx.db
         .query('personGoalHistory')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_personId_and_createdAt',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
-              .eq('personId', personId),
+        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('personId', personId),
         )
         .collect(),
     }))
@@ -215,7 +232,7 @@ describe('nutrition people mutations', () => {
         currentDailyGoalKcal: 2200,
         effectiveDate: '2026-02-30',
       }),
-    ).rejects.toThrowError('Date must be a valid calendar date.')
+    ).rejects.toThrowError('Effective date must be a valid calendar date.')
   })
 
   it('refuses to delete a person with meal history', async () => {
@@ -224,12 +241,15 @@ describe('nutrition people mutations', () => {
     const personId = await user.mutation(api.nutrition.createPerson, {
       name: 'Alex',
       currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
     })
     await insertMeal(t, personId)
 
     await expect(
       user.mutation(api.nutrition.deletePerson, { personId }),
-    ).rejects.toThrowError('Cannot delete person with meal/cooking history.')
+    ).rejects.toThrowError(
+      'Cannot delete person with meal/cooking history. Archive instead.',
+    )
   })
 
   it('refuses to delete a person with cooking history', async () => {
@@ -238,11 +258,45 @@ describe('nutrition people mutations', () => {
     const personId = await user.mutation(api.nutrition.createPerson, {
       name: 'Alex',
       currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
     })
     await insertCookSession(t, { cookedByPersonId: personId })
 
     await expect(
       user.mutation(api.nutrition.deletePerson, { personId }),
-    ).rejects.toThrowError('Cannot delete person with meal/cooking history.')
+    ).rejects.toThrowError(
+      'Cannot delete person with meal/cooking history. Archive instead.',
+    )
+  })
+
+  it('requires archiving a person whose goal history exceeds the delete bound', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await user.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
+    })
+
+    await t.run(async (ctx) => {
+      await Promise.all(
+        Array.from({ length: 100 }, (_, index) =>
+          ctx.db.insert('personGoalHistory', {
+            ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+            personId,
+            effectiveDate: '2026-04-04',
+            goalKcal: 2200 + index,
+            reason: 'Historical goal',
+            createdAt: Date.now() + index + 1,
+          }),
+        ),
+      )
+    })
+
+    await expect(
+      user.mutation(api.nutrition.deletePerson, { personId }),
+    ).rejects.toThrow(
+      'Person has too much goal history to delete. Archive instead.',
+    )
   })
 })

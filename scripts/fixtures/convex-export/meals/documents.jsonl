@@ -1,0 +1,2 @@
+{"_id":"meal-1","_creationTime":1070,"ownerTokenIdentifier":"issuer|user","personId":"person-1","name":"Breakfast","eatenOn":"2026-08-09","notes":"Synthetic meal","archived":false,"createdAt":1070}
+{"_id":"meal-2","_creationTime":1071,"ownerTokenIdentifier":"issuer|user","personId":"person-1","name":"Archived meal","eatenOn":"2026-08-09","archived":true,"createdAt":1071}

@@ -2,10 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import {
-  DataTable,
-  type DataTableColumnDef,
-} from '@/components/ui/data-table'
+import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 
 type Row = {
   name: string
@@ -46,12 +43,9 @@ describe('DataTable', () => {
     expect(screen.getByText('Rolled oats')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /name/i }))
-    expect(screen.getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
-      'Greek yogurt',
-      'Active',
-      'Rolled oats',
-      'Archived',
-    ])
+    expect(screen.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(
+      ['Greek yogurt', 'Active', 'Rolled oats', 'Archived'],
+    )
 
     fireEvent.change(screen.getByLabelText(/table search/i), {
       target: { value: 'yogurt' },

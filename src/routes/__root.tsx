@@ -3,12 +3,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
-import {
-  ClerkLoaded,
-  ClerkLoading,
-  Show,
-  SignInButton,
-} from '@clerk/react'
+import { ClerkLoaded, ClerkLoading, Show, SignInButton } from '@clerk/react'
 import { useConvexAuth } from 'convex/react'
 
 import Header from '../components/Header'
@@ -21,6 +16,7 @@ import { isConvexConfigured } from '../integrations/convex/config'
 import { ThemeProvider } from '../components/theme-provider'
 import { Toaster } from '../components/ui/sonner'
 import { Button } from '../components/ui/button'
+import { isE2eMockMode } from '../testing/e2e/config'
 import {
   Card,
   CardDescription,
@@ -34,6 +30,8 @@ const APP_DESCRIPTION =
   'Track meals, calories, people, goals, recipes, and cooking sessions.'
 const LIGHT_THEME_COLOR = '#fdfdfb'
 const DARK_THEME_COLOR = '#110c09'
+const IS_MAINTENANCE_MODE =
+  import.meta.env.VITE_MAINTENANCE_MODE?.toLowerCase() === 'true'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -108,24 +106,30 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          <ClerkProvider>
-            <ConvexProvider>
-              <Header />
-              <AuthGate>{children}</AuthGate>
-              <Toaster richColors />
-              <TanStackDevtools
-                config={{
-                  position: 'bottom-right',
-                }}
-                plugins={[
-                  {
-                    name: 'Tanstack Router',
-                    render: <TanStackRouterDevtoolsPanel />,
-                  },
-                ]}
-              />
-            </ConvexProvider>
-          </ClerkProvider>
+          {IS_MAINTENANCE_MODE ? (
+            <MaintenanceScreen />
+          ) : (
+            <ClerkProvider>
+              <ConvexProvider>
+                <Header />
+                <AuthGate>{children}</AuthGate>
+                <Toaster richColors />
+                {import.meta.env.DEV ? (
+                  <TanStackDevtools
+                    config={{
+                      position: 'bottom-right',
+                    }}
+                    plugins={[
+                      {
+                        name: 'Tanstack Router',
+                        render: <TanStackRouterDevtoolsPanel />,
+                      },
+                    ]}
+                  />
+                ) : null}
+              </ConvexProvider>
+            </ClerkProvider>
+          )}
         </ThemeProvider>
         <Scripts />
       </body>
@@ -133,7 +137,27 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
+function MaintenanceScreen() {
+  return (
+    <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
+      <Card className="w-full max-w-xl">
+        <CardHeader className="space-y-3">
+          <CardTitle>Scheduled maintenance</CardTitle>
+          <CardDescription>
+            Calorie Counter is temporarily unavailable while its data is being
+            upgraded. Please check back shortly.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    </main>
+  )
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
+  if (isE2eMockMode) {
+    return <>{children}</>
+  }
+
   if (!isClerkConfigured) {
     return (
       <main className="min-h-[calc(100vh-2.5rem)] px-4 py-10 sm:px-6">

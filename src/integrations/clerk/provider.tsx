@@ -1,7 +1,8 @@
 import { ClerkProvider } from '@clerk/react'
 import { clerkPublishableKey, isClerkConfigured } from './config'
+import { isE2eMockMode } from '@/testing/e2e/config'
 
-if (!isClerkConfigured) {
+if (!isClerkConfigured && !isE2eMockMode) {
   console.warn(
     'Missing VITE_CLERK_PUBLISHABLE_KEY. Clerk auth UI is disabled until it is set.',
   )
@@ -12,7 +13,7 @@ export default function AppClerkProvider({
 }: {
   children: React.ReactNode
 }) {
-  if (!isClerkConfigured) {
+  if (isE2eMockMode || !isClerkConfigured) {
     return <>{children}</>
   }
 

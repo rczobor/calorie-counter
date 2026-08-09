@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
   formatCookSessionLabel,
   formatKcalPer100,
-  getCookSessionModifiedAt,
-  getKcalPer100,
-  getMealDateKey,
   getNutritionUnitLabel,
   toErrorMessage,
   toLocalDateString,
@@ -14,29 +11,22 @@ import {
 } from '@/lib/nutrition'
 
 describe('nutrition helpers', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-04-04T12:00:00'))
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('formats nutrition labels and kcal values', () => {
     expect(getNutritionUnitLabel('g')).toBe('grams')
     expect(getNutritionUnitLabel('ml')).toBe('ml')
-    expect(getKcalPer100({ kcalPer100: 172 })).toBe(172)
-    expect(getKcalPer100({})).toBe(0)
     expect(formatKcalPer100(172.6)).toBe('173')
-    expect(formatKcalPer100(undefined)).toBe('0')
   })
 
-  it('round-trips local date strings and falls back for invalid input', () => {
+  it('round-trips local date strings and rejects invalid input', () => {
     const timestamp = toTimestampFromDate('2026-04-04')
 
     expect(toLocalDateString(timestamp)).toBe('2026-04-04')
-    expect(toTimestampFromDate('bad-input')).toBe(Date.now())
+    expect(() => toTimestampFromDate('bad-input')).toThrow(
+      'Date must be a valid YYYY-MM-DD calendar date.',
+    )
+    expect(() => toTimestampFromDate('2026-02-30')).toThrow(
+      'Date must be a valid YYYY-MM-DD calendar date.',
+    )
   })
 
   it('extracts friendly error messages', () => {
@@ -44,33 +34,7 @@ describe('nutrition helpers', () => {
     expect(toErrorMessage('oops')).toBe('Request failed.')
   })
 
-  it('uses the correct meal and cook-session fallbacks', () => {
-    expect(
-      getMealDateKey({
-        eatenOn: '2026-04-03',
-        createdAt: toTimestampFromDate('2026-04-04'),
-      }),
-    ).toBe('2026-04-03')
-    expect(
-      getMealDateKey({
-        createdAt: toTimestampFromDate('2026-04-04'),
-      }),
-    ).toBe('2026-04-04')
-
-    expect(
-      getCookSessionModifiedAt({
-        createdAt: 100,
-        updatedAt: 200,
-      }),
-    ).toBe(200)
-    expect(
-      getCookSessionModifiedAt({
-        createdAt: 100,
-      }),
-    ).toBe(100)
-  })
-
-  it('formats cook session labels with trimmed optional text', () => {
+  it('formats cook session labels with trimmed or blank text', () => {
     expect(
       formatCookSessionLabel({
         cookedAt: toTimestampFromDate('2026-04-04'),
@@ -80,6 +44,7 @@ describe('nutrition helpers', () => {
     expect(
       formatCookSessionLabel({
         cookedAt: toTimestampFromDate('2026-04-04'),
+        label: '',
       }),
     ).toBe('2026-04-04')
   })
