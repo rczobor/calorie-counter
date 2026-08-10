@@ -3,7 +3,7 @@ minimumReleaseAge: 4320
 overrides:
   esbuild: 0.28.1
   fast-uri: 4.1.2
-  hono: 4.13.0
+  hono: 4.13.1
 allowBuilds:
   '@clerk/shared': true
   esbuild: true
