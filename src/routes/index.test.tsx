@@ -272,9 +272,12 @@ function resolvePaginatedQuery(reference: unknown, args: unknown) {
       (person) => person.archived === (args as { archived: boolean }).archived,
     )
   } else if (functionName === 'catalog:listIngredients') {
+    const queryArgs = args as { archived: boolean; kcalBasisUnit?: string }
     results = mockMealDashboardData.ingredients.filter(
       (ingredient) =>
-        ingredient.archived === (args as { archived: boolean }).archived,
+        ingredient.archived === queryArgs.archived &&
+        (queryArgs.kcalBasisUnit === undefined ||
+          ingredient.kcalBasisUnit === queryArgs.kcalBasisUnit),
     )
   } else if (functionName === 'cooking:listSessions') {
     results = mockMealDashboardData.cookSessions.filter(
@@ -292,11 +295,17 @@ function resolvePaginatedQuery(reference: unknown, args: unknown) {
         food.cookSessionId === queryArgs.cookSessionId,
     )
   } else if (functionName === 'meals:listForDay') {
-    const queryArgs = args as { eatenOn: string; personId: string }
+    const queryArgs = args as {
+      eatenOn: string
+      personId: string
+      archived?: boolean
+    }
     results = mockMealDashboardData.meals.filter(
       (meal) =>
         meal.eatenOn === queryArgs.eatenOn &&
-        meal.personId === queryArgs.personId,
+        meal.personId === queryArgs.personId &&
+        (queryArgs.archived === undefined ||
+          meal.archived === queryArgs.archived),
     )
   }
   return {

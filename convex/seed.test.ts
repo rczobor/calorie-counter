@@ -290,6 +290,7 @@ describe('default seed data', () => {
     ])
     expect(data.recipes[0]?.name).toBe('Chicken rice bowl')
     expect(data.cookSessions[0]?.label).toBe('Sunday prep')
+    expect(data.cookSessions[0]?.searchText).toBe('2026-04-04 Sunday prep')
     expect(data.cookedFoods[0]).toMatchObject({
       name: 'Chicken rice bowl portions',
       kcalPer100: 120,
@@ -335,6 +336,54 @@ describe('default seed data', () => {
     expect(data.people.every((row) => !('ownerUserId' in row))).toBe(true)
   })
 
+  it('adds a newly seeded meal to an existing daily summary', async () => {
+    const t = createConvexTest()
+    const token = 'https://issuer.example|user-1'
+    const existingCalories = 123
+
+    await t.run(async (ctx) => {
+      const personId = await ctx.db.insert('people', {
+        ownerTokenIdentifier: token,
+        name: 'Alex',
+        currentDailyGoalKcal: 2200,
+        archived: false,
+        createdAt: Date.now(),
+      })
+      await ctx.db.insert('meals', {
+        ownerTokenIdentifier: token,
+        personId,
+        name: 'Existing meal',
+        eatenOn: '2026-04-04',
+        archived: false,
+        totalCalories: existingCalories,
+        itemCount: 0,
+        createdAt: Date.now(),
+      })
+      await ctx.db.insert('dailySummaries', {
+        ownerTokenIdentifier: token,
+        personId,
+        eatenOn: '2026-04-04',
+        consumedCalories: existingCalories,
+        mealCount: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    })
+
+    await t.mutation(seedDefaults, { ownerTokenIdentifier: token })
+    const data = await readSeedData(t, token)
+    const previewMeal = data.meals.find(
+      (meal) => meal.name === 'Preview breakfast',
+    )
+
+    expect(previewMeal).toBeDefined()
+    expect(data.dailySummaries).toHaveLength(1)
+    expect(data.dailySummaries[0]).toMatchObject({ mealCount: 2 })
+    expect(data.dailySummaries[0]?.consumedCalories).toBeCloseTo(
+      existingCalories + previewMeal!.totalCalories,
+    )
+  })
+
   it('is idempotent per token and ignores legacy metadata when finding defaults', async () => {
     const t = createConvexTest()
     const tokenA = 'https://issuer-a.example|shared-user'
@@ -367,5 +416,27 @@ describe('default seed data', () => {
     expect(tableCounts(dataB)).toEqual(EXPECTED_TABLE_COUNTS)
     expectOwnedRelationships(dataA)
     expectOwnedRelationships(dataB)
+
+    const summaryId = dataA.dailySummaries[0]?._id
+    const mealId = dataA.meals[0]?._id
+    expect(summaryId).toBeDefined()
+    expect(mealId).toBeDefined()
+    await t.run(async (ctx) => {
+      await ctx.db.delete(summaryId!)
+      await ctx.db.patch(mealId!, { archived: true })
+    })
+    const idempotentSummary = await t.mutation(seedDefaults, {
+      ownerTokenIdentifier: tokenA,
+    })
+    expect(idempotentSummary).toEqual({
+      people: 0,
+      foodGroups: 0,
+      ingredients: 0,
+      recipes: 0,
+      cookSessions: 0,
+      cookedFoods: 0,
+      meals: 0,
+    })
+    expect((await readSeedData(t, tokenA)).dailySummaries).toHaveLength(0)
   })
 })

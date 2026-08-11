@@ -16,6 +16,8 @@ import {
 } from './lib/validation'
 import { nutritionUnitValidator } from './validators'
 
+const COOK_SESSION_NOT_FOUND = 'Cook session not found.'
+
 const cookSessionDto = v.object({
   _id: v.id('cookSessions'),
   _creationTime: v.number(),
@@ -222,7 +224,7 @@ export const listCookedFoodsForSession = query({
     assertPageSize(args.paginationOpts.numItems)
     const session = await ctx.db.get(args.cookSessionId)
     if (session?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
-      throw new Error('Cook session not found.')
+      throw new Error(COOK_SESSION_NOT_FOUND)
     }
     const result = await ctx.db
       .query('cookedFoods')
@@ -280,7 +282,7 @@ export const searchCookedFoodsBySession = query({
     const owner = await requireAuthenticatedUser(ctx)
     const session = await ctx.db.get(args.cookSessionId)
     if (session?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
-      throw new Error('Cooking session not found.')
+      throw new Error(COOK_SESSION_NOT_FOUND)
     }
     const search = normalizeSearch(args.search)
     const rows = search

@@ -60,7 +60,7 @@ export function SearchablePicker({
   const normalizedResultLimit = normalizeResultLimit(resultLimit)
 
   const visibleOptions = useMemo(() => {
-    if (loading) {
+    if (loading && !isSearchControlled) {
       return []
     }
 

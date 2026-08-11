@@ -48,6 +48,9 @@ jobs:
       - name: Test with coverage
         run: pnpm run test:coverage
 
+      - name: Test per-file coverage floors
+        run: pnpm run test:coverage:per-file
+
       - name: Install browser for smoke tests
         run: pnpm exec playwright install --with-deps chromium
 

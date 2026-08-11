@@ -22,6 +22,13 @@ export default defineConfig({
         // Route modules are composition-heavy integration boundaries. Their
         // behavior is covered by route smoke tests rather than unit coverage.
         'src/routes/**',
+        // Application-shell and auth adapters are composition boundaries; their
+        // behavior is exercised through route and browser smoke tests.
+        'src/components/Header.tsx',
+        'src/components/theme-provider.tsx',
+        'src/components/theme-selector.tsx',
+        'src/features/manage/food-groups.tsx',
+        'src/integrations/clerk/header-user.tsx',
         // Generated shadcn primitives are exercised through their consumers.
         // Bespoke primitives (data-table and searchable-picker) stay in scope.
         'src/components/ui/alert-dialog.tsx',

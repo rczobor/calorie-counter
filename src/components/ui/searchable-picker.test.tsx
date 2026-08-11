@@ -134,6 +134,20 @@ describe('SearchablePicker', () => {
     )
 
     expect((input as HTMLInputElement).value).toBe('oats')
+
+    rerender(
+      <SearchablePicker
+        options={[{ value: 'remote', label: 'Server result' }]}
+        value=""
+        onValueChange={() => undefined}
+        ariaLabel="Find food"
+        searchValue="oats"
+        onSearchValueChange={onSearchValueChange}
+        loading
+      />,
+    )
+
+    expect(screen.getByRole('option', { name: 'Server result' })).toBeTruthy()
   })
 
   it('caps the rendered results', () => {
@@ -151,5 +165,31 @@ describe('SearchablePicker', () => {
 
     expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(screen.queryByRole('option', { name: 'Carrot' })).toBeNull()
+  })
+
+  it('normalizes invalid result limits', () => {
+    const { rerender } = render(
+      <SearchablePicker
+        options={options}
+        value=""
+        onValueChange={() => undefined}
+        ariaLabel="Choose food"
+        resultLimit={Number.NaN}
+      />,
+    )
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Choose food' }))
+    expect(screen.getAllByRole('option')).toHaveLength(options.length)
+
+    rerender(
+      <SearchablePicker
+        options={options}
+        value=""
+        onValueChange={() => undefined}
+        ariaLabel="Choose food"
+        resultLimit={-2.5}
+      />,
+    )
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 })

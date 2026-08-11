@@ -178,6 +178,8 @@ describe('transformConvexExport', () => {
     expect(report.outputCounts.dailySummaries).toBe(1)
     expect(report.transformationCounts.dropped_extra_group).toBe(1)
     expect(report.transformationCounts.dropped_missing_group).toBe(1)
+    expect(report.transformationCounts.generated_meal_total).toBe(2)
+    expect(report.transformationCounts.generated_meal_item_count).toBe(2)
     expect(
       report.transformationCounts.converted_quick_add_to_fixed_calories,
     ).toBe(1)
@@ -203,6 +205,101 @@ describe('transformConvexExport', () => {
     expect(
       result.report.transformationCounts.converted_missing_ingredient_reference,
     ).toBe(1)
+  })
+
+  it('reports stored meal totals that disagree with derived values', async () => {
+    const { tables } = await readConvexDirectoryExport(fixtureDirectory)
+    const meal = tables.get('meals')?.[0]
+    expect(meal).toBeDefined()
+    meal!.totalCalories = 999
+    meal!.itemCount = 99
+
+    const result = transformExportTables(tables)
+    expect(result.report.transformationCounts.mismatched_meal_total).toBe(1)
+    expect(result.report.transformationCounts.mismatched_meal_item_count).toBe(
+      1,
+    )
+  })
+
+  it('reports invalid recipe provenance and preserves the cooked food', async () => {
+    const { tables } = await readConvexDirectoryExport(fixtureDirectory)
+    tables.set('recipes', [
+      ...(tables.get('recipes') ?? []),
+      {
+        _id: 'recipe-2',
+        _creationTime: 1042,
+        ownerTokenIdentifier: 'issuer|user',
+        name: 'Other recipe',
+        archived: false,
+        latestVersionNumber: 1,
+        createdAt: 1042,
+      },
+    ])
+    tables.set('recipeVersions', [
+      ...(tables.get('recipeVersions') ?? []),
+      {
+        _id: 'recipe-version-2',
+        _creationTime: 1043,
+        ownerTokenIdentifier: 'issuer|user',
+        recipeId: 'recipe-2',
+        versionNumber: 1,
+        name: 'Other recipe v1',
+        createdAt: 1043,
+      },
+    ])
+    const cookedFood = tables.get('cookedFoods')?.[0]
+    expect(cookedFood).toBeDefined()
+    cookedFood!.recipeVersionId = 'recipe-version-2'
+
+    const result = transformExportTables(tables)
+    expect(result.tables.get('cookedFoods')?.[0]).not.toHaveProperty('recipeId')
+    expect(result.tables.get('cookedFoods')?.[0]).not.toHaveProperty(
+      'recipeVersionId',
+    )
+    expect(
+      result.report.transformationCounts.dropped_invalid_recipe_provenance,
+    ).toBe(1)
+  })
+
+  it('converts a missing cooked-food meal reference and copies unknown tables', async () => {
+    const { tables } = await readConvexDirectoryExport(fixtureDirectory)
+    const cookedFoodMeal = tables
+      .get('mealItems')
+      ?.find((item) => item._id === 'meal-item-3')
+    expect(cookedFoodMeal).toBeDefined()
+    cookedFoodMeal!.cookedFoodId = 'missing-cooked-food'
+    tables.set('auditEvents', [
+      {
+        _id: 'audit-1',
+        _creationTime: 1001,
+        event: 'preserve-me',
+        count: 2,
+      },
+    ])
+
+    const result = transformExportTables(tables)
+    expect(
+      result.tables
+        .get('mealItems')
+        ?.find((item) => item._id === 'meal-item-3'),
+    ).toMatchObject({
+      sourceType: 'customByWeight',
+      nameSnapshot: 'Cooked oats',
+      caloriesSnapshot: 150,
+    })
+    expect(
+      result.report.transformationCounts
+        .converted_missing_cooked_food_reference,
+    ).toBe(1)
+    expect(result.tables.get('auditEvents')).toEqual([
+      {
+        _id: 'audit-1',
+        _creationTime: 1001,
+        event: 'preserve-me',
+        count: 2,
+      },
+    ])
+    expect(result.report.passthroughTables).toContain('auditEvents')
   })
 
   it('prefers historical line nutrition over changed catalog values', async () => {

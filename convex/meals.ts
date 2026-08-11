@@ -93,7 +93,7 @@ export const listForDay = query({
       throw new Error('Person not found.')
     }
     const archived = args.archived
-    const query =
+    const mealsQuery =
       archived === undefined
         ? ctx.db
             .query('meals')
@@ -116,7 +116,7 @@ export const listForDay = query({
                   .eq('eatenOn', eatenOn)
                   .eq('archived', archived),
             )
-    const result = await query.order('desc').paginate(args.paginationOpts)
+    const result = await mealsQuery.order('desc').paginate(args.paginationOpts)
     return { ...result, page: result.page.map(withoutOwner) }
   },
 })

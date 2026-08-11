@@ -58,8 +58,8 @@ beforeEach(() => {
 })
 
 describe('useCatalogDomainData', () => {
-  it('merges archive pages, delegates load-more, and switches to server search', () => {
-    const { result, rerender } = renderHook(
+  it('loads active ingredients and delegates active load-more', () => {
+    const { result } = renderHook(
       (props: HookProps) => useCatalogDomainData(props),
       { initialProps: props() },
     )
@@ -70,27 +70,48 @@ describe('useCatalogDomainData', () => {
     act(() => result.current.paging.ingredients.loadMore())
     expect(activeIngredientLoadMore).toHaveBeenCalledWith(20)
     expect(archivedIngredientLoadMore).not.toHaveBeenCalled()
+  })
 
-    rerender(props({ showArchived: true }))
+  it('merges archived ingredients and delegates archived load-more', () => {
+    const { result } = renderHook(
+      (props: HookProps) => useCatalogDomainData(props),
+      { initialProps: props({ showArchived: true }) },
+    )
+
     expect(result.current.ingredients.map((item) => item.name)).toEqual([
       'Flour',
       'Oats',
     ])
     act(() => result.current.paging.ingredients.loadMore())
     expect(archivedIngredientLoadMore).toHaveBeenCalledWith(20)
+    expect(activeIngredientLoadMore).toHaveBeenCalledWith(20)
+  })
 
-    activeIngredientLoadMore.mockClear()
-    archivedIngredientLoadMore.mockClear()
+  it('keeps recipe-ingredient load-more scoped to the active catalog', () => {
+    const { result } = renderHook(
+      (props: HookProps) => useCatalogDomainData(props),
+      { initialProps: props({ showArchived: true }) },
+    )
+
     expect(result.current.recipeIngredients.map((item) => item.name)).toEqual([
       'Oats',
     ])
     act(() => result.current.paging.recipeIngredients.loadMore())
     expect(activeIngredientLoadMore).toHaveBeenCalledWith(20)
     expect(archivedIngredientLoadMore).not.toHaveBeenCalled()
+  })
 
-    rerender(
-      props({ showArchived: true, recipeIngredientSearch: '  quinoa  ' }),
+  it('uses active-only server search for recipe ingredients', () => {
+    const { result } = renderHook(
+      (props: HookProps) => useCatalogDomainData(props),
+      {
+        initialProps: props({
+          showArchived: true,
+          recipeIngredientSearch: '  quinoa  ',
+        }),
+      },
     )
+
     expect(result.current.recipeIngredients.map((item) => item.name)).toEqual([
       'Quinoa',
     ])
@@ -102,8 +123,19 @@ describe('useCatalogDomainData', () => {
       name: 'catalog:searchIngredients',
       args: { archived: true, search: 'quinoa' },
     })
+  })
 
-    rerender(props({ showArchived: true, ingredientSearch: '  quinoa  ' }))
+  it('reports ingredient server-search state and trimmed arguments', () => {
+    const { result } = renderHook(
+      (props: HookProps) => useCatalogDomainData(props),
+      {
+        initialProps: props({
+          showArchived: true,
+          ingredientSearch: '  quinoa  ',
+        }),
+      },
+    )
+
     expect(result.current.ingredients.map((item) => item.name)).toEqual([
       'Quinoa',
     ])

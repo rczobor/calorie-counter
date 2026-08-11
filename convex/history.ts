@@ -79,6 +79,10 @@ export const goalsForRange = query({
     const startDate = normalizeRequiredDate(args.startDate, 'Start date')
     const endDate = normalizeRequiredDate(args.endDate, 'End date')
     assertHistoryRange(startDate, endDate)
+    const person = await ctx.db.get(args.personId)
+    if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+      throw new Error('Person not found.')
+    }
     const inRange = await ctx.db
       .query('personGoalHistory')
       .withIndex(
@@ -109,8 +113,10 @@ export const goalsForRange = query({
       .order('desc')
       .first()
 
-    return (precedingGoal ? [...inRange, precedingGoal] : inRange).map(
-      withoutOwner,
-    )
+    const result = precedingGoal ? [...inRange, precedingGoal] : inRange
+    if (result.length > MAX_RELATED_ROWS) {
+      throw new Error('Goal history is too large for the selected range.')
+    }
+    return result.map(withoutOwner)
   },
 })

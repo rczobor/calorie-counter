@@ -80,7 +80,7 @@ export function useMealDashboardDomainData({
   )
   const ingredientsQuery = usePaginatedQuery(
     api.catalog.listIngredients,
-    { archived: false },
+    { archived: false, kcalBasisUnit: 'g' },
     { initialNumItems: PAGE_SIZE },
   )
   const cookSessionsQuery = usePaginatedQuery(
@@ -119,10 +119,7 @@ export function useMealDashboardDomainData({
     selectedPersonId && (selectedPersonIsLoaded || selectedPerson !== null)
       ? selectedPersonId
       : ''
-  const ingredients: MealDashboardIngredient[] = useMemo(
-    () => ingredientsQuery.results.filter((item) => item.kcalBasisUnit === 'g'),
-    [ingredientsQuery.results],
-  )
+  const ingredients: MealDashboardIngredient[] = ingredientsQuery.results
   const cookSessions: MealDashboardCookSession[] = useMemo(() => {
     const sessions =
       selectedCookSession &&

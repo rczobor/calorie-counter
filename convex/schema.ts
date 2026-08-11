@@ -64,13 +64,19 @@ export default defineSchema({
       'archived',
       'name',
     ])
+    .index('by_ownerTokenIdentifier_and_archived_and_kcalBasisUnit_and_name', [
+      'ownerTokenIdentifier',
+      'archived',
+      'kcalBasisUnit',
+      'name',
+    ])
     .index('by_ownerTokenIdentifier_and_groupId', [
       'ownerTokenIdentifier',
       'groupId',
     ])
     .searchIndex('search_name', {
       searchField: 'name',
-      filterFields: ['ownerTokenIdentifier', 'archived'],
+      filterFields: ['ownerTokenIdentifier', 'archived', 'kcalBasisUnit'],
     }),
   recipes: defineTable(recipesFields)
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])

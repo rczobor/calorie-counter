@@ -1285,10 +1285,26 @@ function transformMeals(ctx: TransformContext) {
       createdAt: requireTimestamp(record, 'createdAt', 'meals', id),
     }
     addOptionalTextFields(target, record, 'meals', id, ['name', 'notes'])
-    if (record.totalCalories === undefined)
+    if (record.totalCalories === undefined) {
       ctx.reporter.count('generated_meal_total')
-    if (record.itemCount === undefined)
+    } else if (record.totalCalories !== totalCalories) {
+      ctx.reporter.issue(
+        'mismatched_meal_total',
+        'meals',
+        id,
+        `Stored totalCalories ${String(record.totalCalories)} was replaced with ${String(totalCalories)} derived from meal items.`,
+      )
+    }
+    if (record.itemCount === undefined) {
       ctx.reporter.count('generated_meal_item_count')
+    } else if (record.itemCount !== mealItems.length) {
+      ctx.reporter.issue(
+        'mismatched_meal_item_count',
+        'meals',
+        id,
+        `Stored itemCount ${String(record.itemCount)} was replaced with ${String(mealItems.length)} derived from meal items.`,
+      )
+    }
     if (record.ownerUserId !== undefined)
       ctx.reporter.count('removed_owner_user_id')
     return target

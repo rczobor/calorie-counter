@@ -134,10 +134,14 @@ export function useCatalogDomainData({
     { initialNumItems: PAGE_SIZE },
   )
 
-  const foodGroupSearchActive = foodGroupSearch.trim().length > 0
-  const ingredientSearchActive = ingredientSearch.trim().length > 0
-  const recipeIngredientSearchActive = recipeIngredientSearch.trim().length > 0
-  const recipeSearchActive = recipeSearch.trim().length > 0
+  const foodGroupTerm = foodGroupSearch.trim()
+  const ingredientTerm = ingredientSearch.trim()
+  const recipeIngredientTerm = recipeIngredientSearch.trim()
+  const recipeTerm = recipeSearch.trim()
+  const foodGroupSearchActive = foodGroupTerm.length > 0
+  const ingredientSearchActive = ingredientTerm.length > 0
+  const recipeIngredientSearchActive = recipeIngredientTerm.length > 0
+  const recipeSearchActive = recipeTerm.length > 0
 
   const activeIngredientGroupSearch = useQuery(
     api.catalog.searchFoodGroups,
@@ -145,7 +149,7 @@ export function useCatalogDomainData({
       ? {
           appliesTo: 'ingredient',
           archived: false,
-          search: foodGroupSearch.trim(),
+          search: foodGroupTerm,
         }
       : 'skip',
   )
@@ -155,7 +159,7 @@ export function useCatalogDomainData({
       ? {
           appliesTo: 'cookedFood',
           archived: false,
-          search: foodGroupSearch.trim(),
+          search: foodGroupTerm,
         }
       : 'skip',
   )
@@ -165,7 +169,7 @@ export function useCatalogDomainData({
       ? {
           appliesTo: 'ingredient',
           archived: true,
-          search: foodGroupSearch.trim(),
+          search: foodGroupTerm,
         }
       : 'skip',
   )
@@ -175,38 +179,36 @@ export function useCatalogDomainData({
       ? {
           appliesTo: 'cookedFood',
           archived: true,
-          search: foodGroupSearch.trim(),
+          search: foodGroupTerm,
         }
       : 'skip',
   )
   const activeIngredientSearch = useQuery(
     api.catalog.searchIngredients,
     ingredientSearchActive
-      ? { archived: false, search: ingredientSearch.trim() }
+      ? { archived: false, search: ingredientTerm }
       : 'skip',
   )
   const archivedIngredientSearch = useQuery(
     api.catalog.searchIngredients,
     ingredientSearchActive && showArchived
-      ? { archived: true, search: ingredientSearch.trim() }
+      ? { archived: true, search: ingredientTerm }
       : 'skip',
   )
   const activeRecipeIngredientSearch = useQuery(
     api.catalog.searchIngredients,
     recipeIngredientSearchActive
-      ? { archived: false, search: recipeIngredientSearch.trim() }
+      ? { archived: false, search: recipeIngredientTerm }
       : 'skip',
   )
   const activeRecipeSearch = useQuery(
     api.catalog.searchRecipes,
-    recipeSearchActive
-      ? { archived: false, search: recipeSearch.trim() }
-      : 'skip',
+    recipeSearchActive ? { archived: false, search: recipeTerm } : 'skip',
   )
   const archivedRecipeSearch = useQuery(
     api.catalog.searchRecipes,
     recipeSearchActive && showArchived
-      ? { archived: true, search: recipeSearch.trim() }
+      ? { archived: true, search: recipeTerm }
       : 'skip',
   )
 
@@ -290,11 +292,17 @@ export function useCatalogDomainData({
     ],
   )
 
+  const ingredientFoodGroups = useMemo(
+    () =>
+      activeFoodGroups.results.filter(
+        (group) => group.appliesTo === 'ingredient',
+      ),
+    [activeFoodGroups.results],
+  )
+
   return {
     foodGroups,
-    ingredientFoodGroups: activeFoodGroups.results.filter(
-      (group) => group.appliesTo === 'ingredient',
-    ),
+    ingredientFoodGroups,
     ingredients,
     recipeIngredients,
     recipes,

@@ -314,9 +314,17 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
       .filter((person) => person.archived === archived)
       .map(withoutOwner)
   } else if (functionName === 'catalog:listIngredients') {
-    const archived = (args as { archived: boolean }).archived
+    const queryArgs = args as {
+      archived: boolean
+      kcalBasisUnit?: string
+    }
     results = snapshot.dashboard.ingredients
-      .filter((ingredient) => ingredient.archived === archived)
+      .filter(
+        (ingredient) =>
+          ingredient.archived === queryArgs.archived &&
+          (queryArgs.kcalBasisUnit === undefined ||
+            ingredient.kcalBasisUnit === queryArgs.kcalBasisUnit),
+      )
       .map(withoutOwner)
   } else if (functionName === 'cooking:listSessions') {
     const archived = (args as { archived: boolean }).archived

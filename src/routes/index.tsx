@@ -418,9 +418,7 @@ function MealDashboardPageContent() {
         ingredient,
         name: ingredient.name,
         kcalPer100: ingredient.kcalPer100,
-        ignoreCalories: Boolean(
-          (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
-        ),
+        ignoreCalories: Boolean(ingredient.ignoreCalories),
       })),
     [ingredients],
   )

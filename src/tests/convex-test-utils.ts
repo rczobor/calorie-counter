@@ -94,11 +94,16 @@ export async function insertCookSession(
   overrides: Partial<Doc<'cookSessions'>> = {},
 ) {
   return await t.run(async (ctx) => {
+    const label = overrides.label ?? 'Session'
+    const cookedAt = overrides.cookedAt ?? Date.now()
+    const searchText =
+      overrides.searchText ??
+      `${new Date(cookedAt).toISOString().slice(0, 10)} ${label}`.trim()
     return await ctx.db.insert('cookSessions', {
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
-      label: 'Session',
-      searchText: '2026-04-04 Session',
-      cookedAt: Date.now(),
+      label,
+      searchText,
+      cookedAt,
       cookedByPersonId: undefined,
       notes: undefined,
       archived: false,

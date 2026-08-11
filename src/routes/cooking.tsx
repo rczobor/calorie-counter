@@ -65,13 +65,7 @@ import { toast } from 'sonner'
 
 const SEARCH_RESULT_LIMIT = 20
 
-function customLineSignature(input: {
-  ingredientId?: Id<'ingredients'> | ''
-  name: string
-  kcalPer100: number
-  kcalBasisUnit: NutritionUnit
-  ignoreCalories: boolean
-}) {
+function customLineSignature(input: { ingredientId?: Id<'ingredients'> | '' }) {
   return input.ingredientId || ''
 }
 
@@ -521,9 +515,7 @@ function CookingPageContent() {
         ingredient,
         name: ingredient.name,
         kcalPer100: ingredient.kcalPer100,
-        ignoreCalories: Boolean(
-          (ingredient as { ignoreCalories?: boolean }).ignoreCalories,
-        ),
+        ignoreCalories: Boolean(ingredient.ignoreCalories),
       })),
     [ingredients],
   )
@@ -931,10 +923,6 @@ function CookingPageContent() {
             draft.lineExistingCustomSignature ===
             customLineSignature({
               ingredientId: draft.lineCustomIngredientId,
-              name: draft.lineCustomName,
-              kcalPer100,
-              kcalBasisUnit: draft.lineCustomBasisUnit,
-              ignoreCalories: draft.lineCustomIgnoreCalories,
             })
               ? draft.lineExistingCookedFoodIngredientId || undefined
               : undefined,
@@ -1060,10 +1048,6 @@ function CookingPageContent() {
       lineExistingIngredientIgnoreCaloriesSnapshot: undefined,
       lineExistingCustomSignature: customLineSignature({
         ingredientId: line.ingredientId,
-        name: line.name,
-        kcalPer100: line.kcalPer100,
-        kcalBasisUnit: line.kcalBasisUnit,
-        ignoreCalories: line.ignoreCalories,
       }),
       ingredientLines: draft.ingredientLines.filter(
         (item) => item.draftId !== ingredientDraftId,
@@ -2181,7 +2165,7 @@ function CookingPageContent() {
                                 {formatKcalPer100(
                                   selectedLineIngredientKcal ?? 0,
                                 )}{' '}
-                                kcal/100{selectedLineIngredientBasis ?? 'g'}
+                                kcal / 100 {selectedLineIngredientBasis ?? 'g'}
                               </p>
                             ) : (
                               <p className="text-xs text-muted-foreground">

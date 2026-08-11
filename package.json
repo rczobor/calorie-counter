@@ -21,6 +21,7 @@
     "typecheck:convex": "tsc --noEmit -p convex/tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:coverage:per-file": "vitest run --config vitest.per-file.config.ts --coverage",
     "test:e2e": "playwright test"
   },
   "dependencies": {

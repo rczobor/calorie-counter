@@ -14,7 +14,8 @@ const e2eConvexReactAdapter = fileURLToPath(
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const useE2eMocks = env.VITE_E2E_MOCKS?.toLowerCase() === 'true'
+  const useE2eMocks =
+    mode === 'e2e' && env.VITE_E2E_MOCKS?.toLowerCase() === 'true'
 
   if (useE2eMocks && command === 'build') {
     throw new Error(

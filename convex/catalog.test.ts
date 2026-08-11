@@ -168,6 +168,28 @@ describe('nutrition catalog mutations', () => {
     }
   })
 
+  it('filters gram ingredients before pagination when requested', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const gramIngredient = await insertIngredient(t, {
+      name: 'Rice',
+      kcalBasisUnit: 'g',
+    })
+    await insertIngredient(t, {
+      name: 'Egg',
+      kcalBasisUnit: 'piece',
+    })
+
+    const result = await user.query(api.catalog.listIngredients, {
+      archived: false,
+      kcalBasisUnit: 'g',
+      paginationOpts: { numItems: 10, cursor: null },
+    })
+
+    expect(result.page).toHaveLength(1)
+    expect(result.page[0]?._id).toBe(gramIngredient)
+  })
+
   it('creates a new current recipe version while preserving the old version', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)

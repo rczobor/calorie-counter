@@ -1461,6 +1461,11 @@ function ManagePageContent() {
                       />
                       <Button
                         variant="outline"
+                        disabled={
+                          isRunning ||
+                          (Boolean(recipeLineIngredientId) &&
+                            !selectedRecipeLineIngredient)
+                        }
                         onClick={addRecipeIngredientLine}
                       >
                         Add

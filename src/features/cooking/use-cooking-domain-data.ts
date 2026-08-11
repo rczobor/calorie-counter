@@ -220,13 +220,14 @@ export function useCookingDomainData({
   )
   const visibleSessions = useMemo(
     () =>
-      (sessionSearchActive
-        ? mergeById(
-            activeSessionSearch ?? [],
-            showArchived ? (archivedSessionSearch ?? []) : [],
-          )
-        : loadedSessions
-      ).sort((a, b) => b.cookedAt - a.cookedAt),
+      [
+        ...(sessionSearchActive
+          ? mergeById(
+              activeSessionSearch ?? [],
+              showArchived ? (archivedSessionSearch ?? []) : [],
+            )
+          : loadedSessions),
+      ].sort((a, b) => b.cookedAt - a.cookedAt),
     [
       activeSessionSearch,
       archivedSessionSearch,

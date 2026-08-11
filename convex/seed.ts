@@ -33,6 +33,10 @@ function toLocalDateString(timestamp: number) {
   return `${year}-${month}-${day}`
 }
 
+function toSearchDateString(timestamp: number) {
+  return new Date(timestamp).toISOString().slice(0, 10)
+}
+
 function ownerFields(owner: SeedOwner) {
   return {
     ownerTokenIdentifier: owner.ownerTokenIdentifier,
@@ -402,7 +406,7 @@ export const defaults = internalMutation({
       cookSessionId = await ctx.db.insert('cookSessions', {
         ...ownerFields(owner),
         label: 'Sunday prep',
-        searchText: `${today} Sunday prep`,
+        searchText: `${toSearchDateString(now)} Sunday prep`,
         cookedAt: now,
         cookedByPersonId: alexId,
         notes: SEEDED_NOTE,
@@ -486,6 +490,7 @@ export const defaults = internalMutation({
     }
 
     let mealId = findMealByName(existingMeals, 'Preview breakfast', today)?._id
+    let createdMealTotalCalories: number | undefined
     if (!mealId) {
       const oatsWeightGrams = 60
       const yogurtWeightGrams = 250
@@ -502,6 +507,7 @@ export const defaults = internalMutation({
         itemCount: 2,
         createdAt: now,
       })
+      createdMealTotalCalories = mealTotalCalories
       await Promise.all([
         ctx.db.insert('mealItems', {
           ...ownerFields(owner),
@@ -530,15 +536,36 @@ export const defaults = internalMutation({
           notes: undefined,
         }),
       ])
-      await ctx.db.insert('dailySummaries', {
-        ...ownerFields(owner),
-        personId: alexId,
-        eatenOn: today,
-        consumedCalories: mealTotalCalories,
-        mealCount: 1,
-        createdAt: now,
-        updatedAt: now,
-      })
+    }
+
+    if (createdMealTotalCalories !== undefined) {
+      const existingSummary = await ctx.db
+        .query('dailySummaries')
+        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('personId', alexId)
+            .eq('eatenOn', today),
+        )
+        .unique()
+      if (existingSummary) {
+        await ctx.db.patch(existingSummary._id, {
+          consumedCalories:
+            existingSummary.consumedCalories + createdMealTotalCalories,
+          mealCount: existingSummary.mealCount + 1,
+          updatedAt: now,
+        })
+      } else {
+        await ctx.db.insert('dailySummaries', {
+          ...ownerFields(owner),
+          personId: alexId,
+          eatenOn: today,
+          consumedCalories: createdMealTotalCalories,
+          mealCount: 1,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
       summary.meals += 1
     }
 

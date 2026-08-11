@@ -41,7 +41,9 @@ function isNutritionUnit(value: unknown) {
 }
 
 function isOptionalNumber(value: unknown) {
-  return value === undefined || typeof value === 'number'
+  return (
+    value === undefined || (typeof value === 'number' && Number.isFinite(value))
+  )
 }
 
 function isIngredientLine(value: unknown) {
@@ -61,7 +63,16 @@ function isIngredientLine(value: unknown) {
     return false
   }
   if (line.sourceType === 'ingredient') {
-    return typeof line.ingredientId === 'string'
+    return (
+      typeof line.ingredientId === 'string' &&
+      (line.ingredientNameSnapshot === undefined ||
+        typeof line.ingredientNameSnapshot === 'string') &&
+      isOptionalNumber(line.kcalPer100Snapshot) &&
+      (line.kcalBasisUnitSnapshot === undefined ||
+        isNutritionUnit(line.kcalBasisUnitSnapshot)) &&
+      (line.ignoreCaloriesSnapshot === undefined ||
+        typeof line.ignoreCaloriesSnapshot === 'boolean')
+    )
   }
   return (
     line.sourceType === 'custom' &&

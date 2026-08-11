@@ -88,17 +88,21 @@ const recipeVersionIngredientCommonFields = {
   notes: v.optional(v.string()),
 }
 
+const recipeVersionIngredientIngredientFields = {
+  ...recipeVersionIngredientCommonFields,
+  sourceType: v.literal('ingredient'),
+  ingredientId: v.id('ingredients'),
+}
+
+const recipeVersionIngredientCustomFields = {
+  ...recipeVersionIngredientCommonFields,
+  sourceType: v.literal('custom'),
+  ingredientId: v.optional(v.id('ingredients')),
+}
+
 export const recipeVersionIngredientRecordValidator = v.union(
-  v.object({
-    ...recipeVersionIngredientCommonFields,
-    sourceType: v.literal('ingredient'),
-    ingredientId: v.id('ingredients'),
-  }),
-  v.object({
-    ...recipeVersionIngredientCommonFields,
-    sourceType: v.literal('custom'),
-    ingredientId: v.optional(v.id('ingredients')),
-  }),
+  v.object(recipeVersionIngredientIngredientFields),
+  v.object(recipeVersionIngredientCustomFields),
 )
 
 export const cookSessionsFields = {
@@ -143,17 +147,21 @@ const cookedFoodIngredientCommonFields = {
   notes: v.optional(v.string()),
 }
 
+const cookedFoodIngredientIngredientFields = {
+  ...cookedFoodIngredientCommonFields,
+  sourceType: v.literal('ingredient'),
+  ingredientId: v.id('ingredients'),
+}
+
+const cookedFoodIngredientCustomFields = {
+  ...cookedFoodIngredientCommonFields,
+  sourceType: v.literal('custom'),
+  ingredientId: v.optional(v.id('ingredients')),
+}
+
 export const cookedFoodIngredientRecordValidator = v.union(
-  v.object({
-    ...cookedFoodIngredientCommonFields,
-    sourceType: v.literal('ingredient'),
-    ingredientId: v.id('ingredients'),
-  }),
-  v.object({
-    ...cookedFoodIngredientCommonFields,
-    sourceType: v.literal('custom'),
-    ingredientId: v.optional(v.id('ingredients')),
-  }),
+  v.object(cookedFoodIngredientIngredientFields),
+  v.object(cookedFoodIngredientCustomFields),
 )
 
 export const mealsFields = {
@@ -184,26 +192,34 @@ const weightedMealItemFields = {
   consumedWeightGrams: v.number(),
 }
 
+const mealItemIngredientFields = {
+  ...weightedMealItemFields,
+  sourceType: v.literal('ingredient'),
+  ingredientId: v.id('ingredients'),
+}
+
+const mealItemCustomByWeightFields = {
+  ...weightedMealItemFields,
+  sourceType: v.literal('customByWeight'),
+  ingredientId: v.optional(v.id('ingredients')),
+}
+
+const mealItemCookedFoodFields = {
+  ...weightedMealItemFields,
+  sourceType: v.literal('cookedFood'),
+  cookedFoodId: v.id('cookedFoods'),
+}
+
+const mealItemFixedCaloriesFields = {
+  ...mealItemCommonFields,
+  sourceType: v.literal('fixedCalories'),
+}
+
 export const mealItemRecordValidator = v.union(
-  v.object({
-    ...weightedMealItemFields,
-    sourceType: v.literal('ingredient'),
-    ingredientId: v.id('ingredients'),
-  }),
-  v.object({
-    ...weightedMealItemFields,
-    sourceType: v.literal('customByWeight'),
-    ingredientId: v.optional(v.id('ingredients')),
-  }),
-  v.object({
-    ...weightedMealItemFields,
-    sourceType: v.literal('cookedFood'),
-    cookedFoodId: v.id('cookedFoods'),
-  }),
-  v.object({
-    ...mealItemCommonFields,
-    sourceType: v.literal('fixedCalories'),
-  }),
+  v.object(mealItemIngredientFields),
+  v.object(mealItemCustomByWeightFields),
+  v.object(mealItemCookedFoodFields),
+  v.object(mealItemFixedCaloriesFields),
 )
 
 export const dailySummariesFields = {
@@ -256,16 +272,12 @@ export const recipeVersionIngredientValidator = v.union(
   v.object({
     _id: v.id('recipeVersionIngredients'),
     _creationTime: v.number(),
-    ...recipeVersionIngredientCommonFields,
-    sourceType: v.literal('ingredient'),
-    ingredientId: v.id('ingredients'),
+    ...recipeVersionIngredientIngredientFields,
   }),
   v.object({
     _id: v.id('recipeVersionIngredients'),
     _creationTime: v.number(),
-    ...recipeVersionIngredientCommonFields,
-    sourceType: v.literal('custom'),
-    ingredientId: v.optional(v.id('ingredients')),
+    ...recipeVersionIngredientCustomFields,
   }),
 )
 
@@ -285,16 +297,12 @@ export const cookedFoodIngredientValidator = v.union(
   v.object({
     _id: v.id('cookedFoodIngredients'),
     _creationTime: v.number(),
-    ...cookedFoodIngredientCommonFields,
-    sourceType: v.literal('ingredient'),
-    ingredientId: v.id('ingredients'),
+    ...cookedFoodIngredientIngredientFields,
   }),
   v.object({
     _id: v.id('cookedFoodIngredients'),
     _creationTime: v.number(),
-    ...cookedFoodIngredientCommonFields,
-    sourceType: v.literal('custom'),
-    ingredientId: v.optional(v.id('ingredients')),
+    ...cookedFoodIngredientCustomFields,
   }),
 )
 
@@ -308,29 +316,22 @@ export const mealItemValidator = v.union(
   v.object({
     _id: v.id('mealItems'),
     _creationTime: v.number(),
-    ...weightedMealItemFields,
-    sourceType: v.literal('ingredient'),
-    ingredientId: v.id('ingredients'),
+    ...mealItemIngredientFields,
   }),
   v.object({
     _id: v.id('mealItems'),
     _creationTime: v.number(),
-    ...weightedMealItemFields,
-    sourceType: v.literal('customByWeight'),
-    ingredientId: v.optional(v.id('ingredients')),
+    ...mealItemCustomByWeightFields,
   }),
   v.object({
     _id: v.id('mealItems'),
     _creationTime: v.number(),
-    ...weightedMealItemFields,
-    sourceType: v.literal('cookedFood'),
-    cookedFoodId: v.id('cookedFoods'),
+    ...mealItemCookedFoodFields,
   }),
   v.object({
     _id: v.id('mealItems'),
     _creationTime: v.number(),
-    ...mealItemCommonFields,
-    sourceType: v.literal('fixedCalories'),
+    ...mealItemFixedCaloriesFields,
   }),
 )
 

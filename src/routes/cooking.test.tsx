@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react'
 import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Doc } from '../../convex/_generated/dataModel'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
   createCookSessionDoc,
   createCookedFoodDoc,
@@ -47,11 +47,22 @@ vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
 }))
 
-const exhaustedPaging = {
-  canLoadMore: false,
-  isLoadingMore: false,
-  isComplete: true,
-  loadMore: vi.fn(),
+function createPaging() {
+  return {
+    canLoadMore: false,
+    isLoadingMore: false,
+    isComplete: true,
+    loadMore: vi.fn(),
+  }
+}
+
+const paging = {
+  people: createPaging(),
+  foodGroups: createPaging(),
+  ingredients: createPaging(),
+  recipes: createPaging(),
+  sessions: createPaging(),
+  cookedFoods: createPaging(),
 }
 
 vi.mock('@/features/cooking/use-cooking-domain-data', () => ({
@@ -96,12 +107,12 @@ vi.mock('@/features/cooking/use-cooking-domain-data', () => ({
       cacheCookSession: vi.fn(),
       isLoading: false,
       paging: {
-        people: exhaustedPaging,
-        foodGroups: exhaustedPaging,
-        ingredients: exhaustedPaging,
-        recipes: exhaustedPaging,
-        sessions: exhaustedPaging,
-        cookedFoods: exhaustedPaging,
+        people: paging.people,
+        foodGroups: paging.foodGroups,
+        ingredients: paging.ingredients,
+        recipes: paging.recipes,
+        sessions: paging.sessions,
+        cookedFoods: paging.cookedFoods,
       },
       search: {
         sessions: { active: false, isLoading: false },
@@ -164,9 +175,11 @@ beforeEach(() => {
         }
       : null
   })
-  exhaustedPaging.canLoadMore = false
-  exhaustedPaging.isLoadingMore = false
-  exhaustedPaging.isComplete = true
+  for (const page of Object.values(paging)) {
+    page.canLoadMore = false
+    page.isLoadingMore = false
+    page.isComplete = true
+  }
   mockCookingData = createCookingFixture()
   confirmAndRunActionMock = vi.fn(
     (_message: string, _successText: string, action: () => Promise<unknown>) =>
@@ -392,7 +405,7 @@ describe('Cooking route', () => {
       ],
       cookedFoodIngredients: [
         createCookedFoodIngredientDoc('line-ingredient', 'food-1', {
-          ingredientId: 'ingredient-1' as never,
+          ingredientId: 'ingredient-1' as Id<'ingredients'>,
           ingredientNameSnapshot: 'Historical piece ingredient',
           referenceAmount: 2,
           referenceUnit: 'piece',
@@ -405,7 +418,7 @@ describe('Cooking route', () => {
         }),
         createCookedFoodIngredientDoc('line-custom', 'food-1', {
           sourceType: 'custom',
-          ingredientId: 'ingredient-2' as never,
+          ingredientId: 'ingredient-2' as Id<'ingredients'>,
           ingredientNameSnapshot: 'Original custom',
           referenceAmount: 1,
           referenceUnit: 'piece',
@@ -493,7 +506,7 @@ describe('Cooking route', () => {
   it('keeps an archived cook label when editing without offering it on new batches', () => {
     const historicSession = {
       ...createSession('session-1', 'Historic prep'),
-      cookedByPersonId: 'archived-person' as never,
+      cookedByPersonId: 'archived-person' as Id<'people'>,
       cookedByPersonName: 'Archived cook',
     }
     mockCookingData = createCookingFixture({
@@ -519,8 +532,8 @@ describe('Cooking route', () => {
     mockCookingData = createCookingFixture({
       cookSessions: [createSession('session-1', 'Sunday prep')],
     })
-    exhaustedPaging.canLoadMore = true
-    exhaustedPaging.isComplete = false
+    paging.sessions.canLoadMore = true
+    paging.sessions.isComplete = false
     configureMutationMocks()
 
     renderCookingRoute()
@@ -532,7 +545,7 @@ describe('Cooking route', () => {
     fireEvent.click(
       screen.getAllByRole('button', { name: /load more batches/i })[0],
     )
-    expect(exhaustedPaging.loadMore).toHaveBeenCalledTimes(1)
+    expect(paging.sessions.loadMore).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -37,13 +37,22 @@ const optionalNullableStringValidator = v.optional(
 )
 const MAX_INGREDIENT_LINES = MAX_CHILD_ROWS
 
+function normalizeInputNotes(
+  value: string | null | undefined,
+  existing?: string,
+) {
+  return value === undefined
+    ? normalizeOptionalText(existing, 'Item notes', MAX_NOTES_LENGTH)
+    : normalizeNullableText(value, 'Item notes', MAX_NOTES_LENGTH)
+}
+
 const recipeIngredientValidator = v.union(
   v.object({
     sourceType: v.literal('ingredient'),
     ingredientId: v.id('ingredients'),
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
   v.object({
     sourceType: v.literal('custom'),
@@ -55,7 +64,7 @@ const recipeIngredientValidator = v.union(
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
     saveToCatalog: v.optional(v.boolean()),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
 )
 
@@ -67,7 +76,7 @@ const cookedFoodIngredientValidator = v.union(
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
     countedAmount: v.optional(v.number()),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
   v.object({
     sourceType: v.literal('custom'),
@@ -81,7 +90,7 @@ const cookedFoodIngredientValidator = v.union(
     referenceUnit: nutritionUnitValidator,
     countedAmount: v.optional(v.number()),
     saveToCatalog: v.optional(v.boolean()),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
 )
 
@@ -98,7 +107,7 @@ const mealItemInputValidator = v.union(
     existingMealItemId: v.optional(v.id('mealItems')),
     ingredientId: v.id('ingredients'),
     consumedWeightGrams: v.number(),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
   v.object({
     sourceType: v.literal('customByWeight'),
@@ -110,21 +119,21 @@ const mealItemInputValidator = v.union(
     ignoreCalories: v.boolean(),
     consumedWeightGrams: v.number(),
     saveToCatalog: v.optional(v.boolean()),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
   v.object({
     sourceType: v.literal('cookedFood'),
     existingMealItemId: v.optional(v.id('mealItems')),
     cookedFoodId: v.id('cookedFoods'),
     consumedWeightGrams: v.number(),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
   v.object({
     sourceType: v.literal('fixedCalories'),
     existingMealItemId: v.optional(v.id('mealItems')),
     name: v.string(),
     calories: v.number(),
-    notes: v.optional(v.string()),
+    notes: optionalNullableStringValidator,
   }),
 )
 
@@ -372,7 +381,7 @@ async function buildCookedFoodNutrition(
         referenceAmount: number
         referenceUnit: NutritionUnit
         countedAmount?: number
-        notes?: string
+        notes?: string | null
       }
     | {
         sourceType: 'custom'
@@ -386,7 +395,7 @@ async function buildCookedFoodNutrition(
         referenceUnit: NutritionUnit
         countedAmount?: number
         saveToCatalog?: boolean
-        notes?: string
+        notes?: string | null
       }
   >,
   finishedWeightGrams: number,
@@ -476,11 +485,7 @@ async function buildCookedFoodNutrition(
             existing.ingredientKcalBasisUnitSnapshot,
           ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
           ingredientCaloriesSnapshot: ingredientCalories,
-          notes: normalizeOptionalText(
-            line.notes ?? existing.notes,
-            'Ingredient notes',
-            MAX_NOTES_LENGTH,
-          ),
+          notes: normalizeInputNotes(line.notes, existing.notes),
         })
         continue
       }
@@ -520,11 +525,7 @@ async function buildCookedFoodNutrition(
         ingredientKcalBasisUnitSnapshot: ingredient.kcalBasisUnit,
         ignoreCaloriesSnapshot: ignoreCalories,
         ingredientCaloriesSnapshot: ingredientCalories,
-        notes: normalizeOptionalText(
-          line.notes,
-          'Ingredient notes',
-          MAX_NOTES_LENGTH,
-        ),
+        notes: normalizeInputNotes(line.notes),
       })
       continue
     }
@@ -598,11 +599,7 @@ async function buildCookedFoodNutrition(
         ingredientKcalBasisUnitSnapshot: kcalBasisUnit,
         ignoreCaloriesSnapshot: ignoreCalories,
         ingredientCaloriesSnapshot: ingredientCalories,
-        notes: normalizeOptionalText(
-          line.notes ?? existing.notes,
-          'Ingredient notes',
-          MAX_NOTES_LENGTH,
-        ),
+        notes: normalizeInputNotes(line.notes, existing.notes),
       })
       continue
     }
@@ -666,11 +663,7 @@ async function buildCookedFoodNutrition(
       ingredientKcalBasisUnitSnapshot: kcalBasisUnit,
       ignoreCaloriesSnapshot: ignoreCalories,
       ingredientCaloriesSnapshot: ingredientCalories,
-      notes: normalizeOptionalText(
-        line.notes,
-        'Ingredient notes',
-        MAX_NOTES_LENGTH,
-      ),
+      notes: normalizeInputNotes(line.notes),
     })
   }
 
@@ -694,7 +687,7 @@ async function resolveRecipeIngredientLines(
         ingredientId: Id<'ingredients'>
         referenceAmount: number
         referenceUnit: NutritionUnit
-        notes?: string
+        notes?: string | null
       }
     | {
         sourceType: 'custom'
@@ -706,7 +699,7 @@ async function resolveRecipeIngredientLines(
         referenceAmount: number
         referenceUnit: NutritionUnit
         saveToCatalog?: boolean
-        notes?: string
+        notes?: string | null
       }
   >,
   options?: {
@@ -756,11 +749,7 @@ async function resolveRecipeIngredientLines(
         ignoreCaloriesSnapshot,
         referenceAmount: line.referenceAmount,
         referenceUnit: line.referenceUnit,
-        notes: normalizeOptionalText(
-          line.notes,
-          'Ingredient notes',
-          MAX_NOTES_LENGTH,
-        ),
+        notes: normalizeInputNotes(line.notes),
       })
       continue
     }
@@ -808,11 +797,7 @@ async function resolveRecipeIngredientLines(
       ignoreCaloriesSnapshot: ignoreCalories,
       referenceAmount: line.referenceAmount,
       referenceUnit: line.referenceUnit,
-      notes: normalizeOptionalText(
-        line.notes,
-        'Ingredient notes',
-        MAX_NOTES_LENGTH,
-      ),
+      notes: normalizeInputNotes(line.notes),
     })
   }
 
@@ -966,7 +951,7 @@ async function buildMealItemSnapshots(
         existingMealItemId?: Id<'mealItems'>
         ingredientId: Id<'ingredients'>
         consumedWeightGrams: number
-        notes?: string
+        notes?: string | null
       }
     | {
         sourceType: 'customByWeight'
@@ -978,21 +963,21 @@ async function buildMealItemSnapshots(
         ignoreCalories: boolean
         consumedWeightGrams: number
         saveToCatalog?: boolean
-        notes?: string
+        notes?: string | null
       }
     | {
         sourceType: 'cookedFood'
         existingMealItemId?: Id<'mealItems'>
         cookedFoodId: Id<'cookedFoods'>
         consumedWeightGrams: number
-        notes?: string
+        notes?: string | null
       }
     | {
         sourceType: 'fixedCalories'
         existingMealItemId?: Id<'mealItems'>
         name: string
         calories: number
-        notes?: string
+        notes?: string | null
       }
   >,
   options?: {
@@ -1043,11 +1028,7 @@ async function buildMealItemSnapshots(
             kcalBasisUnitSnapshot: existing.kcalBasisUnitSnapshot,
             ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
             caloriesSnapshot: calories,
-            notes: normalizeOptionalText(
-              item.notes ?? existing.notes,
-              'Item notes',
-              MAX_NOTES_LENGTH,
-            ),
+            notes: normalizeInputNotes(item.notes, existing.notes),
           }
         }
         const ingredient = await db.get(item.ingredientId)
@@ -1078,11 +1059,7 @@ async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: kcalBasisUnit,
           ignoreCaloriesSnapshot: ignoreCalories,
           caloriesSnapshot: calories,
-          notes: normalizeOptionalText(
-            item.notes,
-            'Item notes',
-            MAX_NOTES_LENGTH,
-          ),
+          notes: normalizeInputNotes(item.notes),
         }
       }
 
@@ -1155,13 +1132,11 @@ async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: kcalBasisUnit,
           ignoreCaloriesSnapshot: item.ignoreCalories,
           caloriesSnapshot: calories,
-          notes: normalizeOptionalText(
-            item.notes ??
-              (existing?.sourceType === 'customByWeight'
-                ? existing.notes
-                : undefined),
-            'Item notes',
-            MAX_NOTES_LENGTH,
+          notes: normalizeInputNotes(
+            item.notes,
+            existing?.sourceType === 'customByWeight'
+              ? existing.notes
+              : undefined,
           ),
         }
       }
@@ -1179,11 +1154,7 @@ async function buildMealItemSnapshots(
           sourceType: 'fixedCalories' as const,
           nameSnapshot,
           caloriesSnapshot: item.calories,
-          notes: normalizeOptionalText(
-            item.notes ?? existing?.notes,
-            'Item notes',
-            MAX_NOTES_LENGTH,
-          ),
+          notes: normalizeInputNotes(item.notes, existing?.notes),
         }
       }
 
@@ -1211,11 +1182,7 @@ async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: existing.kcalBasisUnitSnapshot,
           ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
           caloriesSnapshot: calories,
-          notes: normalizeOptionalText(
-            item.notes ?? existing.notes,
-            'Item notes',
-            MAX_NOTES_LENGTH,
-          ),
+          notes: normalizeInputNotes(item.notes, existing.notes),
         }
       }
       const cookedFood = await db.get(item.cookedFoodId)
@@ -1236,11 +1203,7 @@ async function buildMealItemSnapshots(
         kcalBasisUnitSnapshot: 'g' as const,
         ignoreCaloriesSnapshot: false,
         caloriesSnapshot: calories,
-        notes: normalizeOptionalText(
-          item.notes,
-          'Item notes',
-          MAX_NOTES_LENGTH,
-        ),
+        notes: normalizeInputNotes(item.notes),
       }
     }),
   )

@@ -141,19 +141,35 @@ export const searchFoodGroups = query({
 })
 
 export const listIngredients = query({
-  args: { archived: v.boolean(), paginationOpts: paginationOptsValidator },
+  args: {
+    archived: v.boolean(),
+    kcalBasisUnit: v.optional(nutritionUnitValidator),
+    paginationOpts: paginationOptsValidator,
+  },
   returns: paginationResultValidator(ingredientDto),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertPageSize(args.paginationOpts.numItems)
-    const result = await ctx.db
-      .query('ingredients')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('archived', args.archived),
-      )
-      .paginate(args.paginationOpts)
+    const result = args.kcalBasisUnit
+      ? await ctx.db
+          .query('ingredients')
+          .withIndex(
+            'by_ownerTokenIdentifier_and_archived_and_kcalBasisUnit_and_name',
+            (q) =>
+              q
+                .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                .eq('archived', args.archived)
+                .eq('kcalBasisUnit', args.kcalBasisUnit!),
+          )
+          .paginate(args.paginationOpts)
+      : await ctx.db
+          .query('ingredients')
+          .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+            q
+              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('archived', args.archived),
+          )
+          .paginate(args.paginationOpts)
     return {
       ...result,
       page: await withIngredientGroupDetails(
@@ -166,7 +182,11 @@ export const listIngredients = query({
 })
 
 export const searchIngredients = query({
-  args: { archived: v.boolean(), search: v.string() },
+  args: {
+    archived: v.boolean(),
+    kcalBasisUnit: v.optional(nutritionUnitValidator),
+    search: v.string(),
+  },
   returns: v.array(ingredientDto),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
@@ -174,21 +194,36 @@ export const searchIngredients = query({
     const rows = search
       ? await ctx.db
           .query('ingredients')
-          .withSearchIndex('search_name', (q) =>
-            q
+          .withSearchIndex('search_name', (q) => {
+            const searchQuery = q
               .search('name', search)
               .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('archived', args.archived),
-          )
+              .eq('archived', args.archived)
+            return args.kcalBasisUnit
+              ? searchQuery.eq('kcalBasisUnit', args.kcalBasisUnit)
+              : searchQuery
+          })
           .take(MAX_SEARCH_RESULTS)
-      : await ctx.db
-          .query('ingredients')
-          .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('archived', args.archived),
-          )
-          .take(MAX_SEARCH_RESULTS)
+      : args.kcalBasisUnit
+        ? await ctx.db
+            .query('ingredients')
+            .withIndex(
+              'by_ownerTokenIdentifier_and_archived_and_kcalBasisUnit_and_name',
+              (q) =>
+                q
+                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                  .eq('archived', args.archived)
+                  .eq('kcalBasisUnit', args.kcalBasisUnit!),
+            )
+            .take(MAX_SEARCH_RESULTS)
+        : await ctx.db
+            .query('ingredients')
+            .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+              q
+                .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                .eq('archived', args.archived),
+            )
+            .take(MAX_SEARCH_RESULTS)
     return await withIngredientGroupDetails(
       ctx,
       owner.ownerTokenIdentifier,
