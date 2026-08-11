@@ -52,6 +52,15 @@ const recipeLineDto = v.union(
   }),
 )
 
+const referencedIngredientDto = v.object({
+  _id: v.id('ingredients'),
+  name: v.string(),
+  kcalPer100: v.number(),
+  kcalBasisUnit: nutritionUnitValidator,
+  ignoreCalories: v.boolean(),
+  archived: v.boolean(),
+})
+
 export const getCurrent = query({
   args: { recipeId: v.id('recipes') },
   returns: v.union(
@@ -60,6 +69,7 @@ export const getCurrent = query({
       recipe: recipeDto,
       version: recipeVersionDto,
       ingredients: v.array(recipeLineDto),
+      referencedIngredients: v.array(referencedIngredientDto),
     }),
   ),
   handler: async (ctx, args) => {
@@ -93,10 +103,36 @@ export const getCurrent = query({
     if (ingredients.length > MAX_CHILD_ROWS) {
       throw new Error('Recipe contains too many ingredient rows.')
     }
+    const ingredientIds = [
+      ...new Set(
+        ingredients.flatMap((line) =>
+          line.ingredientId ? [line.ingredientId] : [],
+        ),
+      ),
+    ]
+    const referencedIngredients = (
+      await Promise.all(
+        ingredientIds.map((ingredientId) => ctx.db.get(ingredientId)),
+      )
+    ).flatMap((ingredient) =>
+      ingredient?.ownerTokenIdentifier === owner.ownerTokenIdentifier
+        ? [
+            {
+              _id: ingredient._id,
+              name: ingredient.name,
+              kcalPer100: ingredient.kcalPer100,
+              kcalBasisUnit: ingredient.kcalBasisUnit,
+              ignoreCalories: ingredient.ignoreCalories,
+              archived: ingredient.archived,
+            },
+          ]
+        : [],
+    )
     return {
       recipe: withoutOwner(recipe),
       version: withoutOwner(version),
       ingredients: ingredients.map(withoutOwner),
+      referencedIngredients,
     }
   },
 })

@@ -1094,6 +1094,80 @@ function CookingPageContent() {
           toast.error('Recipe could not be loaded.')
           return
         }
+        const referencedIngredientById = new Map(
+          detail.referencedIngredients.map((ingredient) => [
+            ingredient._id,
+            ingredient,
+          ]),
+        )
+        const unavailableIngredientLine = detail.ingredients.find((line) => {
+          if (line.sourceType !== 'ingredient') {
+            return false
+          }
+          const ingredient = referencedIngredientById.get(line.ingredientId)
+          return !ingredient || ingredient.archived
+        })
+        if (unavailableIngredientLine) {
+          toast.error(
+            `Restore or replace ${unavailableIngredientLine.ingredientNameSnapshot} before using this recipe.`,
+          )
+          return
+        }
+        const ingredientLines = detail.ingredients.map((line) => {
+          const referenceAmount = line.referenceAmount
+          const referenceUnit = line.referenceUnit
+          if (line.sourceType === 'custom' || !line.ingredientId) {
+            const linkedIngredient = line.ingredientId
+              ? referencedIngredientById.get(line.ingredientId)
+              : undefined
+            const countedAmount = getRecipeCountedAmount(
+              referenceAmount,
+              referenceUnit,
+              line.kcalBasisUnitSnapshot,
+              line.ignoreCaloriesSnapshot,
+            )
+            return {
+              draftId: createDraftId(),
+              sourceType: 'custom' as const,
+              ingredientId:
+                linkedIngredient && !linkedIngredient.archived
+                  ? linkedIngredient._id
+                  : undefined,
+              name: line.ingredientNameSnapshot,
+              kcalPer100: line.kcalPer100Snapshot,
+              kcalBasisUnit: line.kcalBasisUnitSnapshot,
+              ignoreCalories: line.ignoreCaloriesSnapshot,
+              referenceAmount,
+              referenceUnit,
+              countedAmount,
+              saveToCatalog: false,
+              notes: line.notes,
+            }
+          }
+
+          const ingredient = referencedIngredientById.get(line.ingredientId)
+          if (!ingredient || ingredient.archived) {
+            throw new Error('Recipe ingredient availability changed.')
+          }
+          return {
+            draftId: createDraftId(),
+            sourceType: 'ingredient' as const,
+            ingredientId: line.ingredientId,
+            ingredientNameSnapshot: ingredient.name,
+            kcalPer100Snapshot: ingredient.kcalPer100,
+            kcalBasisUnitSnapshot: ingredient.kcalBasisUnit,
+            ignoreCaloriesSnapshot: ingredient.ignoreCalories,
+            referenceAmount,
+            referenceUnit,
+            countedAmount: getRecipeCountedAmount(
+              referenceAmount,
+              referenceUnit,
+              ingredient.kcalBasisUnit,
+              ingredient.ignoreCalories,
+            ),
+            notes: line.notes,
+          }
+        })
         setRecipeDetailCache((current) => {
           const next = new Map(current)
           next.set(detail.version._id, detail)
@@ -1110,59 +1184,7 @@ function CookingPageContent() {
               recipeVersionId: detail.version._id,
               saveAsRecipe: false,
               name: draft.name.trim() === '' ? detail.version.name : draft.name,
-              ingredientLines: detail.ingredients.map((line) => {
-                const referenceAmount = line.referenceAmount
-                const referenceUnit = line.referenceUnit
-                if (line.sourceType === 'custom' || !line.ingredientId) {
-                  const countedAmount = getRecipeCountedAmount(
-                    referenceAmount,
-                    referenceUnit,
-                    line.kcalBasisUnitSnapshot,
-                    line.ignoreCaloriesSnapshot,
-                  )
-                  return {
-                    draftId: createDraftId(),
-                    sourceType: 'custom' as const,
-                    ingredientId: line.ingredientId,
-                    name: line.ingredientNameSnapshot,
-                    kcalPer100: line.kcalPer100Snapshot,
-                    kcalBasisUnit: line.kcalBasisUnitSnapshot,
-                    ignoreCalories: line.ignoreCaloriesSnapshot,
-                    referenceAmount,
-                    referenceUnit,
-                    countedAmount,
-                    saveToCatalog: false,
-                    notes: line.notes,
-                  }
-                }
-
-                // A new cooked food re-snapshots referenced ingredients from
-                // the current catalog on the server. Use the same precedence
-                // here so counted amounts and ignore behavior stay aligned.
-                const ingredient = ingredientById.get(line.ingredientId)
-                const kcalBasisUnit =
-                  ingredient?.kcalBasisUnit ?? line.kcalBasisUnitSnapshot
-                const ignoreCalories =
-                  ingredient?.ignoreCalories ?? line.ignoreCaloriesSnapshot
-                return {
-                  draftId: createDraftId(),
-                  sourceType: 'ingredient' as const,
-                  ingredientId: line.ingredientId,
-                  ingredientNameSnapshot: line.ingredientNameSnapshot,
-                  kcalPer100Snapshot: line.kcalPer100Snapshot,
-                  kcalBasisUnitSnapshot: line.kcalBasisUnitSnapshot,
-                  ignoreCaloriesSnapshot: line.ignoreCaloriesSnapshot,
-                  referenceAmount,
-                  referenceUnit,
-                  countedAmount: getRecipeCountedAmount(
-                    referenceAmount,
-                    referenceUnit,
-                    kcalBasisUnit,
-                    ignoreCalories,
-                  ),
-                  notes: line.notes,
-                }
-              }),
+              ingredientLines,
               updatedAt: Date.now(),
               isDirty: true,
             }

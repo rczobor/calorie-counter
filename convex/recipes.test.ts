@@ -27,6 +27,15 @@ describe('recipe queries', () => {
         },
       ],
     })
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ingredientId, {
+        name: 'Current oats',
+        kcalPer100: 410,
+        kcalBasisUnit: 'piece',
+        ignoreCalories: true,
+        archived: true,
+      })
+    })
 
     const detail = await user.query(api.recipes.getCurrent, {
       recipeId: created.recipeId,
@@ -42,10 +51,23 @@ describe('recipe queries', () => {
           notes: 'Keep chilled.',
         },
       ],
+      referencedIngredients: [
+        {
+          _id: ingredientId,
+          name: 'Current oats',
+          kcalPer100: 410,
+          kcalBasisUnit: 'piece',
+          ignoreCalories: true,
+          archived: true,
+        },
+      ],
     })
     expect(detail?.recipe).not.toHaveProperty('ownerTokenIdentifier')
     expect(detail?.version).not.toHaveProperty('ownerTokenIdentifier')
     expect(detail?.ingredients[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(detail?.referencedIngredients[0]).not.toHaveProperty(
+      'ownerTokenIdentifier',
+    )
     await expect(
       otherUser.query(api.recipes.getCurrent, {
         recipeId: created.recipeId,

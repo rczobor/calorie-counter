@@ -128,19 +128,9 @@ export function useCookingDomainData({
     { archived: false },
     { initialNumItems: PAGE_SIZE },
   )
-  const archivedIngredients = usePaginatedQuery(
-    api.catalog.listIngredients,
-    showArchived ? { archived: true } : 'skip',
-    { initialNumItems: PAGE_SIZE },
-  )
   const activeRecipes = usePaginatedQuery(
     api.catalog.listRecipes,
     { archived: false },
-    { initialNumItems: PAGE_SIZE },
-  )
-  const archivedRecipes = usePaginatedQuery(
-    api.catalog.listRecipes,
-    showArchived ? { archived: true } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const activeSessions = usePaginatedQuery(
@@ -191,22 +181,10 @@ export function useCookingDomainData({
       ? { archived: false, search: normalizedIngredientSearch }
       : 'skip',
   )
-  const archivedIngredientSearch = useQuery(
-    api.catalog.searchIngredients,
-    ingredientSearchActive && showArchived
-      ? { archived: true, search: normalizedIngredientSearch }
-      : 'skip',
-  )
   const activeRecipeSearch = useQuery(
     api.catalog.searchRecipes,
     recipeSearchActive
       ? { archived: false, search: normalizedRecipeSearch }
-      : 'skip',
-  )
-  const archivedRecipeSearch = useQuery(
-    api.catalog.searchRecipes,
-    recipeSearchActive && showArchived
-      ? { archived: true, search: normalizedRecipeSearch }
       : 'skip',
   )
 
@@ -343,45 +321,21 @@ export function useCookingDomainData({
   )
   const ingredients = useMemo(
     () =>
-      (ingredientSearchActive
-        ? mergeById(
-            activeIngredientSearch ?? [],
-            showArchived ? (archivedIngredientSearch ?? []) : [],
-          )
-        : mergeById(
-            activeIngredients.results,
-            showArchived ? archivedIngredients.results : [],
-          )
-      ).sort((a, b) => a.name.localeCompare(b.name)),
-    [
-      activeIngredientSearch,
-      activeIngredients.results,
-      archivedIngredientSearch,
-      archivedIngredients.results,
-      ingredientSearchActive,
-      showArchived,
-    ],
+      [
+        ...(ingredientSearchActive
+          ? (activeIngredientSearch ?? [])
+          : activeIngredients.results),
+      ].sort((a, b) => a.name.localeCompare(b.name)),
+    [activeIngredientSearch, activeIngredients.results, ingredientSearchActive],
   )
   const recipes = useMemo(
     () =>
-      (recipeSearchActive
-        ? mergeById(
-            activeRecipeSearch ?? [],
-            showArchived ? (archivedRecipeSearch ?? []) : [],
-          )
-        : mergeById(
-            activeRecipes.results,
-            showArchived ? archivedRecipes.results : [],
-          )
-      ).sort((a, b) => a.name.localeCompare(b.name)),
-    [
-      activeRecipeSearch,
-      activeRecipes.results,
-      archivedRecipeSearch,
-      archivedRecipes.results,
-      recipeSearchActive,
-      showArchived,
-    ],
+      [
+        ...(recipeSearchActive
+          ? (activeRecipeSearch ?? [])
+          : activeRecipes.results),
+      ].sort((a, b) => a.name.localeCompare(b.name)),
+    [activeRecipeSearch, activeRecipes.results, recipeSearchActive],
   )
   const cookedFoods = useMemo(() => {
     if (cookedFoodSearchActive) {
@@ -465,12 +419,8 @@ export function useCookingDomainData({
         archivedFoodGroups,
         showArchived,
       ),
-      ingredients: pagingState(
-        activeIngredients,
-        archivedIngredients,
-        showArchived,
-      ),
-      recipes: pagingState(activeRecipes, archivedRecipes, showArchived),
+      ingredients: pagingState(activeIngredients, activeIngredients, false),
+      recipes: pagingState(activeRecipes, activeRecipes, false),
       sessions: pagingState(activeSessions, archivedSessions, showArchived),
       cookedFoods: pagingState(
         currentCookedFoodPages[0],
@@ -489,16 +439,11 @@ export function useCookingDomainData({
       ingredients: {
         active: ingredientSearchActive,
         isLoading:
-          ingredientSearchActive &&
-          (activeIngredientSearch === undefined ||
-            (showArchived && archivedIngredientSearch === undefined)),
+          ingredientSearchActive && activeIngredientSearch === undefined,
       },
       recipes: {
         active: recipeSearchActive,
-        isLoading:
-          recipeSearchActive &&
-          (activeRecipeSearch === undefined ||
-            (showArchived && archivedRecipeSearch === undefined)),
+        isLoading: recipeSearchActive && activeRecipeSearch === undefined,
       },
       cookedFoods: {
         active: cookedFoodSearchActive,

@@ -94,11 +94,9 @@ vi.mock('@/features/cooking/use-cooking-domain-data', () => ({
         (group) => args.showArchived || !group.archived,
       ),
       ingredients: mockCookingData.ingredients.filter(
-        (ingredient) => args.showArchived || !ingredient.archived,
+        (ingredient) => !ingredient.archived,
       ),
-      recipes: mockCookingData.recipes.filter(
-        (recipe) => args.showArchived || !recipe.archived,
-      ),
+      recipes: mockCookingData.recipes.filter((recipe) => !recipe.archived),
       cookSessions,
       cookedFoods,
       selectedCookSession: cookSessions.find(
@@ -173,6 +171,22 @@ beforeEach(() => {
           ingredients: mockCookingData.recipeVersionIngredients.filter(
             (line) => line.recipeVersionId === version._id,
           ),
+          referencedIngredients: mockCookingData.ingredients
+            .filter((ingredient) =>
+              mockCookingData.recipeVersionIngredients.some(
+                (line) =>
+                  line.recipeVersionId === version._id &&
+                  line.ingredientId === ingredient._id,
+              ),
+            )
+            .map((ingredient) => ({
+              _id: ingredient._id,
+              name: ingredient.name,
+              kcalPer100: ingredient.kcalPer100,
+              kcalBasisUnit: ingredient.kcalBasisUnit,
+              ignoreCalories: ingredient.ignoreCalories,
+              archived: ingredient.archived,
+            })),
         }
       : null
   })
@@ -440,6 +454,17 @@ describe('Cooking route', () => {
       recipe: Doc<'recipes'>
       version: Doc<'recipeVersions'>
       ingredients: Doc<'recipeVersionIngredients'>[]
+      referencedIngredients: Array<
+        Pick<
+          Doc<'ingredients'>,
+          | '_id'
+          | 'name'
+          | 'kcalPer100'
+          | 'kcalBasisUnit'
+          | 'ignoreCalories'
+          | 'archived'
+        >
+      >
     } | null>()
     mockCookingData = createCookingFixture({
       cookSessions: [createSession('session-1', 'Sunday prep')],
@@ -476,7 +501,12 @@ describe('Cooking route', () => {
     ).toBe(true)
 
     await act(async () => {
-      detail.resolve({ recipe, version, ingredients: [] })
+      detail.resolve({
+        recipe,
+        version,
+        ingredients: [],
+        referencedIngredients: [],
+      })
       await detail.promise
     })
 
@@ -491,6 +521,170 @@ describe('Cooking route', () => {
       (screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement)
         .disabled,
     ).toBe(false)
+  })
+
+  it('uses current recipe ingredient metadata even when the catalog page omits it', async () => {
+    const recipe = createRecipe('recipe-1', 'Portioned snack')
+    const version = createRecipeVersion(
+      'recipe-version-1',
+      recipe._id,
+      recipe.name,
+    )
+    const currentIngredient = createIngredientDoc(
+      'ingredient-remote',
+      'Current portion',
+      {
+        kcalPer100: 180,
+        kcalBasisUnit: 'piece',
+        ignoreCalories: false,
+      },
+    )
+    const recipeLine: Doc<'recipeVersionIngredients'> = {
+      _id: 'recipe-line-1' as Id<'recipeVersionIngredients'>,
+      _creationTime: 1,
+      ownerTokenIdentifier: 'user-1|token',
+      recipeVersionId: version._id,
+      sourceType: 'ingredient',
+      ingredientId: currentIngredient._id,
+      ingredientNameSnapshot: 'Old ignored ingredient',
+      kcalPer100Snapshot: 0,
+      kcalBasisUnitSnapshot: 'g',
+      ignoreCaloriesSnapshot: true,
+      referenceAmount: 2,
+      referenceUnit: 'piece',
+    }
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      ingredients: [],
+      recipes: [recipe],
+      recipeVersions: [version],
+      recipeVersionIngredients: [recipeLine],
+    })
+    loadRecipeDetailMock.mockResolvedValueOnce({
+      recipe,
+      version,
+      ingredients: [recipeLine],
+      referencedIngredients: [
+        {
+          _id: currentIngredient._id,
+          name: currentIngredient.name,
+          kcalPer100: currentIngredient.kcalPer100,
+          kcalBasisUnit: currentIngredient.kcalBasisUnit,
+          ignoreCalories: currentIngredient.ignoreCalories,
+          archived: currentIngredient.archived,
+        },
+      ],
+    })
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.focus(
+      screen.getByRole('combobox', { name: /cooked food recipe search/i }),
+    )
+    const recipeOption = await screen.findByRole('option', {
+      name: /portioned snack/i,
+    })
+    fireEvent.pointerDown(recipeOption, { button: 0 })
+    fireEvent.pointerUp(recipeOption, { button: 0 })
+    fireEvent.click(recipeOption)
+
+    await waitFor(() => {
+      expect(screen.getByText('Current portion')).toBeTruthy()
+    })
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mutations.createCookedFood).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipeId: recipe._id,
+          recipeVersionId: version._id,
+          ingredients: [
+            expect.objectContaining({
+              sourceType: 'ingredient',
+              ingredientId: currentIngredient._id,
+              countedAmount: 2,
+            }),
+          ],
+        }),
+      )
+    })
+  })
+
+  it('blocks recipes whose direct ingredient reference is no longer active', async () => {
+    const recipe = createRecipe('recipe-1', 'Archived ingredient recipe')
+    const version = createRecipeVersion(
+      'recipe-version-1',
+      recipe._id,
+      recipe.name,
+    )
+    const archivedIngredient = createIngredientDoc(
+      'ingredient-archived',
+      'Retired ingredient',
+      { archived: true },
+    )
+    const recipeLine: Doc<'recipeVersionIngredients'> = {
+      _id: 'recipe-line-1' as Id<'recipeVersionIngredients'>,
+      _creationTime: 1,
+      ownerTokenIdentifier: 'user-1|token',
+      recipeVersionId: version._id,
+      sourceType: 'ingredient',
+      ingredientId: archivedIngredient._id,
+      ingredientNameSnapshot: archivedIngredient.name,
+      kcalPer100Snapshot: archivedIngredient.kcalPer100,
+      kcalBasisUnitSnapshot: archivedIngredient.kcalBasisUnit,
+      ignoreCaloriesSnapshot: archivedIngredient.ignoreCalories,
+      referenceAmount: 100,
+      referenceUnit: 'g',
+    }
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      recipes: [recipe],
+      recipeVersions: [version],
+      recipeVersionIngredients: [recipeLine],
+    })
+    loadRecipeDetailMock.mockResolvedValueOnce({
+      recipe,
+      version,
+      ingredients: [recipeLine],
+      referencedIngredients: [
+        {
+          _id: archivedIngredient._id,
+          name: archivedIngredient.name,
+          kcalPer100: archivedIngredient.kcalPer100,
+          kcalBasisUnit: archivedIngredient.kcalBasisUnit,
+          ignoreCalories: archivedIngredient.ignoreCalories,
+          archived: true,
+        },
+      ],
+    })
+    configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.focus(
+      screen.getByRole('combobox', { name: /cooked food recipe search/i }),
+    )
+    const recipeOption = await screen.findByRole('option', {
+      name: /archived ingredient recipe/i,
+    })
+    fireEvent.pointerDown(recipeOption, { button: 0 })
+    fireEvent.pointerUp(recipeOption, { button: 0 })
+    fireEvent.click(recipeOption)
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith(
+        'Restore or replace Retired ingredient before using this recipe.',
+      )
+    })
+    expect(screen.getByText('Current lines (0)')).toBeTruthy()
   })
 
   it('requires an explicit recipe name when saving a cooking as a recipe', async () => {

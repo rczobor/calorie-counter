@@ -86,6 +86,68 @@ describe('useCookingDomainData', () => {
     expect(searches.every((search) => search === 'x'.repeat(100))).toBe(true)
   })
 
+  it('keeps new ingredient and recipe choices active-only when archives are shown', () => {
+    mockUsePaginatedQuery.mockImplementation((reference, args) => {
+      const name = getFunctionName(reference as FunctionReference<'query'>)
+      const archived =
+        typeof args === 'object' && args !== null && 'archived' in args
+          ? Boolean(args.archived)
+          : false
+      const results =
+        name === 'catalog:listIngredients'
+          ? [
+              {
+                _id: archived ? 'ingredient-archived' : 'ingredient-active',
+                name: archived ? 'Archived ingredient' : 'Active ingredient',
+                archived,
+              },
+            ]
+          : name === 'catalog:listRecipes'
+            ? [
+                {
+                  _id: archived ? 'recipe-archived' : 'recipe-active',
+                  name: archived ? 'Archived recipe' : 'Active recipe',
+                  archived,
+                },
+              ]
+            : []
+      return { results, status: 'Exhausted', loadMore: vi.fn() }
+    })
+
+    const { result } = renderHook(() =>
+      useCookingDomainData({
+        showArchived: true,
+        selectedCookSessionId: '',
+        showAllCookedFoods: true,
+        sessionSearch: '',
+        ingredientSearch: '',
+        recipeSearch: '',
+        cookedFoodSearch: '',
+      }),
+    )
+
+    expect(result.current.ingredients.map((row) => row._id)).toEqual([
+      'ingredient-active',
+    ])
+    expect(result.current.recipes.map((row) => row._id)).toEqual([
+      'recipe-active',
+    ])
+    const archivedChoiceCalls = mockUsePaginatedQuery.mock.calls.filter(
+      ([reference, args]) => {
+        const name = getFunctionName(reference as FunctionReference<'query'>)
+        return (
+          (name === 'catalog:listIngredients' ||
+            name === 'catalog:listRecipes') &&
+          typeof args === 'object' &&
+          args !== null &&
+          'archived' in args &&
+          args.archived === true
+        )
+      },
+    )
+    expect(archivedChoiceCalls).toEqual([])
+  })
+
   it('retains a selected remote session after its search is cleared', () => {
     const loadedSession = {
       _id: 'session-loaded',
