@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -20,6 +21,7 @@ import {
 
 const mockUseMutation = vi.fn()
 const loadCookedFoodDetailMock = vi.fn()
+const loadRecipeDetailMock = vi.fn()
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 
@@ -122,25 +124,7 @@ vi.mock('@/features/cooking/use-cooking-domain-data', () => ({
       },
       loadCookedFoodDetail: (cookedFoodId: string) =>
         loadCookedFoodDetailMock(cookedFoodId),
-      loadRecipeDetail: async (recipeId: string) => {
-        const recipe = mockCookingData.recipes.find(
-          (item) => item._id === recipeId,
-        )
-        const version = mockCookingData.recipeVersions.find(
-          (item) =>
-            item.recipeId === recipeId &&
-            item.versionNumber === recipe?.latestVersionNumber,
-        )
-        return recipe && version
-          ? {
-              recipe,
-              version,
-              ingredients: mockCookingData.recipeVersionIngredients.filter(
-                (line) => line.recipeVersionId === version._id,
-              ),
-            }
-          : null
-      },
+      loadRecipeDetail: (recipeId: string) => loadRecipeDetailMock(recipeId),
     }
   },
 }))
@@ -171,6 +155,23 @@ beforeEach(() => {
           cookedFood,
           ingredients: mockCookingData.cookedFoodIngredients.filter(
             (line) => line.cookedFoodId === cookedFoodId,
+          ),
+        }
+      : null
+  })
+  loadRecipeDetailMock.mockImplementation(async (recipeId: string) => {
+    const recipe = mockCookingData.recipes.find((item) => item._id === recipeId)
+    const version = mockCookingData.recipeVersions.find(
+      (item) =>
+        item.recipeId === recipeId &&
+        item.versionNumber === recipe?.latestVersionNumber,
+    )
+    return recipe && version
+      ? {
+          recipe,
+          version,
+          ingredients: mockCookingData.recipeVersionIngredients.filter(
+            (line) => line.recipeVersionId === version._id,
           ),
         }
       : null
@@ -390,6 +391,143 @@ describe('Cooking route', () => {
         'Granola batch',
       )
     })
+  })
+
+  it('ignores a saved-food detail response after switching back to another draft', async () => {
+    const detail = createDeferred<{
+      cookedFood: Doc<'cookedFoods'>
+      ingredients: Doc<'cookedFoodIngredients'>[]
+    } | null>()
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      cookedFoods: [createCookedFood('food-1', 'session-1', 'Granola batch')],
+    })
+    loadCookedFoodDetailMock.mockReturnValueOnce(detail.promise)
+    configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+    fireEvent.click(
+      screen
+        .getAllByText(/untitled cooking/i)[0]
+        .closest('button') as HTMLButtonElement,
+    )
+
+    await act(async () => {
+      detail.resolve({
+        cookedFood: mockCookingData.cookedFoods[0],
+        ingredients: [],
+      })
+      await detail.promise
+    })
+
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      '',
+    )
+  })
+
+  it('blocks both save actions while a selected recipe is loading', async () => {
+    const recipe = createRecipe('recipe-1', 'Overnight oats')
+    const version = createRecipeVersion(
+      'recipe-version-1',
+      recipe._id,
+      recipe.name,
+    )
+    const detail = createDeferred<{
+      recipe: Doc<'recipes'>
+      version: Doc<'recipeVersions'>
+      ingredients: Doc<'recipeVersionIngredients'>[]
+    } | null>()
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      recipes: [recipe],
+      recipeVersions: [version],
+    })
+    loadRecipeDetailMock.mockReturnValueOnce(detail.promise)
+    configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.focus(
+      screen.getByRole('combobox', { name: /cooked food recipe search/i }),
+    )
+    const recipeOption = await screen.findByRole('option', {
+      name: /overnight oats/i,
+    })
+    fireEvent.pointerDown(recipeOption, { button: 0 })
+    fireEvent.pointerUp(recipeOption, { button: 0 })
+    fireEvent.click(recipeOption)
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: /save and add another/i,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+
+    await act(async () => {
+      detail.resolve({ recipe, version, ingredients: [] })
+      await detail.promise
+    })
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: /save and add another/i,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false)
+    expect(
+      (screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false)
+  })
+
+  it('requires an explicit recipe name when saving a cooking as a recipe', async () => {
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+    })
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
+    fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
+      target: { value: 'Oats' },
+    })
+    fireEvent.change(screen.getByLabelText(/kcal \/ 100/i), {
+      target: { value: '380' },
+    })
+    fireEvent.change(screen.getByLabelText(/^amount$/i), {
+      target: { value: '120' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
+      target: { value: '300' },
+    })
+    fireEvent.click(
+      screen.getByRole('switch', { name: /save as reusable recipe/i }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith(
+        'Recipe name is required when saving as recipe.',
+      )
+    })
+    expect(mutations.createCookedFood).not.toHaveBeenCalled()
   })
 
   it('keeps historical ingredient basis and stable custom provenance while editing lines', async () => {
@@ -624,4 +762,42 @@ function createSession(id: string, label: string) {
 
 function createCookedFood(id: string, sessionId: string, name: string) {
   return createCookedFoodDoc(id, sessionId, name)
+}
+
+function createRecipe(id: string, name: string): Doc<'recipes'> {
+  return {
+    _id: id as Id<'recipes'>,
+    _creationTime: 1,
+    ownerTokenIdentifier: 'user-1|token',
+    name,
+    description: undefined,
+    archived: false,
+    latestVersionNumber: 1,
+    createdAt: 1,
+  }
+}
+
+function createRecipeVersion(
+  id: string,
+  recipeId: Id<'recipes'>,
+  name: string,
+): Doc<'recipeVersions'> {
+  return {
+    _id: id as Id<'recipeVersions'>,
+    _creationTime: 1,
+    ownerTokenIdentifier: 'user-1|token',
+    recipeId,
+    versionNumber: 1,
+    name,
+    instructions: undefined,
+    createdAt: 1,
+  }
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((next) => {
+    resolve = next
+  })
+  return { promise, resolve }
 }

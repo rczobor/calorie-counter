@@ -18,6 +18,9 @@ export default defineConfig({
       reporter: ['text', 'html'],
       exclude: [
         'convex/_generated/**',
+        // Deployment/auth configuration is validated by Convex deploy and the
+        // authenticated browser smoke rather than unit coverage.
+        'convex/auth.config.ts',
         'src/routeTree.gen.ts',
         // Route modules are composition-heavy integration boundaries. Their
         // behavior is covered by route smoke tests rather than unit coverage.
@@ -29,6 +32,13 @@ export default defineConfig({
         'src/components/theme-selector.tsx',
         'src/features/manage/food-groups.tsx',
         'src/integrations/clerk/header-user.tsx',
+        'src/router.tsx',
+        'src/integrations/clerk/config.ts',
+        'src/integrations/clerk/provider.tsx',
+        'src/integrations/convex/config.ts',
+        'src/integrations/convex/provider.tsx',
+        // This adapter is test-only infrastructure exercised by Playwright.
+        'src/testing/e2e/**',
         // Generated shadcn primitives are exercised through their consumers.
         // Bespoke primitives (data-table and searchable-picker) stay in scope.
         'src/components/ui/alert-dialog.tsx',

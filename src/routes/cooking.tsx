@@ -65,6 +65,10 @@ import { toast } from 'sonner'
 
 const SEARCH_RESULT_LIMIT = 20
 
+function getCurrentLocalDateString() {
+  return toLocalDateString(Date.now())
+}
+
 function customLineSignature(input: { ingredientId?: Id<'ingredients'> | '' }) {
   return input.ingredientId || ''
 }
@@ -149,9 +153,7 @@ function CookingPageContent() {
   const [editingSessionId, setEditingSessionId] =
     useState<Id<'cookSessions'> | null>(null)
   const [sessionLabel, setSessionLabel] = useState('')
-  const [sessionDate, setSessionDate] = useState(() =>
-    toLocalDateString(Date.now()),
-  )
+  const [sessionDate, setSessionDate] = useState(getCurrentLocalDateString)
   const [sessionPersonId, setSessionPersonId] = useState<Id<'people'> | ''>('')
   const [cookedFoodDetailRequest, setCookedFoodDetailRequest] = useState<{
     id: Id<'cookedFoods'>
@@ -196,7 +198,12 @@ function CookingPageContent() {
     paging,
     search,
   } = cookingData
+  const invalidateCookedFoodDetailRequest = () => {
+    cookedFoodDetailRequestIdRef.current += 1
+    setCookedFoodDetailRequest(null)
+  }
   const selectKnownCookSession = (sessionId: Id<'cookSessions'> | '') => {
+    invalidateCookedFoodDetailRequest()
     if (sessionId) {
       cookingData.retainCookSession(sessionId)
     }
@@ -299,6 +306,7 @@ function CookingPageContent() {
       null,
     [effectiveActiveDraftId, sessionDrafts],
   )
+  const isActiveRecipeLoading = loadingRecipeDraftId === activeDraft?.draftId
   const selectedRecipeDetail = activeDraft?.recipeVersionId
     ? recipeDetailCache.get(activeDraft.recipeVersionId)
     : undefined
@@ -446,7 +454,7 @@ function CookingPageContent() {
   const resetSessionForm = () => {
     setEditingSessionId(null)
     setSessionLabel('')
-    setSessionDate(toLocalDateString(Date.now()))
+    setSessionDate(getCurrentLocalDateString())
     setSessionPersonId('')
   }
 
@@ -610,6 +618,7 @@ function CookingPageContent() {
     : selectedLineIngredient?.kcalBasisUnit
 
   const selectDraft = (draftId: string, sessionId: Id<'cookSessions'>) => {
+    invalidateCookedFoodDetailRequest()
     setSelectedCookSessionId(sessionId)
     setActiveDraftId(draftId)
     scrollToTop()
@@ -619,6 +628,7 @@ function CookingPageContent() {
     sessionId: Id<'cookSessions'>,
     sourceDraft?: CookingDraft,
   ) => {
+    invalidateCookedFoodDetailRequest()
     const nextDraft = sourceDraft
       ? duplicateCookingDraft(sourceDraft)
       : createCookingDraft(sessionId)
@@ -1126,6 +1136,9 @@ function CookingPageContent() {
                   }
                 }
 
+                // A new cooked food re-snapshots referenced ingredients from
+                // the current catalog on the server. Use the same precedence
+                // here so counted amounts and ignore behavior stay aligned.
                 const ingredient = ingredientById.get(line.ingredientId)
                 const kcalBasisUnit =
                   ingredient?.kcalBasisUnit ?? line.kcalBasisUnitSnapshot
@@ -1183,7 +1196,7 @@ function CookingPageContent() {
             cookedAt,
             cookedByPersonId: sessionPersonId || undefined,
           })
-          setSelectedCookSessionId(editingSessionId)
+          selectKnownCookSession(editingSessionId)
         } else {
           const sessionId = await createCookSession({
             label: sessionLabel.trim() || undefined,
@@ -1202,6 +1215,10 @@ function CookingPageContent() {
       toast.error('Create or open a cooking before saving.')
       return
     }
+    if (isActiveRecipeLoading) {
+      toast.error('Wait for the recipe to finish loading before saving.')
+      return
+    }
     if (
       activeDraft.persistedCookedFoodId &&
       !activeDraft.hasAuthoritativeIngredientIds
@@ -1214,7 +1231,8 @@ function CookingPageContent() {
 
     const { addAnother = false } = options ?? {}
     const resolvedCookedFoodName =
-      activeDraft.name.trim() || toLocalDateString(Date.now())
+      activeDraft.name.trim() || getCurrentLocalDateString()
+    const recipeDraftName = activeDraft.recipeDraftName.trim()
 
     if (activeDraft.ingredientLines.length === 0) {
       toast.error('Add at least one ingredient line.')
@@ -1246,7 +1264,7 @@ function CookingPageContent() {
     if (
       !activeDraft.persistedCookedFoodId &&
       activeDraft.saveAsRecipe &&
-      !(activeDraft.recipeDraftName.trim() || resolvedCookedFoodName)
+      !recipeDraftName
     ) {
       toast.error('Recipe name is required when saving as recipe.')
       return
@@ -1313,9 +1331,7 @@ function CookingPageContent() {
             saveAsRecipe: draftToSave.saveAsRecipe || undefined,
             recipeDraft: draftToSave.saveAsRecipe
               ? {
-                  name:
-                    draftToSave.recipeDraftName.trim() ||
-                    resolvedCookedFoodName,
+                  name: recipeDraftName,
                   instructions:
                     draftToSave.recipeDraftInstructions.trim() || undefined,
                 }
@@ -1332,7 +1348,7 @@ function CookingPageContent() {
           )
           return nextDraft ? [nextDraft, ...remaining] : remaining
         })
-        setSelectedCookSessionId(draftToSave.sessionId)
+        selectKnownCookSession(draftToSave.sessionId)
         setActiveDraftId(nextDraft?.draftId ?? null)
         setShowAllCookedFoods(false)
       },
@@ -1419,7 +1435,7 @@ function CookingPageContent() {
                       closeSessionEditor()
                     }
                     if (selectedCookSessionId === session._id) {
-                      setSelectedCookSessionId('')
+                      selectKnownCookSession('')
                     }
                   },
                 )
@@ -1515,6 +1531,7 @@ function CookingPageContent() {
                   'Delete this cooked food permanently?',
                   'Cooked food deleted.',
                   async () => {
+                    invalidateCookedFoodDetailRequest()
                     await deleteCookedFood({ cookedFoodId: food._id })
                     setDrafts((current) =>
                       current.filter(
@@ -1918,13 +1935,17 @@ function CookingPageContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={!activeDraft || isRunning}
+                    disabled={
+                      !activeDraft || isRunning || isActiveRecipeLoading
+                    }
                     onClick={() => saveActiveDraft({ addAnother: true })}
                   >
                     Save and add another
                   </Button>
                   <Button
-                    disabled={!activeDraft || isRunning}
+                    disabled={
+                      !activeDraft || isRunning || isActiveRecipeLoading
+                    }
                     onClick={() => saveActiveDraft()}
                   >
                     Save
@@ -2536,9 +2557,7 @@ function CookingPageContent() {
                             <div className="grid gap-4 lg:grid-cols-2">
                               <Input
                                 aria-label="Recipe name from cooked food"
-                                placeholder={
-                                  activeDraft.name.trim() || 'Recipe name'
-                                }
+                                placeholder="Recipe name"
                                 value={activeDraft.recipeDraftName}
                                 onChange={(event) =>
                                   updateActiveDraft((draft) => ({

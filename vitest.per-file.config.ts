@@ -7,6 +7,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       coverage: {
+        include: ['src/**/*.{ts,tsx}', 'convex/**/*.ts', 'scripts/**/*.ts'],
         thresholds: {
           perFile: true,
           statements: 20,
