@@ -1,7 +1,5 @@
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 
-import type { ManagementData } from '@/hooks/use-management-data'
-
 const OWNER_TOKEN_IDENTIFIER = 'user-1|token'
 
 export function asId<TableName extends TableNames>(value: string) {
@@ -16,12 +14,12 @@ export function createPersonDoc(
   return {
     _id: asId<'people'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     name,
     notes: undefined,
     currentDailyGoalKcal: 2000,
-    active: true,
+    archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -35,11 +33,11 @@ export function createFoodGroupDoc(
   return {
     _id: asId<'foodGroups'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     name,
     appliesTo: 'cookedFood',
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -53,7 +51,6 @@ export function createPersonGoalHistoryDoc(
   return {
     _id: asId<'personGoalHistory'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     personId: asId<'people'>(personId),
     effectiveDate: '2026-04-04',
@@ -72,16 +69,16 @@ export function createIngredientDoc(
   return {
     _id: asId<'ingredients'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     name,
     brand: undefined,
     kcalPer100: 100,
     kcalBasisUnit: 'g',
     ignoreCalories: false,
-    groupIds: [],
+    groupId: undefined,
     notes: undefined,
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -95,13 +92,14 @@ export function createCookSessionDoc(
   return {
     _id: asId<'cookSessions'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     label,
+    searchText: `2026-04-04 ${label}`,
     cookedAt: 1,
     cookedByPersonId: asId<'people'>('person-1'),
     notes: undefined,
     archived: false,
+    editRevision: 0,
     updatedAt: 1,
     createdAt: 1,
     ...overrides,
@@ -117,47 +115,88 @@ export function createCookedFoodDoc(
   return {
     _id: asId<'cookedFoods'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     cookSessionId: asId<'cookSessions'>(sessionId),
     name,
     recipeId: undefined,
     recipeVersionId: undefined,
-    groupIds: [asId<'foodGroups'>('group-1')],
+    groupId: asId<'foodGroups'>('group-1'),
     finishedWeightGrams: 300,
     totalRawWeightGrams: 300,
     totalCalories: 900,
     kcalPer100: 300,
     notes: undefined,
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
 }
 
+type IngredientCookedFoodLine = Extract<
+  Doc<'cookedFoodIngredients'>,
+  { sourceType: 'ingredient' }
+>
+type CustomCookedFoodLine = Extract<
+  Doc<'cookedFoodIngredients'>,
+  { sourceType: 'custom' }
+>
+type IngredientCookedFoodLineOverrides = Partial<
+  Omit<
+    IngredientCookedFoodLine,
+    '_id' | '_creationTime' | 'ownerTokenIdentifier' | 'cookedFoodId'
+  >
+> & { sourceType?: 'ingredient' }
+type CustomCookedFoodLineOverrides = Partial<
+  Omit<
+    CustomCookedFoodLine,
+    '_id' | '_creationTime' | 'ownerTokenIdentifier' | 'cookedFoodId'
+  >
+> & { sourceType: 'custom' }
+
 export function createCookedFoodIngredientDoc(
   id: string,
   cookedFoodId: string,
-  overrides: Partial<Doc<'cookedFoodIngredients'>> = {},
+  overrides?: IngredientCookedFoodLineOverrides,
+): IngredientCookedFoodLine
+export function createCookedFoodIngredientDoc(
+  id: string,
+  cookedFoodId: string,
+  overrides: CustomCookedFoodLineOverrides,
+): CustomCookedFoodLine
+export function createCookedFoodIngredientDoc(
+  id: string,
+  cookedFoodId: string,
+  overrides:
+    IngredientCookedFoodLineOverrides | CustomCookedFoodLineOverrides = {},
 ): Doc<'cookedFoodIngredients'> {
-  return {
+  const common = {
     _id: asId<'cookedFoodIngredients'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     cookedFoodId: asId<'cookedFoods'>(cookedFoodId),
-    sourceType: 'ingredient',
-    ingredientId: asId<'ingredients'>('ingredient-1'),
     ingredientNameSnapshot: 'Ingredient',
     referenceAmount: 100,
-    referenceUnit: 'g',
+    referenceUnit: 'g' as const,
     countedAmount: 100,
-    rawWeightGrams: 100,
     ingredientKcalPer100Snapshot: 200,
-    ingredientKcalBasisUnitSnapshot: 'g',
+    ingredientKcalBasisUnitSnapshot: 'g' as const,
     ignoreCaloriesSnapshot: false,
     ingredientCaloriesSnapshot: 200,
+  }
+  if (overrides.sourceType === 'custom') {
+    return {
+      ...common,
+      ingredientId: undefined,
+      ...overrides,
+      sourceType: 'custom',
+    }
+  }
+  return {
+    ...common,
+    ingredientId: asId<'ingredients'>('ingredient-1'),
     ...overrides,
+    sourceType: 'ingredient',
   }
 }
 
@@ -169,70 +208,125 @@ export function createMealDoc(
   return {
     _id: asId<'meals'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     personId: asId<'people'>(personId),
     name: undefined,
     eatenOn: '2026-04-04',
     notes: undefined,
     archived: false,
+    totalCalories: 100,
+    itemCount: 1,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
 }
 
+type IngredientMealItem = Extract<
+  Doc<'mealItems'>,
+  { sourceType: 'ingredient' }
+>
+type CustomMealItem = Extract<
+  Doc<'mealItems'>,
+  { sourceType: 'customByWeight' }
+>
+type CookedFoodMealItem = Extract<
+  Doc<'mealItems'>,
+  { sourceType: 'cookedFood' }
+>
+type FixedCaloriesMealItem = Extract<
+  Doc<'mealItems'>,
+  { sourceType: 'fixedCalories' }
+>
+type MealItemOverrides<TItem extends Doc<'mealItems'>> = Partial<
+  Omit<TItem, '_id' | '_creationTime' | 'ownerTokenIdentifier' | 'mealId'>
+>
+type IngredientMealItemOverrides = MealItemOverrides<IngredientMealItem> & {
+  sourceType: 'ingredient'
+}
+type CustomMealItemOverrides = MealItemOverrides<CustomMealItem> & {
+  sourceType?: 'customByWeight'
+}
+type CookedFoodMealItemOverrides = MealItemOverrides<CookedFoodMealItem> & {
+  sourceType: 'cookedFood'
+}
+type FixedCaloriesMealItemOverrides =
+  MealItemOverrides<FixedCaloriesMealItem> & {
+    sourceType: 'fixedCalories'
+  }
+
 export function createMealItemDoc(
   id: string,
   mealId: string,
-  overrides: Partial<Doc<'mealItems'>> = {},
+  overrides?: CustomMealItemOverrides,
+): CustomMealItem
+export function createMealItemDoc(
+  id: string,
+  mealId: string,
+  overrides: IngredientMealItemOverrides,
+): IngredientMealItem
+export function createMealItemDoc(
+  id: string,
+  mealId: string,
+  overrides: CookedFoodMealItemOverrides,
+): CookedFoodMealItem
+export function createMealItemDoc(
+  id: string,
+  mealId: string,
+  overrides: FixedCaloriesMealItemOverrides,
+): FixedCaloriesMealItem
+export function createMealItemDoc(
+  id: string,
+  mealId: string,
+  overrides:
+    | CustomMealItemOverrides
+    | IngredientMealItemOverrides
+    | CookedFoodMealItemOverrides
+    | FixedCaloriesMealItemOverrides = {},
 ): Doc<'mealItems'> {
-  return {
+  const common = {
     _id: asId<'mealItems'>(id),
     _creationTime: 1,
-    ownerUserId: 'user-1',
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
     mealId: asId<'meals'>(mealId),
-    sourceType: 'custom',
-    ingredientId: undefined,
-    cookedFoodId: undefined,
     nameSnapshot: 'Meal item',
-    kcalPer100Snapshot: 100,
-    kcalBasisUnitSnapshot: 'g',
-    ignoreCaloriesSnapshot: false,
-    consumedWeightGrams: 100,
     caloriesSnapshot: 100,
     notes: undefined,
-    ...overrides,
   }
-}
-
-export function createEmptyManagementData(
-  overrides: Partial<ManagementData> = {},
-): ManagementData {
-  return {
-    people: [],
-    personGoalHistory: [],
-    foodGroups: [],
-    ingredients: [],
-    recipes: [],
-    recipeVersions: [],
-    recipeVersionIngredients: [],
-    cookSessions: [],
-    cookedFoods: [],
-    cookedFoodIngredients: [],
-    meals: [],
-    mealItems: [],
-    ...overrides,
+  if (overrides.sourceType === 'fixedCalories') {
+    return {
+      ...common,
+      ...overrides,
+      sourceType: 'fixedCalories',
+    }
   }
-}
-
-export function createManagementData(
-  overrides: Partial<ManagementData> = {},
-): ManagementData {
+  const weighted = {
+    ...common,
+    kcalPer100Snapshot: 100,
+    kcalBasisUnitSnapshot: 'g' as const,
+    ignoreCaloriesSnapshot: false,
+    consumedWeightGrams: 100,
+  }
+  if (overrides.sourceType === 'ingredient') {
+    return {
+      ...weighted,
+      ingredientId: asId<'ingredients'>('ingredient-1'),
+      ...overrides,
+      sourceType: 'ingredient',
+    }
+  }
+  if (overrides.sourceType === 'cookedFood') {
+    return {
+      ...weighted,
+      cookedFoodId: asId<'cookedFoods'>('cooked-food-1'),
+      ...overrides,
+      sourceType: 'cookedFood',
+    }
+  }
   return {
-    ...createEmptyManagementData(),
-    people: [createPersonDoc('person-1', 'Alex')],
-    foodGroups: [createFoodGroupDoc('group-1', 'Fridge stock')],
+    ...weighted,
+    ingredientId: undefined,
     ...overrides,
+    sourceType: 'customByWeight',
   }
 }

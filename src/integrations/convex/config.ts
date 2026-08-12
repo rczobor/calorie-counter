@@ -1,2 +1,4 @@
+import { isE2eMockMode } from '@/testing/e2e/config'
+
 export const convexUrl = import.meta.env.VITE_CONVEX_URL
-export const isConvexConfigured = Boolean(convexUrl)
+export const isConvexConfigured = Boolean(convexUrl) || isE2eMockMode

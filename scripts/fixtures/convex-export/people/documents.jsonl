@@ -1,0 +1,2 @@
+{"_id":"person-1","_creationTime":1000.742,"ownerUserId":"legacy-user","ownerTokenIdentifier":"issuer|user","name":"Alex","notes":"Primary profile","currentDailyGoalKcal":2100,"active":true,"createdAt":1000}
+{"_id":"person-2","_creationTime":1001,"ownerTokenIdentifier":"issuer|user","name":"Sam","currentDailyGoalKcal":1800,"active":false,"createdAt":1001}

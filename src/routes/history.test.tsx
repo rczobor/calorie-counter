@@ -1,34 +1,40 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { getFunctionName } from 'convex/server'
 import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ManagementData } from '@/hooks/use-management-data'
 import {
-  createEmptyManagementData,
-  createMealDoc,
-  createMealItemDoc,
+  asId,
   createPersonDoc,
   createPersonGoalHistoryDoc,
 } from '@/tests/factories'
 
-let mockManagementData: ManagementData = createEmptyManagementData()
-let mockHistoryArgs: { startDate: string; endDate: string } | 'skip'
+const mockUsePaginatedQuery = vi.hoisted(() => vi.fn())
+const mockUseQuery = vi.hoisted(() => vi.fn())
+const loadMoreHistory = vi.hoisted(() => vi.fn())
+const loadMorePeople = vi.hoisted(() => vi.fn())
+
+let mockPeople = [createPersonDoc('person-1', 'Alex')]
+let mockSummaries = [
+  createDailySummary('summary-1', 'person-1', '2026-04-04', 100),
+]
+let mockGoals = [createPersonGoalHistoryDoc('goal-1', 'person-1')]
+let mockPeopleStatus = 'Exhausted'
+let mockHistoryStatus = 'Exhausted'
+let mockPointLoadedPerson: (typeof mockPeople)[number] | null | undefined = null
+let lastPeopleArgs: unknown
+let lastPointPersonArgs: unknown
+let lastHistoryArgs: unknown
+let lastGoalArgs: unknown
+
+vi.mock('convex/react', () => ({
+  usePaginatedQuery: mockUsePaginatedQuery,
+  useQuery: mockUseQuery,
+}))
 
 vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
-}))
-
-vi.mock('@/hooks/use-management-data', () => ({
-  useHistoryData: (
-    args: { startDate: string; endDate: string } | 'skip',
-  ) => {
-    mockHistoryArgs = args
-    return {
-      data: mockManagementData,
-      isLoading: false,
-    }
-  },
 }))
 
 vi.mock('@/components/ui/date-picker', () => ({
@@ -56,7 +62,57 @@ describe('History route', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-04T12:00:00'))
-    mockManagementData = createEmptyManagementData()
+    vi.clearAllMocks()
+    mockPeople = [createPersonDoc('person-1', 'Alex')]
+    mockSummaries = []
+    mockGoals = []
+    mockPeopleStatus = 'Exhausted'
+    mockHistoryStatus = 'Exhausted'
+    mockPointLoadedPerson = null
+    lastPeopleArgs = undefined
+    lastPointPersonArgs = undefined
+    lastHistoryArgs = undefined
+    lastGoalArgs = undefined
+
+    mockUsePaginatedQuery.mockImplementation(
+      (reference: Parameters<typeof getFunctionName>[0], args: unknown) => {
+        const functionName = getFunctionName(reference)
+        if (functionName === 'people:list') {
+          lastPeopleArgs = args
+          return {
+            results: mockPeople,
+            status: mockPeopleStatus,
+            isLoading: mockPeopleStatus === 'LoadingFirstPage',
+            loadMore: loadMorePeople,
+          }
+        }
+        if (functionName === 'history:list') {
+          lastHistoryArgs = args
+          return {
+            results: args === 'skip' ? [] : mockSummaries,
+            status: args === 'skip' ? 'LoadingFirstPage' : mockHistoryStatus,
+            isLoading:
+              args === 'skip' || mockHistoryStatus === 'LoadingFirstPage',
+            loadMore: loadMoreHistory,
+          }
+        }
+        throw new Error(`Unexpected paginated query: ${functionName}`)
+      },
+    )
+    mockUseQuery.mockImplementation(
+      (reference: Parameters<typeof getFunctionName>[0], args: unknown) => {
+        const functionName = getFunctionName(reference)
+        if (functionName === 'people:get') {
+          lastPointPersonArgs = args
+          return args === 'skip' ? undefined : mockPointLoadedPerson
+        }
+        if (functionName === 'history:goalsForRange') {
+          lastGoalArgs = args
+          return args === 'skip' ? undefined : mockGoals
+        }
+        throw new Error(`Unexpected query: ${functionName}`)
+      },
+    )
   })
 
   afterEach(() => {
@@ -64,30 +120,15 @@ describe('History route', () => {
     vi.useRealTimers()
   })
 
-  it('aggregates visible meals by day and shows reverse chronological history', () => {
-    mockManagementData = createEmptyManagementData({
-      people: [
-        createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2000 }),
-        createPersonDoc('person-2', 'Sam', { currentDailyGoalKcal: 2500 }),
-      ],
-      meals: [
-        createMealDoc('meal-1', 'person-1', { eatenOn: '2026-04-04' }),
-        createMealDoc('meal-2', 'person-1', { eatenOn: '2026-04-03' }),
-        createMealDoc('meal-3', 'person-1', {
-          eatenOn: '2026-04-02',
-          archived: true,
-        }),
-        createMealDoc('meal-4', 'person-2', { eatenOn: '2026-04-04' }),
-        createMealDoc('meal-5', 'person-1', { eatenOn: '2026-03-20' }),
-      ],
-      mealItems: [
-        createMealItemDoc('item-1', 'meal-1', { caloriesSnapshot: 777 }),
-        createMealItemDoc('item-2', 'meal-2', { caloriesSnapshot: 333 }),
-        createMealItemDoc('item-3', 'meal-3', { caloriesSnapshot: 555 }),
-        createMealItemDoc('item-4', 'meal-4', { caloriesSnapshot: 444 }),
-        createMealItemDoc('item-5', 'meal-5', { caloriesSnapshot: 999 }),
-      ],
-    })
+  it('uses daily summaries and shows reverse chronological calendar days', () => {
+    mockPeople = [
+      createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2000 }),
+      createPersonDoc('person-2', 'Sam', { currentDailyGoalKcal: 2500 }),
+    ]
+    mockSummaries = [
+      createDailySummary('summary-1', 'person-1', '2026-04-04', 777),
+      createDailySummary('summary-2', 'person-1', '2026-04-03', 333),
+    ]
 
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
@@ -98,35 +139,34 @@ describe('History route', () => {
     expect(rows[2]?.textContent).toContain('Fri, Apr 3, 2026')
     expect(rows[2]?.textContent).toContain('333 kcal')
     expect(screen.getByText('159 kcal')).toBeTruthy()
-    expect(screen.queryByText('555 kcal')).toBeNull()
-    expect(screen.queryByText('444 kcal')).toBeNull()
-    expect(screen.queryByText('999 kcal')).toBeNull()
+    expect(lastPeopleArgs).toEqual({ archived: false })
+    expect(lastHistoryArgs).toEqual({
+      personId: 'person-1',
+      startDate: '2026-03-29',
+      endDate: '2026-04-04',
+    })
   })
 
   it('uses the goal effective on each historical date', () => {
-    mockManagementData = createEmptyManagementData({
-      people: [createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2500 })],
-      personGoalHistory: [
-        createPersonGoalHistoryDoc('goal-1', 'person-1', {
-          effectiveDate: '2026-04-01',
-          goalKcal: 2000,
-          createdAt: 1,
-        }),
-        createPersonGoalHistoryDoc('goal-2', 'person-1', {
-          effectiveDate: '2026-04-03',
-          goalKcal: 2200,
-          createdAt: 2,
-        }),
-      ],
-      meals: [
-        createMealDoc('meal-1', 'person-1', { eatenOn: '2026-04-04' }),
-        createMealDoc('meal-2', 'person-1', { eatenOn: '2026-04-02' }),
-      ],
-      mealItems: [
-        createMealItemDoc('item-1', 'meal-1', { caloriesSnapshot: 500 }),
-        createMealItemDoc('item-2', 'meal-2', { caloriesSnapshot: 500 }),
-      ],
-    })
+    mockPeople = [
+      createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2500 }),
+    ]
+    mockGoals = [
+      createPersonGoalHistoryDoc('goal-1', 'person-1', {
+        effectiveDate: '2026-04-01',
+        goalKcal: 2000,
+        createdAt: 1,
+      }),
+      createPersonGoalHistoryDoc('goal-2', 'person-1', {
+        effectiveDate: '2026-04-03',
+        goalKcal: 2200,
+        createdAt: 2,
+      }),
+    ]
+    mockSummaries = [
+      createDailySummary('summary-1', 'person-1', '2026-04-04', 500),
+      createDailySummary('summary-2', 'person-1', '2026-04-02', 500),
+    ]
 
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
@@ -146,16 +186,55 @@ describe('History route', () => {
     expect(screen.getByText('Current daily goal')).toBeTruthy()
   })
 
-  it('shows empty-state guidance when there are no active people', () => {
-    mockManagementData = createEmptyManagementData({
-      people: [createPersonDoc('person-1', 'Alex', { active: false })],
+  it('keeps the initial person selected when the active page changes', () => {
+    const alex = createPersonDoc('person-1', 'Alex')
+    const sam = createPersonDoc('person-2', 'Sam')
+    mockPeople = [alex, sam]
+    mockPointLoadedPerson = alex
+
+    const Component = HistoryRoute.options.component as ComponentType
+    const view = render(<Component />)
+
+    const aaron = createPersonDoc('person-3', 'Aaron')
+    mockPeople = [aaron, sam]
+    view.rerender(<Component />)
+
+    expect(lastPointPersonArgs).toEqual({ personId: alex._id })
+    expect(lastHistoryArgs).toEqual({
+      personId: alex._id,
+      startDate: '2026-03-29',
+      endDate: '2026-04-04',
     })
+    expect(screen.getByLabelText('Select person').textContent).toContain('Alex')
+  })
+
+  it('waits for an off-page person lookup before loading history', () => {
+    const alex = createPersonDoc('person-1', 'Alex')
+    const sam = createPersonDoc('person-2', 'Sam')
+    mockPeople = [alex, sam]
+
+    const Component = HistoryRoute.options.component as ComponentType
+    const view = render(<Component />)
+
+    mockPeople = [sam]
+    mockPointLoadedPerson = undefined
+    view.rerender(<Component />)
+
+    expect(lastPointPersonArgs).toEqual({ personId: alex._id })
+    expect(lastHistoryArgs).toBe('skip')
+    expect(lastGoalArgs).toBe('skip')
+  })
+
+  it('shows empty-state guidance when there are no active people', () => {
+    mockPeople = []
 
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
 
     expect(screen.getByText('No active people.')).toBeTruthy()
-    expect(screen.getByText('No data for the selected range.')).toBeTruthy()
+    expect(lastHistoryArgs).toBe('skip')
+    expect(lastGoalArgs).toBe('skip')
+    expect(screen.queryByText('No data for the selected range.')).toBeNull()
   })
 
   it('shows inline feedback and skips loading an invalid date range', () => {
@@ -166,10 +245,61 @@ describe('History route', () => {
       target: { value: '2026-04-05' },
     })
 
-    expect(mockHistoryArgs).toBe('skip')
+    expect(lastHistoryArgs).toBe('skip')
+    expect(lastGoalArgs).toBe('skip')
     expect(screen.getByRole('alert').textContent).toContain(
       'start date must be on or before the end date',
     )
     expect(screen.queryByText('No data for the selected range.')).toBeNull()
   })
+
+  it('offers a load-more path while history pages remain', () => {
+    mockHistoryStatus = 'CanLoadMore'
+    mockSummaries = [
+      createDailySummary('summary-1', 'person-1', '2026-04-04', 500),
+    ]
+
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+
+    expect(screen.getByRole('status').textContent).toContain(
+      'More saved days exist',
+    )
+    expect(
+      screen.getByText('Avg. Consumed / Day').parentElement?.textContent,
+    ).toContain('--')
+    fireEvent.click(screen.getByRole('button', { name: 'Load more history' }))
+    expect(loadMoreHistory).toHaveBeenCalledWith(50)
+  })
+
+  it('keeps overlong ranges idle before the backend range validator', () => {
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+
+    fireEvent.change(screen.getByLabelText('History start date'), {
+      target: { value: '2025-01-01' },
+    })
+
+    expect(lastHistoryArgs).toBe('skip')
+    expect(lastGoalArgs).toBe('skip')
+    expect(screen.getByRole('alert').textContent).toContain('at most 366 days')
+  })
 })
+
+function createDailySummary(
+  id: string,
+  personId: string,
+  eatenOn: string,
+  consumedCalories: number,
+) {
+  return {
+    _id: asId<'dailySummaries'>(id),
+    _creationTime: 1,
+    personId: asId<'people'>(personId),
+    eatenOn,
+    consumedCalories,
+    mealCount: 1,
+    createdAt: 1,
+    updatedAt: 1,
+  }
+}

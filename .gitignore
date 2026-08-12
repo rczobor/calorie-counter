@@ -11,9 +11,12 @@ count.txt
 .wrangler
 .output
 coverage
+playwright-report/
+test-results/
 .convex-backups/
 .vinxi
 .vercel
 __unconfig*
 todos.json
 .env*
+!.env.e2e

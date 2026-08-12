@@ -1,2 +1,15 @@
+node_modules
+pnpm-lock.yaml
+dist
+.output
+.vercel
+coverage
+playwright-report
+test-results
+.convex-backups
+.pnpm-store
+.agents
+.codex
+.claude
 convex/_generated
 src/routeTree.gen.ts

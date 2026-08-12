@@ -1,19 +1,30 @@
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 
+import { createDraftId } from '@/lib/id'
 import type { NutritionUnit } from '@/lib/nutrition'
+
+export { createDraftId } from '@/lib/id'
 
 export type ExistingCookedFoodIngredientDraft = {
   draftId: string
+  existingCookedFoodIngredientId?: Id<'cookedFoodIngredients'>
   sourceType: 'ingredient'
   ingredientId: Id<'ingredients'>
+  ingredientNameSnapshot?: string
+  kcalPer100Snapshot?: number
+  kcalBasisUnitSnapshot?: NutritionUnit
+  ignoreCaloriesSnapshot?: boolean
   referenceAmount: number
   referenceUnit: NutritionUnit
   countedAmount?: number
+  notes?: string
 }
 
 export type CustomCookedFoodIngredientDraft = {
   draftId: string
+  existingCookedFoodIngredientId?: Id<'cookedFoodIngredients'>
   sourceType: 'custom'
+  ingredientId?: Id<'ingredients'>
   name: string
   kcalPer100: number
   kcalBasisUnit: NutritionUnit
@@ -22,22 +33,26 @@ export type CustomCookedFoodIngredientDraft = {
   referenceUnit: NutritionUnit
   countedAmount?: number
   saveToCatalog: boolean
+  notes?: string
 }
 
 export type CookedFoodIngredientDraft =
-  | ExistingCookedFoodIngredientDraft
-  | CustomCookedFoodIngredientDraft
+  ExistingCookedFoodIngredientDraft | CustomCookedFoodIngredientDraft
 
 export type CookingDraft = {
   draftId: string
   sessionId: Id<'cookSessions'>
   persistedCookedFoodId?: Id<'cookedFoods'>
+  hasAuthoritativeIngredientIds?: boolean
+  expectedCookedFoodIngredientIds?: Id<'cookedFoodIngredients'>[]
+  expectedCookedFoodEditRevision?: number
   isDirty: boolean
   createdAt: number
   updatedAt: number
   name: string
   groupId: Id<'foodGroups'> | ''
   finishedWeight: string
+  recipeId?: Id<'recipes'> | ''
   recipeVersionId: Id<'recipeVersions'> | ''
   saveAsRecipe: boolean
   recipeDraftName: string
@@ -45,6 +60,7 @@ export type CookingDraft = {
   notes: string
   lineMode: 'ingredient' | 'custom'
   lineIngredientId: Id<'ingredients'> | ''
+  lineCustomIngredientId?: Id<'ingredients'> | ''
   lineCustomName: string
   lineCustomKcal: string
   lineCustomBasisUnit: NutritionUnit
@@ -53,11 +69,23 @@ export type CookingDraft = {
   lineReferenceAmount: string
   lineReferenceUnit: NutritionUnit
   lineCountedAmount: string
+  lineNotes?: string
+  lineExistingCookedFoodIngredientId?: Id<'cookedFoodIngredients'> | ''
+  lineExistingIngredientId?: Id<'ingredients'> | ''
+  lineExistingIngredientNameSnapshot?: string
+  lineExistingIngredientKcalPer100Snapshot?: number
+  lineExistingIngredientKcalBasisUnitSnapshot?: NutritionUnit
+  lineExistingIngredientIgnoreCaloriesSnapshot?: boolean
+  lineExistingCustomSignature?: string
   ingredientLines: CookedFoodIngredientDraft[]
 }
 
+type OwnerFree<T> = T extends { ownerTokenIdentifier: string }
+  ? Omit<T, 'ownerTokenIdentifier'>
+  : never
+
 export function getIngredientBasisUnit(ingredient?: {
-  kcalBasisUnit?: NutritionUnit
+  kcalBasisUnit: NutritionUnit
 }) {
   return ingredient?.kcalBasisUnit ?? 'g'
 }
@@ -86,12 +114,16 @@ export function createCookingDraft(
     draftId: createDraftId(),
     sessionId,
     persistedCookedFoodId: undefined,
+    hasAuthoritativeIngredientIds: false,
+    expectedCookedFoodIngredientIds: undefined,
+    expectedCookedFoodEditRevision: undefined,
     isDirty: false,
     createdAt: now,
     updatedAt: now,
     name: '',
     groupId: '',
     finishedWeight: '',
+    recipeId: '',
     recipeVersionId: '',
     saveAsRecipe: false,
     recipeDraftName: '',
@@ -99,6 +131,7 @@ export function createCookingDraft(
     notes: '',
     lineMode: 'ingredient',
     lineIngredientId: '',
+    lineCustomIngredientId: '',
     lineCustomName: '',
     lineCustomKcal: '',
     lineCustomBasisUnit: 'g',
@@ -107,57 +140,82 @@ export function createCookingDraft(
     lineReferenceAmount: '',
     lineReferenceUnit: 'g',
     lineCountedAmount: '',
+    lineNotes: '',
+    lineExistingCookedFoodIngredientId: '',
+    lineExistingIngredientId: '',
+    lineExistingIngredientNameSnapshot: undefined,
+    lineExistingIngredientKcalPer100Snapshot: undefined,
+    lineExistingIngredientKcalBasisUnitSnapshot: undefined,
+    lineExistingIngredientIgnoreCaloriesSnapshot: undefined,
+    lineExistingCustomSignature: '',
     ingredientLines: [],
     ...overrides,
   }
 }
 
 export function createDraftFromCookedFood(
-  food: Doc<'cookedFoods'>,
-  ingredientLines: Doc<'cookedFoodIngredients'>[],
-  ingredientById: Map<Id<'ingredients'>, Doc<'ingredients'>>,
+  food: Pick<
+    OwnerFree<Doc<'cookedFoods'>>,
+    | '_id'
+    | 'cookSessionId'
+    | 'name'
+    | 'groupId'
+    | 'finishedWeightGrams'
+    | 'recipeId'
+    | 'recipeVersionId'
+    | 'notes'
+    | 'editRevision'
+  >,
+  ingredientLines: Array<OwnerFree<Doc<'cookedFoodIngredients'>>>,
 ) {
   return createCookingDraft(food.cookSessionId, {
     persistedCookedFoodId: food._id,
+    hasAuthoritativeIngredientIds: true,
+    expectedCookedFoodIngredientIds: ingredientLines.map((line) => line._id),
+    expectedCookedFoodEditRevision: food.editRevision ?? 0,
     isDirty: false,
     name: food.name,
-    groupId: food.groupIds[0] ?? '',
+    groupId: food.groupId ?? '',
     finishedWeight: food.finishedWeightGrams.toString(),
+    recipeId: food.recipeId ?? '',
     recipeVersionId: food.recipeVersionId ?? '',
     notes: food.notes ?? '',
     ingredientLines: ingredientLines.map((line) => {
       const referenceAmount = line.referenceAmount
       const referenceUnit = line.referenceUnit
-      const countedAmount =
-        line.countedAmount ?? line.rawWeightGrams ?? undefined
+      const countedAmount = line.countedAmount ?? undefined
 
-      if (line.sourceType === 'ingredient' && line.ingredientId) {
+      if (line.sourceType === 'ingredient') {
         return {
           draftId: createDraftId(),
+          existingCookedFoodIngredientId: line._id,
           sourceType: 'ingredient' as const,
           ingredientId: line.ingredientId,
+          ingredientNameSnapshot: line.ingredientNameSnapshot,
+          kcalPer100Snapshot: line.ingredientKcalPer100Snapshot,
+          kcalBasisUnitSnapshot: line.ingredientKcalBasisUnitSnapshot,
+          ignoreCaloriesSnapshot: line.ignoreCaloriesSnapshot,
           referenceAmount,
           referenceUnit,
           countedAmount,
+          notes: line.notes,
         }
       }
 
       return {
         draftId: createDraftId(),
+        existingCookedFoodIngredientId: line._id,
         sourceType: 'custom' as const,
-        name:
-          line.ingredientNameSnapshot ??
-          (line.ingredientId
-            ? ingredientById.get(line.ingredientId)?.name
-            : undefined) ??
-          'Custom ingredient',
-        kcalPer100: line.ingredientKcalPer100Snapshot ?? 0,
-        kcalBasisUnit: line.ingredientKcalBasisUnitSnapshot ?? 'g',
-        ignoreCalories: Boolean(line.ignoreCaloriesSnapshot),
+        ingredientId: line.ingredientId,
+        name: line.ingredientNameSnapshot,
+        kcalPer100: line.ingredientKcalPer100Snapshot,
+        kcalBasisUnit: line.ingredientKcalBasisUnitSnapshot,
+        ignoreCalories: line.ignoreCaloriesSnapshot,
         referenceAmount,
         referenceUnit,
         countedAmount,
         saveToCatalog: false,
+        notes: line.notes,
       }
     }),
   })
@@ -169,6 +227,7 @@ export function duplicateCookingDraft(sourceDraft: CookingDraft) {
     name: sourceDraft.name,
     groupId: sourceDraft.groupId,
     finishedWeight: sourceDraft.finishedWeight,
+    recipeId: sourceDraft.recipeId,
     recipeVersionId: sourceDraft.recipeVersionId,
     saveAsRecipe: false,
     recipeDraftName: '',
@@ -181,18 +240,20 @@ export function duplicateCookingDraft(sourceDraft: CookingDraft) {
 export function draftHasUserContent(draft: CookingDraft) {
   return Boolean(
     draft.name.trim() ||
-      draft.groupId ||
-      draft.finishedWeight.trim() ||
-      draft.recipeVersionId ||
-      draft.saveAsRecipe ||
-      draft.recipeDraftName.trim() ||
-      draft.recipeDraftInstructions.trim() ||
-      draft.lineIngredientId ||
-      draft.lineCustomName.trim() ||
-      draft.lineCustomKcal.trim() ||
-      draft.lineReferenceAmount.trim() ||
-      draft.lineCountedAmount.trim() ||
-      draft.ingredientLines.length > 0,
+    draft.groupId ||
+    draft.finishedWeight.trim() ||
+    draft.recipeId ||
+    draft.recipeVersionId ||
+    draft.saveAsRecipe ||
+    draft.recipeDraftName.trim() ||
+    draft.recipeDraftInstructions.trim() ||
+    draft.lineIngredientId ||
+    draft.lineCustomName.trim() ||
+    draft.lineCustomKcal.trim() ||
+    draft.lineReferenceAmount.trim() ||
+    draft.lineCountedAmount.trim() ||
+    draft.lineNotes?.trim() ||
+    draft.ingredientLines.length > 0,
   )
 }
 
@@ -219,12 +280,10 @@ export function formatRelativeDraftTime(timestamp: number) {
 }
 
 function cloneIngredientLine(line: CookedFoodIngredientDraft) {
+  const copy = { ...line }
+  delete copy.existingCookedFoodIngredientId
   return {
-    ...line,
+    ...copy,
     draftId: createDraftId(),
   } satisfies CookedFoodIngredientDraft
-}
-
-export function createDraftId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }

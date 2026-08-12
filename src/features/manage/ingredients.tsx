@@ -14,7 +14,8 @@ export function IngredientsSection({ children }: IngredientsSectionProps) {
           Ingredients
         </h2>
         <p className="text-xs text-muted-foreground">
-          Store kcal/100g and whether calories are ignored for this ingredient.
+          Store kcal per 100 of the selected basis unit (grams, ml, pieces, or
+          another portion unit) and whether calories are ignored.
         </p>
       </div>
       <div className="space-y-3">{children}</div>

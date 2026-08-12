@@ -9,6 +9,15 @@ const modules = import.meta.glob('../../convex/**/*.ts')
 export const TEST_USER_ID = 'user-1'
 export const TEST_TOKEN_IDENTIFIER = `${TEST_USER_ID}|token`
 
+type EditRevisionTable =
+  | 'people'
+  | 'foodGroups'
+  | 'ingredients'
+  | 'recipes'
+  | 'cookSessions'
+  | 'cookedFoods'
+  | 'meals'
+
 export function createConvexTest() {
   return convexTest({
     schema,
@@ -35,18 +44,31 @@ export function asTestUserWithToken(
   })
 }
 
+export async function readEditRevision<Table extends EditRevisionTable>(
+  t: ReturnType<typeof createConvexTest>,
+  id: Id<Table>,
+) {
+  return await t.run(async (ctx) => {
+    const record = await ctx.db.get(id)
+    if (!record) {
+      throw new Error('Expected editable test record.')
+    }
+    return record.editRevision ?? 0
+  })
+}
+
 export async function insertPerson(
   t: ReturnType<typeof createConvexTest>,
   overrides: Partial<Doc<'people'>> = {},
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('people', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Alex',
       notes: undefined,
       currentDailyGoalKcal: 2000,
-      active: true,
+      editRevision: 0,
+      archived: false,
       createdAt: Date.now(),
       ...overrides,
     })
@@ -59,10 +81,10 @@ export async function insertFoodGroup(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('foodGroups', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Prep',
       appliesTo: 'ingredient',
+      editRevision: 0,
       archived: false,
       createdAt: Date.now(),
       ...overrides,
@@ -76,14 +98,14 @@ export async function insertIngredient(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('ingredients', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Ingredient',
       brand: undefined,
       kcalPer100: 100,
       kcalBasisUnit: 'g',
       ignoreCalories: false,
-      groupIds: [],
+      editRevision: 0,
+      groupId: undefined,
       notes: undefined,
       archived: false,
       createdAt: Date.now(),
@@ -97,11 +119,16 @@ export async function insertCookSession(
   overrides: Partial<Doc<'cookSessions'>> = {},
 ) {
   return await t.run(async (ctx) => {
+    const label = overrides.label ?? 'Session'
+    const cookedAt = overrides.cookedAt ?? Date.now()
+    const searchText =
+      overrides.searchText ??
+      `${new Date(cookedAt).toISOString().slice(0, 10)} ${label}`.trim()
     return await ctx.db.insert('cookSessions', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
-      label: 'Session',
-      cookedAt: Date.now(),
+      label,
+      searchText,
+      cookedAt,
       cookedByPersonId: undefined,
       notes: undefined,
       archived: false,
@@ -119,13 +146,15 @@ export async function insertMeal(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('meals', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       personId,
       name: undefined,
       eatenOn: '2026-04-04',
       notes: undefined,
       archived: false,
+      totalCalories: 100,
+      itemCount: 1,
+      editRevision: 0,
       createdAt: Date.now(),
       ...overrides,
     })
@@ -135,16 +164,19 @@ export async function insertMeal(
 export async function insertMealItem(
   t: ReturnType<typeof createConvexTest>,
   mealId: Id<'meals'>,
-  overrides: Partial<Doc<'mealItems'>> = {},
+  overrides: Partial<
+    Omit<
+      Extract<Doc<'mealItems'>, { sourceType: 'customByWeight' }>,
+      '_id' | '_creationTime'
+    >
+  > = {},
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('mealItems', {
-      ownerUserId: TEST_USER_ID,
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       mealId,
-      sourceType: 'custom',
+      sourceType: 'customByWeight',
       ingredientId: undefined,
-      cookedFoodId: undefined,
       nameSnapshot: 'Item',
       kcalPer100Snapshot: 100,
       kcalBasisUnitSnapshot: 'g',

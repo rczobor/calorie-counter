@@ -1,0 +1,3 @@
+{"_id":"group-ingredient-1","_creationTime":1020,"ownerTokenIdentifier":"issuer|user","name":"Pantry","appliesTo":"ingredient","archived":false,"createdAt":1020}
+{"_id":"group-ingredient-2","_creationTime":1021,"ownerTokenIdentifier":"issuer|user","name":"Fresh","appliesTo":"ingredient","archived":false,"createdAt":1021}
+{"_id":"group-cooked-1","_creationTime":1022,"ownerTokenIdentifier":"issuer|user","name":"Meal prep","appliesTo":"cookedFood","archived":false,"createdAt":1022}

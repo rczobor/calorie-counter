@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { parseEnv } from 'node:util'
 
 type SeedDefaultsEnv = {
   SEED_OWNER_USER_ID?: string
@@ -44,32 +45,13 @@ export function buildSeedDefaultsArgs(
 }
 
 export function parseSeedEnvFile(contents: string): SeedDefaultsEnv {
+  const parsed = parseEnv(contents)
   const env: SeedDefaultsEnv = {}
-  for (const rawLine of contents.split(/\r?\n/)) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('#')) {
-      continue
-    }
-
-    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(
-      line,
-    )
-    if (!match) {
-      continue
-    }
-
-    const key = match[1]
-    if (key !== 'SEED_OWNER_USER_ID' && key !== 'SEED_OWNER_TOKEN_IDENTIFIER') {
-      continue
-    }
-
-    const rawValue = match[2]?.trim() ?? ''
-    const value =
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"))
-        ? rawValue.slice(1, -1)
-        : rawValue
-    env[key] = value
+  if (parsed.SEED_OWNER_USER_ID !== undefined) {
+    env.SEED_OWNER_USER_ID = parsed.SEED_OWNER_USER_ID
+  }
+  if (parsed.SEED_OWNER_TOKEN_IDENTIFIER !== undefined) {
+    env.SEED_OWNER_TOKEN_IDENTIFIER = parsed.SEED_OWNER_TOKEN_IDENTIFIER
   }
   return env
 }

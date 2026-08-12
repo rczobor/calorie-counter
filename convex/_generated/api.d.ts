@@ -8,7 +8,15 @@
  * @module
  */
 
+import type * as catalog from "../catalog.js";
+import type * as cooking from "../cooking.js";
+import type * as history from "../history.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_validation from "../lib/validation.js";
+import type * as meals from "../meals.js";
 import type * as nutrition from "../nutrition.js";
+import type * as people from "../people.js";
+import type * as recipes from "../recipes.js";
 import type * as seed from "../seed.js";
 import type * as validators from "../validators.js";
 
@@ -19,7 +27,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  catalog: typeof catalog;
+  cooking: typeof cooking;
+  history: typeof history;
+  "lib/auth": typeof lib_auth;
+  "lib/validation": typeof lib_validation;
+  meals: typeof meals;
   nutrition: typeof nutrition;
+  people: typeof people;
+  recipes: typeof recipes;
   seed: typeof seed;
   validators: typeof validators;
 }>;

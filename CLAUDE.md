@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Multi-person calorie tracking app. Users log meals, manage people with daily calorie goals, and maintain a catalog of recipes/ingredients/cooked foods. Built with TanStack Start (React 19 + file-based routing) on the frontend and Convex as the serverless backend, with optional Clerk authentication.
+Multi-person calorie tracking app. Users log meals, manage people with daily calorie goals, and maintain a catalog of recipes/ingredients/cooked foods. Built with TanStack Start (React 19 + file-based routing) on the frontend and Convex as the serverless backend, with required Clerk authentication.
 
 ## Commands
 
@@ -13,11 +13,13 @@ Multi-person calorie tracking app. Users log meals, manage people with daily cal
 - **Build**: `pnpm run build`
 - **Lint**: `pnpm run lint` / `pnpm run lint:fix`
 - **Type check**: `pnpm run typecheck` (checks both app and convex)
-- **Test**: `pnpm run test` (Vitest, jsdom env, files matching `src/**/*.test.{ts,tsx}`)
+- **Test**: `pnpm run test` (Vitest suites under `src/`, `convex/`, and `scripts/`)
+- **Coverage**: `pnpm run test:coverage`
+- **Browser smoke**: `pnpm run test:e2e` (Playwright Chromium)
 - **Format**: `pnpm run format` (Prettier: no semicolons, single quotes, trailing commas)
 - **Add shadcn component**: `pnpm exec shadcn add <component>`
 
-Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run build`
+Before submitting changes, run formatting, lint, typecheck, tests, and a production build. CI also enforces coverage thresholds and the Playwright browser smoke test.
 
 ## Architecture
 
@@ -31,8 +33,9 @@ Before submitting changes, run: `pnpm run lint && pnpm run typecheck && pnpm run
 
 **Backend** (`convex/`):
 
-- `schema.ts` — Database schema (tables: people, personGoalHistory, foodGroups, ingredients, recipes, recipeVersions, recipeVersionIngredients, cookSessions, cookedFoods, cookedFoodIngredients, meals, mealItems).
-- `nutrition.ts` — Main query/mutation logic for the domain.
+- `schema.ts` — Database schema, including normalized meal items and `dailySummaries`.
+- `nutrition.ts` — Authenticated domain mutations and shared write invariants.
+- `catalog.ts`, `cooking.ts`, `history.ts`, `meals.ts`, `people.ts`, `recipes.ts` — Bounded, owner-scoped domain queries.
 - `auth.config.ts` — Clerk JWT auth config for Convex.
 - `_generated/` — Auto-generated Convex code (do not edit).
 
@@ -62,7 +65,7 @@ Required in `.env.local`:
 
 - `VITE_CONVEX_URL` — Convex deployment URL
 - `CONVEX_DEPLOYMENT` — Convex deployment name
-- `VITE_CLERK_PUBLISHABLE_KEY` — Clerk publishable key (for auth UI)
+- `VITE_CLERK_PUBLISHABLE_KEY` — Clerk publishable key
 
 <!-- convex-ai-start -->
 
