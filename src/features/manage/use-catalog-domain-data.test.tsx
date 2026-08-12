@@ -148,6 +148,30 @@ describe('useCatalogDomainData', () => {
       args: { archived: false, search: 'quinoa' },
     })
   })
+
+  it('bounds every server-search term to the backend limit', () => {
+    renderHook((props: HookProps) => useCatalogDomainData(props), {
+      initialProps: props({
+        foodGroupSearch: 'g'.repeat(101),
+        ingredientSearch: 'i'.repeat(101),
+        recipeIngredientSearch: 'p'.repeat(101),
+        recipeSearch: 'r'.repeat(101),
+      }),
+    })
+
+    const searches = queryCalls.map(
+      ({ args }) => (args as { search: string }).search,
+    )
+    expect(searches).toEqual(
+      expect.arrayContaining([
+        'g'.repeat(100),
+        'i'.repeat(100),
+        'p'.repeat(100),
+        'r'.repeat(100),
+      ]),
+    )
+    expect(searches.every((search) => search.length <= 100)).toBe(true)
+  })
 })
 
 function props(overrides: Partial<HookProps> = {}): HookProps {

@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { api } from '../../../convex/_generated/api'
 
 const PAGE_SIZE = 20
+const SEARCH_MAX_LENGTH = 100
 
 type PaginationStatus =
   'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted'
@@ -134,10 +135,12 @@ export function useCatalogDomainData({
     { initialNumItems: PAGE_SIZE },
   )
 
-  const foodGroupTerm = foodGroupSearch.trim()
-  const ingredientTerm = ingredientSearch.trim()
-  const recipeIngredientTerm = recipeIngredientSearch.trim()
-  const recipeTerm = recipeSearch.trim()
+  const foodGroupTerm = foodGroupSearch.trim().slice(0, SEARCH_MAX_LENGTH)
+  const ingredientTerm = ingredientSearch.trim().slice(0, SEARCH_MAX_LENGTH)
+  const recipeIngredientTerm = recipeIngredientSearch
+    .trim()
+    .slice(0, SEARCH_MAX_LENGTH)
+  const recipeTerm = recipeSearch.trim().slice(0, SEARCH_MAX_LENGTH)
   const foodGroupSearchActive = foodGroupTerm.length > 0
   const ingredientSearchActive = ingredientTerm.length > 0
   const recipeIngredientSearchActive = recipeIngredientTerm.length > 0
