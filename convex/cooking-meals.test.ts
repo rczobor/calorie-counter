@@ -474,6 +474,32 @@ describe('nutrition cooking and meal mutations', () => {
     ).rejects.toThrow('Cooked at must be a non-negative integer timestamp.')
   })
 
+  it('indexes the selected cooking calendar date independently of UTC', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const sessionId = await user.mutation(api.nutrition.createCookSession, {
+      label: 'Island prep',
+      cookedAt: Date.parse('2026-04-03T22:00:00Z'),
+      cookedOn: '2026-04-04',
+    })
+
+    expect(
+      await t.run(async (ctx) => await ctx.db.get(sessionId)),
+    ).toMatchObject({ searchText: '2026-04-04 Island prep' })
+
+    await user.mutation(api.nutrition.updateCookSession, {
+      sessionId,
+      expectedEditRevision: await readEditRevision(t, sessionId),
+      label: 'Dateline prep',
+      cookedAt: Date.parse('2026-04-05T12:00:00Z'),
+      cookedOn: '2026-04-04',
+    })
+
+    expect(
+      await t.run(async (ctx) => await ctx.db.get(sessionId)),
+    ).toMatchObject({ searchText: '2026-04-04 Dateline prep' })
+  })
+
   it('applies shared text limits to nested meal item notes', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)

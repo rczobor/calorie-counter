@@ -1721,6 +1721,7 @@ describe('Cooking route', () => {
         expectedEditRevision: session.editRevision ?? 0,
         label: 'Renamed prep',
         cookedAt: originalCookedAt,
+        cookedOn: '2026-04-04',
         cookedByPersonId: session.cookedByPersonId,
       }),
     )

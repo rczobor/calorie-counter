@@ -1377,6 +1377,7 @@ function CookingPageContent() {
             expectedEditRevision: editingSessionRevision ?? 0,
             label: sessionLabel.trim() || undefined,
             cookedAt,
+            cookedOn: sessionDate,
             cookedByPersonId: sessionPersonId || undefined,
           })
           selectKnownCookSession(editingSessionId)
@@ -1384,6 +1385,7 @@ function CookingPageContent() {
           const sessionId = await createCookSession({
             label: sessionLabel.trim() || undefined,
             cookedAt,
+            cookedOn: sessionDate,
             cookedByPersonId: sessionPersonId || undefined,
           })
           createDraftForSession(sessionId)

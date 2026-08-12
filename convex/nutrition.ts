@@ -2504,6 +2504,7 @@ export const createCookSession = mutation({
   args: {
     label: v.optional(v.string()),
     cookedAt: v.number(),
+    cookedOn: v.optional(v.string()),
     cookedByPersonId: v.optional(v.id('people')),
     notes: v.optional(v.string()),
   },
@@ -2525,11 +2526,14 @@ export const createCookSession = mutation({
     const now = Date.now()
     const label =
       normalizeOptionalText(args.label, 'Session label', MAX_NAME_LENGTH) ?? ''
+    const cookedOn =
+      args.cookedOn === undefined
+        ? new Date(args.cookedAt).toISOString().slice(0, 10)
+        : normalizeRequiredDate(args.cookedOn, 'Cooked on')
     return await ctx.db.insert('cookSessions', {
       ...ownerFields(owner),
       label,
-      searchText:
-        `${new Date(args.cookedAt).toISOString().slice(0, 10)} ${label}`.trim(),
+      searchText: `${cookedOn} ${label}`.trim(),
       cookedAt: args.cookedAt,
       cookedByPersonId: args.cookedByPersonId,
       notes: normalizeOptionalText(
@@ -2551,6 +2555,7 @@ export const updateCookSession = mutation({
     expectedEditRevision: v.number(),
     label: v.optional(v.string()),
     cookedAt: v.number(),
+    cookedOn: v.optional(v.string()),
     cookedByPersonId: v.optional(v.id('people')),
     notes: optionalNullableStringValidator,
   },
@@ -2580,6 +2585,10 @@ export const updateCookSession = mutation({
     }
     const label =
       normalizeOptionalText(args.label, 'Session label', MAX_NAME_LENGTH) ?? ''
+    const cookedOn =
+      args.cookedOn === undefined
+        ? new Date(args.cookedAt).toISOString().slice(0, 10)
+        : normalizeRequiredDate(args.cookedOn, 'Cooked on')
     const sessionPatch: {
       label: string
       searchText: string
@@ -2590,8 +2599,7 @@ export const updateCookSession = mutation({
       editRevision: number
     } = {
       label,
-      searchText:
-        `${new Date(args.cookedAt).toISOString().slice(0, 10)} ${label}`.trim(),
+      searchText: `${cookedOn} ${label}`.trim(),
       cookedAt: args.cookedAt,
       cookedByPersonId: args.cookedByPersonId,
       updatedAt: Date.now(),
