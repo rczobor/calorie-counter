@@ -20,8 +20,13 @@ const foodGroupDto = v.object({
   name: v.string(),
   appliesTo: groupScopeValidator,
   archived: v.boolean(),
+  editRevision: v.number(),
   createdAt: v.number(),
 })
+
+function foodGroupWithoutOwner(group: Doc<'foodGroups'>) {
+  return { ...withoutOwner(group), editRevision: group.editRevision ?? 0 }
+}
 
 const ingredientDto = v.object({
   _id: v.id('ingredients'),
@@ -36,8 +41,16 @@ const ingredientDto = v.object({
   groupArchived: v.optional(v.boolean()),
   notes: v.optional(v.string()),
   archived: v.boolean(),
+  editRevision: v.number(),
   createdAt: v.number(),
 })
+
+function ingredientWithoutOwner(ingredient: Doc<'ingredients'>) {
+  return {
+    ...withoutOwner(ingredient),
+    editRevision: ingredient.editRevision ?? 0,
+  }
+}
 
 async function withIngredientGroupDetails(
   ctx: QueryCtx,
@@ -70,7 +83,7 @@ async function withIngredientGroupDetails(
     const groupDetails: { groupName?: string; groupArchived?: boolean } = group
       ? { groupName: group.name, groupArchived: group.archived }
       : {}
-    return { ...withoutOwner(ingredient), ...groupDetails }
+    return { ...ingredientWithoutOwner(ingredient), ...groupDetails }
   })
 }
 
@@ -80,9 +93,14 @@ const recipeDto = v.object({
   name: v.string(),
   description: v.optional(v.string()),
   archived: v.boolean(),
+  editRevision: v.number(),
   latestVersionNumber: v.number(),
   createdAt: v.number(),
 })
+
+function recipeWithoutOwner(recipe: Doc<'recipes'>) {
+  return { ...withoutOwner(recipe), editRevision: recipe.editRevision ?? 0 }
+}
 
 export const listFoodGroups = query({
   args: { archived: v.boolean(), paginationOpts: paginationOptsValidator },
@@ -98,7 +116,19 @@ export const listFoodGroups = query({
           .eq('archived', args.archived),
       )
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    return { ...result, page: result.page.map(foodGroupWithoutOwner) }
+  },
+})
+
+export const getFoodGroup = query({
+  args: { groupId: v.id('foodGroups') },
+  returns: v.union(v.null(), foodGroupDto),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const group = await ctx.db.get(args.groupId)
+    return group?.ownerTokenIdentifier === owner.ownerTokenIdentifier
+      ? foodGroupWithoutOwner(group)
+      : null
   },
 })
 
@@ -124,7 +154,7 @@ export const searchFoodGroups = query({
               .eq('appliesTo', args.appliesTo),
         )
         .take(MAX_SEARCH_RESULTS)
-      return rows.map(withoutOwner)
+      return rows.map(foodGroupWithoutOwner)
     }
     const rows = await ctx.db
       .query('foodGroups')
@@ -136,7 +166,7 @@ export const searchFoodGroups = query({
           .eq('appliesTo', args.appliesTo),
       )
       .take(MAX_SEARCH_RESULTS)
-    return rows.map(withoutOwner)
+    return rows.map(foodGroupWithoutOwner)
   },
 })
 
@@ -178,6 +208,24 @@ export const listIngredients = query({
         result.page,
       ),
     }
+  },
+})
+
+export const getIngredient = query({
+  args: { ingredientId: v.id('ingredients') },
+  returns: v.union(v.null(), ingredientDto),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const ingredient = await ctx.db.get(args.ingredientId)
+    if (ingredient?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+      return null
+    }
+    const [result] = await withIngredientGroupDetails(
+      ctx,
+      owner.ownerTokenIdentifier,
+      [ingredient],
+    )
+    return result ?? null
   },
 })
 
@@ -247,7 +295,19 @@ export const listRecipes = query({
       )
       .order('desc')
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    return { ...result, page: result.page.map(recipeWithoutOwner) }
+  },
+})
+
+export const getRecipe = query({
+  args: { recipeId: v.id('recipes') },
+  returns: v.union(v.null(), recipeDto),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedUser(ctx)
+    const recipe = await ctx.db.get(args.recipeId)
+    return recipe?.ownerTokenIdentifier === owner.ownerTokenIdentifier
+      ? recipeWithoutOwner(recipe)
+      : null
   },
 })
 
@@ -276,6 +336,6 @@ export const searchRecipes = query({
           )
           .order('desc')
           .take(MAX_SEARCH_RESULTS)
-    return rows.map(withoutOwner)
+    return rows.map(recipeWithoutOwner)
   },
 })

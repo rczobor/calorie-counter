@@ -27,6 +27,7 @@ const cookSessionDto = v.object({
   cookedByPersonName: v.optional(v.string()),
   notes: v.optional(v.string()),
   archived: v.boolean(),
+  editRevision: v.number(),
   updatedAt: v.number(),
   createdAt: v.number(),
 })
@@ -47,6 +48,7 @@ async function cookSessionWithoutOwner(
     cookedByPersonId: session.cookedByPersonId,
     notes: session.notes,
     archived: session.archived,
+    editRevision: session.editRevision ?? 0,
     updatedAt: session.updatedAt,
     createdAt: session.createdAt,
     ...(person?.ownerTokenIdentifier === ownerTokenIdentifier
@@ -61,6 +63,7 @@ const foodGroupDto = v.object({
   name: v.string(),
   appliesTo: v.literal('cookedFood'),
   archived: v.boolean(),
+  editRevision: v.number(),
   createdAt: v.number(),
 })
 
@@ -86,8 +89,16 @@ const cookedFoodDto = v.object({
   kcalPer100: v.number(),
   notes: v.optional(v.string()),
   archived: v.boolean(),
+  editRevision: v.number(),
   createdAt: v.number(),
 })
+
+function cookedFoodWithoutOwner(cookedFood: Doc<'cookedFoods'>) {
+  return {
+    ...withoutOwner(cookedFood),
+    editRevision: cookedFood.editRevision ?? 0,
+  }
+}
 
 const cookedIngredientCommon = {
   _id: v.id('cookedFoodIngredients'),
@@ -208,7 +219,7 @@ export const listCookedFoods = query({
       )
       .order('desc')
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    return { ...result, page: result.page.map(cookedFoodWithoutOwner) }
   },
 })
 
@@ -238,7 +249,7 @@ export const listCookedFoodsForSession = query({
       )
       .order('desc')
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    return { ...result, page: result.page.map(cookedFoodWithoutOwner) }
   },
 })
 
@@ -267,7 +278,7 @@ export const searchCookedFoods = query({
           )
           .order('desc')
           .take(MAX_SEARCH_RESULTS)
-    return rows.map(withoutOwner)
+    return rows.map(cookedFoodWithoutOwner)
   },
 })
 
@@ -308,7 +319,7 @@ export const searchCookedFoodsBySession = query({
           )
           .order('desc')
           .take(MAX_SEARCH_RESULTS)
-    return rows.map(withoutOwner)
+    return rows.map(cookedFoodWithoutOwner)
   },
 })
 
@@ -360,7 +371,11 @@ export const getCookedFoodDetail = query({
     const ownedGroup =
       group?.ownerTokenIdentifier === owner.ownerTokenIdentifier &&
       group.appliesTo === 'cookedFood'
-        ? { ...withoutOwner(group), appliesTo: 'cookedFood' as const }
+        ? {
+            ...withoutOwner(group),
+            appliesTo: 'cookedFood' as const,
+            editRevision: group.editRevision ?? 0,
+          }
         : null
     const linkedRecipe =
       recipe?.ownerTokenIdentifier === owner.ownerTokenIdentifier &&
@@ -376,7 +391,7 @@ export const getCookedFoodDetail = query({
           }
         : null
     return {
-      cookedFood: withoutOwner(cookedFood),
+      cookedFood: cookedFoodWithoutOwner(cookedFood),
       ingredients: ingredients.map(withoutOwner),
       cookSession: ownedSession,
       group: ownedGroup,

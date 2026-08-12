@@ -27,3 +27,16 @@ test('an authenticated user can create a quick-add meal', async ({ page }) => {
   await expect(page.getByText('355 of 2100 kcal logged')).toBeVisible()
   expect(pageErrors).toEqual([])
 })
+
+test('the cooking route loads in authenticated mock mode', async ({ page }) => {
+  const pageErrors: Error[] = []
+  page.on('pageerror', (error) => pageErrors.push(error))
+
+  await page.goto('/cooking')
+
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Cooking' }),
+  ).toBeVisible()
+  await expect(page.getByText('No batches found.')).toBeVisible()
+  expect(pageErrors).toEqual([])
+})

@@ -10,10 +10,44 @@ import {
   insertFoodGroup,
   insertIngredient,
   insertPerson,
+  readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
 type TestContext = ReturnType<typeof createConvexTest>
+
+async function readMealItemIds(t: TestContext, mealId: Id<'meals'>) {
+  return await t.run(async (ctx) =>
+    (
+      await ctx.db
+        .query('mealItems')
+        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('mealId', mealId),
+        )
+        .collect()
+    ).map((item) => item._id),
+  )
+}
+
+async function readCookedFoodIngredientIds(
+  t: TestContext,
+  cookedFoodId: Id<'cookedFoods'>,
+) {
+  return await t.run(async (ctx) =>
+    (
+      await ctx.db
+        .query('cookedFoodIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('cookedFoodId', cookedFoodId),
+        )
+        .collect()
+    ).map((line) => line._id),
+  )
+}
 
 async function readMealState(t: TestContext, mealId: Id<'meals'>) {
   return await t.run(async (ctx) => ({
@@ -63,6 +97,12 @@ describe('historical reference invariants', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Original oats',
+            kcalPer100: 200,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           consumedWeightGrams: 50,
           notes: 'Historical line note',
         },
@@ -75,17 +115,21 @@ describe('historical reference invariants', () => {
 
     await user.mutation(api.nutrition.updateIngredient, {
       ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
       name: 'Renamed oats',
       kcalPer100: 480,
       ignoreCalories: false,
     })
     await user.mutation(api.nutrition.setIngredientArchived, {
       ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
       archived: true,
     })
 
     await user.mutation(api.nutrition.updateMeal, {
       mealId,
+      expectedMealItemIds: await readMealItemIds(t, mealId),
+      expectedEditRevision: await readEditRevision(t, mealId),
       personId,
       eatenOn: '2026-04-04',
       items: [
@@ -148,21 +192,30 @@ describe('historical reference invariants', () => {
       name: 'Original stock',
       kcalPer100: 250,
     })
-    const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
-      cookSessionId: sessionId,
-      name: 'Stock base',
-      finishedWeightGrams: 200,
-      ingredients: [
-        {
-          sourceType: 'ingredient',
-          ingredientId,
-          referenceAmount: 80,
-          referenceUnit: 'g',
-          countedAmount: 80,
-          notes: 'Historical cooking note',
-        },
-      ],
-    })
+    const { cookedFoodId } = await user.mutation(
+      api.nutrition.createCookedFood,
+      {
+        cookSessionId: sessionId,
+        name: 'Stock base',
+        finishedWeightGrams: 200,
+        ingredients: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            expectedSnapshot: {
+              name: 'Original stock',
+              kcalPer100: 250,
+              kcalBasisUnit: 'g',
+              ignoreCalories: false,
+            },
+            referenceAmount: 80,
+            referenceUnit: 'g',
+            countedAmount: 80,
+            notes: 'Historical cooking note',
+          },
+        ],
+      },
+    )
     const original = await readCookedFoodState(t, cookedFoodId)
     if (!original.line) {
       throw new Error('Expected the original cooked ingredient.')
@@ -170,17 +223,24 @@ describe('historical reference invariants', () => {
 
     await user.mutation(api.nutrition.updateIngredient, {
       ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
       name: 'Renamed stock',
       kcalPer100: 500,
       ignoreCalories: false,
     })
     await user.mutation(api.nutrition.setIngredientArchived, {
       ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
       archived: true,
     })
 
     await user.mutation(api.nutrition.updateCookedFood, {
       cookedFoodId,
+      expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+        t,
+        cookedFoodId,
+      ),
+      expectedEditRevision: await readEditRevision(t, cookedFoodId),
       cookSessionId: sessionId,
       name: 'Stock base',
       finishedWeightGrams: 100,
@@ -242,20 +302,29 @@ describe('historical reference invariants', () => {
       name: 'Stew ingredient',
       kcalPer100: 200,
     })
-    const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
-      cookSessionId: sessionId,
-      name: 'Original stew',
-      finishedWeightGrams: 100,
-      ingredients: [
-        {
-          sourceType: 'ingredient',
-          ingredientId,
-          referenceAmount: 100,
-          referenceUnit: 'g',
-          countedAmount: 100,
-        },
-      ],
-    })
+    const { cookedFoodId } = await user.mutation(
+      api.nutrition.createCookedFood,
+      {
+        cookSessionId: sessionId,
+        name: 'Original stew',
+        finishedWeightGrams: 100,
+        ingredients: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            expectedSnapshot: {
+              name: 'Stew ingredient',
+              kcalPer100: 200,
+              kcalBasisUnit: 'g',
+              ignoreCalories: false,
+            },
+            referenceAmount: 100,
+            referenceUnit: 'g',
+            countedAmount: 100,
+          },
+        ],
+      },
+    )
     const cookedState = await readCookedFoodState(t, cookedFoodId)
     if (!cookedState.line) {
       throw new Error('Expected the cooked ingredient.')
@@ -267,6 +336,12 @@ describe('historical reference invariants', () => {
         {
           sourceType: 'cookedFood',
           cookedFoodId,
+          expectedSnapshot: {
+            name: 'Original stew',
+            kcalPer100: 200,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           consumedWeightGrams: 50,
         },
       ],
@@ -278,6 +353,11 @@ describe('historical reference invariants', () => {
 
     await user.mutation(api.nutrition.updateCookedFood, {
       cookedFoodId,
+      expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+        t,
+        cookedFoodId,
+      ),
+      expectedEditRevision: await readEditRevision(t, cookedFoodId),
       cookSessionId: sessionId,
       name: 'Changed stew',
       finishedWeightGrams: 100,
@@ -294,11 +374,14 @@ describe('historical reference invariants', () => {
     })
     await user.mutation(api.nutrition.setCookedFoodArchived, {
       cookedFoodId,
+      expectedEditRevision: await readEditRevision(t, cookedFoodId),
       archived: true,
     })
 
     await user.mutation(api.nutrition.updateMeal, {
       mealId,
+      expectedMealItemIds: await readMealItemIds(t, mealId),
+      expectedEditRevision: await readEditRevision(t, mealId),
       personId,
       eatenOn: '2026-04-04',
       items: [
@@ -346,14 +429,34 @@ describe('historical reference invariants', () => {
       personId,
       eatenOn: '2026-04-04',
       items: [
-        { sourceType: 'ingredient', ingredientId, consumedWeightGrams: 50 },
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          expectedSnapshot: {
+            name: 'Ingredient',
+            kcalPer100: 100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
+          consumedWeightGrams: 50,
+        },
       ],
     })
     const secondMealId = await user.mutation(api.nutrition.createMeal, {
       personId,
       eatenOn: '2026-04-05',
       items: [
-        { sourceType: 'ingredient', ingredientId, consumedWeightGrams: 25 },
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          expectedSnapshot: {
+            name: 'Ingredient',
+            kcalPer100: 100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
+          consumedWeightGrams: 25,
+        },
       ],
     })
     const first = await readMealState(t, firstMealId)
@@ -365,6 +468,8 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateMeal, {
         mealId: firstMealId,
+        expectedMealItemIds: await readMealItemIds(t, firstMealId),
+        expectedEditRevision: await readEditRevision(t, firstMealId),
         personId,
         eatenOn: '2026-04-04',
         items: [
@@ -387,6 +492,8 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateMeal, {
         mealId: firstMealId,
+        expectedMealItemIds: await readMealItemIds(t, firstMealId),
+        expectedEditRevision: await readEditRevision(t, firstMealId),
         personId,
         eatenOn: '2026-04-04',
         items: [
@@ -407,20 +514,28 @@ describe('historical reference invariants', () => {
     const sessionId = await insertCookSession(t)
     const ingredientId = await insertIngredient(t)
     const createFood = async (name: string) =>
-      await user.mutation(api.nutrition.createCookedFood, {
-        cookSessionId: sessionId,
-        name,
-        finishedWeightGrams: 100,
-        ingredients: [
-          {
-            sourceType: 'ingredient' as const,
-            ingredientId,
-            referenceAmount: 100,
-            referenceUnit: 'g' as const,
-            countedAmount: 100,
-          },
-        ],
-      })
+      (
+        await user.mutation(api.nutrition.createCookedFood, {
+          cookSessionId: sessionId,
+          name,
+          finishedWeightGrams: 100,
+          ingredients: [
+            {
+              sourceType: 'ingredient' as const,
+              ingredientId,
+              expectedSnapshot: {
+                name: 'Ingredient',
+                kcalPer100: 100,
+                kcalBasisUnit: 'g' as const,
+                ignoreCalories: false,
+              },
+              referenceAmount: 100,
+              referenceUnit: 'g' as const,
+              countedAmount: 100,
+            },
+          ],
+        })
+      ).cookedFoodId
     const firstFoodId = await createFood('First food')
     const secondFoodId = await createFood('Second food')
     const first = await readCookedFoodState(t, firstFoodId)
@@ -432,6 +547,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId: firstFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          firstFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, firstFoodId),
         cookSessionId: sessionId,
         name: 'First food',
         finishedWeightGrams: 100,
@@ -459,6 +579,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId: firstFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          firstFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, firstFoodId),
         cookSessionId: sessionId,
         name: 'First food',
         finishedWeightGrams: 100,
@@ -491,6 +616,12 @@ describe('historical reference invariants', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Ingredient',
+            kcalPer100: 100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -502,27 +633,42 @@ describe('historical reference invariants', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Ingredient',
+            kcalPer100: 100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           referenceAmount: 100,
           referenceUnit: 'g',
         },
       ],
     })
-    const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
-      cookSessionId: originalSessionId,
-      name: 'Historical batch',
-      recipeId: originalRecipe.recipeId,
-      recipeVersionId: originalRecipe.recipeVersionId,
-      finishedWeightGrams: 100,
-      ingredients: [
-        {
-          sourceType: 'ingredient',
-          ingredientId,
-          referenceAmount: 100,
-          referenceUnit: 'g',
-          countedAmount: 100,
-        },
-      ],
-    })
+    const { cookedFoodId } = await user.mutation(
+      api.nutrition.createCookedFood,
+      {
+        cookSessionId: originalSessionId,
+        name: 'Historical batch',
+        recipeId: originalRecipe.recipeId,
+        recipeVersionId: originalRecipe.recipeVersionId,
+        finishedWeightGrams: 100,
+        ingredients: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            expectedSnapshot: {
+              name: 'Ingredient',
+              kcalPer100: 100,
+              kcalBasisUnit: 'g',
+              ignoreCalories: false,
+            },
+            referenceAmount: 100,
+            referenceUnit: 'g',
+            countedAmount: 100,
+          },
+        ],
+      },
+    )
     const cookedState = await readCookedFoodState(t, cookedFoodId)
     if (!cookedState.line) {
       throw new Error('Expected the cooked ingredient row.')
@@ -530,18 +676,22 @@ describe('historical reference invariants', () => {
 
     await user.mutation(api.nutrition.setCookSessionArchived, {
       sessionId: originalSessionId,
+      expectedEditRevision: await readEditRevision(t, originalSessionId),
       archived: true,
     })
     await user.mutation(api.nutrition.setCookSessionArchived, {
       sessionId: otherArchivedSessionId,
+      expectedEditRevision: await readEditRevision(t, otherArchivedSessionId),
       archived: true,
     })
     await user.mutation(api.nutrition.setRecipeArchived, {
       recipeId: originalRecipe.recipeId,
+      expectedEditRevision: await readEditRevision(t, originalRecipe.recipeId),
       archived: true,
     })
     await user.mutation(api.nutrition.setRecipeArchived, {
       recipeId: otherRecipe.recipeId,
+      expectedEditRevision: await readEditRevision(t, otherRecipe.recipeId),
       archived: true,
     })
 
@@ -558,6 +708,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          cookedFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, cookedFoodId),
         cookSessionId: originalSessionId,
         name: 'Historical batch',
         recipeId: originalRecipe.recipeId,
@@ -565,7 +720,7 @@ describe('historical reference invariants', () => {
         finishedWeightGrams: 100,
         ingredients: unchangedIngredients,
       }),
-    ).resolves.toBeNull()
+    ).resolves.toMatchObject({ cookedFoodId, editRevision: 1 })
 
     await expect(
       user.mutation(api.nutrition.createCookedFood, {
@@ -606,6 +761,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          cookedFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, cookedFoodId),
         cookSessionId: otherArchivedSessionId,
         name: 'Historical batch',
         recipeId: originalRecipe.recipeId,
@@ -618,6 +778,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          cookedFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, cookedFoodId),
         cookSessionId: originalSessionId,
         name: 'Historical batch',
         recipeId: otherRecipe.recipeId,
@@ -638,6 +803,12 @@ describe('historical reference invariants', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Ingredient',
+            kcalPer100: 100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -645,38 +816,71 @@ describe('historical reference invariants', () => {
     })
     await user.mutation(api.nutrition.setIngredientArchived, {
       ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
       archived: true,
     })
+    const currentLine = await t.run(async (ctx) =>
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('recipeVersionId', recipe.recipeVersionId),
+        )
+        .unique(),
+    )
+    if (!currentLine) {
+      throw new Error('Expected the current recipe ingredient.')
+    }
 
-    await expect(
-      user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+    const updated = await user.mutation(
+      api.nutrition.updateRecipeCurrentVersion,
+      {
         recipeId: recipe.recipeId,
+        expectedRecipeVersionId: recipe.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, recipe.recipeId),
         name: 'Historical recipe v2',
         ingredientLines: [
           {
             sourceType: 'ingredient',
+            existingRecipeVersionIngredientId: currentLine._id,
             ingredientId,
             referenceAmount: 120,
             referenceUnit: 'g',
           },
         ],
-      }),
-    ).resolves.toMatchObject({ versionNumber: 2 })
+      },
+    )
+    expect(updated).toMatchObject({ versionNumber: 2 })
 
     await expect(
       user.mutation(api.nutrition.updateRecipeCurrentVersion, {
         recipeId: recipe.recipeId,
+        expectedRecipeVersionId: updated.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, recipe.recipeId),
         name: 'Invalid duplicate',
         ingredientLines: [
           {
             sourceType: 'ingredient',
             ingredientId,
+            expectedSnapshot: {
+              name: 'Ingredient',
+              kcalPer100: 100,
+              kcalBasisUnit: 'g',
+              ignoreCalories: false,
+            },
             referenceAmount: 60,
             referenceUnit: 'g',
           },
           {
             sourceType: 'ingredient',
             ingredientId,
+            expectedSnapshot: {
+              name: 'Ingredient',
+              kcalPer100: 100,
+              kcalBasisUnit: 'g',
+              ignoreCalories: false,
+            },
             referenceAmount: 60,
             referenceUnit: 'g',
           },
@@ -722,23 +926,26 @@ describe('historical reference invariants', () => {
         },
       ],
     })
-    const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
-      cookSessionId: sessionId,
-      name: 'Custom-link cooked food',
-      finishedWeightGrams: 100,
-      ingredients: [
-        {
-          sourceType: 'custom',
-          ingredientId: linkedIngredientId,
-          name: 'Cooked custom line',
-          kcalPer100: 200,
-          ignoreCalories: false,
-          referenceAmount: 100,
-          referenceUnit: 'g',
-          countedAmount: 100,
-        },
-      ],
-    })
+    const { cookedFoodId } = await user.mutation(
+      api.nutrition.createCookedFood,
+      {
+        cookSessionId: sessionId,
+        name: 'Custom-link cooked food',
+        finishedWeightGrams: 100,
+        ingredients: [
+          {
+            sourceType: 'custom',
+            ingredientId: linkedIngredientId,
+            name: 'Cooked custom line',
+            kcalPer100: 200,
+            ignoreCalories: false,
+            referenceAmount: 100,
+            referenceUnit: 'g',
+            countedAmount: 100,
+          },
+        ],
+      },
+    )
     const mealId = await user.mutation(api.nutrition.createMeal, {
       personId,
       eatenOn: '2026-04-04',
@@ -761,6 +968,7 @@ describe('historical reference invariants', () => {
 
     await user.mutation(api.nutrition.setIngredientArchived, {
       ingredientId: linkedIngredientId,
+      expectedEditRevision: await readEditRevision(t, linkedIngredientId),
       archived: true,
     })
 
@@ -768,6 +976,8 @@ describe('historical reference invariants', () => {
       api.nutrition.updateRecipeCurrentVersion,
       {
         recipeId: recipe.recipeId,
+        expectedRecipeVersionId: recipe.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, recipe.recipeId),
         name: 'Custom-link recipe v2',
         ingredientLines: [
           {
@@ -784,6 +994,11 @@ describe('historical reference invariants', () => {
     )
     await user.mutation(api.nutrition.updateCookedFood, {
       cookedFoodId,
+      expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+        t,
+        cookedFoodId,
+      ),
+      expectedEditRevision: await readEditRevision(t, cookedFoodId),
       cookSessionId: sessionId,
       name: 'Custom-link cooked food',
       finishedWeightGrams: 100,
@@ -803,6 +1018,8 @@ describe('historical reference invariants', () => {
     })
     await user.mutation(api.nutrition.updateMeal, {
       mealId,
+      expectedMealItemIds: await readMealItemIds(t, mealId),
+      expectedEditRevision: await readEditRevision(t, mealId),
       personId,
       eatenOn: '2026-04-04',
       items: [
@@ -936,21 +1153,30 @@ describe('historical reference invariants', () => {
       cookedAt: Date.parse('2026-04-04T12:00:00Z'),
       cookedByPersonId: personId,
     })
-    const cookedFoodId = await user.mutation(api.nutrition.createCookedFood, {
-      cookSessionId: sessionId,
-      name: 'Grouped food',
-      groupId: cookedGroupId,
-      finishedWeightGrams: 100,
-      ingredients: [
-        {
-          sourceType: 'ingredient',
-          ingredientId,
-          referenceAmount: 100,
-          referenceUnit: 'g',
-          countedAmount: 100,
-        },
-      ],
-    })
+    const { cookedFoodId } = await user.mutation(
+      api.nutrition.createCookedFood,
+      {
+        cookSessionId: sessionId,
+        name: 'Grouped food',
+        groupId: cookedGroupId,
+        finishedWeightGrams: 100,
+        ingredients: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            expectedSnapshot: {
+              name: 'Ingredient',
+              kcalPer100: 100,
+              kcalBasisUnit: 'g',
+              ignoreCalories: false,
+            },
+            referenceAmount: 100,
+            referenceUnit: 'g',
+            countedAmount: 100,
+          },
+        ],
+      },
+    )
     const cookedState = await readCookedFoodState(t, cookedFoodId)
     if (!cookedState.line) {
       throw new Error('Expected the grouped cooked ingredient.')
@@ -967,32 +1193,40 @@ describe('historical reference invariants', () => {
 
     await user.mutation(api.nutrition.setPersonArchived, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       archived: true,
     })
     await user.mutation(api.nutrition.setPersonArchived, {
       personId: otherPersonId,
+      expectedEditRevision: await readEditRevision(t, otherPersonId),
       archived: true,
     })
     await user.mutation(api.nutrition.setFoodGroupArchived, {
       groupId: ingredientGroupId,
+      expectedEditRevision: await readEditRevision(t, ingredientGroupId),
       archived: true,
     })
     await user.mutation(api.nutrition.setFoodGroupArchived, {
       groupId: cookedGroupId,
+      expectedEditRevision: await readEditRevision(t, cookedGroupId),
       archived: true,
     })
     await user.mutation(api.nutrition.setFoodGroupArchived, {
       groupId: otherIngredientGroupId,
+      expectedEditRevision: await readEditRevision(t, otherIngredientGroupId),
       archived: true,
     })
     await user.mutation(api.nutrition.setFoodGroupArchived, {
       groupId: otherCookedGroupId,
+      expectedEditRevision: await readEditRevision(t, otherCookedGroupId),
       archived: true,
     })
 
     await expect(
       user.mutation(api.nutrition.updateMeal, {
         mealId,
+        expectedMealItemIds: await readMealItemIds(t, mealId),
+        expectedEditRevision: await readEditRevision(t, mealId),
         personId,
         eatenOn: '2026-04-04',
         items: [
@@ -1008,6 +1242,7 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookSession, {
         sessionId,
+        expectedEditRevision: await readEditRevision(t, sessionId),
         cookedAt: Date.parse('2026-04-04T12:00:00Z'),
         cookedByPersonId: personId,
       }),
@@ -1015,6 +1250,7 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateIngredient, {
         ingredientId,
+        expectedEditRevision: await readEditRevision(t, ingredientId),
         name: 'Ingredient',
         kcalPer100: 100,
         ignoreCalories: false,
@@ -1024,6 +1260,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          cookedFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, cookedFoodId),
         cookSessionId: sessionId,
         name: 'Grouped food',
         groupId: cookedGroupId,
@@ -1039,7 +1280,7 @@ describe('historical reference invariants', () => {
           },
         ],
       }),
-    ).resolves.toBeNull()
+    ).resolves.toMatchObject({ cookedFoodId, editRevision: 1 })
 
     await expect(
       user.mutation(api.nutrition.createMeal, {
@@ -1053,6 +1294,8 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateMeal, {
         mealId,
+        expectedMealItemIds: await readMealItemIds(t, mealId),
+        expectedEditRevision: await readEditRevision(t, mealId),
         personId: otherPersonId,
         eatenOn: '2026-04-04',
         items: [
@@ -1069,6 +1312,7 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookSession, {
         sessionId,
+        expectedEditRevision: await readEditRevision(t, sessionId),
         cookedAt: Date.parse('2026-04-04T12:00:00Z'),
         cookedByPersonId: otherPersonId,
       }),
@@ -1086,6 +1330,7 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateIngredient, {
         ingredientId,
+        expectedEditRevision: await readEditRevision(t, ingredientId),
         name: 'Ingredient',
         kcalPer100: 100,
         ignoreCalories: false,
@@ -1116,6 +1361,11 @@ describe('historical reference invariants', () => {
     await expect(
       user.mutation(api.nutrition.updateCookedFood, {
         cookedFoodId,
+        expectedCookedFoodIngredientIds: await readCookedFoodIngredientIds(
+          t,
+          cookedFoodId,
+        ),
+        expectedEditRevision: await readEditRevision(t, cookedFoodId),
         cookSessionId: sessionId,
         name: 'Grouped food',
         groupId: otherCookedGroupId,

@@ -80,6 +80,11 @@ export default defineSchema({
     }),
   recipes: defineTable(recipesFields)
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_ownerTokenIdentifier_and_archived_and_name', [
+      'ownerTokenIdentifier',
+      'archived',
+      'name',
+    ])
     .index('by_ownerTokenIdentifier_and_archived', [
       'ownerTokenIdentifier',
       'archived',
@@ -111,6 +116,11 @@ export default defineSchema({
     ]),
   cookSessions: defineTable(cookSessionsFields)
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_ownerTokenIdentifier_and_archived_and_label', [
+      'ownerTokenIdentifier',
+      'archived',
+      'label',
+    ])
     .index('by_ownerTokenIdentifier_and_archived_and_cookedAt', [
       'ownerTokenIdentifier',
       'archived',
@@ -126,6 +136,11 @@ export default defineSchema({
     }),
   cookedFoods: defineTable(cookedFoodsFields)
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_ownerTokenIdentifier_and_archived_and_name', [
+      'ownerTokenIdentifier',
+      'archived',
+      'name',
+    ])
     .index('by_ownerTokenIdentifier_and_archived', [
       'ownerTokenIdentifier',
       'archived',
@@ -163,6 +178,12 @@ export default defineSchema({
     ]),
   meals: defineTable(mealsFields)
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
+    .index('by_ownerTokenIdentifier_and_personId_and_eatenOn_and_name', [
+      'ownerTokenIdentifier',
+      'personId',
+      'eatenOn',
+      'name',
+    ])
     .index('by_ownerTokenIdentifier_and_eatenOn', [
       'ownerTokenIdentifier',
       'eatenOn',

@@ -27,6 +27,7 @@ const foodGroup = {
   name: 'Staples',
   appliesTo: 'ingredient' as const,
   archived: false,
+  editRevision: 3,
   createdAt: 1,
 }
 
@@ -55,6 +56,7 @@ const ingredient = {
   groupName: foodGroup.name,
   groupArchived: false,
   archived: false,
+  editRevision: 4,
   createdAt: 1,
 }
 
@@ -89,6 +91,7 @@ const recipe = {
   _creationTime: 1,
   name: 'Overnight oats',
   archived: false,
+  editRevision: 0,
   latestVersionNumber: 2,
   createdAt: 1,
 }
@@ -238,6 +241,10 @@ describe('Catalog route', () => {
       screen.getByRole('button', { name: 'Load more ingredients' }),
     )
     expect(ingredientLoadMore).toHaveBeenCalledWith(20)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Load more ingredient groups' }),
+    )
+    expect(groupLoadMore).toHaveBeenCalledWith(20)
 
     fireEvent.change(screen.getByLabelText('Search ingredients'), {
       target: { value: 'quinoa' },
@@ -270,6 +277,11 @@ describe('Catalog route', () => {
     expect(
       (screen.getByRole('button', { name: 'Save recipe' }) as HTMLButtonElement)
         .disabled,
+    ).toBe(true)
+    expect(
+      (
+        screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement
+      ).closest('fieldset')?.disabled,
     ).toBe(true)
 
     recipeDetailResult = recipeDetail
@@ -318,14 +330,150 @@ describe('Catalog route', () => {
           recipeId: recipe._id,
           ingredientLines: [
             expect.objectContaining({
+              existingRecipeVersionIngredientId:
+                recipeDetail.ingredients[0]._id,
               ingredientId: ingredient._id,
               notes: 'Keep this line note.',
             }),
             expect.objectContaining({
               sourceType: 'custom',
+              existingRecipeVersionIngredientId:
+                recipeDetail.ingredients[1]._id,
               ingredientId: ingredient._id,
               kcalBasisUnit: 'piece',
               notes: 'Keep this custom link.',
+            }),
+          ],
+        }),
+      }),
+    )
+  })
+
+  it('preserves recipe version ingredient identities on an instructions-only save', async () => {
+    renderCatalogRoute()
+    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
+    const recipeRow = screen.getByText('Overnight oats').closest('tr')
+    expect(recipeRow).not.toBeNull()
+    fireEvent.click(within(recipeRow!).getByRole('button', { name: 'Edit' }))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement)
+          .value,
+      ).toBe('Chill overnight.'),
+    )
+
+    fireEvent.change(screen.getByLabelText('Recipe instructions'), {
+      target: { value: 'Chill for two nights.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }))
+
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateRecipeCurrentVersion',
+        args: expect.objectContaining({
+          expectedRecipeVersionId: recipeDetail.version._id,
+          instructions: 'Chill for two nights.',
+          ingredientLines: [
+            expect.objectContaining({
+              existingRecipeVersionIngredientId:
+                recipeDetail.ingredients[0]._id,
+            }),
+            expect.objectContaining({
+              existingRecipeVersionIngredientId:
+                recipeDetail.ingredients[1]._id,
+            }),
+          ],
+        }),
+      }),
+    )
+  })
+
+  it('preserves local recipe edits when a newer live version arrives', async () => {
+    const view = renderCatalogRoute()
+    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
+    const recipeRow = screen.getByText('Overnight oats').closest('tr')
+    expect(recipeRow).not.toBeNull()
+    fireEvent.click(within(recipeRow!).getByRole('button', { name: 'Edit' }))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement)
+          .value,
+      ).toBe('Chill overnight.'),
+    )
+    fireEvent.change(screen.getByLabelText('Recipe instructions'), {
+      target: { value: 'My unsaved instructions' },
+    })
+
+    recipeDetailResult = {
+      ...recipeDetail,
+      recipe: { ...recipe, latestVersionNumber: 3 },
+      version: {
+        ...recipeDetail.version,
+        _id: 'recipe-version-remote' as Id<'recipeVersions'>,
+        versionNumber: 3,
+        instructions: 'Remote instructions',
+      },
+    }
+    const Component = CatalogRoute.options.component as ComponentType
+    view.rerender(<Component />)
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'changed elsewhere',
+      ),
+    )
+    expect(
+      (screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement)
+        .value,
+    ).toBe('My unsaved instructions')
+    expect(
+      (screen.getByRole('button', { name: 'Save recipe' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+  })
+
+  it('retains a server-search ingredient after the search changes', async () => {
+    renderCatalogRoute()
+    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
+    fireEvent.change(screen.getByLabelText('Search recipe ingredients'), {
+      target: { value: 'quinoa' },
+    })
+
+    const quinoaRow = (await screen.findByText('Quinoa')).closest('tr')
+    expect(quinoaRow).not.toBeNull()
+    fireEvent.click(within(quinoaRow!).getByRole('button', { name: 'Use' }))
+    fireEvent.change(screen.getByLabelText('Search recipe ingredients'), {
+      target: { value: '' },
+    })
+
+    expect(
+      (screen.getByLabelText('Selected recipe ingredient') as HTMLInputElement)
+        .value,
+    ).toContain('Quinoa')
+    fireEvent.change(screen.getByLabelText('Recipe reference amount'), {
+      target: { value: '50' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(screen.getAllByText('Quinoa').length).toBeGreaterThan(0)
+
+    fireEvent.change(screen.getByLabelText('Recipe name'), {
+      target: { value: 'Quinoa bowl' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create recipe' }))
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:createRecipe',
+        args: expect.objectContaining({
+          ingredientLines: [
+            expect.objectContaining({
+              sourceType: 'ingredient',
+              ingredientId: 'ingredient-2',
+              expectedSnapshot: {
+                name: 'Quinoa',
+                kcalPer100: ingredient.kcalPer100,
+                kcalBasisUnit: ingredient.kcalBasisUnit,
+                ignoreCalories: ingredient.ignoreCalories,
+              },
             }),
           ],
         }),

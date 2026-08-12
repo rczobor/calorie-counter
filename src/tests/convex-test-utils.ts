@@ -9,6 +9,15 @@ const modules = import.meta.glob('../../convex/**/*.ts')
 export const TEST_USER_ID = 'user-1'
 export const TEST_TOKEN_IDENTIFIER = `${TEST_USER_ID}|token`
 
+type EditRevisionTable =
+  | 'people'
+  | 'foodGroups'
+  | 'ingredients'
+  | 'recipes'
+  | 'cookSessions'
+  | 'cookedFoods'
+  | 'meals'
+
 export function createConvexTest() {
   return convexTest({
     schema,
@@ -35,6 +44,19 @@ export function asTestUserWithToken(
   })
 }
 
+export async function readEditRevision<Table extends EditRevisionTable>(
+  t: ReturnType<typeof createConvexTest>,
+  id: Id<Table>,
+) {
+  return await t.run(async (ctx) => {
+    const record = await ctx.db.get(id)
+    if (!record) {
+      throw new Error('Expected editable test record.')
+    }
+    return record.editRevision ?? 0
+  })
+}
+
 export async function insertPerson(
   t: ReturnType<typeof createConvexTest>,
   overrides: Partial<Doc<'people'>> = {},
@@ -45,6 +67,7 @@ export async function insertPerson(
       name: 'Alex',
       notes: undefined,
       currentDailyGoalKcal: 2000,
+      editRevision: 0,
       archived: false,
       createdAt: Date.now(),
       ...overrides,
@@ -61,6 +84,7 @@ export async function insertFoodGroup(
       ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
       name: 'Prep',
       appliesTo: 'ingredient',
+      editRevision: 0,
       archived: false,
       createdAt: Date.now(),
       ...overrides,
@@ -80,6 +104,7 @@ export async function insertIngredient(
       kcalPer100: 100,
       kcalBasisUnit: 'g',
       ignoreCalories: false,
+      editRevision: 0,
       groupId: undefined,
       notes: undefined,
       archived: false,
@@ -129,6 +154,7 @@ export async function insertMeal(
       archived: false,
       totalCalories: 100,
       itemCount: 1,
+      editRevision: 0,
       createdAt: Date.now(),
       ...overrides,
     })

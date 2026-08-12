@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 
+import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
 import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
 import { MAX_CHILD_ROWS } from './lib/validation'
@@ -11,9 +12,14 @@ const recipeDto = v.object({
   name: v.string(),
   description: v.optional(v.string()),
   archived: v.boolean(),
+  editRevision: v.number(),
   latestVersionNumber: v.number(),
   createdAt: v.number(),
 })
+
+function recipeWithoutOwner(recipe: Doc<'recipes'>) {
+  return { ...withoutOwner(recipe), editRevision: recipe.editRevision ?? 0 }
+}
 
 const recipeVersionDto = v.object({
   _id: v.id('recipeVersions'),
@@ -129,7 +135,7 @@ export const getCurrent = query({
         : [],
     )
     return {
-      recipe: withoutOwner(recipe),
+      recipe: recipeWithoutOwner(recipe),
       version: withoutOwner(version),
       ingredients: ingredients.map(withoutOwner),
       referencedIngredients,

@@ -151,7 +151,9 @@ function HistoryPageContent() {
   }, [people, selectedPersonId])
 
   const effectiveSelectedPersonId: Id<'people'> | '' =
-    selectedPersonId && (selectedPersonIsLoaded || pointLoadedPerson !== null)
+    selectedPersonId &&
+    (selectedPersonIsLoaded ||
+      (pointLoadedPerson !== undefined && pointLoadedPerson !== null))
       ? selectedPersonId
       : ''
 

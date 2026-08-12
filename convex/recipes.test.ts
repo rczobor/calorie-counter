@@ -21,6 +21,12 @@ describe('recipe queries', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Oats',
+            kcalPer100: 100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           referenceAmount: 100,
           referenceUnit: 'g',
           notes: 'Keep chilled.',

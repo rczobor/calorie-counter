@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, usePaginatedQuery } from 'convex/react'
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { Target, Trash2, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -46,6 +46,9 @@ function PeoplePageContent() {
     null,
   )
   const [name, setName] = useState('')
+  const [editingPersonRevision, setEditingPersonRevision] = useState<
+    number | null
+  >(null)
   const [goal, setGoal] = useState('2200')
   const [goalReason, setGoalReason] = useState('')
   const [showArchived, setShowArchived] = useState(false)
@@ -76,9 +79,15 @@ function PeoplePageContent() {
     showArchived ? { archived: true, today } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
+  const selectedPersonDetail = useQuery(
+    api.people.get,
+    selectedPerson ? { personId: selectedPerson.id } : 'skip',
+  )
+  const effectiveSelectedPerson =
+    selectedPersonDetail === null ? null : selectedPerson
   const goalHistory = usePaginatedQuery(
     api.people.listGoalHistory,
-    selectedPerson ? { personId: selectedPerson.id } : 'skip',
+    effectiveSelectedPerson ? { personId: effectiveSelectedPerson.id } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
 
@@ -116,6 +125,7 @@ function PeoplePageContent() {
 
   const resetForm = () => {
     setEditingPersonId(null)
+    setEditingPersonRevision(null)
     setName('')
     setGoal('2200')
     setGoalReason('')
@@ -130,8 +140,9 @@ function PeoplePageContent() {
 
     setSelectedPerson({ id: person._id, name: person.name })
     setEditingPersonId(personId)
+    setEditingPersonRevision(person.editRevision)
     setName(person.name)
-    setGoal(person.currentDailyGoalKcal.toFixed(0))
+    setGoal(person.currentDailyGoalKcal.toString())
     setGoalReason('')
   }
 
@@ -231,8 +242,11 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant={
-                selectedPerson?.id === person._id ? 'secondary' : 'outline'
+                effectiveSelectedPerson?.id === person._id
+                  ? 'secondary'
+                  : 'outline'
               }
+              disabled={isRunning}
               onClick={() =>
                 setSelectedPerson({ id: person._id, name: person.name })
               }
@@ -242,6 +256,7 @@ function PeoplePageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() => startEdit(person._id)}
             >
               Edit
@@ -256,6 +271,7 @@ function PeoplePageContent() {
                   async () => {
                     await setPersonArchived({
                       personId: person._id,
+                      expectedEditRevision: person.editRevision,
                       archived: !person.archived,
                     })
                   },
@@ -274,7 +290,10 @@ function PeoplePageContent() {
                   'Delete this person permanently?',
                   'Person deleted.',
                   async () => {
-                    await deletePerson({ personId: person._id })
+                    await deletePerson({
+                      personId: person._id,
+                      expectedEditRevision: person.editRevision,
+                    })
                     if (editingPersonId === person._id) {
                       resetForm()
                     }
@@ -297,12 +316,12 @@ function PeoplePageContent() {
     () =>
       goalHistory.results.map((entry) => ({
         id: entry._id,
-        personName: selectedPerson?.name ?? 'Unknown',
+        personName: effectiveSelectedPerson?.name ?? 'Unknown',
         effectiveDate: entry.effectiveDate,
         goalKcal: entry.goalKcal,
         reason: entry.reason ?? '',
       })),
-    [goalHistory.results, selectedPerson?.name],
+    [goalHistory.results, effectiveSelectedPerson?.name],
   )
 
   const goalHistoryColumns: DataTableColumnDef<GoalHistoryTableRow>[] = [
@@ -388,80 +407,83 @@ function PeoplePageContent() {
       >
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
           <PersonFormSection isEditing={Boolean(editingPersonId)}>
-            <div className="space-y-2">
-              <Label htmlFor="personName">Name</Label>
-              <Input
-                id="personName"
-                aria-label="Person name"
-                placeholder="Name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dailyGoal">Daily calorie goal</Label>
-              <Input
-                id="dailyGoal"
-                type="number"
-                aria-label="Daily calorie goal"
-                placeholder="Daily kcal goal"
-                value={goal}
-                onChange={(event) => setGoal(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="goalReason">Goal change reason</Label>
-              <Input
-                id="goalReason"
-                aria-label="Goal change reason"
-                placeholder="Optional"
-                value={goalReason}
-                onChange={(event) => setGoalReason(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={!canSavePerson || isRunning}
-                onClick={() =>
-                  void runAction(
-                    editingPersonId ? 'Person updated.' : 'Person created.',
-                    async () => {
-                      const goalValue = Number(goal)
-                      if (editingPersonId) {
-                        await updatePerson({
-                          personId: editingPersonId,
-                          name,
-                          goalKcal: goalValue,
-                          reason: goalReason.trim() || undefined,
-                          effectiveDate: today,
-                        })
-                        if (selectedPerson?.id === editingPersonId) {
-                          setSelectedPerson({
-                            id: editingPersonId,
-                            name: name.trim(),
+            <fieldset className="contents" disabled={isRunning}>
+              <div className="space-y-2">
+                <Label htmlFor="personName">Name</Label>
+                <Input
+                  id="personName"
+                  aria-label="Person name"
+                  placeholder="Name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dailyGoal">Daily calorie goal</Label>
+                <Input
+                  id="dailyGoal"
+                  type="number"
+                  aria-label="Daily calorie goal"
+                  placeholder="Daily kcal goal"
+                  value={goal}
+                  onChange={(event) => setGoal(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="goalReason">Goal change reason</Label>
+                <Input
+                  id="goalReason"
+                  aria-label="Goal change reason"
+                  placeholder="Optional"
+                  value={goalReason}
+                  onChange={(event) => setGoalReason(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={!canSavePerson || isRunning}
+                  onClick={() =>
+                    void runAction(
+                      editingPersonId ? 'Person updated.' : 'Person created.',
+                      async () => {
+                        const goalValue = Number(goal)
+                        if (editingPersonId) {
+                          await updatePerson({
+                            personId: editingPersonId,
+                            expectedEditRevision: editingPersonRevision ?? 0,
+                            name,
+                            goalKcal: goalValue,
+                            reason: goalReason.trim() || undefined,
+                            effectiveDate: today,
                           })
+                          if (selectedPerson?.id === editingPersonId) {
+                            setSelectedPerson({
+                              id: editingPersonId,
+                              name: name.trim(),
+                            })
+                          }
+                        } else {
+                          const personId = await createPerson({
+                            name,
+                            currentDailyGoalKcal: goalValue,
+                            effectiveDate: today,
+                          })
+                          setSelectedPerson({ id: personId, name: name.trim() })
                         }
-                      } else {
-                        const personId = await createPerson({
-                          name,
-                          currentDailyGoalKcal: goalValue,
-                          effectiveDate: today,
-                        })
-                        setSelectedPerson({ id: personId, name: name.trim() })
-                      }
-                      resetForm()
-                    },
-                  )
-                }
-              >
-                {editingPersonId ? 'Save Changes' : 'Create Person'}
-              </Button>
-              {editingPersonId ? (
-                <Button variant="outline" onClick={resetForm}>
-                  Cancel
+                        resetForm()
+                      },
+                    )
+                  }
+                >
+                  {editingPersonId ? 'Save Changes' : 'Create Person'}
                 </Button>
-              ) : null}
-            </div>
+                {editingPersonId ? (
+                  <Button variant="outline" onClick={resetForm}>
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
+            </fieldset>
           </PersonFormSection>
 
           <PeopleTableSection today={today}>
@@ -469,7 +491,7 @@ function PeoplePageContent() {
               columns={peopleColumns}
               data={peopleTableRows}
               searchColumnId="name"
-              searchPlaceholder="Search people"
+              searchPlaceholder="Filter loaded people"
               emptyText="No people found."
               toolbarActions={
                 canLoadMorePeople || isLoadingMorePeople ? (
@@ -486,16 +508,22 @@ function PeoplePageContent() {
                 ) : null
               }
             />
+            {canLoadMorePeople ? (
+              <p className="text-xs text-muted-foreground">
+                Filtering includes loaded people only. Load more to include
+                additional people.
+              </p>
+            ) : null}
           </PeopleTableSection>
         </div>
 
         <GoalHistorySection>
-          {selectedPerson ? (
+          {effectiveSelectedPerson ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Showing goal history for{' '}
                 <span className="font-medium text-foreground">
-                  {selectedPerson.name}
+                  {effectiveSelectedPerson.name}
                 </span>
                 .
               </p>

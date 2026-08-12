@@ -195,4 +195,123 @@ describe('useMealDashboardDomainData', () => {
       'session-1',
     )
   })
+
+  it('waits for off-page selections to resolve before starting dependent queries', () => {
+    mockUsePaginatedQuery.mockImplementation(
+      (reference: unknown, args: unknown) => {
+        const name = getFunctionName(reference as FunctionReference<'query'>)
+        if (name === 'people:list') return page()
+        if (name === 'catalog:listIngredients') return page()
+        if (name === 'cooking:listSessions') return page()
+        if (name === 'cooking:listCookedFoodsForSession') {
+          expect(args).toBe('skip')
+          return page()
+        }
+        if (name === 'meals:listForDay') {
+          expect(args).toBe('skip')
+          return page()
+        }
+        throw new Error(`Unexpected query: ${name}`)
+      },
+    )
+    mockUseQuery.mockImplementation((reference: unknown, args: unknown) => {
+      const name = getFunctionName(reference as FunctionReference<'query'>)
+      if (name === 'people:get' || name === 'cooking:getSession') {
+        expect(args).not.toBe('skip')
+        return undefined
+      }
+      expect(args).toBe('skip')
+      return undefined
+    })
+
+    const { result } = renderHook(() =>
+      useMealDashboardDomainData({
+        selectedPersonId: asId<'people'>('stale-person'),
+        selectedCookSessionId: asId<'cookSessions'>('stale-session'),
+        mealDate: '2026-04-04',
+        showArchivedMeals: false,
+        editingMealId: null,
+      }),
+    )
+
+    expect(result.current.effectiveSelectedPersonId).toBe('')
+    expect(result.current.effectiveCookSessionId).toBe('')
+    expect(result.current.paging.meals.enabled).toBe(false)
+    expect(result.current.paging.cookedFoods.enabled).toBe(false)
+  })
+
+  it('does not activate remotely archived point-loaded choices for a new meal', () => {
+    const archivedPerson = createPersonDoc('person-archived', 'Archived', {
+      archived: true,
+    })
+    const archivedSession = createCookSessionDoc(
+      'session-archived',
+      'Archived prep',
+      { archived: true },
+    )
+    mockUsePaginatedQuery.mockImplementation(
+      (reference: unknown, args: unknown) => {
+        const name = getFunctionName(reference as FunctionReference<'query'>)
+        if (
+          name === 'cooking:listCookedFoodsForSession' ||
+          name === 'meals:listForDay'
+        ) {
+          expect(args).toBe('skip')
+        }
+        return page()
+      },
+    )
+    mockUseQuery.mockImplementation((reference: unknown, args: unknown) => {
+      if (args === 'skip') return undefined
+      const name = getFunctionName(reference as FunctionReference<'query'>)
+      if (name === 'people:get') return archivedPerson
+      if (name === 'cooking:getSession') return archivedSession
+      return undefined
+    })
+
+    const { result } = renderHook(() =>
+      useMealDashboardDomainData({
+        selectedPersonId: archivedPerson._id,
+        selectedCookSessionId: archivedSession._id,
+        mealDate: '2026-04-04',
+        showArchivedMeals: false,
+        editingMealId: null,
+      }),
+    )
+
+    expect(result.current.effectiveSelectedPersonId).toBe('')
+    expect(result.current.effectiveCookSessionId).toBe('')
+    expect(result.current.people).toEqual([])
+    expect(result.current.cookSessions).toEqual([])
+  })
+
+  it('retains an archived original person while editing its historical meal', () => {
+    const archivedPerson = createPersonDoc('person-archived', 'Archived', {
+      archived: true,
+    })
+    const meal = createMealDoc('meal-historical', archivedPerson._id)
+    mockUsePaginatedQuery.mockImplementation(() => page())
+    mockUseQuery.mockImplementation((reference: unknown, args: unknown) => {
+      if (args === 'skip') return undefined
+      const name = getFunctionName(reference as FunctionReference<'query'>)
+      if (name === 'people:get') return archivedPerson
+      if (name === 'cooking:getSession') return null
+      if (name === 'meals:getDetail') return { meal, items: [] }
+      if (name === 'meals:getDaySummary') return null
+      return undefined
+    })
+
+    const { result } = renderHook(() =>
+      useMealDashboardDomainData({
+        selectedPersonId: archivedPerson._id,
+        selectedCookSessionId: '',
+        mealDate: meal.eatenOn,
+        showArchivedMeals: true,
+        editingMealId: meal._id,
+      }),
+    )
+
+    expect(result.current.effectiveSelectedPersonId).toBe(archivedPerson._id)
+    expect(result.current.people).toContainEqual(archivedPerson)
+  })
 })

@@ -9,8 +9,18 @@ import {
   insertCookSession,
   insertIngredient,
   insertPerson,
+  readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
+
+function expectedNutritionSnapshot(
+  name: string,
+  kcalPer100 = 100,
+  kcalBasisUnit: 'g' | 'ml' | 'piece' = 'g',
+  ignoreCalories = false,
+) {
+  return { name, kcalPer100, kcalBasisUnit, ignoreCalories }
+}
 
 describe('nutrition catalog mutations', () => {
   beforeEach(() => {
@@ -62,13 +72,22 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Protein powder',
+            kcalPer100: 400,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           consumedWeightGrams: 50,
         },
       ],
     })
 
     await expect(
-      user.mutation(api.nutrition.deleteIngredient, { ingredientId }),
+      user.mutation(api.nutrition.deleteIngredient, {
+        ingredientId,
+        expectedEditRevision: await readEditRevision(t, ingredientId),
+      }),
     ).rejects.toThrowError(
       'Ingredient is in historical records. Archive instead.',
     )
@@ -93,6 +112,7 @@ describe('nutrition catalog mutations', () => {
     await expect(
       owner.mutation(api.nutrition.updateIngredient, {
         ingredientId,
+        expectedEditRevision: await readEditRevision(t, ingredientId),
         name: 'Greek yogurt',
         kcalPer100: 100,
         ignoreCalories: false,
@@ -141,6 +161,7 @@ describe('nutrition catalog mutations', () => {
     })
     await user.mutation(api.nutrition.setFoodGroupArchived, {
       groupId,
+      expectedEditRevision: await readEditRevision(t, groupId),
       archived: true,
     })
 
@@ -166,6 +187,69 @@ describe('nutrition catalog mutations', () => {
       )
       expect(result[0]).not.toHaveProperty('ownerTokenIdentifier')
     }
+  })
+
+  it('point-loads owned catalog references without exposing another token', async () => {
+    const t = createConvexTest()
+    const owner = asTestUser(t)
+    const otherToken = asTestUserWithToken(t, 'user-1|other-token')
+    const groupId = await owner.mutation(api.nutrition.createFoodGroup, {
+      name: 'Restored group',
+      appliesTo: 'ingredient',
+    })
+    const ingredientId = await owner.mutation(api.nutrition.createIngredient, {
+      name: 'Restored serving',
+      kcalPer100: 42,
+      kcalBasisUnit: 'piece',
+      ignoreCalories: false,
+      groupId,
+    })
+    const recipe = await owner.mutation(api.nutrition.createRecipe, {
+      name: 'Restored recipe',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot(
+            'Restored serving',
+            42,
+            'piece',
+          ),
+          referenceAmount: 1,
+          referenceUnit: 'piece',
+        },
+      ],
+    })
+
+    await expect(
+      Promise.all([
+        owner.query(api.catalog.getFoodGroup, { groupId }),
+        owner.query(api.catalog.getIngredient, { ingredientId }),
+        owner.query(api.catalog.getRecipe, { recipeId: recipe.recipeId }),
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({ _id: groupId, name: 'Restored group' }),
+      expect.objectContaining({
+        _id: ingredientId,
+        name: 'Restored serving',
+        kcalBasisUnit: 'piece',
+        groupName: 'Restored group',
+      }),
+      expect.objectContaining({
+        _id: recipe.recipeId,
+        name: 'Restored recipe',
+      }),
+    ])
+
+    await expect(
+      Promise.all([
+        otherToken.query(api.catalog.getFoodGroup, { groupId }),
+        otherToken.query(api.catalog.getIngredient, { ingredientId }),
+        otherToken.query(api.catalog.getRecipe, {
+          recipeId: recipe.recipeId,
+        }),
+      ]),
+    ).resolves.toEqual([null, null, null])
   })
 
   it('filters gram ingredients before pagination when requested', async () => {
@@ -202,6 +286,7 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId: ingredientA,
+          expectedSnapshot: expectedNutritionSnapshot('Oats'),
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -210,11 +295,14 @@ describe('nutrition catalog mutations', () => {
 
     await user.mutation(api.nutrition.updateRecipeCurrentVersion, {
       recipeId: created.recipeId,
+      expectedRecipeVersionId: created.recipeVersionId,
+      expectedEditRevision: await readEditRevision(t, created.recipeId),
       name: 'Breakfast bowl',
       ingredientLines: [
         {
           sourceType: 'ingredient',
           ingredientId: ingredientB,
+          expectedSnapshot: expectedNutritionSnapshot('Berries'),
           referenceAmount: 50,
           referenceUnit: 'g',
         },
@@ -282,6 +370,7 @@ describe('nutrition catalog mutations', () => {
     await expect(
       user.mutation(api.nutrition.deleteRecipe, {
         recipeId: created.recipeId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
       }),
     ).rejects.toThrow(
       'Only single-version recipes can be deleted. Archive instead.',
@@ -301,6 +390,7 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Oats'),
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -311,11 +401,14 @@ describe('nutrition catalog mutations', () => {
       api.nutrition.updateRecipeCurrentVersion,
       {
         recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
         name: 'Breakfast bowl v2',
         ingredientLines: [
           {
             sourceType: 'ingredient',
             ingredientId,
+            expectedSnapshot: expectedNutritionSnapshot('Oats'),
             referenceAmount: 120,
             referenceUnit: 'g',
           },
@@ -334,6 +427,323 @@ describe('nutrition catalog mutations', () => {
     })
   })
 
+  it('preserves stable recipe ingredient snapshots and unchanged legacy notes', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const ingredientId = await insertIngredient(t, {
+      name: 'Original oats',
+      kcalPer100: 200,
+    })
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Breakfast bowl',
+      instructions: 'Original instructions',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Original oats', 200),
+          referenceAmount: 100,
+          referenceUnit: 'g',
+          notes: 'Original line note',
+        },
+      ],
+    })
+    const originalLine = await t.run(async (ctx) =>
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('recipeVersionId', created.recipeVersionId),
+        )
+        .unique(),
+    )
+    if (!originalLine) {
+      throw new Error('Expected the original recipe ingredient.')
+    }
+    const legacyNotes = 'x'.repeat(2_001)
+    await t.run(async (ctx) => {
+      await ctx.db.patch(originalLine._id, { notes: legacyNotes })
+    })
+    await user.mutation(api.nutrition.updateIngredient, {
+      ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
+      name: 'Changed oats',
+      kcalPer100: 0,
+      kcalBasisUnit: 'piece',
+      ignoreCalories: true,
+    })
+    await user.mutation(api.nutrition.setIngredientArchived, {
+      ingredientId,
+      expectedEditRevision: await readEditRevision(t, ingredientId),
+      archived: true,
+    })
+
+    const updated = await user.mutation(
+      api.nutrition.updateRecipeCurrentVersion,
+      {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+        name: 'Breakfast bowl',
+        instructions: 'Updated instructions only',
+        ingredientLines: [
+          {
+            sourceType: 'ingredient',
+            existingRecipeVersionIngredientId: originalLine._id,
+            ingredientId,
+            referenceAmount: 120,
+            referenceUnit: 'g',
+            notes: legacyNotes,
+          },
+        ],
+      },
+    )
+    const newLine = await t.run(async (ctx) =>
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('recipeVersionId', updated.recipeVersionId),
+        )
+        .unique(),
+    )
+
+    expect(newLine).toMatchObject({
+      sourceType: 'ingredient',
+      ingredientId,
+      ingredientNameSnapshot: 'Original oats',
+      kcalPer100Snapshot: 200,
+      kcalBasisUnitSnapshot: 'g',
+      ignoreCaloriesSnapshot: false,
+      referenceAmount: 120,
+      notes: legacyNotes,
+    })
+  })
+
+  it('validates stable recipe ingredient identity and current-version membership', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const ingredientId = await insertIngredient(t, { name: 'Oats' })
+    const otherIngredientId = await insertIngredient(t, { name: 'Berries' })
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Breakfast bowl',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Oats'),
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+    const currentLine = await t.run(async (ctx) =>
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('recipeVersionId', created.recipeVersionId),
+        )
+        .unique(),
+    )
+    if (!currentLine) {
+      throw new Error('Expected the current recipe ingredient.')
+    }
+    const stableLine = {
+      sourceType: 'ingredient' as const,
+      existingRecipeVersionIngredientId: currentLine._id,
+      ingredientId,
+      referenceAmount: 100,
+      referenceUnit: 'g' as const,
+    }
+
+    await expect(
+      user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+        name: 'Breakfast bowl',
+        ingredientLines: [stableLine, stableLine],
+      }),
+    ).rejects.toThrow('Recipe ingredient references must be unique.')
+    await expect(
+      user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+        name: 'Breakfast bowl',
+        ingredientLines: [{ ...stableLine, ingredientId: otherIngredientId }],
+      }),
+    ).rejects.toThrow('Existing recipe ingredient does not match ingredient.')
+
+    const otherToken = 'https://issuer.example|other-recipe-owner'
+    const otherUser = asTestUserWithToken(t, otherToken)
+    const foreignIngredientId = await otherUser.mutation(
+      api.nutrition.createIngredient,
+      {
+        name: 'Foreign ingredient',
+        kcalPer100: 100,
+        ignoreCalories: false,
+      },
+    )
+    const foreignRecipe = await otherUser.mutation(api.nutrition.createRecipe, {
+      name: 'Foreign recipe',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId: foreignIngredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Foreign ingredient'),
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+    const foreignLine = await t.run(async (ctx) =>
+      ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', otherToken)
+            .eq('recipeVersionId', foreignRecipe.recipeVersionId),
+        )
+        .unique(),
+    )
+    if (!foreignLine) {
+      throw new Error('Expected the foreign recipe ingredient.')
+    }
+    await expect(
+      user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+        name: 'Breakfast bowl',
+        ingredientLines: [
+          {
+            sourceType: 'ingredient',
+            existingRecipeVersionIngredientId: foreignLine._id,
+            ingredientId: foreignIngredientId,
+            referenceAmount: 100,
+            referenceUnit: 'g',
+          },
+        ],
+      }),
+    ).rejects.toThrow('Existing recipe ingredient not found.')
+  })
+
+  it('rejects recipe version numbers without safe increment capacity', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const ingredientId = await insertIngredient(t)
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Maxed recipe',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Ingredient'),
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+    await t.run(async (ctx) => {
+      await ctx.db.patch(created.recipeId, {
+        latestVersionNumber: Number.MAX_SAFE_INTEGER,
+      })
+      await ctx.db.patch(created.recipeVersionId, {
+        versionNumber: Number.MAX_SAFE_INTEGER,
+      })
+    })
+
+    await expect(
+      user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+        name: 'Maxed recipe',
+        ingredientLines: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            expectedSnapshot: expectedNutritionSnapshot('Ingredient'),
+            referenceAmount: 100,
+            referenceUnit: 'g',
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      'Recipe version number exceeds the supported integer range.',
+    )
+  })
+
+  it('rejects a stale recipe base version even when every line was replaced', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const firstIngredientId = await insertIngredient(t, { name: 'Oats' })
+    const replacementIngredientId = await insertIngredient(t, {
+      name: 'Berries',
+    })
+    const created = await user.mutation(api.nutrition.createRecipe, {
+      name: 'Breakfast bowl',
+      ingredientLines: [
+        {
+          sourceType: 'ingredient',
+          ingredientId: firstIngredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Oats'),
+          referenceAmount: 100,
+          referenceUnit: 'g',
+        },
+      ],
+    })
+    const firstUpdate = await user.mutation(
+      api.nutrition.updateRecipeCurrentVersion,
+      {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+        name: 'Breakfast bowl v2',
+        ingredientLines: [
+          {
+            sourceType: 'ingredient',
+            ingredientId: replacementIngredientId,
+            expectedSnapshot: expectedNutritionSnapshot('Berries'),
+            referenceAmount: 50,
+            referenceUnit: 'g',
+          },
+        ],
+      },
+    )
+
+    await expect(
+      user.mutation(api.nutrition.updateRecipeCurrentVersion, {
+        recipeId: created.recipeId,
+        expectedRecipeVersionId: created.recipeVersionId,
+        expectedEditRevision: 0,
+        name: 'Stale replacement',
+        ingredientLines: [
+          {
+            sourceType: 'ingredient',
+            ingredientId: firstIngredientId,
+            expectedSnapshot: expectedNutritionSnapshot('Oats'),
+            referenceAmount: 25,
+            referenceUnit: 'g',
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      'Recipe changed since editing began. Refresh and try again.',
+    )
+    expect(
+      await t.run(async (ctx) => ctx.db.get(created.recipeId)),
+    ).toMatchObject({
+      name: 'Breakfast bowl v2',
+      latestVersionNumber: firstUpdate.versionNumber,
+    })
+  })
+
   it('replaces lines within each created recipe version without duplicating them', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
@@ -346,6 +756,7 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId: ingredientA,
+          expectedSnapshot: expectedNutritionSnapshot('Oats'),
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -354,11 +765,14 @@ describe('nutrition catalog mutations', () => {
 
     await user.mutation(api.nutrition.updateRecipeCurrentVersion, {
       recipeId: created.recipeId,
+      expectedRecipeVersionId: created.recipeVersionId,
+      expectedEditRevision: await readEditRevision(t, created.recipeId),
       name: 'Breakfast bowl',
       ingredientLines: [
         {
           sourceType: 'ingredient',
           ingredientId: ingredientB,
+          expectedSnapshot: expectedNutritionSnapshot('Berries'),
           referenceAmount: 50,
           referenceUnit: 'g',
         },
@@ -416,6 +830,7 @@ describe('nutrition catalog mutations', () => {
     await expect(
       user.mutation(api.nutrition.updateFoodGroup, {
         groupId,
+        expectedEditRevision: await readEditRevision(t, groupId),
         name: 'Prepared food',
         appliesTo: 'cookedFood',
       }),
@@ -435,6 +850,7 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Rice'),
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -446,6 +862,7 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Rice'),
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -488,6 +905,7 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: expectedNutritionSnapshot('Rice', 130),
           referenceAmount: 100,
           referenceUnit: 'g',
         },
@@ -504,6 +922,12 @@ describe('nutrition catalog mutations', () => {
         {
           sourceType: 'ingredient',
           ingredientId,
+          expectedSnapshot: {
+            name: 'Rice',
+            kcalPer100: 130,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
           referenceAmount: 100,
           referenceUnit: 'g',
           countedAmount: 100,
@@ -512,7 +936,10 @@ describe('nutrition catalog mutations', () => {
     })
 
     await expect(
-      user.mutation(api.nutrition.deleteRecipe, { recipeId: created.recipeId }),
+      user.mutation(api.nutrition.deleteRecipe, {
+        recipeId: created.recipeId,
+        expectedEditRevision: await readEditRevision(t, created.recipeId),
+      }),
     ).rejects.toThrowError('Recipe has cooked history. Archive instead.')
   })
 })

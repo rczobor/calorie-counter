@@ -22,7 +22,7 @@ let mockSummaries = [
 let mockGoals = [createPersonGoalHistoryDoc('goal-1', 'person-1')]
 let mockPeopleStatus = 'Exhausted'
 let mockHistoryStatus = 'Exhausted'
-let mockPointLoadedPerson: (typeof mockPeople)[number] | null = null
+let mockPointLoadedPerson: (typeof mockPeople)[number] | null | undefined = null
 let lastPeopleArgs: unknown
 let lastPointPersonArgs: unknown
 let lastHistoryArgs: unknown
@@ -206,6 +206,23 @@ describe('History route', () => {
       endDate: '2026-04-04',
     })
     expect(screen.getByLabelText('Select person').textContent).toContain('Alex')
+  })
+
+  it('waits for an off-page person lookup before loading history', () => {
+    const alex = createPersonDoc('person-1', 'Alex')
+    const sam = createPersonDoc('person-2', 'Sam')
+    mockPeople = [alex, sam]
+
+    const Component = HistoryRoute.options.component as ComponentType
+    const view = render(<Component />)
+
+    mockPeople = [sam]
+    mockPointLoadedPerson = undefined
+    view.rerender(<Component />)
+
+    expect(lastPointPersonArgs).toEqual({ personId: alex._id })
+    expect(lastHistoryArgs).toBe('skip')
+    expect(lastGoalArgs).toBe('skip')
   })
 
   it('shows empty-state guidance when there are no active people', () => {

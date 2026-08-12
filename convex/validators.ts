@@ -23,6 +23,7 @@ export const peopleFields = {
   name: v.string(),
   notes: v.optional(v.string()),
   currentDailyGoalKcal: v.number(),
+  editRevision: v.optional(v.number()),
   archived: v.boolean(),
   createdAt: v.number(),
 }
@@ -40,6 +41,7 @@ export const foodGroupsFields = {
   ...ownerFields,
   name: v.string(),
   appliesTo: groupScopeValidator,
+  editRevision: v.optional(v.number()),
   archived: v.boolean(),
   createdAt: v.number(),
 }
@@ -51,6 +53,7 @@ export const ingredientsFields = {
   kcalPer100: v.number(),
   kcalBasisUnit: nutritionUnitValidator,
   ignoreCalories: v.boolean(),
+  editRevision: v.optional(v.number()),
   groupId: v.optional(v.id('foodGroups')),
   notes: v.optional(v.string()),
   archived: v.boolean(),
@@ -63,6 +66,7 @@ export const recipesFields = {
   description: v.optional(v.string()),
   archived: v.boolean(),
   latestVersionNumber: v.number(),
+  editRevision: v.optional(v.number()),
   createdAt: v.number(),
 }
 
@@ -113,6 +117,7 @@ export const cookSessionsFields = {
   cookedByPersonId: v.optional(v.id('people')),
   notes: v.optional(v.string()),
   archived: v.boolean(),
+  editRevision: v.optional(v.number()),
   updatedAt: v.number(),
   createdAt: v.number(),
 }
@@ -128,6 +133,7 @@ export const cookedFoodsFields = {
   totalRawWeightGrams: v.number(),
   totalCalories: v.number(),
   kcalPer100: v.number(),
+  editRevision: v.optional(v.number()),
   notes: v.optional(v.string()),
   archived: v.boolean(),
   createdAt: v.number(),
@@ -173,6 +179,7 @@ export const mealsFields = {
   archived: v.boolean(),
   totalCalories: v.number(),
   itemCount: v.number(),
+  editRevision: v.optional(v.number()),
   createdAt: v.number(),
 }
 
@@ -202,6 +209,7 @@ const mealItemCustomByWeightFields = {
   ...weightedMealItemFields,
   sourceType: v.literal('customByWeight'),
   ingredientId: v.optional(v.id('ingredients')),
+  kcalBasisUnitSnapshot: v.literal('g'),
 }
 
 const mealItemCookedFoodFields = {

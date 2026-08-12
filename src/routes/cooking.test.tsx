@@ -11,6 +11,10 @@ import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
+  createCookingDraft,
+  type CookingDraft,
+} from '@/features/cooking/draft-helpers'
+import {
   createCookSessionDoc,
   createCookedFoodDoc,
   createCookedFoodIngredientDoc,
@@ -20,6 +24,7 @@ import {
 } from '@/tests/factories'
 
 const mockUseMutation = vi.fn()
+const mockUseQuery = vi.fn()
 const loadCookedFoodDetailMock = vi.fn()
 const loadRecipeDetailMock = vi.fn()
 const toastSuccess = vi.fn()
@@ -29,13 +34,26 @@ let mockCookingData = createCookingFixture()
 let confirmAndRunActionMock = vi.fn()
 let mutationQueue: Array<(...args: unknown[]) => unknown> = []
 let mutationCursor = 0
+let mockIsRunning = false
+let pointLoadedIngredient: Doc<'ingredients'> | null | undefined
+let pointLoadedFoodGroup: Doc<'foodGroups'> | null | undefined
+let pointLoadedRecipe: Doc<'recipes'> | null | undefined
 
 vi.mock('convex/react', () => ({
   useMutation: (reference: unknown) => mockUseMutation(reference),
+  useQuery: (reference: unknown, args: unknown) =>
+    mockUseQuery(reference, args),
 }))
 
 vi.mock('@clerk/react', () => ({
   useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
+}))
+
+vi.mock('@/features/cooking/draft-persistence-identity', () => ({
+  useDraftPersistenceIdentity: () => ({
+    isLoaded: true,
+    userId: 'test-user',
+  }),
 }))
 
 vi.mock('sonner', () => ({
@@ -131,9 +149,15 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
   useConfirmableAction: () => ({
     pendingConfirmation: null,
     isConfirmDialogOpen: false,
-    isRunning: false,
-    runAction: async (_successText: string, action: () => Promise<unknown>) =>
-      action(),
+    isRunning: mockIsRunning,
+    runAction: async (_successText: string, action: () => Promise<unknown>) => {
+      mockIsRunning = true
+      try {
+        return await action()
+      } finally {
+        mockIsRunning = false
+      }
+    },
     confirmAndRunAction: confirmAndRunActionMock,
     handleConfirmDialogOpenChange: vi.fn(),
     confirmPendingAction: vi.fn(),
@@ -144,6 +168,10 @@ import { Route as CookingRoute } from '@/routes/cooking'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  loadCookedFoodDetailMock.mockReset()
+  loadRecipeDetailMock.mockReset()
+  mockUseMutation.mockReset()
+  mockUseQuery.mockReset()
   loadCookedFoodDetailMock.mockImplementation(async (cookedFoodId: string) => {
     const cookedFood = mockCookingData.cookedFoods.find(
       (food) => food._id === cookedFoodId,
@@ -203,6 +231,23 @@ beforeEach(() => {
   window.scrollTo = vi.fn()
   mutationQueue = []
   mutationCursor = 0
+  mockIsRunning = false
+  pointLoadedIngredient = undefined
+  pointLoadedFoodGroup = undefined
+  pointLoadedRecipe = undefined
+  mockUseQuery.mockImplementation((_reference: unknown, args: unknown) => {
+    if (args === 'skip') return undefined
+    if (args && typeof args === 'object' && 'ingredientId' in args) {
+      return pointLoadedIngredient
+    }
+    if (args && typeof args === 'object' && 'groupId' in args) {
+      return pointLoadedFoodGroup
+    }
+    if (args && typeof args === 'object' && 'recipeId' in args) {
+      return pointLoadedRecipe
+    }
+    return undefined
+  })
   window.localStorage.clear()
 })
 
@@ -407,6 +452,116 @@ describe('Cooking route', () => {
     })
   })
 
+  it('reopens a legacy saved draft to recover authoritative ingredient IDs', async () => {
+    const session = createSession('session-recovery', 'Recovery batch')
+    const food = createCookedFood(
+      'food-recovery',
+      session._id,
+      'Authoritative food',
+    )
+    const line = createCookedFoodIngredientDoc('line-recovery', food._id, {
+      sourceType: 'custom',
+      ingredientNameSnapshot: 'Authoritative line',
+    })
+    mockCookingData = createCookingFixture({
+      cookSessions: [session],
+      cookedFoods: [food],
+      cookedFoodIngredients: [line],
+    })
+    const legacyDraft = createCookingDraft(session._id, {
+      draftId: 'legacy-recovery-draft',
+      persistedCookedFoodId: food._id,
+      hasAuthoritativeIngredientIds: false,
+      name: 'Stale local copy',
+      finishedWeight: '300',
+      ingredientLines: [
+        {
+          draftId: 'legacy-local-line',
+          sourceType: 'custom',
+          name: 'Stale local line',
+          kcalPer100: 200,
+          kcalBasisUnit: 'g',
+          ignoreCalories: false,
+          referenceAmount: 100,
+          referenceUnit: 'g',
+          countedAmount: 100,
+          saveToCatalog: false,
+        },
+      ],
+    })
+    window.localStorage.setItem(
+      'calorie-counter:cooking-drafts:test-user',
+      JSON.stringify({
+        version: 1,
+        activeDraftId: legacyDraft.draftId,
+        drafts: [legacyDraft],
+      }),
+    )
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'Stale local copy',
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+        'Authoritative food',
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect(mutations.updateCookedFood).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cookedFoodId: food._id,
+        expectedEditRevision: food.editRevision,
+        expectedCookedFoodIngredientIds: [line._id],
+        ingredients: [
+          expect.objectContaining({
+            existingCookedFoodIngredientId: line._id,
+          }),
+        ],
+      }),
+    )
+  })
+
+  it('reveals an archived batch when opening one of its historical foods', async () => {
+    const session = {
+      ...createSession('session-archived-open', 'Archived batch'),
+      archived: true,
+    }
+    const food = createCookedFood(
+      'food-archived-session',
+      session._id,
+      'Historical food',
+    )
+    mockCookingData = createCookingFixture({
+      cookSessions: [session],
+      cookedFoods: [food],
+    })
+    loadCookedFoodDetailMock.mockResolvedValueOnce({
+      cookedFood: food,
+      ingredients: [],
+      cookSession: session,
+    })
+    configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(screen.getByRole('button', { name: /all sessions/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+
+    await waitFor(() => {
+      expect(screen.getByText('Saved food')).toBeTruthy()
+      expect(screen.getAllByText(/Archived batch/).length).toBeGreaterThan(0)
+    })
+    expect(
+      screen
+        .getAllByRole('button', { name: /start cooking/i })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true)
+  })
+
   it('ignores a saved-food detail response after switching back to another draft', async () => {
     const detail = createDeferred<{
       cookedFood: Doc<'cookedFoods'>
@@ -608,7 +763,599 @@ describe('Cooking route', () => {
             expect.objectContaining({
               sourceType: 'ingredient',
               ingredientId: currentIngredient._id,
+              expectedSnapshot: {
+                name: currentIngredient.name,
+                kcalPer100: currentIngredient.kcalPer100,
+                kcalBasisUnit: currentIngredient.kcalBasisUnit,
+                ignoreCalories: currentIngredient.ignoreCalories,
+              },
               countedAmount: 2,
+            }),
+          ],
+        }),
+      )
+    })
+  })
+
+  it('keeps every draft blocked until its own recipe request settles', async () => {
+    const recipeA = createRecipe('recipe-a', 'Recipe A')
+    const recipeB = createRecipe('recipe-b', 'Recipe B')
+    const versionA = createRecipeVersion(
+      'recipe-version-a',
+      recipeA._id,
+      recipeA.name,
+    )
+    const versionB = createRecipeVersion(
+      'recipe-version-b',
+      recipeB._id,
+      recipeB.name,
+    )
+    const detailA = createDeferred<{
+      recipe: Doc<'recipes'>
+      version: Doc<'recipeVersions'>
+      ingredients: Doc<'recipeVersionIngredients'>[]
+      referencedIngredients: []
+    } | null>()
+    const detailB = createDeferred<{
+      recipe: Doc<'recipes'>
+      version: Doc<'recipeVersions'>
+      ingredients: Doc<'recipeVersionIngredients'>[]
+      referencedIngredients: []
+    } | null>()
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      recipes: [recipeA, recipeB],
+      recipeVersions: [versionA, versionB],
+    })
+    loadRecipeDetailMock
+      .mockReturnValueOnce(detailA.promise)
+      .mockReturnValueOnce(detailB.promise)
+    configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Draft A' },
+    })
+    await chooseCookingRecipe('Recipe A')
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Draft B' },
+    })
+    await chooseCookingRecipe('Recipe B')
+
+    fireEvent.click(
+      screen.getAllByText('Draft A')[0].closest('button') as HTMLButtonElement,
+    )
+    expect(
+      (screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+
+    await act(async () => {
+      detailA.resolve({
+        recipe: recipeA,
+        version: versionA,
+        ingredients: [],
+        referencedIngredients: [],
+      })
+      await detailA.promise
+    })
+    expect(
+      (screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false)
+
+    fireEvent.click(
+      screen.getAllByText('Draft B')[0].closest('button') as HTMLButtonElement,
+    )
+    expect(
+      (screen.getByRole('button', { name: /^save$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+  })
+
+  it('does not replace a cross-tab draft edit when a recipe finishes loading', async () => {
+    const recipe = createRecipe('recipe-1', 'Slow recipe')
+    const version = createRecipeVersion(
+      'recipe-version-1',
+      recipe._id,
+      recipe.name,
+    )
+    const detail = createDeferred<{
+      recipe: Doc<'recipes'>
+      version: Doc<'recipeVersions'>
+      ingredients: Doc<'recipeVersionIngredients'>[]
+      referencedIngredients: []
+    } | null>()
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      recipes: [recipe],
+      recipeVersions: [version],
+    })
+    loadRecipeDetailMock.mockReturnValueOnce(detail.promise)
+    configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    await chooseCookingRecipe('Slow recipe')
+    act(() => {
+      dispatchRemoteDraftUpdate((draft) => ({
+        ...draft,
+        name: 'My newer name',
+        updatedAt: draft.updatedAt + 10_000,
+      }))
+    })
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+        'My newer name',
+      ),
+    )
+
+    await act(async () => {
+      detail.resolve({
+        recipe,
+        version,
+        ingredients: [],
+        referencedIngredients: [],
+      })
+      await detail.promise
+    })
+
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'My newer name',
+    )
+    expect(toastError).toHaveBeenCalledWith(
+      'Recipe was not applied because the draft changed while it was loading.',
+    )
+  })
+
+  it('preserves newer edits and navigation when an earlier save completes', async () => {
+    const save = createDeferred<CookedFoodWriteResult>()
+    const savedCookedFood = createCookedFood('food-new', 'session-1', 'Draft A')
+    const savedIngredient = createCookedFoodIngredientDoc(
+      'saved-line-1',
+      savedCookedFood._id,
+      {
+        sourceType: 'custom',
+        ingredientNameSnapshot: 'Oats',
+        ingredientKcalPer100Snapshot: 380,
+      },
+    )
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+    })
+    const mutations = configureMutationMocks()
+    mutations.createCookedFood.mockImplementationOnce(() => save.promise)
+    loadCookedFoodDetailMock.mockResolvedValueOnce({
+      cookedFood: savedCookedFood,
+      ingredients: [savedIngredient],
+    })
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Draft A' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
+    fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
+      target: { value: 'Oats' },
+    })
+    fireEvent.change(screen.getByLabelText(/kcal \/ 100/i), {
+      target: { value: '380' },
+    })
+    fireEvent.change(screen.getByLabelText(/^amount$/i), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Draft A newer' },
+    })
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Draft B' },
+    })
+
+    await act(async () => {
+      save.resolve({
+        cookedFoodId: savedCookedFood._id,
+        editRevision: 0,
+        cookedFoodIngredientIds: [savedIngredient._id],
+      })
+      await save.promise
+    })
+
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'Draft B',
+    )
+    expect(screen.getAllByText('Draft A newer').length).toBeGreaterThan(0)
+
+    fireEvent.click(
+      screen
+        .getAllByText('Draft A newer')[0]
+        .closest('button') as HTMLButtonElement,
+    )
+    expect(screen.getByText('Saved food')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(mutations.createCookedFood).toHaveBeenCalledTimes(1)
+    expect(mutations.updateCookedFood).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cookedFoodId: savedCookedFood._id,
+        ingredients: [
+          expect.objectContaining({
+            existingCookedFoodIngredientId: savedIngredient._id,
+          }),
+        ],
+      }),
+    )
+  })
+
+  it('preserves and rebinds a cross-tab edit when a create save completes', async () => {
+    const save = createDeferred<CookedFoodWriteResult>()
+    const savedCookedFood = createCookedFood(
+      'food-remote-save',
+      'session-1',
+      'Draft A',
+    )
+    const savedIngredient = createCookedFoodIngredientDoc(
+      'saved-line-remote',
+      savedCookedFood._id,
+      {
+        sourceType: 'custom',
+        ingredientNameSnapshot: 'Oats',
+        ingredientKcalPer100Snapshot: 380,
+      },
+    )
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+    })
+    const mutations = configureMutationMocks()
+    mutations.createCookedFood.mockImplementationOnce(() => save.promise)
+    const savedRecipeId = 'saved-recipe' as Id<'recipes'>
+    const savedRecipeVersionId = 'saved-recipe-version' as Id<'recipeVersions'>
+
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Draft A' },
+    })
+    fireEvent.click(
+      screen.getByRole('switch', { name: /save as reusable recipe/i }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
+    fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
+      target: { value: 'Oats' },
+    })
+    fireEvent.change(screen.getByLabelText(/kcal \/ 100/i), {
+      target: { value: '380' },
+    })
+    fireEvent.change(screen.getByLabelText(/^amount$/i), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    act(() => {
+      dispatchRemoteDraftUpdate((draft) => ({
+        ...draft,
+        name: 'Remote tab edit',
+        updatedAt: draft.updatedAt + 10_000,
+      }))
+    })
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+        'Remote tab edit',
+      ),
+    )
+
+    await act(async () => {
+      save.resolve({
+        cookedFoodId: savedCookedFood._id,
+        editRevision: 0,
+        cookedFoodIngredientIds: [savedIngredient._id],
+        recipeId: savedRecipeId,
+        recipeVersionId: savedRecipeVersionId,
+      })
+      await save.promise
+    })
+
+    expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+      'Remote tab edit',
+    )
+    expect(screen.getByText('Saved food')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(mutations.createCookedFood).toHaveBeenCalledTimes(1)
+    expect(mutations.updateCookedFood).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cookedFoodId: savedCookedFood._id,
+        recipeId: savedRecipeId,
+        recipeVersionId: savedRecipeVersionId,
+        ingredients: [
+          expect.objectContaining({
+            existingCookedFoodIngredientId: savedIngredient._id,
+          }),
+        ],
+      }),
+    )
+    expect(loadCookedFoodDetailMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves a cross-tab recipe change while rebasing a pending save', async () => {
+    const pendingUpdate = createDeferred<CookedFoodWriteResult>()
+    const remoteRecipe = createRecipe('recipe-remote', 'Remote recipe')
+    const remoteVersion = createRecipeVersion(
+      'version-remote',
+      remoteRecipe._id,
+      remoteRecipe.name,
+    )
+    const food = createCookedFood('food-recipe-race', 'session-1', 'Saved food')
+    const line = createCookedFoodIngredientDoc('line-recipe-race', food._id, {
+      sourceType: 'custom',
+      ingredientNameSnapshot: 'Oats',
+    })
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      cookedFoods: [food],
+      cookedFoodIngredients: [line],
+      recipes: [remoteRecipe],
+      recipeVersions: [remoteVersion],
+    })
+    const mutations = configureMutationMocks()
+    mutations.updateCookedFood.mockImplementationOnce(
+      () => pendingUpdate.promise,
+    )
+
+    renderCookingRoute()
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+        food.name,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    act(() => {
+      dispatchRemoteDraftUpdate((draft) => ({
+        ...draft,
+        recipeId: remoteRecipe._id,
+        recipeVersionId: remoteVersion._id,
+        updatedAt: draft.updatedAt + 10_000,
+      }))
+    })
+    await waitFor(() =>
+      expect(screen.getByText('Remote recipe (v1)')).toBeTruthy(),
+    )
+
+    await act(async () => {
+      pendingUpdate.resolve({
+        cookedFoodId: food._id,
+        editRevision: 1,
+        cookedFoodIngredientIds: [line._id],
+      })
+      await pendingUpdate.promise
+    })
+
+    expect(screen.getByText('Remote recipe (v1)')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(mutations.updateCookedFood).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        expectedEditRevision: 1,
+        expectedCookedFoodIngredientIds: [line._id],
+        recipeId: remoteRecipe._id,
+        recipeVersionId: remoteVersion._id,
+      }),
+    )
+  })
+
+  it('rebases a cross-tab edit onto authoritative IDs after an update completes', async () => {
+    const pendingUpdate = createDeferred<CookedFoodWriteResult>()
+    const food = createCookedFood('food-update-race', 'session-1', 'Saved')
+    const originalLine = createCookedFoodIngredientDoc(
+      'line-update-race',
+      food._id,
+      {
+        sourceType: 'custom',
+        ingredientNameSnapshot: 'Original line',
+      },
+    )
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      cookedFoods: [food],
+      cookedFoodIngredients: [originalLine],
+    })
+    const mutations = configureMutationMocks()
+    mutations.updateCookedFood.mockImplementationOnce(
+      () => pendingUpdate.promise,
+    )
+
+    renderCookingRoute()
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+        'Saved',
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    act(() => {
+      dispatchRemoteDraftUpdate((draft) => ({
+        ...draft,
+        name: 'Remote edit during update',
+        updatedAt: draft.updatedAt + 10_000,
+      }))
+    })
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^name$/i) as HTMLInputElement).value).toBe(
+        'Remote edit during update',
+      ),
+    )
+
+    await act(async () => {
+      pendingUpdate.resolve({
+        cookedFoodId: food._id,
+        editRevision: 1,
+        cookedFoodIngredientIds: [originalLine._id],
+      })
+      await pendingUpdate.promise
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(mutations.updateCookedFood).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        cookedFoodId: food._id,
+        expectedEditRevision: 1,
+        expectedCookedFoodIngredientIds: [originalLine._id],
+        name: 'Remote edit during update',
+      }),
+    )
+  })
+
+  it('uses mutation-result order to rebind multiple new lines of the same source type', async () => {
+    const pendingCreate = createDeferred<CookedFoodWriteResult>()
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+    })
+    const mutations = configureMutationMocks()
+    mutations.createCookedFood.mockImplementationOnce(
+      () => pendingCreate.promise,
+    )
+    renderCookingRoute()
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /start cooking/i })[0],
+    )
+
+    for (const [name, kcal] of [
+      ['First custom', '100'],
+      ['Second custom', '200'],
+    ]) {
+      fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
+      fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
+        target: { value: name },
+      })
+      fireEvent.change(screen.getByLabelText(/kcal \/ 100/i), {
+        target: { value: kcal },
+      })
+      fireEvent.change(screen.getByLabelText(/^amount$/i), {
+        target: { value: '100' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    }
+    fireEvent.change(screen.getByLabelText(/finished weight/i), {
+      target: { value: '200' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: 'Keep open' },
+    })
+    const firstId = 'same-type-first' as Id<'cookedFoodIngredients'>
+    const secondId = 'same-type-second' as Id<'cookedFoodIngredients'>
+    await act(async () => {
+      pendingCreate.resolve({
+        cookedFoodId: 'food-same-type' as Id<'cookedFoods'>,
+        editRevision: 0,
+        cookedFoodIngredientIds: [firstId, secondId],
+      })
+      await pendingCreate.promise
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(mutations.updateCookedFood).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ingredients: [
+          expect.objectContaining({
+            name: 'First custom',
+            existingCookedFoodIngredientId: firstId,
+          }),
+          expect.objectContaining({
+            name: 'Second custom',
+            existingCookedFoodIngredientId: secondId,
+          }),
+        ],
+      }),
+    )
+  })
+
+  it('point-loads restored off-page references before adding a line', async () => {
+    const session = createSession('session-1', 'Sunday prep')
+    pointLoadedIngredient = createIngredientDoc(
+      'ingredient-remote',
+      'Remote milk',
+      { kcalBasisUnit: 'ml', kcalPer100: 50 },
+    )
+    pointLoadedFoodGroup = createFoodGroupDoc('group-remote', 'Remote group')
+    pointLoadedRecipe = createRecipe('recipe-remote', 'Remote recipe')
+    mockCookingData = createCookingFixture({
+      cookSessions: [session],
+      ingredients: [],
+      foodGroups: [],
+      recipes: [],
+    })
+    const draft = createCookingDraft(session._id, {
+      draftId: 'draft-restored',
+      name: 'Restored draft',
+      groupId: pointLoadedFoodGroup._id,
+      recipeId: pointLoadedRecipe._id,
+      recipeVersionId: 'recipe-version-remote' as Id<'recipeVersions'>,
+      lineIngredientId: pointLoadedIngredient._id,
+      lineCountedAmount: '250',
+      finishedWeight: '250',
+    })
+    window.localStorage.setItem(
+      'calorie-counter:cooking-drafts:test-user',
+      JSON.stringify({
+        version: 1,
+        activeDraftId: draft.draftId,
+        drafts: [draft],
+      }),
+    )
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+
+    expect(screen.getByText('Remote milk')).toBeTruthy()
+    expect(
+      screen.getByRole('combobox', { name: /cooked food group/i }).textContent,
+    ).toContain('Remote group')
+    expect(screen.getByText(/Remote recipe \(v1\)/i)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mutations.createCookedFood).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: [
+            expect.objectContaining({
+              ingredientId: pointLoadedIngredient?._id,
+              expectedSnapshot: {
+                name: pointLoadedIngredient?.name,
+                kcalPer100: pointLoadedIngredient?.kcalPer100,
+                kcalBasisUnit: 'ml',
+                ignoreCalories: false,
+              },
+              referenceAmount: 250,
+              referenceUnit: 'ml',
+              countedAmount: 250,
             }),
           ],
         }),
@@ -811,6 +1558,7 @@ describe('Cooking route', () => {
       expect(mutations.updateCookedFood).toHaveBeenCalledWith(
         expect.objectContaining({
           cookedFoodId: 'food-1',
+          expectedCookedFoodIngredientIds: ['line-ingredient', 'line-custom'],
           ingredients: expect.arrayContaining([
             expect.objectContaining({
               sourceType: 'ingredient',
@@ -833,6 +1581,97 @@ describe('Cooking route', () => {
         }),
       )
     })
+  })
+
+  it('retains the complete original line set when replacing every cooked-food line', async () => {
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      cookedFoods: [createCookedFood('food-1', 'session-1', 'Saved batch')],
+      cookedFoodIngredients: [
+        createCookedFoodIngredientDoc('line-one', 'food-1'),
+        createCookedFoodIngredientDoc('line-two', 'food-1', {
+          sourceType: 'custom',
+          ingredientNameSnapshot: 'Custom line',
+        }),
+      ],
+    })
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2),
+    )
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[1])
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: /^new$/i }))
+    fireEvent.change(screen.getByLabelText(/^ingredient$/i), {
+      target: { value: 'Replacement line' },
+    })
+    fireEvent.change(screen.getByLabelText(/kcal \/ 100/i), {
+      target: { value: '150' },
+    })
+    fireEvent.change(screen.getByLabelText(/^amount$/i), {
+      target: { value: '100' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() =>
+      expect(mutations.updateCookedFood).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookedFoodId: 'food-1',
+          expectedCookedFoodIngredientIds: ['line-one', 'line-two'],
+          ingredients: [
+            expect.objectContaining({
+              sourceType: 'custom',
+              name: 'Replacement line',
+            }),
+          ],
+        }),
+      ),
+    )
+  })
+
+  it('preserves an untouched historical line note byte-for-byte', async () => {
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-1', 'Sunday prep')],
+      cookedFoods: [createCookedFood('food-1', 'session-1', 'Saved batch')],
+      ingredients: [createIngredientDoc('ingredient-1', 'Oats')],
+      cookedFoodIngredients: [
+        createCookedFoodIngredientDoc('line-one', 'food-1', {
+          ingredientId: 'ingredient-1' as Id<'ingredients'>,
+          notes: '  preserve historical spacing  ',
+        }),
+      ],
+    })
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(screen.getAllByRole('button', { name: /^open$/i })[0])
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Edit' }).length).toBe(2),
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    fireEvent.change(screen.getByLabelText(/^amount$/i), {
+      target: { value: '101' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() =>
+      expect(mutations.updateCookedFood).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: [
+            expect.objectContaining({
+              existingCookedFoodIngredientId: 'line-one',
+              notes: '  preserve historical spacing  ',
+            }),
+          ],
+        }),
+      ),
+    )
   })
 
   it('keeps an archived cook label when editing without offering it on new batches', () => {
@@ -858,6 +1697,67 @@ describe('Cooking route', () => {
     expect(
       screen.getByRole('combobox', { name: /session person/i }).textContent,
     ).not.toContain('Archived cook')
+  })
+
+  it('preserves the exact cooking timestamp on a label-only batch edit', async () => {
+    const originalCookedAt = new Date(2026, 3, 4, 18, 0, 0, 0).getTime()
+    const session = {
+      ...createSession('session-time', 'Evening prep'),
+      cookedAt: originalCookedAt,
+    }
+    mockCookingData = createCookingFixture({ cookSessions: [session] })
+    const mutations = configureMutationMocks()
+
+    renderCookingRoute()
+    fireEvent.click(screen.getByRole('button', { name: /edit batch/i }))
+    fireEvent.change(screen.getByLabelText('Session label'), {
+      target: { value: 'Renamed prep' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save batch/i }))
+
+    await waitFor(() =>
+      expect(mutations.updateCookSession).toHaveBeenCalledWith({
+        sessionId: session._id,
+        expectedEditRevision: session.editRevision ?? 0,
+        label: 'Renamed prep',
+        cookedAt: originalCookedAt,
+        cookedByPersonId: session.cookedByPersonId,
+      }),
+    )
+  })
+
+  it('locks batch editing and navigation while a batch save is pending', async () => {
+    const pendingUpdate = createDeferred<undefined>()
+    mockCookingData = createCookingFixture({
+      cookSessions: [createSession('session-pending', 'Pending prep')],
+    })
+    const mutations = configureMutationMocks()
+    mutations.updateCookSession.mockImplementationOnce(
+      () => pendingUpdate.promise,
+    )
+    const view = renderCookingRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit batch/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save batch/i }))
+    const Component = CookingRoute.options.component as ComponentType
+    view.rerender(<Component />)
+
+    expect(
+      (screen.getByLabelText('Session label') as HTMLInputElement).closest(
+        'fieldset',
+      )?.disabled,
+    ).toBe(true)
+    for (const button of screen.getAllByRole('button', { name: 'Open' })) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+    for (const button of screen.getAllByRole('button', { name: 'Edit' })) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+
+    await act(async () => {
+      pendingUpdate.resolve(undefined)
+      await pendingUpdate.promise
+    })
   })
 
   it('exposes remote search fields and explicit load-more controls', () => {
@@ -921,8 +1821,28 @@ function configureMutationMocks() {
     updateCookSession: vi.fn(async () => undefined),
     setCookSessionArchived: vi.fn(async () => undefined),
     deleteCookSession: vi.fn(async () => undefined),
-    createCookedFood: vi.fn(async () => 'food-new'),
-    updateCookedFood: vi.fn(async () => undefined),
+    createCookedFood: vi.fn(async (rawArgs: unknown) => {
+      const args = rawArgs as CookedFoodWriteArgs
+      return {
+        cookedFoodId: 'food-new' as Id<'cookedFoods'>,
+        editRevision: 0,
+        cookedFoodIngredientIds: args.ingredients.map(
+          (_, index) => `created-line-${index}` as Id<'cookedFoodIngredients'>,
+        ),
+      }
+    }),
+    updateCookedFood: vi.fn(async (rawArgs: unknown) => {
+      const args = rawArgs as CookedFoodWriteArgs
+      return {
+        cookedFoodId: args.cookedFoodId ?? ('food-new' as Id<'cookedFoods'>),
+        editRevision: (args.expectedEditRevision ?? 0) + 1,
+        cookedFoodIngredientIds: args.ingredients.map(
+          (line, index) =>
+            line.existingCookedFoodIngredientId ??
+            (`updated-line-${index}` as Id<'cookedFoodIngredients'>),
+        ),
+      }
+    }),
     setCookedFoodArchived: vi.fn(async () => undefined),
     deleteCookedFood: vi.fn(async () => undefined),
   }
@@ -950,6 +1870,22 @@ function configureMutationMocks() {
   return mutations
 }
 
+type CookedFoodWriteArgs = {
+  cookedFoodId?: Id<'cookedFoods'>
+  expectedEditRevision?: number
+  ingredients: Array<{
+    existingCookedFoodIngredientId?: Id<'cookedFoodIngredients'>
+  }>
+}
+
+type CookedFoodWriteResult = {
+  cookedFoodId: Id<'cookedFoods'>
+  editRevision: number
+  cookedFoodIngredientIds: Id<'cookedFoodIngredients'>[]
+  recipeId?: Id<'recipes'>
+  recipeVersionId?: Id<'recipeVersions'>
+}
+
 function createSession(id: string, label: string) {
   return createCookSessionDoc(id, label)
 }
@@ -966,6 +1902,7 @@ function createRecipe(id: string, name: string): Doc<'recipes'> {
     name,
     description: undefined,
     archived: false,
+    editRevision: 0,
     latestVersionNumber: 1,
     createdAt: 1,
   }
@@ -994,4 +1931,45 @@ function createDeferred<T>() {
     resolve = next
   })
   return { promise, resolve }
+}
+
+function dispatchRemoteDraftUpdate(
+  update: (draft: CookingDraft) => CookingDraft,
+) {
+  const key = 'calorie-counter:cooking-drafts:test-user'
+  const serialized = window.localStorage.getItem(key)
+  if (!serialized) {
+    throw new Error('Expected a persisted cooking draft.')
+  }
+  const state = JSON.parse(serialized) as {
+    version: number
+    activeDraftId: string | null
+    drafts: CookingDraft[]
+    tombstones?: Array<{ draftId: string; deletedAt: number }>
+  }
+  const newValue = JSON.stringify({
+    ...state,
+    version: 2,
+    drafts: state.drafts.map(update),
+    tombstones: state.tombstones ?? [],
+  })
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key,
+      newValue,
+      storageArea: window.localStorage,
+    }),
+  )
+}
+
+async function chooseCookingRecipe(name: string) {
+  fireEvent.focus(
+    screen.getByRole('combobox', { name: /cooked food recipe search/i }),
+  )
+  const option = await screen.findByRole('option', {
+    name: new RegExp(name, 'i'),
+  })
+  fireEvent.pointerDown(option, { button: 0 })
+  fireEvent.pointerUp(option, { button: 0 })
+  fireEvent.click(option)
 }

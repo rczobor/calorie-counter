@@ -4,6 +4,7 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 
+import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
 import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
 import {
@@ -20,8 +21,13 @@ const personDto = v.object({
   notes: v.optional(v.string()),
   currentDailyGoalKcal: v.number(),
   archived: v.boolean(),
+  editRevision: v.number(),
   createdAt: v.number(),
 })
+
+function personWithoutOwner(person: Doc<'people'>) {
+  return { ...withoutOwner(person), editRevision: person.editRevision ?? 0 }
+}
 
 const personWithTodayDto = personDto.extend({
   consumedCalories: v.number(),
@@ -54,7 +60,7 @@ export const list = query({
           .eq('archived', args.archived),
       )
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    return { ...result, page: result.page.map(personWithoutOwner) }
   },
 })
 
@@ -67,7 +73,7 @@ export const get = query({
     if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
       return null
     }
-    return withoutOwner(person)
+    return personWithoutOwner(person)
   },
 })
 
@@ -102,7 +108,7 @@ export const listWithToday = query({
           )
           .unique()
         return {
-          ...withoutOwner(person),
+          ...personWithoutOwner(person),
           consumedCalories: summary?.consumedCalories ?? 0,
         }
       }),
@@ -135,7 +141,7 @@ export const search = query({
               .eq('archived', args.archived),
           )
           .take(MAX_SEARCH_RESULTS)
-    return rows.map(withoutOwner)
+    return rows.map(personWithoutOwner)
   },
 })
 
@@ -148,10 +154,6 @@ export const listGoalHistory = query({
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedUser(ctx)
     assertPageSize(args.paginationOpts.numItems)
-    const person = await ctx.db.get(args.personId)
-    if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
-      throw new Error('Person not found.')
-    }
     const result = await ctx.db
       .query('personGoalHistory')
       .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>

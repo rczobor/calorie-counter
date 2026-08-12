@@ -105,8 +105,11 @@ pnpm exec convex deploy --cmd 'pnpm run build' --preview-run seed:defaults
 ```
 
 The seed function creates default people, catalog items, a recipe, a cook
-session, cooked food, and today's sample meal. It is idempotent for the target
-owner. Seeding requires an issuer-qualified `SEED_OWNER_TOKEN_IDENTIFIER` in
+session, cooked food, and a sample meal. Its date defaults to the current UTC
+calendar date; pass `eatenOn` in `YYYY-MM-DD` format or set `SEED_EATEN_ON` on
+the Convex deployment when the sample should appear on a different local date.
+It is idempotent for the target owner and date. Seeding requires an
+issuer-qualified `SEED_OWNER_TOKEN_IDENTIFIER` in
 `issuer|subject` form unless the call is authenticated. `SEED_OWNER_USER_ID` is
 an optional helper for deriving and validating that identifier; it is not
 stored in application records. Preview deployments may derive the identifier
@@ -121,7 +124,7 @@ pnpm exec convex env set SEED_OWNER_USER_ID user_...
 For a selected dev deployment, you can also pass the owner directly:
 
 ```bash
-pnpm run seed:defaults -- '{"ownerTokenIdentifier":"https://issuer.example|user_...","ownerUserId":"user_..."}'
+pnpm run seed:defaults -- '{"ownerTokenIdentifier":"https://issuer.example|user_...","ownerUserId":"user_...","eatenOn":"2026-04-04"}'
 ```
 
 For local runs, `pnpm run seed:defaults` forwards `SEED_OWNER_USER_ID` and
@@ -157,9 +160,19 @@ pnpm exec convex export --prod --include-file-storage --path .convex-backups/<ti
 ```
 
 4. Extract a working copy of the snapshot into a directory. The normal Convex
-   snapshot layout is `<table>/documents.jsonl`. Transform it into a separate,
-   empty output directory; the output must not be the input or a directory
-   inside it:
+   snapshot layout is `<table>/documents.jsonl`. Before transforming, verify
+   that the extracted working copy explicitly contains `documents.jsonl` for
+   all twelve legacy application tables, including tables with zero rows. The
+   transformer rejects a snapshot when any application table file is missing;
+   it does not interpret a missing file as an empty table.
+
+   If an application table file is missing, stop and confirm from the untouched
+   archive and the deployment checks rehearsed in step 5 that the table is
+   genuinely empty. Only after that confirmation, create an empty
+   `<table>/documents.jsonl` in the extracted working copy. Never add, remove,
+   or edit files in the original snapshot. Transform the verified working copy
+   into a separate, empty output directory; the output must not be the input or
+   a directory inside it:
 
 ```bash
 pnpm run transform:convex-export -- --input .convex-backups/<timestamp>/source --output .convex-backups/<timestamp>/transformed
@@ -168,9 +181,20 @@ pnpm run transform:convex-export -- --input .convex-backups/<timestamp>/source -
 The transformer writes flat `<table>.jsonl` files plus `report.json`. Existing
 documents retain their `_id` and exact `_creationTime` (including fractional
 values). Rebuilt `dailySummaries` intentionally omit those system fields so the
-single-table JSONL import assigns them. The transformer validates required
-parent relationships, ownership, and current recipe-version consistency before
-producing importable output. Review the report and reconcile source/output
+single-table JSONL import assigns them. The transformer validates that every
+legacy application table file is present, along with required parent
+relationships, ownership, recoverable historical nutrition, and current
+recipe-version consistency before producing importable output. It also rejects
+non-finite derived values before JSON serialization and text that cannot be
+round-tripped through the current mutation limits. The transformer does not
+silently truncate historical text; resolve any reported over-limit value in an
+explicit working-copy remediation. It similarly stops on ambiguous multi-group
+assignments, invalid owner token identifiers, inaccessible parent child-counts,
+and counted nutrition that current mutations cannot save; make those choices or
+corrections explicitly in the working copy. Because meal editing is gram-based, legacy
+non-gram custom-weight meal snapshots are reported and converted to
+fixed-calorie items with their exact stored name, notes, and calories. Review
+the report and reconcile source/output
 counts before continuing. A rerun must use another empty output directory. The
 transformer never invokes the Convex CLI or changes a deployment.
 

@@ -1,7 +1,8 @@
 import { v } from 'convex/values'
 
 import { internalMutation, type MutationCtx } from './_generated/server'
-import type { Doc, Id } from './_generated/dataModel'
+import type { Id } from './_generated/dataModel'
+import { normalizeRequiredDate } from './lib/validation'
 
 type SeedOwner = {
   ownerTokenIdentifier: string
@@ -18,19 +19,31 @@ type SeedSummary = {
 }
 
 const SEEDED_NOTE = 'Seeded default data.'
-const MAX_SEED_ROWS_PER_TABLE = 5_000
+const SEEDED_RECIPE_DESCRIPTION = 'Seeded meal prep recipe.'
+const SEEDED_RECIPE_INSTRUCTIONS =
+  'Cook rice, sear chicken, and portion with olive oil.'
+const MAX_EXACT_SEED_MATCHES = 16
+
+function assertExactSeedMatchesAreBounded(label: string, rows: unknown[]) {
+  if (rows.length > MAX_EXACT_SEED_MATCHES) {
+    throw new Error(
+      `Cannot seed ${label}: too many exact-name collisions require cleanup.`,
+    )
+  }
+}
 
 function normalizeOptionalString(value: string | undefined) {
   const trimmed = value?.trim()
   return trimmed ? trimmed : undefined
 }
 
-function toLocalDateString(timestamp: number) {
-  const date = new Date(timestamp)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+function resolveSeedDate(explicitDate: string | undefined, timestamp: number) {
+  const configuredDate =
+    normalizeOptionalString(explicitDate) ??
+    normalizeOptionalString(process.env.SEED_EATEN_ON)
+  return configuredDate
+    ? normalizeRequiredDate(configuredDate, 'Seed date')
+    : new Date(timestamp).toISOString().slice(0, 10)
 }
 
 function toSearchDateString(timestamp: number) {
@@ -88,30 +101,37 @@ async function resolveSeedOwner(
   }
 }
 
-function findByName<TDoc extends { name: string }>(rows: TDoc[], name: string) {
-  return rows.find((row) => row.name === name)
-}
-
-function findMealByName(rows: Doc<'meals'>[], name: string, eatenOn: string) {
-  return rows.find((row) => row.name === name && row.eatenOn === eatenOn)
-}
-
 function caloriesFor(weightGrams: number, kcalPer100: number) {
-  return (weightGrams * kcalPer100) / 100
+  const calories = (weightGrams * kcalPer100) / 100
+  if (!Number.isFinite(calories)) {
+    throw new Error('Seed calories exceed the supported numeric range.')
+  }
+  return calories
 }
 
-function assertSeedRowsAreComplete(table: string, rows: unknown[]) {
-  if (rows.length > MAX_SEED_ROWS_PER_TABLE) {
+function addSeedSummaryCalories(current: number, added: number) {
+  const result = current + added
+  if (!Number.isFinite(result)) {
+    throw new Error('Seed daily summary calories exceed the supported range.')
+  }
+  return result
+}
+
+function incrementSeedMealCount(current: number) {
+  const result = current + 1
+  if (!Number.isSafeInteger(result)) {
     throw new Error(
-      `Cannot seed ${table}: more than ${MAX_SEED_ROWS_PER_TABLE} existing rows require an explicit migration.`,
+      'Seed daily summary meal count exceeds the supported range.',
     )
   }
+  return result
 }
 
 export const defaults = internalMutation({
   args: {
     ownerUserId: v.optional(v.string()),
     ownerTokenIdentifier: v.optional(v.string()),
+    eatenOn: v.optional(v.string()),
   },
   returns: v.object({
     people: v.number(),
@@ -125,7 +145,7 @@ export const defaults = internalMutation({
   handler: async (ctx, args): Promise<SeedSummary> => {
     const owner = await resolveSeedOwner(ctx, args)
     const now = Date.now()
-    const today = toLocalDateString(now)
+    const today = resolveSeedDate(args.eatenOn, now)
     const summary: SeedSummary = {
       people: 0,
       foodGroups: 0,
@@ -136,81 +156,22 @@ export const defaults = internalMutation({
       meals: 0,
     }
 
-    const [
-      existingPeople,
-      existingFoodGroups,
-      existingIngredients,
-      existingRecipes,
-      existingRecipeVersions,
-      existingCookSessions,
-      existingCookedFoods,
-      existingMeals,
-    ] = await Promise.all([
-      ctx.db
-        .query('people')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('foodGroups')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('recipes')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('recipeVersions')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('cookSessions')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('cookedFoods')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-      ctx.db
-        .query('meals')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', owner.ownerTokenIdentifier),
-        )
-        .take(MAX_SEED_ROWS_PER_TABLE + 1),
-    ])
-
-    for (const [table, rows] of [
-      ['people', existingPeople],
-      ['foodGroups', existingFoodGroups],
-      ['ingredients', existingIngredients],
-      ['recipes', existingRecipes],
-      ['recipeVersions', existingRecipeVersions],
-      ['cookSessions', existingCookSessions],
-      ['cookedFoods', existingCookedFoods],
-      ['meals', existingMeals],
-    ] as const) {
-      assertSeedRowsAreComplete(table, rows)
-    }
-
     async function ensurePerson(name: string, currentDailyGoalKcal: number) {
-      const existing = findByName(existingPeople, name)
+      const matches = await ctx.db
+        .query('people')
+        .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('archived', false)
+            .eq('name', name),
+        )
+        .take(MAX_EXACT_SEED_MATCHES + 1)
+      assertExactSeedMatchesAreBounded('people', matches)
+      const existing = matches.find(
+        (person) =>
+          person.notes === SEEDED_NOTE &&
+          person.currentDailyGoalKcal === currentDailyGoalKcal,
+      )
       if (existing) {
         return existing._id
       }
@@ -220,6 +181,7 @@ export const defaults = internalMutation({
         name,
         notes: SEEDED_NOTE,
         currentDailyGoalKcal,
+        editRevision: 0,
         archived: false,
         createdAt: now,
       })
@@ -239,9 +201,18 @@ export const defaults = internalMutation({
       name: string,
       appliesTo: 'ingredient' | 'cookedFood',
     ) {
-      const existing = existingFoodGroups.find(
-        (group) => group.name === name && group.appliesTo === appliesTo,
-      )
+      const existing = await ctx.db
+        .query('foodGroups')
+        .withIndex(
+          'by_ownerTokenIdentifier_and_archived_and_appliesTo_and_name',
+          (q) =>
+            q
+              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('archived', false)
+              .eq('appliesTo', appliesTo)
+              .eq('name', name),
+        )
+        .first()
       if (existing) {
         return existing._id
       }
@@ -250,6 +221,7 @@ export const defaults = internalMutation({
         ...ownerFields(owner),
         name,
         appliesTo,
+        editRevision: 0,
         archived: false,
         createdAt: now,
       })
@@ -263,7 +235,25 @@ export const defaults = internalMutation({
       kcalPer100: number
       groupId?: Id<'foodGroups'>
     }) {
-      const existing = findByName(existingIngredients, input.name)
+      const matches = await ctx.db
+        .query('ingredients')
+        .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('archived', false)
+            .eq('name', input.name),
+        )
+        .take(MAX_EXACT_SEED_MATCHES + 1)
+      assertExactSeedMatchesAreBounded('ingredients', matches)
+      const existing = matches.find(
+        (ingredient) =>
+          ingredient.notes === SEEDED_NOTE &&
+          ingredient.brand === input.brand &&
+          ingredient.kcalPer100 === input.kcalPer100 &&
+          ingredient.kcalBasisUnit === 'g' &&
+          !ingredient.ignoreCalories &&
+          ingredient.groupId === input.groupId,
+      )
       if (existing) {
         return existing._id
       }
@@ -275,6 +265,7 @@ export const defaults = internalMutation({
         kcalPer100: input.kcalPer100,
         kcalBasisUnit: 'g',
         ignoreCalories: false,
+        editRevision: 0,
         groupId: input.groupId,
         notes: SEEDED_NOTE,
         archived: false,
@@ -323,24 +314,93 @@ export const defaults = internalMutation({
       groupId: pantryGroupId,
     })
 
-    let recipeId = findByName(existingRecipes, 'Chicken rice bowl')?._id
-    let recipeVersionId = recipeId
-      ? existingRecipeVersions.find(
-          (version) =>
-            version.recipeId === recipeId &&
-            version.versionNumber ===
-              existingRecipes.find((recipe) => recipe._id === recipeId)
-                ?.latestVersionNumber,
-        )?._id
-      : undefined
+    const recipeMatches = await ctx.db
+      .query('recipes')
+      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+        q
+          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('archived', false)
+          .eq('name', 'Chicken rice bowl'),
+      )
+      .take(MAX_EXACT_SEED_MATCHES + 1)
+    assertExactSeedMatchesAreBounded('recipes', recipeMatches)
+    let recipeId: Id<'recipes'> | undefined
+    let recipeVersionId: Id<'recipeVersions'> | undefined
+    for (const recipe of recipeMatches) {
+      if (
+        recipe.description !== SEEDED_RECIPE_DESCRIPTION ||
+        recipe.latestVersionNumber !== 1
+      ) {
+        continue
+      }
+      const matchingVersions = await ctx.db
+        .query('recipeVersions')
+        .withIndex(
+          'by_ownerTokenIdentifier_and_recipeId_and_versionNumber',
+          (q) =>
+            q
+              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('recipeId', recipe._id)
+              .eq('versionNumber', recipe.latestVersionNumber),
+        )
+        .take(2)
+      if (matchingVersions.length !== 1) {
+        continue
+      }
+      const version = matchingVersions[0]!
+      const versionLines = await ctx.db
+        .query('recipeVersionIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('recipeVersionId', version._id),
+        )
+        .take(MAX_EXACT_SEED_MATCHES + 1)
+      assertExactSeedMatchesAreBounded(
+        'recipe version ingredients',
+        versionLines,
+      )
+      const hasExpectedLine = (
+        ingredientId: Id<'ingredients'>,
+        ingredientNameSnapshot: string,
+        kcalPer100Snapshot: number,
+        referenceAmount: number,
+      ) =>
+        versionLines.some(
+          (line) =>
+            line.sourceType === 'ingredient' &&
+            line.ingredientId === ingredientId &&
+            line.ingredientNameSnapshot === ingredientNameSnapshot &&
+            line.kcalPer100Snapshot === kcalPer100Snapshot &&
+            line.kcalBasisUnitSnapshot === 'g' &&
+            !line.ignoreCaloriesSnapshot &&
+            line.referenceAmount === referenceAmount &&
+            line.referenceUnit === 'g' &&
+            line.notes === undefined,
+        )
+      if (
+        version.name === 'Chicken rice bowl' &&
+        version.instructions === SEEDED_RECIPE_INSTRUCTIONS &&
+        version.notes === SEEDED_NOTE &&
+        versionLines.length === 3 &&
+        hasExpectedLine(chickenId, 'Chicken breast', 165, 300) &&
+        hasExpectedLine(riceId, 'White rice', 130, 350) &&
+        hasExpectedLine(oliveOilId, 'Olive oil', 884, 15)
+      ) {
+        recipeId = recipe._id
+        recipeVersionId = version._id
+        break
+      }
+    }
 
     if (!recipeId) {
       recipeId = await ctx.db.insert('recipes', {
         ...ownerFields(owner),
         name: 'Chicken rice bowl',
-        description: 'Seeded meal prep recipe.',
+        description: SEEDED_RECIPE_DESCRIPTION,
         archived: false,
         latestVersionNumber: 1,
+        editRevision: 0,
         createdAt: now,
       })
       summary.recipes += 1
@@ -352,7 +412,7 @@ export const defaults = internalMutation({
         recipeId,
         versionNumber: 1,
         name: 'Chicken rice bowl',
-        instructions: 'Cook rice, sear chicken, and portion with olive oil.',
+        instructions: SEEDED_RECIPE_INSTRUCTIONS,
         notes: SEEDED_NOTE,
         createdAt: now,
       })
@@ -399,8 +459,19 @@ export const defaults = internalMutation({
       ])
     }
 
-    let cookSessionId = existingCookSessions.find(
-      (session) => session.label === 'Sunday prep',
+    const sessionMatches = await ctx.db
+      .query('cookSessions')
+      .withIndex('by_ownerTokenIdentifier_and_archived_and_label', (q) =>
+        q
+          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('archived', false)
+          .eq('label', 'Sunday prep'),
+      )
+      .take(MAX_EXACT_SEED_MATCHES + 1)
+    assertExactSeedMatchesAreBounded('cook sessions', sessionMatches)
+    let cookSessionId = sessionMatches.find(
+      (session) =>
+        session.notes === SEEDED_NOTE && session.cookedByPersonId === alexId,
     )?._id
     if (!cookSessionId) {
       cookSessionId = await ctx.db.insert('cookSessions', {
@@ -411,22 +482,91 @@ export const defaults = internalMutation({
         cookedByPersonId: alexId,
         notes: SEEDED_NOTE,
         archived: false,
+        editRevision: 0,
         updatedAt: now,
         createdAt: now,
       })
       summary.cookSessions += 1
     }
 
-    let cookedFoodId = findByName(
-      existingCookedFoods,
-      'Chicken rice bowl portions',
-    )?._id
+    const cookedFoodMatches = await ctx.db
+      .query('cookedFoods')
+      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+        q
+          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('archived', false)
+          .eq('name', 'Chicken rice bowl portions'),
+      )
+      .take(MAX_EXACT_SEED_MATCHES + 1)
+    assertExactSeedMatchesAreBounded('cooked foods', cookedFoodMatches)
+    const chickenCalories = caloriesFor(300, 165)
+    const riceCalories = caloriesFor(350, 130)
+    const oilCalories = caloriesFor(15, 884)
+    const totalCalories = chickenCalories + riceCalories + oilCalories
+    const finishedWeightGrams = 900
+    const kcalPer100 = Math.round((totalCalories / finishedWeightGrams) * 100)
+    let cookedFoodId: Id<'cookedFoods'> | undefined
+    for (const food of cookedFoodMatches) {
+      if (
+        food.notes !== SEEDED_NOTE ||
+        food.cookSessionId !== cookSessionId ||
+        food.recipeId !== recipeId ||
+        food.recipeVersionId !== recipeVersionId ||
+        food.groupId !== mealPrepGroupId ||
+        food.finishedWeightGrams !== finishedWeightGrams ||
+        food.totalRawWeightGrams !== 665 ||
+        food.totalCalories !== totalCalories ||
+        food.kcalPer100 !== kcalPer100
+      ) {
+        continue
+      }
+      const cookedLines = await ctx.db
+        .query('cookedFoodIngredients')
+        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('cookedFoodId', food._id),
+        )
+        .take(MAX_EXACT_SEED_MATCHES + 1)
+      assertExactSeedMatchesAreBounded('cooked food ingredients', cookedLines)
+      const hasExpectedLine = (
+        ingredientId: Id<'ingredients'>,
+        ingredientNameSnapshot: string,
+        countedAmount: number,
+        kcalSnapshot: number,
+        calorieSnapshot: number,
+      ) =>
+        cookedLines.some(
+          (line) =>
+            line.sourceType === 'ingredient' &&
+            line.ingredientId === ingredientId &&
+            line.ingredientNameSnapshot === ingredientNameSnapshot &&
+            line.referenceAmount === countedAmount &&
+            line.referenceUnit === 'g' &&
+            line.countedAmount === countedAmount &&
+            line.ingredientKcalPer100Snapshot === kcalSnapshot &&
+            line.ingredientKcalBasisUnitSnapshot === 'g' &&
+            !line.ignoreCaloriesSnapshot &&
+            line.ingredientCaloriesSnapshot === calorieSnapshot &&
+            line.notes === undefined,
+        )
+      if (
+        cookedLines.length === 3 &&
+        hasExpectedLine(
+          chickenId,
+          'Chicken breast',
+          300,
+          165,
+          chickenCalories,
+        ) &&
+        hasExpectedLine(riceId, 'White rice', 350, 130, riceCalories) &&
+        hasExpectedLine(oliveOilId, 'Olive oil', 15, 884, oilCalories)
+      ) {
+        cookedFoodId = food._id
+        break
+      }
+    }
     if (!cookedFoodId) {
-      const chickenCalories = caloriesFor(300, 165)
-      const riceCalories = caloriesFor(350, 130)
-      const oilCalories = caloriesFor(15, 884)
-      const totalCalories = chickenCalories + riceCalories + oilCalories
-      const finishedWeightGrams = 900
       cookedFoodId = await ctx.db.insert('cookedFoods', {
         ...ownerFields(owner),
         cookSessionId,
@@ -437,7 +577,8 @@ export const defaults = internalMutation({
         finishedWeightGrams,
         totalRawWeightGrams: 665,
         totalCalories,
-        kcalPer100: Math.round((totalCalories / finishedWeightGrams) * 100),
+        kcalPer100,
+        editRevision: 0,
         notes: SEEDED_NOTE,
         archived: false,
         createdAt: now,
@@ -489,13 +630,84 @@ export const defaults = internalMutation({
       summary.cookedFoods += 1
     }
 
-    let mealId = findMealByName(existingMeals, 'Preview breakfast', today)?._id
+    const mealMatches = await ctx.db
+      .query('meals')
+      .withIndex(
+        'by_ownerTokenIdentifier_and_personId_and_eatenOn_and_name',
+        (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('personId', alexId)
+            .eq('eatenOn', today)
+            .eq('name', 'Preview breakfast'),
+      )
+      .take(MAX_EXACT_SEED_MATCHES + 1)
+    assertExactSeedMatchesAreBounded('meals', mealMatches)
+    const oatsWeightGrams = 60
+    const yogurtWeightGrams = 250
+    const oatsCalories = caloriesFor(oatsWeightGrams, 389)
+    const yogurtCalories = caloriesFor(yogurtWeightGrams, 59)
+    const mealTotalCalories = oatsCalories + yogurtCalories
+    let mealId: Id<'meals'> | undefined
+    for (const meal of mealMatches) {
+      if (
+        meal.notes !== SEEDED_NOTE ||
+        meal.totalCalories !== mealTotalCalories ||
+        meal.itemCount !== 2
+      ) {
+        continue
+      }
+      const mealItems = await ctx.db
+        .query('mealItems')
+        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+          q
+            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('mealId', meal._id),
+        )
+        .take(MAX_EXACT_SEED_MATCHES + 1)
+      assertExactSeedMatchesAreBounded('meal items', mealItems)
+      const hasExpectedItem = (
+        ingredientId: Id<'ingredients'>,
+        nameSnapshot: string,
+        kcalPer100Snapshot: number,
+        consumedWeightGrams: number,
+        caloriesSnapshot: number,
+      ) =>
+        mealItems.some(
+          (item) =>
+            item.sourceType === 'ingredient' &&
+            item.ingredientId === ingredientId &&
+            item.nameSnapshot === nameSnapshot &&
+            item.kcalPer100Snapshot === kcalPer100Snapshot &&
+            item.kcalBasisUnitSnapshot === 'g' &&
+            !item.ignoreCaloriesSnapshot &&
+            item.consumedWeightGrams === consumedWeightGrams &&
+            item.caloriesSnapshot === caloriesSnapshot &&
+            item.notes === undefined,
+        )
+      if (
+        mealItems.length === 2 &&
+        hasExpectedItem(
+          rolledOatsId,
+          'Rolled oats',
+          389,
+          oatsWeightGrams,
+          oatsCalories,
+        ) &&
+        hasExpectedItem(
+          greekYogurtId,
+          'Greek yogurt',
+          59,
+          yogurtWeightGrams,
+          yogurtCalories,
+        )
+      ) {
+        mealId = meal._id
+        break
+      }
+    }
     let createdMealTotalCalories: number | undefined
     if (!mealId) {
-      const oatsWeightGrams = 60
-      const yogurtWeightGrams = 250
-      const mealTotalCalories =
-        caloriesFor(oatsWeightGrams, 389) + caloriesFor(yogurtWeightGrams, 59)
       mealId = await ctx.db.insert('meals', {
         ...ownerFields(owner),
         personId: alexId,
@@ -505,6 +717,7 @@ export const defaults = internalMutation({
         archived: false,
         totalCalories: mealTotalCalories,
         itemCount: 2,
+        editRevision: 0,
         createdAt: now,
       })
       createdMealTotalCalories = mealTotalCalories
@@ -519,7 +732,7 @@ export const defaults = internalMutation({
           kcalBasisUnitSnapshot: 'g',
           ignoreCaloriesSnapshot: false,
           consumedWeightGrams: oatsWeightGrams,
-          caloriesSnapshot: caloriesFor(oatsWeightGrams, 389),
+          caloriesSnapshot: oatsCalories,
           notes: undefined,
         }),
         ctx.db.insert('mealItems', {
@@ -532,7 +745,7 @@ export const defaults = internalMutation({
           kcalBasisUnitSnapshot: 'g',
           ignoreCaloriesSnapshot: false,
           consumedWeightGrams: yogurtWeightGrams,
-          caloriesSnapshot: caloriesFor(yogurtWeightGrams, 59),
+          caloriesSnapshot: yogurtCalories,
           notes: undefined,
         }),
       ])
@@ -550,9 +763,11 @@ export const defaults = internalMutation({
         .unique()
       if (existingSummary) {
         await ctx.db.patch(existingSummary._id, {
-          consumedCalories:
-            existingSummary.consumedCalories + createdMealTotalCalories,
-          mealCount: existingSummary.mealCount + 1,
+          consumedCalories: addSeedSummaryCalories(
+            existingSummary.consumedCalories,
+            createdMealTotalCalories,
+          ),
+          mealCount: incrementSeedMealCount(existingSummary.mealCount),
           updatedAt: now,
         })
       } else {

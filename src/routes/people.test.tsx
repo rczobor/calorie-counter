@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -40,6 +41,8 @@ let goalHistory = [
 let mutationQueue: Array<(...args: never[]) => unknown> = []
 let mutationCursor = 0
 let confirmAndRunAction = vi.fn()
+let mockIsRunning = false
+let selectedPersonPointResult: null | undefined
 
 vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
@@ -49,9 +52,15 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
   useConfirmableAction: () => ({
     pendingConfirmation: null,
     isConfirmDialogOpen: false,
-    isRunning: false,
-    runAction: async (_successText: string, action: () => Promise<unknown>) =>
-      action(),
+    isRunning: mockIsRunning,
+    runAction: async (_successText: string, action: () => Promise<unknown>) => {
+      mockIsRunning = true
+      try {
+        return await action()
+      } finally {
+        mockIsRunning = false
+      }
+    },
     confirmAndRunAction,
     handleConfirmDialogOpenChange: vi.fn(),
     confirmPendingAction: vi.fn(),
@@ -60,6 +69,8 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
 
 vi.mock('convex/react', () => ({
   useMutation: (reference: unknown) => mockUseMutation(reference),
+  useQuery: (_reference: unknown, args: unknown) =>
+    args === 'skip' ? undefined : selectedPersonPointResult,
   usePaginatedQuery: (_reference: unknown, args: unknown) => {
     if (args === 'skip') {
       return paginated([], 'Exhausted', vi.fn())
@@ -103,6 +114,8 @@ beforeEach(() => {
   ]
   mutationCursor = 0
   mutationQueue = []
+  mockIsRunning = false
+  selectedPersonPointResult = undefined
   confirmAndRunAction = vi.fn(
     (_message: string, _successText: string, action: () => Promise<unknown>) =>
       action(),
@@ -130,6 +143,10 @@ describe('People route', () => {
     fireEvent.click(screen.getByRole('button', { name: /load more people/i }))
     expect(activeLoadMore).toHaveBeenCalledWith(20)
     expect(archivedLoadMore).not.toHaveBeenCalled()
+    expect(screen.getByPlaceholderText('Filter loaded people')).toBeTruthy()
+    expect(
+      screen.getByText(/Filtering includes loaded people only/i),
+    ).toBeTruthy()
 
     fireEvent.click(
       screen.getByRole('checkbox', { name: /show archived records/i }),
@@ -151,6 +168,22 @@ describe('People route', () => {
       screen.getByRole('button', { name: /load more goal history/i }),
     )
     expect(goalHistoryLoadMore).toHaveBeenCalledWith(20)
+  })
+
+  it('clears the effective history selection after a remote person deletion', () => {
+    configureMutationMocks()
+    const view = renderPeopleRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: 'History' }))
+    expect(screen.getByText(/showing goal history for/i)).toBeTruthy()
+
+    activePeople = []
+    selectedPersonPointResult = null
+    const Component = PeopleRoute.options.component as ComponentType
+    view.rerender(<Component />)
+
+    expect(screen.queryByText(/showing goal history for/i)).toBeNull()
+    expect(screen.queryByText('Initial goal')).toBeNull()
   })
 
   it('keeps edit, archive, and delete mutations wired to the selected person', async () => {
@@ -179,6 +212,7 @@ describe('People route', () => {
       expect(mutations.updatePerson).toHaveBeenCalledWith(
         expect.objectContaining({
           personId: 'person-1',
+          expectedEditRevision: 0,
           name: 'Alex Updated',
           goalKcal: 1900,
           reason: 'Training block',
@@ -190,6 +224,7 @@ describe('People route', () => {
     await waitFor(() => {
       expect(mutations.setPersonArchived).toHaveBeenCalledWith({
         personId: 'person-1',
+        expectedEditRevision: 0,
         archived: true,
       })
     })
@@ -198,7 +233,71 @@ describe('People route', () => {
     await waitFor(() => {
       expect(mutations.deletePerson).toHaveBeenCalledWith({
         personId: 'person-1',
+        expectedEditRevision: 0,
       })
+    })
+  })
+
+  it('preserves a fractional calorie goal on a name-only edit', async () => {
+    activePeople = [
+      createPerson('person-fractional', 'Alex', 600, {
+        currentDailyGoalKcal: 1875.5,
+      }),
+    ]
+    const mutations = configureMutationMocks()
+    renderPeopleRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(
+      (screen.getByLabelText('Daily calorie goal') as HTMLInputElement).value,
+    ).toBe('1875.5')
+    fireEvent.change(screen.getByLabelText('Person name'), {
+      target: { value: 'Alex renamed' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() =>
+      expect(mutations.updatePerson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          personId: 'person-fractional',
+          name: 'Alex renamed',
+          goalKcal: 1875.5,
+        }),
+      ),
+    )
+  })
+
+  it('locks form and selection entry points while a person save is pending', async () => {
+    const pendingUpdate = createDeferred<undefined>()
+    activePeople = [
+      createPerson('person-1', 'Alex', 600),
+      createPerson('person-2', 'Blair', 400),
+    ]
+    const mutations = configureMutationMocks()
+    mutations.updatePerson.mockImplementationOnce(() => pendingUpdate.promise)
+    const view = renderPeopleRoute()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'History' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    const Component = PeopleRoute.options.component as ComponentType
+    view.rerender(<Component />)
+
+    expect(
+      (screen.getByLabelText('Person name') as HTMLInputElement).closest(
+        'fieldset',
+      )?.disabled,
+    ).toBe(true)
+    for (const button of screen.getAllByRole('button', { name: 'History' })) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+    for (const button of screen.getAllByRole('button', { name: 'Edit' })) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+
+    await act(async () => {
+      pendingUpdate.resolve(undefined)
+      await pendingUpdate.promise
     })
   })
 })
@@ -244,6 +343,7 @@ function createPerson(
     name,
     currentDailyGoalKcal: 2000,
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     consumedCalories,
     ...overrides,
@@ -273,6 +373,15 @@ type PersonRow = {
   notes?: string
   currentDailyGoalKcal: number
   archived: boolean
+  editRevision: number
   createdAt: number
   consumedCalories: number
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((next) => {
+    resolve = next
+  })
+  return { promise, resolve }
 }

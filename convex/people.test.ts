@@ -8,6 +8,7 @@ import {
   createConvexTest,
   insertCookSession,
   insertMeal,
+  readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
@@ -110,6 +111,7 @@ describe('nutrition people mutations', () => {
     await expect(
       sameSubjectDifferentToken.mutation(api.nutrition.updatePerson, {
         personId,
+        expectedEditRevision: await readEditRevision(t, personId),
         name: 'Intruder',
         effectiveDate: '2026-04-04',
       }),
@@ -135,6 +137,36 @@ describe('nutrition people mutations', () => {
     ).resolves.toBeNull()
   })
 
+  it('returns empty goal history for deleted or foreign people', async () => {
+    const t = createConvexTest()
+    const owner = asTestUser(t)
+    const otherUser = asTestUserWithToken(t, 'user-2|token')
+    const personId = await owner.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
+    })
+    const paginationOpts = { cursor: null, numItems: 10 }
+
+    await expect(
+      otherUser.query(api.people.listGoalHistory, {
+        personId,
+        paginationOpts,
+      }),
+    ).resolves.toMatchObject({ page: [], isDone: true })
+
+    await owner.mutation(api.nutrition.deletePerson, {
+      personId,
+      expectedEditRevision: 0,
+    })
+    await expect(
+      owner.query(api.people.listGoalHistory, {
+        personId,
+        paginationOpts,
+      }),
+    ).resolves.toMatchObject({ page: [], isDone: true })
+  })
+
   it('updates the current goal and appends goal history', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
@@ -146,6 +178,7 @@ describe('nutrition people mutations', () => {
 
     await user.mutation(api.nutrition.updatePersonGoal, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       goalKcal: 1800,
       effectiveDate: '2026-04-05',
       reason: '  Cutting  ',
@@ -185,6 +218,7 @@ describe('nutrition people mutations', () => {
 
     await user.mutation(api.nutrition.updatePerson, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       name: 'Alex Updated',
       goalKcal: 1800,
       effectiveDate: '2026-04-05',
@@ -192,6 +226,7 @@ describe('nutrition people mutations', () => {
     })
     await user.mutation(api.nutrition.updatePerson, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       name: 'Alex Updated',
       goalKcal: 1800,
       effectiveDate: '2026-04-05',
@@ -246,7 +281,10 @@ describe('nutrition people mutations', () => {
     await insertMeal(t, personId)
 
     await expect(
-      user.mutation(api.nutrition.deletePerson, { personId }),
+      user.mutation(api.nutrition.deletePerson, {
+        personId,
+        expectedEditRevision: await readEditRevision(t, personId),
+      }),
     ).rejects.toThrowError(
       'Cannot delete person with meal/cooking history. Archive instead.',
     )
@@ -263,7 +301,10 @@ describe('nutrition people mutations', () => {
     await insertCookSession(t, { cookedByPersonId: personId })
 
     await expect(
-      user.mutation(api.nutrition.deletePerson, { personId }),
+      user.mutation(api.nutrition.deletePerson, {
+        personId,
+        expectedEditRevision: await readEditRevision(t, personId),
+      }),
     ).rejects.toThrowError(
       'Cannot delete person with meal/cooking history. Archive instead.',
     )
@@ -294,9 +335,63 @@ describe('nutrition people mutations', () => {
     })
 
     await expect(
-      user.mutation(api.nutrition.deletePerson, { personId }),
+      user.mutation(api.nutrition.deletePerson, {
+        personId,
+        expectedEditRevision: await readEditRevision(t, personId),
+      }),
     ).rejects.toThrow(
       'Person has too much goal history to delete. Archive instead.',
     )
+  })
+
+  it('rejects stale profile updates, archival, and deletion', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await user.mutation(api.nutrition.createPerson, {
+      name: 'Original',
+      currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
+    })
+    const originalRevision = await readEditRevision(t, personId)
+
+    await user.mutation(api.nutrition.updatePerson, {
+      personId,
+      expectedEditRevision: originalRevision,
+      name: 'First editor',
+      effectiveDate: '2026-04-04',
+    })
+
+    const staleUpdate = user.mutation(api.nutrition.updatePerson, {
+      personId,
+      expectedEditRevision: originalRevision,
+      name: 'Second editor',
+      effectiveDate: '2026-04-04',
+    })
+    const staleArchive = user.mutation(api.nutrition.setPersonArchived, {
+      personId,
+      expectedEditRevision: originalRevision,
+      archived: true,
+    })
+    const staleDelete = user.mutation(api.nutrition.deletePerson, {
+      personId,
+      expectedEditRevision: originalRevision,
+    })
+    await expect(staleUpdate).rejects.toThrow(
+      'Person changed since editing began. Refresh and try again.',
+    )
+    await expect(staleArchive).rejects.toThrow(
+      'Person changed since editing began. Refresh and try again.',
+    )
+    await expect(staleDelete).rejects.toThrow(
+      'Person changed since editing began. Refresh and try again.',
+    )
+
+    expect(
+      await t.run(async (ctx) => await ctx.db.get(personId)),
+    ).toMatchObject({
+      name: 'First editor',
+      archived: false,
+      editRevision: originalRevision + 1,
+    })
   })
 })

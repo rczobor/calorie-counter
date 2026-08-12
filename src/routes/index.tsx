@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import type { FunctionArgs } from 'convex/server'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Pencil, Plus, Trash2, X } from 'lucide-react'
@@ -64,7 +64,7 @@ type CustomIngredientMealItemDraft = {
   ingredientId?: Id<'ingredients'>
   name: string
   kcalPer100: number
-  kcalBasisUnit: NutritionUnit
+  kcalBasisUnit: 'g'
   ignoreCalories: boolean
   consumedWeightGrams: number
   saveToCatalog: boolean
@@ -122,6 +122,16 @@ function toMealMutationItems(items: DraftMealItem[]): MealMutationItem[] {
         sourceType: 'ingredient',
         existingMealItemId: item.existingMealItemId,
         ingredientId: item.ingredientId,
+        ...(item.existingMealItemId
+          ? {}
+          : {
+              expectedSnapshot: {
+                name: item.nameSnapshot,
+                kcalPer100: item.kcalPer100Snapshot,
+                kcalBasisUnit: item.kcalBasisUnitSnapshot,
+                ignoreCalories: item.ignoreCaloriesSnapshot,
+              },
+            }),
         consumedWeightGrams: item.consumedWeightGrams,
         notes: item.notes,
       }
@@ -131,6 +141,16 @@ function toMealMutationItems(items: DraftMealItem[]): MealMutationItem[] {
         sourceType: 'cookedFood',
         existingMealItemId: item.existingMealItemId,
         cookedFoodId: item.cookedFoodId,
+        ...(item.existingMealItemId
+          ? {}
+          : {
+              expectedSnapshot: {
+                name: item.nameSnapshot,
+                kcalPer100: item.kcalPer100Snapshot,
+                kcalBasisUnit: 'g' as const,
+                ignoreCalories: false,
+              },
+            }),
         consumedWeightGrams: item.consumedWeightGrams,
         notes: item.notes,
       }
@@ -187,6 +207,9 @@ function MealDashboardPageContent() {
   >(null)
   const [mealItems, setMealItems] = useState<DraftMealItem[]>([])
   const hydratedMealIdRef = useRef<Id<'meals'> | null>(null)
+  const expectedMealEditRevisionRef = useRef(0)
+  const expectedMealItemIdsRef = useRef<Id<'mealItems'>[]>([])
+  const [hydratedMealId, setHydratedMealId] = useState<Id<'meals'> | null>(null)
   const defaultPersonAppliedRef = useRef(false)
   const defaultCookSessionAppliedRef = useRef(false)
   const {
@@ -249,21 +272,91 @@ function MealDashboardPageContent() {
   const updateMeal = useMutation(api.nutrition.updateMeal)
   const setMealArchived = useMutation(api.nutrition.setMealArchived)
   const deleteMeal = useMutation(api.nutrition.deleteMeal)
+  const pointLoadedIngredient = useQuery(
+    api.catalog.getIngredient,
+    itemIngredientId &&
+      !ingredients.some((ingredient) => ingredient._id === itemIngredientId)
+      ? { ingredientId: itemIngredientId }
+      : 'skip',
+  )
+  const pointLoadedCookedFoodDetail = useQuery(
+    api.cooking.getCookedFoodDetail,
+    itemCookedFoodId &&
+      !cookedFoods.some((cookedFood) => cookedFood._id === itemCookedFoodId)
+      ? { cookedFoodId: itemCookedFoodId }
+      : 'skip',
+  )
+  const editingDraftItem =
+    editingDraftItemIndex === null
+      ? undefined
+      : mealItems[editingDraftItemIndex]
+  const stableHistoricalIngredientItem =
+    editingDraftItem?.sourceType === 'ingredient' &&
+    editingDraftItem.existingMealItemId &&
+    editingDraftItem.ingredientId === itemIngredientId
+      ? editingDraftItem
+      : undefined
+  const stableHistoricalCookedFoodItem =
+    editingDraftItem?.sourceType === 'cookedFood' &&
+    editingDraftItem.existingMealItemId &&
+    editingDraftItem.cookedFoodId === itemCookedFoodId
+      ? editingDraftItem
+      : undefined
+  const selectableIngredients = useMemo(
+    () =>
+      pointLoadedIngredient &&
+      ((!pointLoadedIngredient.archived &&
+        pointLoadedIngredient.kcalBasisUnit === 'g') ||
+        Boolean(stableHistoricalIngredientItem)) &&
+      !ingredients.some(
+        (ingredient) => ingredient._id === pointLoadedIngredient._id,
+      )
+        ? [...ingredients, pointLoadedIngredient]
+        : ingredients,
+    [ingredients, pointLoadedIngredient, stableHistoricalIngredientItem],
+  )
+  const selectableCookedFoods = useMemo(() => {
+    const restoredCookedFood = pointLoadedCookedFoodDetail?.cookedFood
+    return restoredCookedFood &&
+      (!restoredCookedFood.archived ||
+        Boolean(stableHistoricalCookedFoodItem)) &&
+      !cookedFoods.some(
+        (cookedFood) => cookedFood._id === restoredCookedFood._id,
+      )
+      ? [restoredCookedFood, ...cookedFoods]
+      : cookedFoods
+  }, [cookedFoods, pointLoadedCookedFoodDetail, stableHistoricalCookedFoodItem])
   const ingredientById = useMemo(
-    () => new Map(ingredients.map((item) => [item._id, item])),
-    [ingredients],
+    () => new Map(selectableIngredients.map((item) => [item._id, item])),
+    [selectableIngredients],
   )
   const cookedFoodById = useMemo(
-    () => new Map(cookedFoods.map((item) => [item._id, item])),
-    [cookedFoods],
+    () => new Map(selectableCookedFoods.map((item) => [item._id, item])),
+    [selectableCookedFoods],
   )
+  const restoredCookSession = pointLoadedCookedFoodDetail?.cookSession
+  const selectableCookSessions = useMemo(
+    () =>
+      restoredCookSession &&
+      !cookSessions.some((session) => session._id === restoredCookSession._id)
+        ? [restoredCookSession, ...cookSessions]
+        : cookSessions,
+    [cookSessions, restoredCookSession],
+  )
+  const restoredCookSessionId =
+    itemMode === 'cookedFood' &&
+    itemCookedFoodId &&
+    pointLoadedCookedFoodDetail?.cookedFood._id === itemCookedFoodId
+      ? pointLoadedCookedFoodDetail.cookedFood.cookSessionId
+      : ''
+  const displayedCookSessionId = restoredCookSessionId || effectiveCookSessionId
   const sessionOptions = useMemo(
     () =>
-      cookSessions.map((session) => ({
+      selectableCookSessions.map((session) => ({
         value: session._id,
         label: formatCookSessionLabel(session),
       })),
-    [cookSessions],
+    [selectableCookSessions],
   )
   const selectedPerson = people.find(
     (person) => person._id === effectiveSelectedPersonId,
@@ -309,6 +402,10 @@ function MealDashboardPageContent() {
     Number(itemQuickCalories) > 0
   const canSubmitMeal =
     Boolean(effectiveSelectedPersonId) && mealItems.length > 0
+  const isEditingMealHydrated =
+    !editingMealId ||
+    (editingMealDetail?.meal._id === editingMealId &&
+      hydratedMealId === editingMealId)
 
   const mealTableRows: MealTableRow[] = mealsForSelection.map((meal) => ({
     id: meal._id,
@@ -363,6 +460,7 @@ function MealDashboardPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() => editMeal(meal._id)}
             >
               Edit
@@ -377,6 +475,7 @@ function MealDashboardPageContent() {
                   async () => {
                     await setMealArchived({
                       mealId: meal._id,
+                      expectedEditRevision: meal.editRevision,
                       archived: !meal.archived,
                     })
                   },
@@ -395,7 +494,10 @@ function MealDashboardPageContent() {
                   'Delete this meal permanently?',
                   'Meal deleted.',
                   async () => {
-                    await deleteMeal({ mealId: meal._id })
+                    await deleteMeal({
+                      mealId: meal._id,
+                      expectedEditRevision: meal.editRevision,
+                    })
                     if (editingMealId === meal._id) {
                       resetMealForm()
                     }
@@ -413,14 +515,14 @@ function MealDashboardPageContent() {
 
   const ingredientSelectionRows = useMemo<IngredientSelectionRow[]>(
     () =>
-      ingredients.map((ingredient) => ({
+      selectableIngredients.map((ingredient) => ({
         id: ingredient._id,
         ingredient,
         name: ingredient.name,
         kcalPer100: ingredient.kcalPer100,
         ignoreCalories: Boolean(ingredient.ignoreCalories),
       })),
-    [ingredients],
+    [selectableIngredients],
   )
 
   const ingredientSelectionColumns: DataTableColumnDef<IngredientSelectionRow>[] =
@@ -479,6 +581,10 @@ function MealDashboardPageContent() {
   const selectedIngredient =
     itemIngredientId && itemMode === 'catalog'
       ? ingredientById.get(itemIngredientId)
+      : undefined
+  const selectedCookedFood =
+    itemCookedFoodId && itemMode === 'cookedFood'
+      ? cookedFoodById.get(itemCookedFoodId)
       : undefined
 
   const resetDraftItemInputs = () => {
@@ -710,6 +816,9 @@ function MealDashboardPageContent() {
     setEditingMealId(null)
     setMealItems([])
     hydratedMealIdRef.current = null
+    expectedMealEditRevisionRef.current = 0
+    expectedMealItemIdsRef.current = []
+    setHydratedMealId(null)
     resetDraftItemInputs()
   }
 
@@ -727,12 +836,16 @@ function MealDashboardPageContent() {
     setEditingMealId(meal._id)
     setMealItems([])
     hydratedMealIdRef.current = null
+    expectedMealEditRevisionRef.current = 0
+    expectedMealItemIdsRef.current = []
+    setHydratedMealId(null)
   }
 
   useEffect(() => {
     if (
       !editingMealId ||
       !editingMealDetail ||
+      editingMealDetail.meal._id !== editingMealId ||
       hydratedMealIdRef.current === editingMealId
     ) {
       return
@@ -794,7 +907,12 @@ function MealDashboardPageContent() {
         }
       }),
     )
+    expectedMealItemIdsRef.current = editingMealDetail.items.map(
+      (row) => row._id,
+    )
+    expectedMealEditRevisionRef.current = editingMealDetail.meal.editRevision
     hydratedMealIdRef.current = editingMealId
+    setHydratedMealId(editingMealId)
   }, [editingMealDetail, editingMealId])
 
   if (isLoading) {
@@ -858,474 +976,521 @@ function MealDashboardPageContent() {
                 : 'Add items below, then create the meal.'
             }
           >
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-              <div className="space-y-2">
-                <Label className="uppercase tracking-[0.08em] text-muted-foreground">
-                  Person
-                </Label>
-                {people.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Add an active person in Manage before creating meals.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <Select
-                      options={people.map((person) => ({
-                        value: person._id,
-                        label: person.name,
-                      }))}
-                      value={effectiveSelectedPersonId || null}
-                      onValueChange={(value) =>
-                        setSelectedPersonId(value ?? ('' as Id<'people'>))
-                      }
-                      placeholder="Select person"
-                      ariaLabel="Select person"
-                    />
-                    {paging.people.canLoadMore ||
-                    paging.people.isLoadingMore ? (
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        disabled={paging.people.isLoadingMore}
-                        onClick={paging.people.loadMore}
-                      >
-                        {paging.people.isLoadingMore
-                          ? 'Loading more people...'
-                          : 'Load more people'}
-                      </Button>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label className="uppercase tracking-[0.08em] text-muted-foreground">
-                  Date
-                </Label>
-                <DatePicker
-                  value={mealDate}
-                  onChange={setMealDate}
-                  ariaLabel="Meal date"
-                  className="w-full justify-start"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="mealName">Meal name</Label>
-              <Input
-                id="mealName"
-                aria-label="Meal name"
-                placeholder="Breakfast, lunch, snack"
-                value={mealName}
-                onChange={(event) => setMealName(event.target.value)}
-              />
-            </div>
-            <div className="mt-1 border-t border-border/40 pt-4">
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                Add items
-              </p>
-              <div className="mt-2">
-                <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
-                  {(
-                    [
-                      ['quick', 'Quick'],
-                      ['catalog', 'Saved'],
-                      ['new', 'New'],
-                      ['cookedFood', 'Cooked'],
-                    ] as const
-                  ).map(([mode, label]) => (
-                    <Toggle
-                      key={mode}
-                      variant="default"
-                      size="lg"
-                      pressed={itemMode === mode}
-                      onPressedChange={(pressed) => {
-                        if (!pressed) {
-                          return
+            <fieldset className="contents" disabled={isRunning}>
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                <div className="space-y-2">
+                  <Label className="uppercase tracking-[0.08em] text-muted-foreground">
+                    Person
+                  </Label>
+                  {people.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Add an active person in Manage before creating meals.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <Select
+                        options={people.map((person) => ({
+                          value: person._id,
+                          label: person.name,
+                        }))}
+                        value={effectiveSelectedPersonId || null}
+                        onValueChange={(value) =>
+                          setSelectedPersonId(value ?? ('' as Id<'people'>))
                         }
-                        setItemMode(mode)
-                        if (mode === 'cookedFood') {
-                          setItemCookedFoodId('')
-                        }
-                      }}
-                      className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
-                    >
-                      {label}
-                    </Toggle>
-                  ))}
+                        placeholder="Select person"
+                        ariaLabel="Select person"
+                      />
+                      {paging.people.canLoadMore ||
+                      paging.people.isLoadingMore ? (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          disabled={paging.people.isLoadingMore}
+                          onClick={paging.people.loadMore}
+                        >
+                          {paging.people.isLoadingMore
+                            ? 'Loading more people...'
+                            : 'Load more people'}
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="uppercase tracking-[0.08em] text-muted-foreground">
+                    Date
+                  </Label>
+                  <DatePicker
+                    value={mealDate}
+                    onChange={setMealDate}
+                    ariaLabel="Meal date"
+                    className="w-full justify-start"
+                  />
                 </div>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {itemMode === 'quick'
-                  ? 'Know the total calories? Just type a name and the number.'
-                  : itemMode === 'catalog'
-                    ? "Pick an ingredient you've saved before, then enter the weight."
-                    : itemMode === 'new'
-                      ? 'Add something not in your catalog yet. You can save it for next time.'
-                      : 'Log food from a cooking session.'}
-              </p>
-              <div className="mt-3 space-y-3">
-                {itemMode === 'quick' ? (
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
-                    <div className="space-y-2">
-                      <Label htmlFor="quickName">Food</Label>
-                      <Input
-                        id="quickName"
-                        aria-label="Quick add name"
-                        placeholder="What did you eat?"
-                        value={itemQuickName}
-                        onChange={(event) =>
-                          setItemQuickName(event.target.value)
-                        }
-                      />
+
+              <div className="space-y-2">
+                <Label htmlFor="mealName">Meal name</Label>
+                <Input
+                  id="mealName"
+                  aria-label="Meal name"
+                  placeholder="Breakfast, lunch, snack"
+                  value={mealName}
+                  onChange={(event) => setMealName(event.target.value)}
+                />
+              </div>
+              {editingMealId && !isEditingMealHydrated ? (
+                <p className="text-sm text-muted-foreground" role="status">
+                  Loading meal items...
+                </p>
+              ) : null}
+              <fieldset className="contents" disabled={!isEditingMealHydrated}>
+                <div className="mt-1 border-t border-border/40 pt-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    Add items
+                  </p>
+                  <div className="mt-2">
+                    <div className="inline-flex rounded-xl border border-border/80 bg-muted/35 p-1">
+                      {(
+                        [
+                          ['quick', 'Quick'],
+                          ['catalog', 'Saved'],
+                          ['new', 'New'],
+                          ['cookedFood', 'Cooked'],
+                        ] as const
+                      ).map(([mode, label]) => (
+                        <Toggle
+                          key={mode}
+                          variant="default"
+                          size="lg"
+                          pressed={itemMode === mode}
+                          onPressedChange={(pressed) => {
+                            if (!pressed) {
+                              return
+                            }
+                            setItemMode(mode)
+                            if (mode === 'cookedFood') {
+                              setItemCookedFoodId('')
+                            }
+                          }}
+                          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
+                        >
+                          {label}
+                        </Toggle>
+                      ))}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quickCalories">Calories</Label>
-                      <Input
-                        id="quickCalories"
-                        type="number"
-                        aria-label="Quick add calories"
-                        placeholder="150"
-                        value={itemQuickCalories}
-                        onChange={(event) =>
-                          setItemQuickCalories(event.target.value)
-                        }
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="self-end"
-                      disabled={!canQuickAdd}
-                      onClick={() => {
-                        const name = itemQuickName.trim()
-                        const calories = Number(itemQuickCalories)
-                        if (
-                          !name ||
-                          !Number.isFinite(calories) ||
-                          calories <= 0
-                        ) {
-                          toast.error(
-                            'Enter a food name and calories greater than 0.',
-                          )
-                          return
-                        }
-                        upsertDraft({
-                          sourceType: 'fixedCalories',
-                          name,
-                          calories,
-                        })
-                        setItemQuickName('')
-                        setItemQuickCalories('')
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {editingDraftItemIndex === null ? 'Add' : 'Update'}
-                    </Button>
                   </div>
-                ) : itemMode === 'catalog' ? (
-                  <>
-                    <DataTable
-                      columns={ingredientSelectionColumns}
-                      data={ingredientSelectionRows}
-                      searchColumnId="name"
-                      searchPlaceholder="Search ingredients"
-                      emptyText="No ingredients found."
-                      toolbarActions={
-                        paging.ingredients.canLoadMore ||
-                        paging.ingredients.isLoadingMore ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {itemMode === 'quick'
+                      ? 'Know the total calories? Just type a name and the number.'
+                      : itemMode === 'catalog'
+                        ? "Pick an ingredient you've saved before, then enter the weight."
+                        : itemMode === 'new'
+                          ? 'Add something not in your catalog yet. You can save it for next time.'
+                          : 'Log food from a cooking session.'}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {itemMode === 'quick' ? (
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
+                        <div className="space-y-2">
+                          <Label htmlFor="quickName">Food</Label>
+                          <Input
+                            id="quickName"
+                            aria-label="Quick add name"
+                            placeholder="What did you eat?"
+                            value={itemQuickName}
+                            onChange={(event) =>
+                              setItemQuickName(event.target.value)
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="quickCalories">Calories</Label>
+                          <Input
+                            id="quickCalories"
+                            type="number"
+                            aria-label="Quick add calories"
+                            placeholder="150"
+                            value={itemQuickCalories}
+                            onChange={(event) =>
+                              setItemQuickCalories(event.target.value)
+                            }
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="self-end"
+                          disabled={!canQuickAdd}
+                          onClick={() => {
+                            const name = itemQuickName.trim()
+                            const calories = Number(itemQuickCalories)
+                            if (
+                              !name ||
+                              !Number.isFinite(calories) ||
+                              calories <= 0
+                            ) {
+                              toast.error(
+                                'Enter a food name and calories greater than 0.',
+                              )
+                              return
+                            }
+                            upsertDraft({
+                              sourceType: 'fixedCalories',
+                              name,
+                              calories,
+                            })
+                            setItemQuickName('')
+                            setItemQuickCalories('')
+                          }}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          {editingDraftItemIndex === null ? 'Add' : 'Update'}
+                        </Button>
+                      </div>
+                    ) : itemMode === 'catalog' ? (
+                      <>
+                        <DataTable
+                          columns={ingredientSelectionColumns}
+                          data={ingredientSelectionRows}
+                          searchColumnId="name"
+                          searchPlaceholder="Filter loaded ingredients"
+                          emptyText="No ingredients found."
+                          toolbarActions={
+                            paging.ingredients.canLoadMore ||
+                            paging.ingredients.isLoadingMore ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={paging.ingredients.isLoadingMore}
+                                onClick={paging.ingredients.loadMore}
+                              >
+                                {paging.ingredients.isLoadingMore
+                                  ? 'Loading more ingredients...'
+                                  : 'Load more ingredients'}
+                              </Button>
+                            ) : null
+                          }
+                        />
+                        {paging.ingredients.canLoadMore ? (
+                          <p className="text-xs text-muted-foreground">
+                            Filtering includes loaded ingredients only. Load
+                            more to include additional ingredients.
+                          </p>
+                        ) : null}
+                        {selectedIngredient ? (
+                          <p className="text-xs text-muted-foreground">
+                            Selected:{' '}
+                            <span className="font-medium text-foreground">
+                              {selectedIngredient.name}
+                            </span>
+                            {' · '}
+                            {formatKcalPer100(
+                              selectedIngredient.kcalPer100,
+                            )}{' '}
+                            kcal/100g
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Select an ingredient from the table.
+                          </p>
+                        )}
+                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                          <Input
+                            type="number"
+                            aria-label="Ingredient grams"
+                            placeholder="Weight in grams"
+                            value={itemWeight}
+                            onChange={(event) =>
+                              setItemWeight(event.target.value)
+                            }
+                          />
+                          <Button
+                            variant="outline"
+                            onClick={upsertDraftItem}
+                            disabled={
+                              (!selectedIngredient &&
+                                !stableHistoricalIngredientItem) ||
+                              Number(itemWeight) <= 0
+                            }
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {editingDraftItemIndex === null ? 'Add' : 'Update'}
+                          </Button>
+                        </div>
+                      </>
+                    ) : itemMode === 'new' ? (
+                      <div
+                        className={`grid gap-3 ${
+                          itemCustomIgnoreCalories
+                            ? 'sm:grid-cols-[1.2fr_0.9fr_auto]'
+                            : 'sm:grid-cols-[1.2fr_0.9fr_0.9fr_auto]'
+                        }`}
+                      >
+                        <Input
+                          aria-label="Custom ingredient name"
+                          placeholder="Name (e.g. granola)"
+                          value={itemCustomName}
+                          onChange={(event) =>
+                            setItemCustomName(event.target.value)
+                          }
+                        />
+                        {itemCustomIgnoreCalories ? null : (
+                          <Input
+                            type="number"
+                            aria-label="Custom ingredient kcal per 100"
+                            placeholder="Calories per 100g"
+                            value={itemCustomKcalPer100}
+                            onChange={(event) =>
+                              setItemCustomKcalPer100(event.target.value)
+                            }
+                          />
+                        )}
+                        <Input
+                          type="number"
+                          aria-label="Custom ingredient grams"
+                          placeholder="Weight in grams"
+                          value={itemWeight}
+                          onChange={(event) =>
+                            setItemWeight(event.target.value)
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={upsertDraftItem}
+                          disabled={
+                            !itemCustomName.trim() ||
+                            Number(itemWeight) <= 0 ||
+                            (!itemCustomIgnoreCalories &&
+                              Number(itemCustomKcalPer100) <= 0)
+                          }
+                        >
+                          {editingDraftItemIndex === null ? 'Add' : 'Update'}
+                        </Button>
+                        <CustomIngredientSwitchRow
+                          ignoreCalories={itemCustomIgnoreCalories}
+                          onIgnoreCaloriesChange={setItemCustomIgnoreCalories}
+                          saveToCatalog={itemCustomSaveToCatalog}
+                          onSaveToCatalogChange={setItemCustomSaveToCatalog}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Select
+                          value={displayedCookSessionId}
+                          onValueChange={(value) => {
+                            setSelectedCookSessionId(
+                              (value as Id<'cookSessions'> | null) ?? '',
+                            )
+                            setItemCookedFoodId('')
+                          }}
+                          options={sessionOptions}
+                          placeholder="Select cooking session"
+                          ariaLabel="Cooking session"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Cooked foods are filtered by session (latest first).
+                        </p>
+                        {paging.cookSessions.canLoadMore ||
+                        paging.cookSessions.isLoadingMore ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={paging.ingredients.isLoadingMore}
-                            onClick={paging.ingredients.loadMore}
+                            disabled={paging.cookSessions.isLoadingMore}
+                            onClick={paging.cookSessions.loadMore}
                           >
-                            {paging.ingredients.isLoadingMore
-                              ? 'Loading more ingredients...'
-                              : 'Load more ingredients'}
+                            {paging.cookSessions.isLoadingMore
+                              ? 'Loading more cooking sessions...'
+                              : 'Load more cooking sessions'}
                           </Button>
-                        ) : null
-                      }
-                    />
-                    {selectedIngredient ? (
-                      <p className="text-xs text-muted-foreground">
-                        Selected:{' '}
-                        <span className="font-medium text-foreground">
-                          {selectedIngredient.name}
-                        </span>
-                        {' · '}
-                        {formatKcalPer100(selectedIngredient.kcalPer100)}{' '}
-                        kcal/100g
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Select an ingredient from the table.
-                      </p>
-                    )}
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                      <Input
-                        type="number"
-                        aria-label="Ingredient grams"
-                        placeholder="Weight in grams"
-                        value={itemWeight}
-                        onChange={(event) => setItemWeight(event.target.value)}
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={upsertDraftItem}
-                        disabled={!itemIngredientId || Number(itemWeight) <= 0}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        {editingDraftItemIndex === null ? 'Add' : 'Update'}
-                      </Button>
-                    </div>
-                  </>
-                ) : itemMode === 'new' ? (
-                  <div
-                    className={`grid gap-3 ${
-                      itemCustomIgnoreCalories
-                        ? 'sm:grid-cols-[1.2fr_0.9fr_auto]'
-                        : 'sm:grid-cols-[1.2fr_0.9fr_0.9fr_auto]'
-                    }`}
-                  >
-                    <Input
-                      aria-label="Custom ingredient name"
-                      placeholder="Name (e.g. granola)"
-                      value={itemCustomName}
-                      onChange={(event) =>
-                        setItemCustomName(event.target.value)
-                      }
-                    />
-                    {itemCustomIgnoreCalories ? null : (
-                      <Input
-                        type="number"
-                        aria-label="Custom ingredient kcal per 100"
-                        placeholder="Calories per 100g"
-                        value={itemCustomKcalPer100}
-                        onChange={(event) =>
-                          setItemCustomKcalPer100(event.target.value)
-                        }
-                      />
-                    )}
-                    <Input
-                      type="number"
-                      aria-label="Custom ingredient grams"
-                      placeholder="Weight in grams"
-                      value={itemWeight}
-                      onChange={(event) => setItemWeight(event.target.value)}
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={upsertDraftItem}
-                      disabled={
-                        !itemCustomName.trim() ||
-                        Number(itemWeight) <= 0 ||
-                        (!itemCustomIgnoreCalories &&
-                          Number(itemCustomKcalPer100) <= 0)
-                      }
-                    >
-                      {editingDraftItemIndex === null ? 'Add' : 'Update'}
-                    </Button>
-                    <CustomIngredientSwitchRow
-                      ignoreCalories={itemCustomIgnoreCalories}
-                      onIgnoreCaloriesChange={setItemCustomIgnoreCalories}
-                      saveToCatalog={itemCustomSaveToCatalog}
-                      onSaveToCatalogChange={setItemCustomSaveToCatalog}
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <Select
-                      value={effectiveCookSessionId}
-                      onValueChange={(value) => {
-                        setSelectedCookSessionId(
-                          (value as Id<'cookSessions'> | null) ?? '',
-                        )
-                        setItemCookedFoodId('')
-                      }}
-                      options={sessionOptions}
-                      placeholder="Select cooking session"
-                      aria-label="Cooking session"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Cooked foods are filtered by session (latest first).
-                    </p>
-                    {paging.cookSessions.canLoadMore ||
-                    paging.cookSessions.isLoadingMore ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={paging.cookSessions.isLoadingMore}
-                        onClick={paging.cookSessions.loadMore}
-                      >
-                        {paging.cookSessions.isLoadingMore
-                          ? 'Loading more cooking sessions...'
-                          : 'Load more cooking sessions'}
-                      </Button>
-                    ) : null}
-                    <SearchablePicker
-                      value={itemCookedFoodId}
-                      onValueChange={(value) =>
-                        setItemCookedFoodId(value as Id<'cookedFoods'> | '')
-                      }
-                      ariaLabel="Cooked food search"
-                      placeholder="Search cooked foods in selected session"
-                      loading={paging.cookedFoods.isLoadingFirstPage}
-                      resultLimit={cookedFoods.length}
-                      options={cookedFoods.map((item) => ({
-                        value: item._id,
-                        label: item.name,
-                        keywords: `${formatKcalPer100(item.kcalPer100)} kcal`,
-                      }))}
-                    />
-                    {paging.cookedFoods.canLoadMore ||
-                    paging.cookedFoods.isLoadingMore ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={paging.cookedFoods.isLoadingMore}
-                        onClick={paging.cookedFoods.loadMore}
-                      >
-                        {paging.cookedFoods.isLoadingMore
-                          ? 'Loading more cooked foods...'
-                          : 'Load more cooked foods'}
-                      </Button>
-                    ) : null}
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                      <Input
-                        type="number"
-                        aria-label="Consumed cooked food grams"
-                        placeholder="Weight in grams"
-                        value={itemWeight}
-                        onChange={(event) => setItemWeight(event.target.value)}
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={upsertDraftItem}
-                        disabled={!itemCookedFoodId || Number(itemWeight) <= 0}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        {editingDraftItemIndex === null ? 'Add' : 'Update'}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-              {mealItems.length > 0 || editingDraftItemIndex !== null ? (
-                <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
-                  {editingDraftItemIndex !== null ? (
-                    <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10">
-                      <p className="text-xs font-medium">
-                        Editing item #{editingDraftItemIndex + 1}
-                      </p>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        onClick={resetDraftItemInputs}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : null}
-                  {mealItems.map((item, index) => {
-                    const itemCalories = getDraftItemCalories(item)
-                    const isQuickAdd = item.sourceType === 'fixedCalories'
-                    const label =
-                      item.sourceType === 'ingredient'
-                        ? item.nameSnapshot
-                        : item.sourceType === 'customByWeight' ||
-                            item.sourceType === 'fixedCalories'
-                          ? item.name
-                          : item.nameSnapshot
-                    return (
-                      <div
-                        key={`draft-item-${index}`}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border/65 bg-background/45 px-2 py-1.5"
-                      >
-                        <p className="min-w-0 pr-2 text-xs text-foreground">
-                          <span className="font-medium">
-                            {isQuickAdd
-                              ? 'Quick'
-                              : item.sourceType === 'ingredient'
-                                ? 'From saved'
-                                : item.sourceType === 'customByWeight'
-                                  ? 'New ingredient'
-                                  : 'Home-cooked'}
-                          </span>
-                          : {label}
-                          {isQuickAdd
-                            ? ` (+${itemCalories.toFixed(0)} kcal)`
-                            : ` - ${item.consumedWeightGrams.toFixed(0)} g (+${itemCalories.toFixed(0)} kcal)`}
-                        </p>
-                        <div className="flex shrink-0 items-center gap-1">
+                        ) : null}
+                        <SearchablePicker
+                          value={itemCookedFoodId}
+                          onValueChange={(value) =>
+                            setItemCookedFoodId(value as Id<'cookedFoods'> | '')
+                          }
+                          ariaLabel="Cooked food filter"
+                          placeholder="Filter loaded cooked foods in selected session"
+                          loading={
+                            paging.cookedFoods.isLoadingFirstPage ||
+                            (itemCookedFoodId !== '' &&
+                              !cookedFoodById.has(itemCookedFoodId) &&
+                              pointLoadedCookedFoodDetail === undefined)
+                          }
+                          resultLimit={selectableCookedFoods.length}
+                          options={selectableCookedFoods.map((item) => ({
+                            value: item._id,
+                            label: item.name,
+                            keywords: `${formatKcalPer100(item.kcalPer100)} kcal`,
+                          }))}
+                        />
+                        {paging.cookedFoods.canLoadMore ||
+                        paging.cookedFoods.isLoadingMore ? (
                           <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => editDraftItem(index)}
+                            size="sm"
+                            variant="outline"
+                            disabled={paging.cookedFoods.isLoadingMore}
+                            onClick={paging.cookedFoods.loadMore}
                           >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Edit
+                            {paging.cookedFoods.isLoadingMore
+                              ? 'Loading more cooked foods...'
+                              : 'Load more cooked foods'}
                           </Button>
+                        ) : null}
+                        {paging.cookedFoods.canLoadMore ? (
+                          <p className="text-xs text-muted-foreground">
+                            Filtering includes loaded cooked foods only. Load
+                            more to include additional cooked foods.
+                          </p>
+                        ) : null}
+                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                          <Input
+                            type="number"
+                            aria-label="Consumed cooked food grams"
+                            placeholder="Weight in grams"
+                            value={itemWeight}
+                            onChange={(event) =>
+                              setItemWeight(event.target.value)
+                            }
+                          />
                           <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => removeDraftItem(index)}
+                            variant="outline"
+                            onClick={upsertDraftItem}
+                            disabled={
+                              (!selectedCookedFood &&
+                                !stableHistoricalCookedFoodItem) ||
+                              Number(itemWeight) <= 0
+                            }
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Remove
+                            <Plus className="h-3.5 w-3.5" />
+                            {editingDraftItemIndex === null ? 'Add' : 'Update'}
                           </Button>
                         </div>
-                      </div>
-                    )
-                  })}
+                      </>
+                    )}
+                  </div>
+                  {mealItems.length > 0 || editingDraftItemIndex !== null ? (
+                    <div className="mt-3 space-y-2 rounded-md bg-muted/45 p-2 text-xs text-muted-foreground">
+                      {editingDraftItemIndex !== null ? (
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10">
+                          <p className="text-xs font-medium">
+                            Editing item #{editingDraftItemIndex + 1}
+                          </p>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={resetDraftItemInputs}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : null}
+                      {mealItems.map((item, index) => {
+                        const itemCalories = getDraftItemCalories(item)
+                        const isQuickAdd = item.sourceType === 'fixedCalories'
+                        const label =
+                          item.sourceType === 'ingredient'
+                            ? item.nameSnapshot
+                            : item.sourceType === 'customByWeight' ||
+                                item.sourceType === 'fixedCalories'
+                              ? item.name
+                              : item.nameSnapshot
+                        return (
+                          <div
+                            key={`draft-item-${index}`}
+                            className="flex items-center justify-between gap-2 rounded-md border border-border/65 bg-background/45 px-2 py-1.5"
+                          >
+                            <p className="min-w-0 pr-2 text-xs text-foreground">
+                              <span className="font-medium">
+                                {isQuickAdd
+                                  ? 'Quick'
+                                  : item.sourceType === 'ingredient'
+                                    ? 'From saved'
+                                    : item.sourceType === 'customByWeight'
+                                      ? 'New ingredient'
+                                      : 'Home-cooked'}
+                              </span>
+                              : {label}
+                              {isQuickAdd
+                                ? ` (+${itemCalories.toFixed(0)} kcal)`
+                                : ` - ${item.consumedWeightGrams.toFixed(0)} g (+${itemCalories.toFixed(0)} kcal)`}
+                            </p>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => editDraftItem(index)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => removeDraftItem(index)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
+              </fieldset>
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={!canSubmitMeal || isRunning}
-                onClick={() => {
-                  if (!effectiveSelectedPersonId || mealItems.length === 0) {
-                    toast.error('Add at least one item before saving a meal.')
-                    return
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={
+                    !canSubmitMeal || isRunning || !isEditingMealHydrated
                   }
-                  void runAction(
-                    editingMealId ? 'Meal updated.' : 'Meal created.',
-                    async () => {
-                      if (editingMealId) {
-                        await updateMeal({
-                          mealId: editingMealId,
-                          personId: effectiveSelectedPersonId,
-                          name: mealName.trim() || undefined,
-                          eatenOn: mealDate,
-                          items: toMealMutationItems(mealItems),
-                        })
-                      } else {
-                        await createMeal({
-                          personId: effectiveSelectedPersonId,
-                          name: mealName.trim() || undefined,
-                          eatenOn: mealDate,
-                          items: toMealMutationItems(mealItems),
-                        })
-                      }
-                      resetMealForm()
-                    },
-                  )
-                }}
-              >
-                {editingMealId
-                  ? 'Save meal changes'
-                  : mealItems.length > 0
-                    ? `Create meal (${mealItems.length} item${mealItems.length === 1 ? '' : 's'})`
-                    : 'Create meal'}
-              </Button>
-              {editingMealId ? (
-                <Button variant="outline" onClick={resetMealForm}>
-                  Cancel edit
+                  onClick={() => {
+                    if (!effectiveSelectedPersonId || mealItems.length === 0) {
+                      toast.error('Add at least one item before saving a meal.')
+                      return
+                    }
+                    void runAction(
+                      editingMealId ? 'Meal updated.' : 'Meal created.',
+                      async () => {
+                        if (editingMealId) {
+                          await updateMeal({
+                            mealId: editingMealId,
+                            expectedEditRevision:
+                              expectedMealEditRevisionRef.current,
+                            expectedMealItemIds: expectedMealItemIdsRef.current,
+                            personId: effectiveSelectedPersonId,
+                            name: mealName.trim() || undefined,
+                            eatenOn: mealDate,
+                            items: toMealMutationItems(mealItems),
+                          })
+                        } else {
+                          await createMeal({
+                            personId: effectiveSelectedPersonId,
+                            name: mealName.trim() || undefined,
+                            eatenOn: mealDate,
+                            items: toMealMutationItems(mealItems),
+                          })
+                        }
+                        resetMealForm()
+                      },
+                    )
+                  }}
+                >
+                  {editingMealId
+                    ? 'Save meal changes'
+                    : mealItems.length > 0
+                      ? `Create meal (${mealItems.length} item${mealItems.length === 1 ? '' : 's'})`
+                      : 'Create meal'}
                 </Button>
-              ) : null}
-            </div>
+                {editingMealId ? (
+                  <Button variant="outline" onClick={resetMealForm}>
+                    Cancel edit
+                  </Button>
+                ) : null}
+              </div>
+            </fieldset>
           </MealFormSection>
 
           <MealTableSection
@@ -1336,7 +1501,7 @@ function MealDashboardPageContent() {
               columns={mealColumns}
               data={mealTableRows}
               searchColumnId="mealName"
-              searchPlaceholder="Search meals"
+              searchPlaceholder="Filter loaded meals"
               toolbarActions={
                 paging.meals.canLoadMore || paging.meals.isLoadingMore ? (
                   <Button
@@ -1362,6 +1527,12 @@ function MealDashboardPageContent() {
                 </div>
               }
             />
+            {paging.meals.canLoadMore ? (
+              <p className="text-xs text-muted-foreground">
+                Filtering includes loaded meals only. Load more to include
+                additional meals.
+              </p>
+            ) : null}
           </MealTableSection>
         </div>
       </PageShell>

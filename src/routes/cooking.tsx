@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { ChefHat, Copy, Plus, Trash2 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -75,10 +75,32 @@ function customLineSignature(input: { ingredientId?: Id<'ingredients'> | '' }) {
 
 function normalizedLineNotes(
   notes: string | undefined,
-  preserveExplicitEmpty: boolean,
+  preserveExistingValue: boolean,
 ) {
+  if (preserveExistingValue) {
+    return notes
+  }
   const trimmed = notes?.trim() ?? ''
-  return preserveExplicitEmpty ? trimmed : trimmed || undefined
+  return trimmed || undefined
+}
+
+function cookingLineIdentityMatches(
+  savedLine: CookingDraft['ingredientLines'][number],
+  currentLine: CookingDraft['ingredientLines'][number],
+) {
+  if (savedLine.sourceType !== currentLine.sourceType) {
+    return false
+  }
+  if (savedLine.sourceType === 'ingredient') {
+    return (
+      currentLine.sourceType === 'ingredient' &&
+      savedLine.ingredientId === currentLine.ingredientId
+    )
+  }
+  return (
+    currentLine.sourceType === 'custom' &&
+    savedLine.ingredientId === currentLine.ingredientId
+  )
 }
 
 function linkedRecipeCacheKey(
@@ -154,16 +176,24 @@ function CookingPageContent() {
     useState<Id<'cookSessions'> | null>(null)
   const [sessionLabel, setSessionLabel] = useState('')
   const [sessionDate, setSessionDate] = useState(getCurrentLocalDateString)
+  const [originalSessionCookedAt, setOriginalSessionCookedAt] = useState<
+    number | null
+  >(null)
+  const [editingSessionRevision, setEditingSessionRevision] = useState<
+    number | null
+  >(null)
   const [sessionPersonId, setSessionPersonId] = useState<Id<'people'> | ''>('')
   const [cookedFoodDetailRequest, setCookedFoodDetailRequest] = useState<{
     id: Id<'cookedFoods'>
     mode: 'open' | 'duplicate'
   } | null>(null)
   const cookedFoodDetailRequestIdRef = useRef(0)
-  const [loadingRecipeDraftId, setLoadingRecipeDraftId] = useState<
-    string | null
-  >(null)
+  const [loadingRecipeDraftIds, setLoadingRecipeDraftIds] = useState(
+    () => new Set<string>(),
+  )
   const recipeDetailRequestRef = useRef(new Map<string, number>())
+  const draftRevisionRef = useRef(new Map<string, number>())
+  const draftsRef = useRef(drafts)
   const [ingredientCache, setIngredientCache] = useState(
     () => new Map<Id<'ingredients'>, CookingIngredient>(),
   )
@@ -204,9 +234,6 @@ function CookingPageContent() {
   }
   const selectKnownCookSession = (sessionId: Id<'cookSessions'> | '') => {
     invalidateCookedFoodDetailRequest()
-    if (sessionId) {
-      cookingData.retainCookSession(sessionId)
-    }
     setSelectedCookSessionId(sessionId)
   }
 
@@ -230,7 +257,7 @@ function CookingPageContent() {
     () => new Map(people.map((person) => [person._id, person])),
     [people],
   )
-  const ingredientById = useMemo(() => {
+  const loadedIngredientById = useMemo(() => {
     const map = new Map(ingredientCache)
     for (const ingredient of ingredients) {
       map.set(ingredient._id, ingredient)
@@ -306,12 +333,67 @@ function CookingPageContent() {
       null,
     [effectiveActiveDraftId, sessionDrafts],
   )
-  const isActiveRecipeLoading = loadingRecipeDraftId === activeDraft?.draftId
+  useEffect(() => {
+    draftsRef.current = drafts
+  }, [drafts])
+  const activeDraftIdRef = useRef<string | null>(effectiveActiveDraftId)
+  useEffect(() => {
+    activeDraftIdRef.current = effectiveActiveDraftId
+  }, [effectiveActiveDraftId])
+  const isEditingStableIngredientLine = Boolean(
+    activeDraft?.lineExistingCookedFoodIngredientId &&
+    activeDraft.lineExistingIngredientId === activeDraft.lineIngredientId,
+  )
+  const shouldPointLoadIngredient = Boolean(
+    activeDraft?.lineIngredientId &&
+    !isEditingStableIngredientLine &&
+    !loadedIngredientById.has(activeDraft.lineIngredientId),
+  )
+  const pointLoadedIngredient = useQuery(
+    api.catalog.getIngredient,
+    shouldPointLoadIngredient && activeDraft?.lineIngredientId
+      ? { ingredientId: activeDraft.lineIngredientId }
+      : 'skip',
+  )
+  const shouldPointLoadGroup = Boolean(
+    activeDraft?.groupId &&
+    !foodGroupCache.has(activeDraft.groupId) &&
+    !foodGroups.some((group) => group._id === activeDraft.groupId),
+  )
+  const pointLoadedGroup = useQuery(
+    api.catalog.getFoodGroup,
+    shouldPointLoadGroup && activeDraft?.groupId
+      ? { groupId: activeDraft.groupId }
+      : 'skip',
+  )
+  const isActiveRecipeLoading = Boolean(
+    activeDraft && loadingRecipeDraftIds.has(activeDraft.draftId),
+  )
   const selectedRecipeDetail = activeDraft?.recipeVersionId
     ? recipeDetailCache.get(activeDraft.recipeVersionId)
     : undefined
   const selectedRecipeId =
     activeDraft?.recipeId || selectedRecipeDetail?.recipe._id || ''
+  const shouldPointLoadRecipe = Boolean(
+    selectedRecipeId &&
+    !recipes.some((recipe) => recipe._id === selectedRecipeId) &&
+    !linkedRecipeOptionCache.has(
+      linkedRecipeCacheKey(selectedRecipeId, activeDraft?.recipeVersionId),
+    ),
+  )
+  const pointLoadedRecipe = useQuery(
+    api.catalog.getRecipe,
+    shouldPointLoadRecipe && selectedRecipeId
+      ? { recipeId: selectedRecipeId }
+      : 'skip',
+  )
+  const ingredientById = useMemo(() => {
+    const map = new Map(loadedIngredientById)
+    if (pointLoadedIngredient && !pointLoadedIngredient.archived) {
+      map.set(pointLoadedIngredient._id, pointLoadedIngredient)
+    }
+    return map
+  }, [loadedIngredientById, pointLoadedIngredient])
   const recipePickerOptions = useMemo(() => {
     const linkedOption = selectedRecipeId
       ? linkedRecipeOptionCache.get(
@@ -329,7 +411,12 @@ function CookingPageContent() {
               value: selectedRecipeDetail.recipe._id,
               label: `${selectedRecipeDetail.recipe.name} (v${selectedRecipeDetail.version.versionNumber})`,
             }
-          : undefined
+          : pointLoadedRecipe
+            ? {
+                value: pointLoadedRecipe._id,
+                label: `${pointLoadedRecipe.name} (v${pointLoadedRecipe.latestVersionNumber})${pointLoadedRecipe.archived ? ' (archived)' : ''}`,
+              }
+            : undefined
     if (!selectedOption) {
       return recipeOptions
     }
@@ -343,6 +430,7 @@ function CookingPageContent() {
     linkedRecipeOptionCache,
     activeDraft?.recipeVersionId,
     recipeOptions,
+    pointLoadedRecipe,
     selectedRecipeDetail,
     selectedRecipeId,
   ])
@@ -359,7 +447,10 @@ function CookingPageContent() {
     }
     const currentGroup =
       foodGroupCache.get(activeDraft.groupId) ??
-      foodGroups.find((group) => group._id === activeDraft.groupId)
+      foodGroups.find((group) => group._id === activeDraft.groupId) ??
+      (pointLoadedGroup?._id === activeDraft.groupId
+        ? pointLoadedGroup
+        : undefined)
     return currentGroup
       ? [
           {
@@ -369,15 +460,11 @@ function CookingPageContent() {
           ...options,
         ]
       : options
-  }, [activeDraft, foodGroupCache, foodGroups, groups])
+  }, [activeDraft, foodGroupCache, foodGroups, groups, pointLoadedGroup])
 
   const selectedCookedFoodLineIngredient = activeDraft?.lineIngredientId
     ? ingredientById.get(activeDraft.lineIngredientId)
     : undefined
-  const isEditingStableIngredientLine = Boolean(
-    activeDraft?.lineExistingCookedFoodIngredientId &&
-    activeDraft.lineExistingIngredientId === activeDraft.lineIngredientId,
-  )
   const selectedCookedFoodLineIngredientBasisUnit =
     isEditingStableIngredientLine
       ? (activeDraft?.lineExistingIngredientKcalBasisUnitSnapshot ?? 'g')
@@ -455,6 +542,8 @@ function CookingPageContent() {
     setEditingSessionId(null)
     setSessionLabel('')
     setSessionDate(getCurrentLocalDateString())
+    setOriginalSessionCookedAt(null)
+    setEditingSessionRevision(null)
     setSessionPersonId('')
   }
 
@@ -475,6 +564,8 @@ function CookingPageContent() {
     setEditingSessionId(session._id)
     setSessionLabel(session.label ?? '')
     setSessionDate(toLocalDateString(session.cookedAt))
+    setOriginalSessionCookedAt(session.cookedAt)
+    setEditingSessionRevision(session.editRevision)
     setSessionPersonId(session.cookedByPersonId ?? '')
     setIsSessionEditorVisible(true)
     scrollToTop()
@@ -491,6 +582,10 @@ function CookingPageContent() {
     options?: { markDirty?: boolean },
   ) => {
     const { markDirty = true } = options ?? {}
+    draftRevisionRef.current.set(
+      draftId,
+      (draftRevisionRef.current.get(draftId) ?? 0) + 1,
+    )
     setDrafts((current) =>
       current.map((draft) => {
         if (draft.draftId !== draftId) {
@@ -514,6 +609,20 @@ function CookingPageContent() {
       return
     }
     updateDraft(activeDraft.draftId, updater, options)
+  }
+
+  const draftMatchesSnapshot = (
+    draft: CookingDraft | undefined,
+    draftId: string,
+    revision: number,
+    snapshot: string,
+  ) => {
+    return Boolean(
+      draft &&
+      draft.draftId === draftId &&
+      (draftRevisionRef.current.get(draftId) ?? 0) === revision &&
+      JSON.stringify(draft) === snapshot,
+    )
   }
 
   const ingredientSelectionRows = useMemo<IngredientSelectionRow[]>(
@@ -671,7 +780,7 @@ function CookingPageContent() {
     const existingDraft = drafts.find(
       (draft) => draft.persistedCookedFoodId === food._id,
     )
-    if (existingDraft) {
+    if (existingDraft?.hasAuthoritativeIngredientIds) {
       selectDraft(existingDraft.draftId, existingDraft.sessionId)
       return
     }
@@ -704,8 +813,8 @@ function CookingPageContent() {
           toast.error('Archived batches cannot accept new cooked foods.')
           return
         }
-        if (detail.cookSession) {
-          cookingData.cacheCookSession(detail.cookSession)
+        if (mode === 'open' && detail.cookSession?.archived) {
+          setShowArchived(true)
         }
         const group = detail.group
         if (group) {
@@ -743,7 +852,14 @@ function CookingPageContent() {
           mode === 'duplicate'
             ? duplicateCookingDraft(sourceDraft)
             : sourceDraft
-        setDrafts((current) => [nextDraft, ...current])
+        setDrafts((current) => [
+          nextDraft,
+          ...current.filter(
+            (draft) =>
+              mode === 'duplicate' ||
+              draft.persistedCookedFoodId !== detail.cookedFood._id,
+          ),
+        ])
         setSelectedCookSessionId(nextDraft.sessionId)
         setActiveDraftId(nextDraft.draftId)
         setShowAllCookedFoods(false)
@@ -795,6 +911,14 @@ function CookingPageContent() {
         activeDraft.lineExistingCookedFoodIngredientId &&
         activeDraft.lineExistingIngredientId === activeDraft.lineIngredientId,
       )
+      if (!selectedIngredient && !hasStableIngredientSnapshot) {
+        toast.error(
+          pointLoadedIngredient === undefined
+            ? 'Wait for the selected ingredient to finish loading.'
+            : 'The selected ingredient is no longer available.',
+        )
+        return
+      }
       const basisUnit = hasStableIngredientSnapshot
         ? (activeDraft.lineExistingIngredientKcalBasisUnitSnapshot ??
           getIngredientBasisUnit(selectedIngredient))
@@ -1070,12 +1194,16 @@ function CookingPageContent() {
       return
     }
     const draftId = activeDraft.draftId
+    const draftSnapshot = JSON.stringify(activeDraft)
+    const draftRevision = draftRevisionRef.current.get(draftId) ?? 0
     const requestId = (recipeDetailRequestRef.current.get(draftId) ?? 0) + 1
     recipeDetailRequestRef.current.set(draftId, requestId)
     if (!recipeId) {
-      setLoadingRecipeDraftId((current) =>
-        current === draftId ? null : current,
-      )
+      setLoadingRecipeDraftIds((current) => {
+        const next = new Set(current)
+        next.delete(draftId)
+        return next
+      })
       updateActiveDraft((draft) => ({
         ...draft,
         recipeId: '',
@@ -1083,7 +1211,7 @@ function CookingPageContent() {
       }))
       return
     }
-    setLoadingRecipeDraftId(draftId)
+    setLoadingRecipeDraftIds((current) => new Set(current).add(draftId))
     void cookingData
       .loadRecipeDetail(recipeId)
       .then((detail) => {
@@ -1092,6 +1220,19 @@ function CookingPageContent() {
         }
         if (detail === null) {
           toast.error('Recipe could not be loaded.')
+          return
+        }
+        if (
+          !draftMatchesSnapshot(
+            draftsRef.current.find((draft) => draft.draftId === draftId),
+            draftId,
+            draftRevision,
+            draftSnapshot,
+          )
+        ) {
+          toast.error(
+            'Recipe was not applied because the draft changed while it was loading.',
+          )
           return
         }
         const referencedIngredientById = new Map(
@@ -1173,8 +1314,21 @@ function CookingPageContent() {
           next.set(detail.version._id, detail)
           return next
         })
-        setDrafts((current) =>
-          current.map((draft) => {
+        setDrafts((current) => {
+          const currentDraft = current.find(
+            (draft) => draft.draftId === draftId,
+          )
+          if (
+            !draftMatchesSnapshot(
+              currentDraft,
+              draftId,
+              draftRevision,
+              draftSnapshot,
+            )
+          ) {
+            return current
+          }
+          return current.map((draft) => {
             if (draft.draftId !== draftId) {
               return draft
             }
@@ -1188,8 +1342,8 @@ function CookingPageContent() {
               updatedAt: Date.now(),
               isDirty: true,
             }
-          }),
-        )
+          })
+        })
       })
       .catch(() => {
         if (recipeDetailRequestRef.current.get(draftId) === requestId) {
@@ -1200,9 +1354,11 @@ function CookingPageContent() {
         if (recipeDetailRequestRef.current.get(draftId) !== requestId) {
           return
         }
-        setLoadingRecipeDraftId((current) =>
-          current === draftId ? null : current,
-        )
+        setLoadingRecipeDraftIds((current) => {
+          const next = new Set(current)
+          next.delete(draftId)
+          return next
+        })
       })
   }
 
@@ -1210,10 +1366,15 @@ function CookingPageContent() {
     void runAction(
       editingSessionId ? 'Session updated.' : 'Session created.',
       async () => {
-        const cookedAt = toTimestampFromDate(sessionDate)
+        const cookedAt =
+          originalSessionCookedAt !== null &&
+          toLocalDateString(originalSessionCookedAt) === sessionDate
+            ? originalSessionCookedAt
+            : toTimestampFromDate(sessionDate)
         if (editingSessionId) {
           await updateCookSession({
             sessionId: editingSessionId,
+            expectedEditRevision: editingSessionRevision ?? 0,
             label: sessionLabel.trim() || undefined,
             cookedAt,
             cookedByPersonId: sessionPersonId || undefined,
@@ -1307,6 +1468,16 @@ function CookingPageContent() {
               existingCookedFoodIngredientId:
                 line.existingCookedFoodIngredientId,
               ingredientId: line.ingredientId,
+              ...(line.existingCookedFoodIngredientId
+                ? {}
+                : {
+                    expectedSnapshot: {
+                      name: line.ingredientNameSnapshot ?? '',
+                      kcalPer100: line.kcalPer100Snapshot ?? 0,
+                      kcalBasisUnit: line.kcalBasisUnitSnapshot ?? 'g',
+                      ignoreCalories: line.ignoreCaloriesSnapshot ?? false,
+                    },
+                  }),
               referenceAmount: line.referenceAmount,
               referenceUnit: line.referenceUnit,
               countedAmount: line.countedAmount,
@@ -1337,42 +1508,126 @@ function CookingPageContent() {
     }
 
     const draftToSave = activeDraft
+    const savedDraftSnapshot = JSON.stringify(draftToSave)
+    const draftRevision = draftRevisionRef.current.get(draftToSave.draftId) ?? 0
     void runAction(
       draftToSave.persistedCookedFoodId
         ? 'Cooked food updated.'
         : 'Cooked food created.',
       async () => {
-        if (draftToSave.persistedCookedFoodId) {
-          await updateCookedFood({
-            cookedFoodId: draftToSave.persistedCookedFoodId,
-            ...payload,
-          })
-        } else {
-          await createCookedFood({
-            ...payload,
-            saveAsRecipe: draftToSave.saveAsRecipe || undefined,
-            recipeDraft: draftToSave.saveAsRecipe
-              ? {
-                  name: recipeDraftName,
-                  instructions:
-                    draftToSave.recipeDraftInstructions.trim() || undefined,
-                }
-              : undefined,
+        const saveResult = draftToSave.persistedCookedFoodId
+          ? await updateCookedFood({
+              cookedFoodId: draftToSave.persistedCookedFoodId,
+              expectedEditRevision:
+                draftToSave.expectedCookedFoodEditRevision ?? 0,
+              expectedCookedFoodIngredientIds:
+                draftToSave.expectedCookedFoodIngredientIds ?? [],
+              ...payload,
+            })
+          : await createCookedFood({
+              ...payload,
+              saveAsRecipe: draftToSave.saveAsRecipe || undefined,
+              recipeDraft: draftToSave.saveAsRecipe
+                ? {
+                    name: recipeDraftName,
+                    instructions:
+                      draftToSave.recipeDraftInstructions.trim() || undefined,
+                  }
+                : undefined,
+            })
+        const savedIngredientIdByDraftId = new Map<
+          string,
+          Id<'cookedFoodIngredients'>
+        >()
+        const savedIdsAreAuthoritative =
+          saveResult.cookedFoodIngredientIds.length ===
+          draftToSave.ingredientLines.length
+        if (savedIdsAreAuthoritative) {
+          draftToSave.ingredientLines.forEach((line, index) => {
+            const savedId = saveResult.cookedFoodIngredientIds[index]
+            if (savedId) {
+              savedIngredientIdByDraftId.set(line.draftId, savedId)
+            }
           })
         }
-
-        const nextDraft = addAnother
-          ? createCookingDraft(draftToSave.sessionId)
-          : null
+        const savedLineByDraftId = new Map(
+          draftToSave.ingredientLines.map((line) => [line.draftId, line]),
+        )
+        let draftUnchanged = false
+        let nextDraft: CookingDraft | null = null
         setDrafts((current) => {
+          const currentDraft = current.find(
+            (draft) => draft.draftId === draftToSave.draftId,
+          )
+          draftUnchanged = Boolean(
+            currentDraft &&
+            draftMatchesSnapshot(
+              currentDraft,
+              draftToSave.draftId,
+              draftRevision,
+              savedDraftSnapshot,
+            ),
+          )
+          if (!draftUnchanged) {
+            return current.map((draft) => {
+              if (draft.draftId !== draftToSave.draftId) {
+                return draft
+              }
+              const recipeSelectionUnchanged =
+                draft.recipeId === draftToSave.recipeId &&
+                draft.recipeVersionId === draftToSave.recipeVersionId
+              const adoptSavedRecipeLink =
+                recipeSelectionUnchanged ||
+                (!draftToSave.persistedCookedFoodId && draftToSave.saveAsRecipe)
+              return {
+                ...draft,
+                persistedCookedFoodId: saveResult.cookedFoodId,
+                hasAuthoritativeIngredientIds: savedIdsAreAuthoritative,
+                expectedCookedFoodIngredientIds:
+                  saveResult.cookedFoodIngredientIds,
+                expectedCookedFoodEditRevision: saveResult.editRevision,
+                recipeId: adoptSavedRecipeLink
+                  ? (saveResult.recipeId ?? '')
+                  : draft.recipeId,
+                recipeVersionId: adoptSavedRecipeLink
+                  ? (saveResult.recipeVersionId ?? '')
+                  : draft.recipeVersionId,
+                ingredientLines: draft.ingredientLines.map((line) => {
+                  const savedLine = savedLineByDraftId.get(line.draftId)
+                  const existingCookedFoodIngredientId =
+                    savedIngredientIdByDraftId.get(line.draftId)
+                  if (!savedLine) {
+                    return line
+                  }
+                  return existingCookedFoodIngredientId &&
+                    cookingLineIdentityMatches(savedLine, line)
+                    ? { ...line, existingCookedFoodIngredientId }
+                    : { ...line, existingCookedFoodIngredientId: undefined }
+                }),
+              }
+            })
+          }
+          nextDraft = addAnother
+            ? createCookingDraft(draftToSave.sessionId)
+            : null
           const remaining = current.filter(
             (draft) => draft.draftId !== draftToSave.draftId,
           )
           return nextDraft ? [nextDraft, ...remaining] : remaining
         })
-        selectKnownCookSession(draftToSave.sessionId)
-        setActiveDraftId(nextDraft?.draftId ?? null)
-        setShowAllCookedFoods(false)
+        const savedDraftStillActive =
+          activeDraftIdRef.current === draftToSave.draftId
+        if (draftUnchanged && savedDraftStillActive) {
+          selectKnownCookSession(draftToSave.sessionId)
+          setShowAllCookedFoods(false)
+        }
+        if (draftUnchanged) {
+          setActiveDraftId((current) =>
+            current === draftToSave.draftId
+              ? (nextDraft?.draftId ?? null)
+              : current,
+          )
+        }
       },
     )
   }
@@ -1405,6 +1660,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() => {
                 selectKnownCookSession(session._id)
                 setShowAllCookedFoods(false)
@@ -1415,6 +1671,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isRunning}
               onClick={() => openEditSessionEditor(session)}
             >
               Edit
@@ -1429,6 +1686,7 @@ function CookingPageContent() {
                   async () => {
                     await setCookSessionArchived({
                       sessionId: session._id,
+                      expectedEditRevision: session.editRevision,
                       archived: !session.archived,
                     })
                   },
@@ -1447,7 +1705,10 @@ function CookingPageContent() {
                   'Delete this session permanently?',
                   'Session deleted.',
                   async () => {
-                    await deleteCookSession({ sessionId: session._id })
+                    await deleteCookSession({
+                      sessionId: session._id,
+                      expectedEditRevision: session.editRevision,
+                    })
                     setDrafts((current) =>
                       current.filter(
                         (draft) => draft.sessionId !== session._id,
@@ -1504,7 +1765,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
-              disabled={cookedFoodDetailRequest?.id === food._id}
+              disabled={isRunning || cookedFoodDetailRequest?.id === food._id}
               onClick={() => openSavedFoodInDraft(food)}
             >
               {cookedFoodDetailRequest?.id === food._id &&
@@ -1515,7 +1776,7 @@ function CookingPageContent() {
             <Button
               size="sm"
               variant="outline"
-              disabled={cookedFoodDetailRequest?.id === food._id}
+              disabled={isRunning || cookedFoodDetailRequest?.id === food._id}
               onClick={() => duplicateSavedFoodAsDraft(food)}
             >
               {cookedFoodDetailRequest?.id === food._id &&
@@ -1535,6 +1796,7 @@ function CookingPageContent() {
                   async () => {
                     await setCookedFoodArchived({
                       cookedFoodId: food._id,
+                      expectedEditRevision: food.editRevision,
                       archived: !food.archived,
                     })
                   },
@@ -1554,7 +1816,10 @@ function CookingPageContent() {
                   'Cooked food deleted.',
                   async () => {
                     invalidateCookedFoodDetailRequest()
-                    await deleteCookedFood({ cookedFoodId: food._id })
+                    await deleteCookedFood({
+                      cookedFoodId: food._id,
+                      expectedEditRevision: food.editRevision,
+                    })
                     setDrafts((current) =>
                       current.filter(
                         (draft) => draft.persistedCookedFoodId !== food._id,
@@ -1640,205 +1905,215 @@ function CookingPageContent() {
         onShowArchivedChange={setShowArchived}
       >
         <div className="mt-4 space-y-3">
-          <section>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">
-                  Cooking batches
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Choose a batch date, then start or reopen foods you are
-                  preparing.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" onClick={openNewSessionEditor}>
-                  <Plus className="h-3.5 w-3.5" />
-                  New batch
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={!selectedCookSession}
-                  onClick={() => {
-                    if (selectedCookSession) {
-                      openEditSessionEditor(selectedCookSession)
-                    }
-                  }}
-                >
-                  Edit batch
-                </Button>
-              </div>
-            </div>
-            <div className="mt-3 space-y-3">
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <div className="space-y-2">
-                  <SearchablePicker
-                    ariaLabel="Cook session search"
-                    value={effectiveSelectedCookSessionId}
-                    onValueChange={(value) => {
-                      selectKnownCookSession(value as Id<'cookSessions'> | '')
-                      setShowAllCookedFoods(false)
-                    }}
-                    placeholder="Search or switch batch"
-                    options={sessionOptions}
-                    searchValue={sessionSearch}
-                    onSearchValueChange={(value) =>
-                      setSessionSearch(value.slice(0, SEARCH_MAX_LENGTH))
-                    }
-                    loading={search.sessions.isLoading}
-                    resultLimit={SEARCH_RESULT_LIMIT}
-                  />
-                  {search.sessions.active ? (
-                    <p className="text-xs text-muted-foreground">
-                      Search shows up to {SEARCH_RESULT_LIMIT} matching batches.
-                    </p>
-                  ) : paging.sessions.canLoadMore ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={paging.sessions.isLoadingMore}
-                      onClick={paging.sessions.loadMore}
-                    >
-                      {paging.sessions.isLoadingMore
-                        ? 'Loading batches…'
-                        : 'Load more batches'}
-                    </Button>
-                  ) : null}
-                </div>
+          <fieldset className="contents" disabled={isRunning}>
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <Button
-                    type="button"
-                    disabled={
-                      !selectedCookSession || selectedCookSession.archived
-                    }
-                    onClick={() => {
-                      if (effectiveSelectedCookSessionId) {
-                        createDraftForSession(effectiveSelectedCookSessionId)
-                      }
-                    }}
-                  >
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Cooking batches
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Choose a batch date, then start or reopen foods you are
+                    preparing.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" onClick={openNewSessionEditor}>
                     <Plus className="h-3.5 w-3.5" />
-                    Start cooking
+                    New batch
                   </Button>
-                </div>
-                <div>
                   <Button
-                    type="button"
                     variant="outline"
-                    disabled={
-                      !activeDraft || Boolean(selectedCookSession?.archived)
-                    }
+                    disabled={!selectedCookSession}
                     onClick={() => {
-                      if (activeDraft) {
-                        createDraftForSession(
-                          activeDraft.sessionId,
-                          activeDraft,
-                        )
+                      if (selectedCookSession) {
+                        openEditSessionEditor(selectedCookSession)
                       }
                     }}
                   >
-                    <Copy className="h-3.5 w-3.5" />
-                    Duplicate current
+                    Edit batch
                   </Button>
                 </div>
               </div>
-
-              {selectedCookSession ? (
-                <div className="rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {selectedCookSession.label?.trim() ||
-                      toLocalDateString(selectedCookSession.cookedAt)}
-                  </span>
-                  {selectedCookPersonName ? ` · ${selectedCookPersonName}` : ''}
-                  {selectedCookSession.archived ? ' · Archived' : ''}
-                </div>
-              ) : (
-                <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-                  Create your first batch to start cooking. Batches group foods
-                  by date and person.
-                </div>
-              )}
-
-              {isSessionEditorVisible ? (
-                <div className="rounded-md border border-border/70 bg-muted/20 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {editingSessionId ? 'Edit batch' : 'New batch'}
-                    </p>
+              <div className="mt-3 space-y-3">
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
+                  <div className="space-y-2">
+                    <SearchablePicker
+                      ariaLabel="Cook session search"
+                      value={effectiveSelectedCookSessionId}
+                      onValueChange={(value) => {
+                        selectKnownCookSession(value as Id<'cookSessions'> | '')
+                        setShowAllCookedFoods(false)
+                      }}
+                      placeholder="Search or switch batch"
+                      options={sessionOptions}
+                      searchValue={sessionSearch}
+                      onSearchValueChange={(value) =>
+                        setSessionSearch(value.slice(0, SEARCH_MAX_LENGTH))
+                      }
+                      loading={search.sessions.isLoading}
+                      resultLimit={SEARCH_RESULT_LIMIT}
+                    />
+                    {search.sessions.active ? (
+                      <p className="text-xs text-muted-foreground">
+                        Search shows up to {SEARCH_RESULT_LIMIT} matching
+                        batches.
+                      </p>
+                    ) : paging.sessions.canLoadMore ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={paging.sessions.isLoadingMore}
+                        onClick={paging.sessions.loadMore}
+                      >
+                        {paging.sessions.isLoadingMore
+                          ? 'Loading batches…'
+                          : 'Load more batches'}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div>
                     <Button
                       type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={closeSessionEditor}
+                      disabled={
+                        !selectedCookSession || selectedCookSession.archived
+                      }
+                      onClick={() => {
+                        if (
+                          selectedCookSession &&
+                          !selectedCookSession.archived
+                        ) {
+                          createDraftForSession(selectedCookSession._id)
+                        }
+                      }}
                     >
-                      Close
+                      <Plus className="h-3.5 w-3.5" />
+                      Start cooking
                     </Button>
                   </div>
-
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <Input
-                      aria-label="Session label"
-                      placeholder="Breakfast prep"
-                      value={sessionLabel}
-                      onChange={(event) => setSessionLabel(event.target.value)}
-                    />
-                    <DatePicker
-                      value={sessionDate}
-                      onChange={setSessionDate}
-                      ariaLabel="Session date"
-                      className="w-full justify-start"
-                    />
-                    <div className="space-y-1">
-                      <Select
-                        ariaLabel="Session person"
-                        value={sessionPersonId}
-                        onValueChange={(value) =>
-                          setSessionPersonId(
-                            (value as Id<'people'> | '' | null) ?? '',
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={
+                        !activeDraft || Boolean(selectedCookSession?.archived)
+                      }
+                      onClick={() => {
+                        if (activeDraft) {
+                          createDraftForSession(
+                            activeDraft.sessionId,
+                            activeDraft,
                           )
                         }
-                        placeholder="No person"
-                        className="w-full"
-                        options={[
-                          { value: '', label: 'No person' },
-                          ...(unlistedSessionPersonOption
-                            ? [unlistedSessionPersonOption]
-                            : []),
-                          ...people.map((person) => ({
-                            value: person._id,
-                            label: person.name,
-                          })),
-                        ]}
-                      />
-                      {paging.people.canLoadMore ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={paging.people.isLoadingMore}
-                          onClick={paging.people.loadMore}
-                        >
-                          {paging.people.isLoadingMore
-                            ? 'Loading people…'
-                            : 'Load more people'}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button disabled={isRunning} onClick={saveSession}>
-                      {editingSessionId ? 'Save batch' : 'Create batch'}
-                    </Button>
-                    <Button variant="outline" onClick={closeSessionEditor}>
-                      Cancel
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Duplicate current
                     </Button>
                   </div>
                 </div>
-              ) : null}
-            </div>
-          </section>
+
+                {selectedCookSession ? (
+                  <div className="rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {selectedCookSession.label?.trim() ||
+                        toLocalDateString(selectedCookSession.cookedAt)}
+                    </span>
+                    {selectedCookPersonName
+                      ? ` · ${selectedCookPersonName}`
+                      : ''}
+                    {selectedCookSession.archived ? ' · Archived' : ''}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
+                    Create your first batch to start cooking. Batches group
+                    foods by date and person.
+                  </div>
+                )}
+
+                {isSessionEditorVisible ? (
+                  <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">
+                        {editingSessionId ? 'Edit batch' : 'New batch'}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={closeSessionEditor}
+                      >
+                        Close
+                      </Button>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      <Input
+                        aria-label="Session label"
+                        placeholder="Breakfast prep"
+                        value={sessionLabel}
+                        onChange={(event) =>
+                          setSessionLabel(event.target.value)
+                        }
+                      />
+                      <DatePicker
+                        value={sessionDate}
+                        onChange={setSessionDate}
+                        ariaLabel="Session date"
+                        className="w-full justify-start"
+                      />
+                      <div className="space-y-1">
+                        <Select
+                          ariaLabel="Session person"
+                          value={sessionPersonId}
+                          onValueChange={(value) =>
+                            setSessionPersonId(
+                              (value as Id<'people'> | '' | null) ?? '',
+                            )
+                          }
+                          placeholder="No person"
+                          className="w-full"
+                          options={[
+                            { value: '', label: 'No person' },
+                            ...(unlistedSessionPersonOption
+                              ? [unlistedSessionPersonOption]
+                              : []),
+                            ...people.map((person) => ({
+                              value: person._id,
+                              label: person.name,
+                            })),
+                          ]}
+                        />
+                        {paging.people.canLoadMore ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={paging.people.isLoadingMore}
+                            onClick={paging.people.loadMore}
+                          >
+                            {paging.people.isLoadingMore
+                              ? 'Loading people…'
+                              : 'Load more people'}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button disabled={isRunning} onClick={saveSession}>
+                        {editingSessionId ? 'Save batch' : 'Create batch'}
+                      </Button>
+                      <Button variant="outline" onClick={closeSessionEditor}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </fieldset>
 
           <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
             <section>
@@ -1867,8 +2142,11 @@ function CookingPageContent() {
                       variant="outline"
                       disabled={Boolean(selectedCookSession?.archived)}
                       onClick={() => {
-                        if (effectiveSelectedCookSessionId) {
-                          createDraftForSession(effectiveSelectedCookSessionId)
+                        if (
+                          selectedCookSession &&
+                          !selectedCookSession.archived
+                        ) {
+                          createDraftForSession(selectedCookSession._id)
                         }
                       }}
                     >
@@ -2283,6 +2561,11 @@ function CookingPageContent() {
                               <div className="self-end">
                                 <Button
                                   variant="outline"
+                                  disabled={Boolean(
+                                    activeDraft.lineIngredientId &&
+                                    !isEditingStableIngredientLine &&
+                                    !selectedCookedFoodLineIngredient,
+                                  )}
                                   onClick={addCookedFoodIngredientLine}
                                 >
                                   Add line
@@ -2534,7 +2817,7 @@ function CookingPageContent() {
                                 }
                                 loading={
                                   search.recipes.isLoading ||
-                                  loadingRecipeDraftId === activeDraft.draftId
+                                  isActiveRecipeLoading
                                 }
                                 resultLimit={SEARCH_RESULT_LIMIT}
                               />

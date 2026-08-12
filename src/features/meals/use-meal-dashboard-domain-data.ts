@@ -107,22 +107,37 @@ export function useMealDashboardDomainData({
       ? { sessionId: selectedCookSessionId }
       : 'skip',
   )
+  const editingMealDetail = useQuery(
+    api.meals.getDetail,
+    editingMealId ? { mealId: editingMealId } : 'skip',
+  )
+  const selectedPersonCanBeRetained = Boolean(
+    selectedPerson &&
+    (!selectedPerson.archived ||
+      editingMealDetail?.meal.personId === selectedPerson._id),
+  )
   const people: MealDashboardPerson[] = useMemo(
     () =>
+      selectedPersonCanBeRetained &&
       selectedPerson &&
       !peopleQuery.results.some((person) => person._id === selectedPerson._id)
         ? [...peopleQuery.results, selectedPerson]
         : peopleQuery.results,
-    [peopleQuery.results, selectedPerson],
+    [peopleQuery.results, selectedPerson, selectedPersonCanBeRetained],
   )
   const effectiveSelectedPersonId: Id<'people'> | '' =
-    selectedPersonId && (selectedPersonIsLoaded || selectedPerson !== null)
+    selectedPersonId &&
+    (selectedPersonIsLoaded ||
+      (selectedPerson !== undefined &&
+        selectedPerson !== null &&
+        selectedPersonCanBeRetained))
       ? selectedPersonId
       : ''
   const ingredients: MealDashboardIngredient[] = ingredientsQuery.results
   const cookSessions: MealDashboardCookSession[] = useMemo(() => {
     const sessions =
       selectedCookSession &&
+      !selectedCookSession.archived &&
       !cookSessionsQuery.results.some(
         (session) => session._id === selectedCookSession._id,
       )
@@ -137,7 +152,10 @@ export function useMealDashboardDomainData({
   }, [cookSessionsQuery.results, selectedCookSession])
   const effectiveCookSessionId: Id<'cookSessions'> | '' =
     selectedCookSessionId &&
-    (selectedCookSessionIsLoaded || selectedCookSession !== null)
+    (selectedCookSessionIsLoaded ||
+      (selectedCookSession !== undefined &&
+        selectedCookSession !== null &&
+        !selectedCookSession.archived))
       ? selectedCookSessionId
       : ''
 
@@ -164,10 +182,6 @@ export function useMealDashboardDomainData({
     effectiveSelectedPersonId
       ? { personId: effectiveSelectedPersonId, eatenOn: mealDate }
       : 'skip',
-  )
-  const editingMealDetail = useQuery(
-    api.meals.getDetail,
-    editingMealId ? { mealId: editingMealId } : 'skip',
   )
 
   const cookedFoods: MealDashboardCookedFood[] = useMemo(

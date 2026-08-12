@@ -84,6 +84,7 @@ function createInitialState(): MockState {
     name: 'Alex',
     currentDailyGoalKcal: 2100,
     archived: false,
+    editRevision: 0,
     createdAt: now - 10_000,
   }
   const meal: Doc<'meals'> = {
@@ -96,6 +97,7 @@ function createInitialState(): MockState {
     archived: false,
     totalCalories: 250,
     itemCount: 1,
+    editRevision: 0,
     createdAt: now - 5_000,
   }
   const mealItem: Doc<'mealItems'> = {
@@ -261,6 +263,7 @@ function createMeal(args: CreateMealArgs) {
       0,
     ),
     itemCount: items.length,
+    editRevision: 0,
     createdAt,
   }
 
@@ -449,6 +452,20 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
     },
     [functionName],
   )
+}
+
+export function useConvex() {
+  return {
+    query: async <Query extends FunctionReference<'query'>>(
+      query: Query,
+      args: FunctionArgs<Query>,
+    ): Promise<FunctionReturnType<Query>> => {
+      const functionName = getFunctionName(query)
+      throw new Error(
+        `The browser smoke adapter does not implement imperative query ${functionName} (${JSON.stringify(args)}).`,
+      )
+    },
+  }
 }
 
 export function useConvexAuth() {

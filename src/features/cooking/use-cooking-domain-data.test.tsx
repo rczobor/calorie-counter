@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, renderHook } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { getFunctionName, type FunctionReference } from 'convex/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -148,7 +148,7 @@ describe('useCookingDomainData', () => {
     expect(archivedChoiceCalls).toEqual([])
   })
 
-  it('retains a selected remote session after its search is cleared', () => {
+  it('point-loads a selected remote session after its search is cleared', () => {
     const loadedSession = {
       _id: 'session-loaded',
       label: 'Loaded',
@@ -175,7 +175,7 @@ describe('useCookingDomainData', () => {
       if (args === 'skip') return undefined
       const name = getFunctionName(reference as FunctionReference<'query'>)
       if (name === 'cooking:searchSessions') return [remoteSession]
-      if (name === 'cooking:getSession') return undefined
+      if (name === 'cooking:getSession') return remoteSession
       return []
     })
 
@@ -198,7 +198,6 @@ describe('useCookingDomainData', () => {
       },
     )
 
-    act(() => result.current.retainCookSession('session-remote' as never))
     rerender({
       selectedCookSessionId: 'session-remote',
       sessionSearch: '',
@@ -206,6 +205,31 @@ describe('useCookingDomainData', () => {
 
     expect(result.current.effectiveSelectedCookSessionId).toBe('session-remote')
     expect(result.current.selectedCookSession?.label).toBe('Remote')
+  })
+
+  it('does not use an unvalidated point-loaded session for scoped queries', () => {
+    mockUseQuery.mockReturnValue(undefined)
+
+    const { result } = renderHook(() =>
+      useCookingDomainData({
+        showArchived: false,
+        selectedCookSessionId: 'unvalidated-session' as never,
+        showAllCookedFoods: false,
+        sessionSearch: '',
+        ingredientSearch: '',
+        recipeSearch: '',
+        cookedFoodSearch: '',
+      }),
+    )
+
+    expect(result.current.selectedCookSession).toBeUndefined()
+    expect(result.current.effectiveSelectedCookSessionId).toBe('')
+    const scopedFoodCalls = mockUsePaginatedQuery.mock.calls.filter(
+      ([reference]) =>
+        getFunctionName(reference as FunctionReference<'query'>) ===
+        'cooking:listCookedFoodsForSession',
+    )
+    expect(scopedFoodCalls.every(([, args]) => args === 'skip')).toBe(true)
   })
 
   it('stops session-scoped queries after a point lookup confirms the session is missing', () => {
@@ -235,6 +259,42 @@ describe('useCookingDomainData', () => {
         'cooking:listCookedFoodsForSession',
     )
     expect(scopedFoodCalls).toHaveLength(2)
+    expect(scopedFoodCalls.every(([, args]) => args === 'skip')).toBe(true)
+  })
+
+  it('stops session-scoped queries when a point-loaded session is archived but archives are hidden', () => {
+    mockUseQuery.mockImplementation((reference, args) => {
+      if (args === 'skip') return undefined
+      const name = getFunctionName(reference as FunctionReference<'query'>)
+      return name === 'cooking:getSession'
+        ? {
+            _id: 'archived-session',
+            label: 'Archived',
+            cookedAt: 1,
+            archived: true,
+          }
+        : []
+    })
+
+    const { result } = renderHook(() =>
+      useCookingDomainData({
+        showArchived: false,
+        selectedCookSessionId: 'archived-session' as never,
+        showAllCookedFoods: false,
+        sessionSearch: '',
+        ingredientSearch: '',
+        recipeSearch: '',
+        cookedFoodSearch: '',
+      }),
+    )
+
+    expect(result.current.selectedCookSession).toBeUndefined()
+    expect(result.current.effectiveSelectedCookSessionId).toBe('')
+    const scopedFoodCalls = mockUsePaginatedQuery.mock.calls.filter(
+      ([reference]) =>
+        getFunctionName(reference as FunctionReference<'query'>) ===
+        'cooking:listCookedFoodsForSession',
+    )
     expect(scopedFoodCalls.every(([, args]) => args === 'skip')).toBe(true)
   })
 })

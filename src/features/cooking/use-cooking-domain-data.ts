@@ -1,6 +1,6 @@
 import { useConvex, usePaginatedQuery, useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
@@ -106,8 +106,6 @@ export function useCookingDomainData({
   cookedFoodSearch,
 }: CookingDomainDataArgs) {
   const convex = useConvex()
-  const [cachedSelectedSession, setCachedSelectedSession] =
-    useState<CookingSession | null>(null)
   const activePeople = usePaginatedQuery(
     api.people.list,
     { archived: false },
@@ -214,31 +212,36 @@ export function useCookingDomainData({
       showArchived,
     ],
   )
+  const listedSelectedSession = selectedCookSessionId
+    ? (loadedSessions.find(
+        (session) => session._id === selectedCookSessionId,
+      ) ??
+      visibleSessions.find((session) => session._id === selectedCookSessionId))
+    : undefined
   const selectedSessionMissing = Boolean(
-    selectedCookSessionId && selectedSessionDetail === null,
+    selectedCookSessionId &&
+    (selectedSessionDetail === null ||
+      (!showArchived && selectedSessionDetail?.archived)),
   )
-  const selectedSession = selectedSessionMissing
+  const selectedSessionValidationPending = Boolean(
+    selectedCookSessionId &&
+    !listedSelectedSession &&
+    selectedSessionDetail === undefined,
+  )
+  const selectedSessionUnavailable =
+    selectedSessionMissing || selectedSessionValidationPending
+  const selectedSession = selectedSessionUnavailable
     ? undefined
-    : (loadedSessions.find(
-        (session) => session._id === selectedCookSessionId,
-      ) ??
-      visibleSessions.find(
-        (session) => session._id === selectedCookSessionId,
-      ) ??
-      (selectedSessionDetail || undefined) ??
-      (selectedSessionDetail === undefined &&
-      cachedSelectedSession?._id === selectedCookSessionId
-        ? cachedSelectedSession
-        : undefined))
-  const effectiveSelectedSession = selectedSessionMissing
+    : (listedSelectedSession ?? selectedSessionDetail ?? undefined)
+  const effectiveSelectedSession = selectedSessionUnavailable
     ? undefined
     : (selectedSession ??
       (selectedCookSessionId
         ? undefined
         : (loadedSessions[0] ?? visibleSessions[0])))
-  const effectiveSelectedCookSessionId = selectedSessionMissing
+  const effectiveSelectedCookSessionId = selectedSessionUnavailable
     ? ''
-    : (effectiveSelectedSession?._id ?? selectedCookSessionId)
+    : (effectiveSelectedSession?._id ?? '')
 
   const useAllCookedFoods =
     showAllCookedFoods || !effectiveSelectedCookSessionId
@@ -378,18 +381,6 @@ export function useCookingDomainData({
     ? [activeAllCookedFoods, archivedAllCookedFoods]
     : [activeSessionCookedFoods, archivedSessionCookedFoods]
 
-  const retainCookSession = (cookSessionId: Id<'cookSessions'>) => {
-    const session =
-      visibleSessions.find((row) => row._id === cookSessionId) ??
-      loadedSessions.find((row) => row._id === cookSessionId)
-    if (session) {
-      setCachedSelectedSession(session)
-    }
-  }
-  const cacheCookSession = (session: CookingSession) => {
-    setCachedSelectedSession(session)
-  }
-
   return {
     people,
     foodGroups,
@@ -398,8 +389,6 @@ export function useCookingDomainData({
     cookSessions: visibleSessions,
     selectedCookSession: effectiveSelectedSession,
     effectiveSelectedCookSessionId,
-    retainCookSession,
-    cacheCookSession,
     cookedFoods,
     loadRecipeDetail: (recipeId: Id<'recipes'>) =>
       convex.query(api.recipes.getCurrent, { recipeId }),

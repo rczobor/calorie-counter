@@ -19,6 +19,7 @@ export function createPersonDoc(
     notes: undefined,
     currentDailyGoalKcal: 2000,
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -36,6 +37,7 @@ export function createFoodGroupDoc(
     name,
     appliesTo: 'cookedFood',
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -76,6 +78,7 @@ export function createIngredientDoc(
     groupId: undefined,
     notes: undefined,
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -96,6 +99,7 @@ export function createCookSessionDoc(
     cookedByPersonId: asId<'people'>('person-1'),
     notes: undefined,
     archived: false,
+    editRevision: 0,
     updatedAt: 1,
     createdAt: 1,
     ...overrides,
@@ -123,6 +127,7 @@ export function createCookedFoodDoc(
     kcalPer100: 300,
     notes: undefined,
     archived: false,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }
@@ -211,6 +216,7 @@ export function createMealDoc(
     archived: false,
     totalCalories: 100,
     itemCount: 1,
+    editRevision: 0,
     createdAt: 1,
     ...overrides,
   }

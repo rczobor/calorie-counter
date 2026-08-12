@@ -196,6 +196,7 @@ const recipe = {
   _creationTime: 1,
   name: 'Dinner',
   archived: false,
+  editRevision: 0,
   latestVersionNumber: 1,
   createdAt: 1,
 }

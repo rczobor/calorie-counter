@@ -44,6 +44,8 @@ export type CookingDraft = {
   sessionId: Id<'cookSessions'>
   persistedCookedFoodId?: Id<'cookedFoods'>
   hasAuthoritativeIngredientIds?: boolean
+  expectedCookedFoodIngredientIds?: Id<'cookedFoodIngredients'>[]
+  expectedCookedFoodEditRevision?: number
   isDirty: boolean
   createdAt: number
   updatedAt: number
@@ -113,6 +115,8 @@ export function createCookingDraft(
     sessionId,
     persistedCookedFoodId: undefined,
     hasAuthoritativeIngredientIds: false,
+    expectedCookedFoodIngredientIds: undefined,
+    expectedCookedFoodEditRevision: undefined,
     isDirty: false,
     createdAt: now,
     updatedAt: now,
@@ -160,12 +164,15 @@ export function createDraftFromCookedFood(
     | 'recipeId'
     | 'recipeVersionId'
     | 'notes'
+    | 'editRevision'
   >,
   ingredientLines: Array<OwnerFree<Doc<'cookedFoodIngredients'>>>,
 ) {
   return createCookingDraft(food.cookSessionId, {
     persistedCookedFoodId: food._id,
     hasAuthoritativeIngredientIds: true,
+    expectedCookedFoodIngredientIds: ingredientLines.map((line) => line._id),
+    expectedCookedFoodEditRevision: food.editRevision ?? 0,
     isDirty: false,
     name: food.name,
     groupId: food.groupId ?? '',

@@ -47,6 +47,10 @@ const NUTRITION_UNITS = new Set([
   'g',
   'ml',
 ])
+const MAX_NAME_LENGTH = 120
+const MAX_NOTES_LENGTH = 2_000
+const MAX_INSTRUCTIONS_LENGTH = 10_000
+const MAX_CHILD_ROWS = 100
 
 export type MigrationIssue = {
   code: string
@@ -149,6 +153,60 @@ function optionalString(
   return value
 }
 
+function requireRoundTripText(
+  record: JsonObject,
+  key: string,
+  table: string,
+  documentId: string,
+  maximum: number,
+) {
+  const value = requireString(record, key, table, documentId)
+  const normalized = value.trim()
+  if (!normalized) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} that is empty after trimming and cannot be round-tripped by current mutations.`,
+    )
+  }
+  if (normalized !== value) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} with leading or trailing whitespace that current mutations would trim.`,
+    )
+  }
+  if (normalized.length > maximum) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} exceeding the current mutation maximum of ${maximum} characters.`,
+    )
+  }
+  return value
+}
+
+function optionalRoundTripText(
+  record: JsonObject,
+  key: string,
+  table: string,
+  documentId: string,
+  maximum: number,
+  options: { allowEmpty?: boolean } = {},
+) {
+  const value = optionalString(record, key, table, documentId)
+  if (value === '' && !options.allowEmpty) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} as an empty string that current mutations would omit.`,
+    )
+  }
+  if (value !== undefined && value.trim() !== value) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} with leading or trailing whitespace that current mutations would trim.`,
+    )
+  }
+  if (value !== undefined && value.trim().length > maximum) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} exceeding the current mutation maximum of ${maximum} characters.`,
+    )
+  }
+  return value
+}
+
 function requireBoolean(
   record: JsonObject,
   key: string,
@@ -215,16 +273,102 @@ function optionalFiniteNumber(
   return requireFiniteNumber(record, key, table, documentId, options)
 }
 
+function requireFiniteDerivedNumber(
+  value: number,
+  table: string,
+  documentId: string,
+  field: string,
+) {
+  if (!Number.isFinite(value)) {
+    throw new Error(
+      `${describeRecord(table, documentId)} produced non-finite ${field}.`,
+    )
+  }
+  return value
+}
+
+function approximatelyEqual(left: number, right: number, terms = 1) {
+  // Repeating backend floating-point sums in export order can differ by a few
+  // ULPs from the original mutation order. This admits only scaled machine
+  // precision, not a user-visible calorie or weight discrepancy.
+  const tolerance =
+    Number.EPSILON *
+    Math.max(1, Math.abs(left), Math.abs(right)) *
+    Math.max(1, terms) *
+    8
+  return Math.abs(left - right) <= tolerance
+}
+
+function assertRoundTripKcal(
+  kcalPer100: number,
+  ignoreCalories: boolean,
+  table: string,
+  documentId: string,
+  kcalField: string,
+  ignoreField: string,
+) {
+  if (!Number.isInteger(kcalPer100)) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has fractional ${kcalField} ${kcalPer100} that current mutations would round to ${Math.round(kcalPer100)}.`,
+    )
+  }
+  if (!ignoreCalories && Math.round(kcalPer100) <= 0) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${kcalField} that rounds to zero while ${ignoreField} is false; current mutations require positive rounded kcal when calories are counted, so set ${ignoreField} to true or provide positive kcal explicitly in the working copy.`,
+    )
+  }
+}
+
+function assertIgnoredCaloriesZero(
+  calories: number,
+  table: string,
+  documentId: string,
+  caloriesField: string,
+  ignoreField: string,
+) {
+  if (calories !== 0) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has nonzero ${caloriesField} ${calories} while ${ignoreField} is true; current updates reset ignored ingredient calories to zero.`,
+    )
+  }
+}
+
+function assertFiniteSameWeightHistoricalScale(
+  caloriesSnapshot: number,
+  consumedWeightGrams: number,
+  table: string,
+  documentId: string,
+) {
+  const multipliedCalories = requireFiniteDerivedNumber(
+    caloriesSnapshot * consumedWeightGrams,
+    table,
+    documentId,
+    'round-trip historical caloriesSnapshot multiplication',
+  )
+  requireFiniteDerivedNumber(
+    multipliedCalories / consumedWeightGrams,
+    table,
+    documentId,
+    'round-trip historical caloriesSnapshot',
+  )
+}
+
 function requireTimestamp(
   record: JsonObject,
   key: string,
   table: string,
   documentId: string,
 ) {
-  return requireFiniteNumber(record, key, table, documentId, {
+  const value = requireFiniteNumber(record, key, table, documentId, {
     nonNegative: true,
     integer: true,
   })
+  if (!Number.isFinite(new Date(value).getTime())) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ${key} outside the supported timestamp range.`,
+    )
+  }
+  return value
 }
 
 function optionalTimestamp(
@@ -306,7 +450,21 @@ function systemFields(record: JsonObject, table: string) {
 }
 
 function owner(record: JsonObject, table: string, documentId: string) {
-  return requireString(record, 'ownerTokenIdentifier', table, documentId)
+  const value = requireString(record, 'ownerTokenIdentifier', table, documentId)
+  const [issuer, subject, ...extra] = value.split('|')
+  if (
+    value.trim() !== value ||
+    issuer?.trim() !== issuer ||
+    subject?.trim() !== subject ||
+    !issuer ||
+    !subject ||
+    extra.length > 0
+  ) {
+    throw new Error(
+      `${describeRecord(table, documentId)} has ownerTokenIdentifier that is not an exact issuer|subject token identifier.`,
+    )
+  }
+  return value
 }
 
 function baseRecord(record: JsonObject, table: string) {
@@ -515,6 +673,91 @@ function validateCoreRelationships(ctx: TransformContext) {
   }
 }
 
+function validateChildRowLimits(ctx: TransformContext) {
+  const relationships: Array<{
+    parentTable: ApplicationTable
+    childTable: ApplicationTable
+    parentField: string
+  }> = [
+    {
+      parentTable: 'recipeVersions',
+      childTable: 'recipeVersionIngredients',
+      parentField: 'recipeVersionId',
+    },
+    {
+      parentTable: 'cookedFoods',
+      childTable: 'cookedFoodIngredients',
+      parentField: 'cookedFoodId',
+    },
+    {
+      parentTable: 'meals',
+      childTable: 'mealItems',
+      parentField: 'mealId',
+    },
+  ]
+  for (const { parentTable, childTable, parentField } of relationships) {
+    const counts = new Map<string, number>()
+    for (const child of ctx.source.get(childTable) ?? []) {
+      const childId = systemFields(child, childTable)._id
+      const parentId = requireString(child, parentField, childTable, childId)
+      const count = (counts.get(parentId) ?? 0) + 1
+      counts.set(parentId, count)
+      if (
+        parentTable === 'recipeVersions' &&
+        !isCurrentRecipeVersion(ctx, parentId)
+      ) {
+        continue
+      }
+      if (count > MAX_CHILD_ROWS) {
+        throw new Error(
+          `${describeRecord(parentTable, parentId)} has ${childTable} count ${count} exceeding the current maximum of ${MAX_CHILD_ROWS} child rows.`,
+        )
+      }
+    }
+    for (const parent of ctx.source.get(parentTable) ?? []) {
+      const parentId = systemFields(parent, parentTable)._id
+      if (
+        parentTable === 'recipeVersions' &&
+        !isCurrentRecipeVersion(ctx, parentId)
+      ) {
+        continue
+      }
+      if ((counts.get(parentId) ?? 0) === 0) {
+        throw new Error(
+          `${describeRecord(parentTable, parentId)} has no ${childTable} rows; current mutations require at least one child row.`,
+        )
+      }
+    }
+  }
+}
+
+function isCurrentRecipeVersion(ctx: TransformContext, versionId: string) {
+  const version = getRecord(ctx, 'recipeVersions', versionId)
+  if (!version) return false
+  const recipeId = requireString(
+    version,
+    'recipeId',
+    'recipeVersions',
+    versionId,
+  )
+  const recipe = getRecord(ctx, 'recipes', recipeId)
+  if (!recipe) return false
+  const versionNumber = requireFiniteNumber(
+    version,
+    'versionNumber',
+    'recipeVersions',
+    versionId,
+    { positive: true, integer: true },
+  )
+  return (
+    versionNumber ===
+    requireFiniteNumber(recipe, 'latestVersionNumber', 'recipes', recipeId, {
+      positive: true,
+      integer: true,
+    })
+  )
+}
+
 function resolveGroupId(
   ctx: TransformContext,
   table: 'ingredients' | 'cookedFoods',
@@ -542,35 +785,24 @@ function resolveGroupId(
   for (const groupId of candidates) {
     const group = getRecord(ctx, 'foodGroups', groupId)
     if (!group) {
-      ctx.reporter.issue(
-        'dropped_missing_group',
-        table,
-        _id,
-        'A missing group reference was dropped.',
+      throw new Error(
+        `${describeRecord(table, _id)} has groupIds referencing missing foodGroups document ${groupId}; remove or replace it explicitly in the working copy.`,
       )
-      continue
     }
     if (owner(record, table, _id) !== owner(group, 'foodGroups', groupId)) {
       throw new Error(`${describeRecord(table, _id)} has a cross-owner group.`)
     }
     const appliesTo = requireString(group, 'appliesTo', 'foodGroups', groupId)
     if (appliesTo !== expectedScope) {
-      ctx.reporter.issue(
-        'dropped_wrong_scope_group',
-        table,
-        _id,
-        'A group with an incompatible scope was dropped.',
+      throw new Error(
+        `${describeRecord(table, _id)} has groupIds referencing foodGroups document ${groupId} with appliesTo ${appliesTo}, expected ${expectedScope}; remove or replace it explicitly in the working copy.`,
       )
-      continue
     }
     if (!selected) {
       selected = groupId
     } else {
-      ctx.reporter.issue(
-        'dropped_extra_group',
-        table,
-        _id,
-        'An additional valid group was dropped; the first valid group wins.',
+      throw new Error(
+        `${describeRecord(table, _id)} has groupIds with multiple valid ${expectedScope} groups (${selected}, ${groupId}); current groupId accepts one value, so choose one explicitly in the working copy.`,
       )
     }
   }
@@ -610,20 +842,18 @@ function resolveIngredientSnapshot(
   const referencedName = ingredient
     ? requireString(ingredient, 'name', 'ingredients', ingredientId!)
     : undefined
-  const resolvedName = snapshotName || referencedName || 'Unknown item'
+  const resolvedName = snapshotName || referencedName
+  if (!resolvedName) {
+    throw new Error(
+      `${describeRecord(table, _id)} cannot recover ${names.name} from a stored snapshot or owned ingredient reference.`,
+    )
+  }
   if (!snapshotName && referencedName) {
     ctx.reporter.issue(
       'defaulted_snapshot_name_from_reference',
       table,
       _id,
       'The missing snapshot name was copied from the referenced ingredient.',
-    )
-  } else if (!snapshotName && !referencedName) {
-    ctx.reporter.issue(
-      'defaulted_snapshot_name',
-      table,
-      _id,
-      'The missing snapshot name was replaced with Unknown item.',
     )
   }
 
@@ -658,10 +888,24 @@ function resolveIngredientSnapshot(
     _id,
     { positive: true },
   )
-  if (calories !== undefined && amount !== undefined) {
-    derivedKcal = (calories * 100) / amount
+  if (
+    snapshotKcal === undefined &&
+    calories !== undefined &&
+    amount !== undefined
+  ) {
+    derivedKcal = requireFiniteDerivedNumber(
+      (calories / amount) * 100,
+      table,
+      _id,
+      names.kcal,
+    )
   }
-  const resolvedKcal = snapshotKcal ?? derivedKcal ?? referencedKcal ?? 0
+  const resolvedKcal = snapshotKcal ?? derivedKcal ?? referencedKcal
+  if (resolvedKcal === undefined) {
+    throw new Error(
+      `${describeRecord(table, _id)} cannot recover ${names.kcal} from a stored snapshot, historical calories and amount, or owned ingredient reference.`,
+    )
+  }
   if (snapshotKcal === undefined) {
     ctx.reporter.issue(
       'defaulted_snapshot_kcal',
@@ -669,9 +913,7 @@ function resolveIngredientSnapshot(
       _id,
       derivedKcal !== undefined
         ? 'The missing kcal snapshot was derived from stored calories and amount.'
-        : referencedKcal !== undefined
-          ? 'The missing kcal snapshot was copied from the referenced ingredient as a last resort.'
-          : 'The missing kcal snapshot was defaulted to zero.',
+        : 'The missing kcal snapshot was copied from the referenced ingredient as a last resort.',
     )
   }
 
@@ -681,9 +923,19 @@ function resolveIngredientSnapshot(
     (table === 'cookedFoodIngredients' && record.rawWeightGrams !== undefined)
       ? 'g'
       : undefined
-  const referencedBasis = ingredient?.kcalBasisUnit
+  // A missing legacy ingredient basis was defined as grams by the old model,
+  // and transformIngredients applies the same compatibility default.
+  const referencedBasis = ingredient
+    ? (ingredient.kcalBasisUnit ?? 'g')
+    : undefined
+  const basisCandidate = snapshotBasis ?? historicalBasis ?? referencedBasis
+  if (basisCandidate === undefined) {
+    throw new Error(
+      `${describeRecord(table, _id)} cannot recover ${names.basis} from a stored snapshot, historical weight, or owned ingredient reference.`,
+    )
+  }
   const resolvedBasis = nutritionUnitOrDefault(
-    snapshotBasis ?? historicalBasis ?? referencedBasis,
+    basisCandidate,
     'g',
     table,
     _id,
@@ -714,23 +966,22 @@ function resolveIngredientSnapshot(
   const referencedIgnore = ingredient
     ? requireBoolean(ingredient, 'ignoreCalories', 'ingredients', ingredientId!)
     : undefined
-  const historicalIgnore =
-    (table === 'mealItems' || table === 'cookedFoodIngredients') &&
-    calories !== undefined
-      ? calories === 0
-      : undefined
-  const resolvedIgnore =
-    snapshotIgnore ?? historicalIgnore ?? referencedIgnore ?? resolvedKcal === 0
+  // Legacy readers treated an absent ignore flag as Boolean(undefined), i.e.
+  // false, for custom rows even when they retained a catalog ingredient link.
+  // Ingredient-source editors instead reloaded the referenced catalog value.
+  // A zero stored calorie value did not mean the item was intentionally
+  // ignored, so do not invent that semantic during migration.
+  const referencedIngredientIgnore =
+    record.sourceType === 'ingredient' ? referencedIgnore : undefined
+  const resolvedIgnore = snapshotIgnore ?? referencedIngredientIgnore ?? false
   if (snapshotIgnore === undefined) {
     ctx.reporter.issue(
       'defaulted_snapshot_ignore_calories',
       table,
       _id,
-      historicalIgnore !== undefined
-        ? 'The missing ignore-calories snapshot was derived from stored historical calories.'
-        : referencedIgnore !== undefined
-          ? 'The missing ignore-calories snapshot was copied from the referenced ingredient as a last resort.'
-          : 'The missing ignore-calories snapshot was derived from the resolved kcal value.',
+      referencedIngredientIgnore !== undefined
+        ? 'The missing ignore-calories snapshot was copied from the referenced ingredient as a last resort.'
+        : 'The missing ignore-calories snapshot was restored as false to match the legacy Boolean(undefined) read behavior.',
     )
   }
 
@@ -767,7 +1018,7 @@ function transformPeople(ctx: TransformContext) {
     }
     const target: JsonObject = {
       ...base,
-      name: requireString(record, 'name', 'people', id),
+      name: requireRoundTripText(record, 'name', 'people', id, MAX_NAME_LENGTH),
       currentDailyGoalKcal: requireFiniteNumber(
         record,
         'currentDailyGoalKcal',
@@ -829,7 +1080,13 @@ function transformFoodGroups(ctx: TransformContext) {
       ctx.reporter.count('removed_owner_user_id')
     return {
       ...base,
-      name: requireString(record, 'name', 'foodGroups', id),
+      name: requireRoundTripText(
+        record,
+        'name',
+        'foodGroups',
+        id,
+        MAX_NAME_LENGTH,
+      ),
       appliesTo,
       archived: archivedValue(record, 'foodGroups', id, ctx.reporter),
       createdAt: requireTimestamp(record, 'createdAt', 'foodGroups', id),
@@ -842,12 +1099,37 @@ function transformIngredients(ctx: TransformContext) {
     const base = baseRecord(record, 'ingredients')
     const id = base._id
     const groupId = resolveGroupId(ctx, 'ingredients', record, 'ingredient')
+    const kcalPer100 = requireFiniteNumber(
+      record,
+      'kcalPer100',
+      'ingredients',
+      id,
+      { nonNegative: true },
+    )
+    const ignoreCalories = requireBoolean(
+      record,
+      'ignoreCalories',
+      'ingredients',
+      id,
+    )
+    assertRoundTripKcal(
+      kcalPer100,
+      ignoreCalories,
+      'ingredients',
+      id,
+      'kcalPer100',
+      'ignoreCalories',
+    )
     const target: JsonObject = {
       ...base,
-      name: requireString(record, 'name', 'ingredients', id),
-      kcalPer100: requireFiniteNumber(record, 'kcalPer100', 'ingredients', id, {
-        nonNegative: true,
-      }),
+      name: requireRoundTripText(
+        record,
+        'name',
+        'ingredients',
+        id,
+        MAX_NAME_LENGTH,
+      ),
+      kcalPer100,
       kcalBasisUnit: nutritionUnitOrDefault(
         record.kcalBasisUnit,
         'g',
@@ -856,17 +1138,33 @@ function transformIngredients(ctx: TransformContext) {
         'kcalBasisUnit',
         ctx.reporter,
       ),
-      ignoreCalories: requireBoolean(
-        record,
-        'ignoreCalories',
-        'ingredients',
-        id,
-      ),
+      ignoreCalories,
       archived: archivedValue(record, 'ingredients', id, ctx.reporter),
       createdAt: requireTimestamp(record, 'createdAt', 'ingredients', id),
     }
     optionalField(target, 'groupId', groupId)
-    addOptionalTextFields(target, record, 'ingredients', id, ['brand', 'notes'])
+    optionalField(
+      target,
+      'brand',
+      optionalRoundTripText(
+        record,
+        'brand',
+        'ingredients',
+        id,
+        MAX_NAME_LENGTH,
+      ),
+    )
+    optionalField(
+      target,
+      'notes',
+      optionalRoundTripText(
+        record,
+        'notes',
+        'ingredients',
+        id,
+        MAX_NOTES_LENGTH,
+      ),
+    )
     if (record.groupIds !== undefined)
       ctx.reporter.count('converted_group_ids_to_group_id')
     if (record.ownerUserId !== undefined)
@@ -879,17 +1177,29 @@ function transformRecipes(ctx: TransformContext) {
   return (ctx.source.get('recipes') ?? []).map((record) => {
     const base = baseRecord(record, 'recipes')
     const id = base._id
+    const latestVersionNumber = requireFiniteNumber(
+      record,
+      'latestVersionNumber',
+      'recipes',
+      id,
+      { positive: true, integer: true },
+    )
+    if (latestVersionNumber >= Number.MAX_SAFE_INTEGER) {
+      throw new Error(
+        `${describeRecord('recipes', id)} has latestVersionNumber with no safe integer available for the next recipe edit.`,
+      )
+    }
     const target: JsonObject = {
       ...base,
-      name: requireString(record, 'name', 'recipes', id),
-      archived: archivedValue(record, 'recipes', id, ctx.reporter),
-      latestVersionNumber: requireFiniteNumber(
+      name: requireRoundTripText(
         record,
-        'latestVersionNumber',
+        'name',
         'recipes',
         id,
-        { positive: true, integer: true },
+        MAX_NAME_LENGTH,
       ),
+      archived: archivedValue(record, 'recipes', id, ctx.reporter),
+      latestVersionNumber,
       createdAt: requireTimestamp(record, 'createdAt', 'recipes', id),
     }
     addOptionalTextFields(target, record, 'recipes', id, ['description'])
@@ -916,10 +1226,21 @@ function transformRecipeVersions(ctx: TransformContext) {
       name: requireString(record, 'name', 'recipeVersions', id),
       createdAt: requireTimestamp(record, 'createdAt', 'recipeVersions', id),
     }
-    addOptionalTextFields(target, record, 'recipeVersions', id, [
-      'instructions',
+    const instructions = isCurrentRecipeVersion(ctx, id)
+      ? optionalRoundTripText(
+          record,
+          'instructions',
+          'recipeVersions',
+          id,
+          MAX_INSTRUCTIONS_LENGTH,
+        )
+      : optionalString(record, 'instructions', 'recipeVersions', id)
+    optionalField(target, 'instructions', instructions)
+    optionalField(
+      target,
       'notes',
-    ])
+      optionalString(record, 'notes', 'recipeVersions', id),
+    )
     if (record.isCurrent !== undefined)
       ctx.reporter.count('removed_recipe_is_current')
     if (record.ownerUserId !== undefined)
@@ -932,6 +1253,13 @@ function transformRecipeVersionIngredients(ctx: TransformContext) {
   return (ctx.source.get('recipeVersionIngredients') ?? []).map((record) => {
     const base = baseRecord(record, 'recipeVersionIngredients')
     const id = base._id
+    const recipeVersionId = requireString(
+      record,
+      'recipeVersionId',
+      'recipeVersionIngredients',
+      id,
+    )
+    const isCurrentVersion = isCurrentRecipeVersion(ctx, recipeVersionId)
     const sourceType = requireString(
       record,
       'sourceType',
@@ -958,14 +1286,26 @@ function transformRecipeVersionIngredients(ctx: TransformContext) {
       sourceType === 'ingredient' && snapshot.ingredientId
         ? 'ingredient'
         : 'custom'
-    const target: JsonObject = {
-      ...base,
-      recipeVersionId: requireString(
-        record,
-        'recipeVersionId',
+    if (isCurrentVersion && resolvedSourceType === 'custom') {
+      requireRoundTripText(
+        { ingredientNameSnapshot: snapshot.name },
+        'ingredientNameSnapshot',
         'recipeVersionIngredients',
         id,
-      ),
+        MAX_NAME_LENGTH,
+      )
+      assertRoundTripKcal(
+        snapshot.kcalPer100,
+        snapshot.ignoreCalories,
+        'recipeVersionIngredients',
+        id,
+        'kcalPer100Snapshot',
+        'ignoreCaloriesSnapshot',
+      )
+    }
+    const target: JsonObject = {
+      ...base,
+      recipeVersionId,
       sourceType: resolvedSourceType,
       ingredientNameSnapshot: snapshot.name,
       kcalPer100Snapshot: snapshot.kcalPer100,
@@ -988,9 +1328,17 @@ function transformRecipeVersionIngredients(ctx: TransformContext) {
       ),
     }
     optionalField(target, 'ingredientId', snapshot.ingredientId)
-    addOptionalTextFields(target, record, 'recipeVersionIngredients', id, [
-      'notes',
-    ])
+    const notes = isCurrentVersion
+      ? optionalRoundTripText(
+          record,
+          'notes',
+          'recipeVersionIngredients',
+          id,
+          MAX_NOTES_LENGTH,
+          { allowEmpty: true },
+        )
+      : optionalString(record, 'notes', 'recipeVersionIngredients', id)
+    optionalField(target, 'notes', notes)
     if (record.ownerUserId !== undefined)
       ctx.reporter.count('removed_owner_user_id')
     return target
@@ -1012,11 +1360,16 @@ function transformCookSessions(ctx: TransformContext) {
     }
     const target: JsonObject = {
       ...base,
-      label,
+      label: optionalRoundTripText(
+        { label },
+        'label',
+        'cookSessions',
+        id,
+        MAX_NAME_LENGTH,
+        { allowEmpty: true },
+      ),
       cookedAt,
-      searchText: `${cookedDate.toISOString().slice(0, 10)} ${label}`
-        .trim()
-        .toLocaleLowerCase('en-US'),
+      searchText: `${cookedDate.toISOString().slice(0, 10)} ${label}`.trim(),
       archived: archivedValue(record, 'cookSessions', id, ctx.reporter),
       updatedAt:
         optionalTimestamp(record, 'updatedAt', 'cookSessions', id) ?? createdAt,
@@ -1039,11 +1392,8 @@ function transformCookSessions(ctx: TransformContext) {
       if (person) {
         target.cookedByPersonId = cookedByPersonId
       } else {
-        ctx.reporter.issue(
-          'dropped_missing_cooked_by_person',
-          'cookSessions',
-          id,
-          'A missing optional cooked-by person reference was dropped.',
+        throw new Error(
+          `${describeRecord('cookSessions', id)} has cookedByPersonId referencing missing people document ${cookedByPersonId}; remove or replace it explicitly in the working copy.`,
         )
       }
     }
@@ -1074,10 +1424,33 @@ function transformCookedFoods(ctx: TransformContext) {
       id,
       { nonNegative: true },
     )
+    const storedKcalPer100 = optionalFiniteNumber(
+      record,
+      'kcalPer100',
+      'cookedFoods',
+      id,
+      { nonNegative: true },
+    )
+    const kcalPer100 =
+      storedKcalPer100 ??
+      Math.round(
+        requireFiniteDerivedNumber(
+          (totalCalories / finishedWeightGrams) * 100,
+          'cookedFoods',
+          id,
+          'kcalPer100',
+        ),
+      )
     const target: JsonObject = {
       ...base,
       cookSessionId: requireString(record, 'cookSessionId', 'cookedFoods', id),
-      name: requireString(record, 'name', 'cookedFoods', id),
+      name: requireRoundTripText(
+        record,
+        'name',
+        'cookedFoods',
+        id,
+        MAX_NAME_LENGTH,
+      ),
       finishedWeightGrams,
       totalRawWeightGrams: requireFiniteNumber(
         record,
@@ -1087,10 +1460,7 @@ function transformCookedFoods(ctx: TransformContext) {
         { nonNegative: true },
       ),
       totalCalories,
-      kcalPer100:
-        optionalFiniteNumber(record, 'kcalPer100', 'cookedFoods', id, {
-          nonNegative: true,
-        }) ?? (totalCalories / finishedWeightGrams) * 100,
+      kcalPer100,
       archived: archivedValue(record, 'cookedFoods', id, ctx.reporter),
       createdAt: requireTimestamp(record, 'createdAt', 'cookedFoods', id),
     }
@@ -1121,22 +1491,43 @@ function transformCookedFoods(ctx: TransformContext) {
       'cookedFoods',
       id,
     )
+    const versionRecipeId =
+      recipeVersion && recipeVersionId
+        ? requireString(
+            recipeVersion,
+            'recipeId',
+            'recipeVersions',
+            recipeVersionId,
+          )
+        : undefined
+    const resolvedRecipeId = recipeId ?? versionRecipeId
     const provenanceMatches =
-      recipe &&
-      (!recipeVersion || recipeVersion.recipeId === recipeId) &&
-      (!recipeVersionId || recipeVersion)
+      resolvedRecipeId &&
+      (!recipeId || recipe) &&
+      (!recipeVersionId || recipeVersion) &&
+      (!versionRecipeId || versionRecipeId === resolvedRecipeId)
     if (provenanceMatches) {
-      optionalField(target, 'recipeId', recipeId)
+      optionalField(target, 'recipeId', resolvedRecipeId)
       optionalField(target, 'recipeVersionId', recipeVersionId)
+      if (!recipeId && recipeVersionId) {
+        ctx.reporter.count('derived_recipe_id_from_version')
+      }
     } else if (recipeId || recipeVersionId) {
-      ctx.reporter.issue(
-        'dropped_invalid_recipe_provenance',
-        'cookedFoods',
-        id,
-        'Missing or inconsistent optional recipe provenance was dropped.',
+      throw new Error(
+        `${describeRecord('cookedFoods', id)} has inconsistent recipeId/recipeVersionId provenance; remove or repair it explicitly in the working copy.`,
       )
     }
-    addOptionalTextFields(target, record, 'cookedFoods', id, ['notes'])
+    optionalField(
+      target,
+      'notes',
+      optionalRoundTripText(
+        record,
+        'notes',
+        'cookedFoods',
+        id,
+        MAX_NOTES_LENGTH,
+      ),
+    )
     if (record.kcalPer100 === undefined)
       ctx.reporter.count('derived_cooked_food_kcal')
     if (record.groupIds !== undefined)
@@ -1193,17 +1584,69 @@ function transformCookedFoodIngredients(ctx: TransformContext) {
       sourceType === 'ingredient' && snapshot.ingredientId
         ? 'ingredient'
         : 'custom'
-    const ingredientCaloriesSnapshot =
-      optionalFiniteNumber(
-        record,
-        'ingredientCaloriesSnapshot',
+    if (resolvedSourceType === 'custom') {
+      requireRoundTripText(
+        { ingredientNameSnapshot: snapshot.name },
+        'ingredientNameSnapshot',
         'cookedFoodIngredients',
         id,
-        { nonNegative: true },
-      ) ??
+        MAX_NAME_LENGTH,
+      )
+      assertRoundTripKcal(
+        snapshot.kcalPer100,
+        snapshot.ignoreCalories,
+        'cookedFoodIngredients',
+        id,
+        'ingredientKcalPer100Snapshot',
+        'ignoreCaloriesSnapshot',
+      )
+    }
+    if (!snapshot.ignoreCalories && countedAmount === undefined) {
+      throw new Error(
+        `${describeRecord('cookedFoodIngredients', id)} has no countedAmount while ignoreCaloriesSnapshot is false; current mutations require a positive countedAmount when calories are counted.`,
+      )
+    }
+    const storedIngredientCaloriesSnapshot = optionalFiniteNumber(
+      record,
+      'ingredientCaloriesSnapshot',
+      'cookedFoodIngredients',
+      id,
+      { nonNegative: true },
+    )
+    const ingredientCaloriesSnapshot =
+      storedIngredientCaloriesSnapshot ??
       (snapshot.ignoreCalories || countedAmount === undefined
         ? 0
-        : (countedAmount * snapshot.kcalPer100) / 100)
+        : requireFiniteDerivedNumber(
+            (countedAmount / 100) * snapshot.kcalPer100,
+            'cookedFoodIngredients',
+            id,
+            'ingredientCaloriesSnapshot',
+          ))
+    if (resolvedSourceType === 'ingredient' && snapshot.ignoreCalories) {
+      assertIgnoredCaloriesZero(
+        ingredientCaloriesSnapshot,
+        'cookedFoodIngredients',
+        id,
+        'ingredientCaloriesSnapshot',
+        'ignoreCaloriesSnapshot',
+      )
+    }
+    if (resolvedSourceType === 'custom') {
+      const roundTripCalories = requireFiniteDerivedNumber(
+        snapshot.ignoreCalories || countedAmount === undefined
+          ? 0
+          : (countedAmount * Math.round(snapshot.kcalPer100)) / 100,
+        'cookedFoodIngredients',
+        id,
+        'round-trip ingredientCaloriesSnapshot',
+      )
+      if (!approximatelyEqual(ingredientCaloriesSnapshot, roundTripCalories)) {
+        throw new Error(
+          `${describeRecord('cookedFoodIngredients', id)} has ingredientCaloriesSnapshot ${ingredientCaloriesSnapshot} inconsistent with custom-line round-trip ingredientCaloriesSnapshot ${roundTripCalories}; current updates recompute this value.`,
+        )
+      }
+    }
     if (record.ingredientCaloriesSnapshot === undefined) {
       ctx.reporter.count('derived_ingredient_calories_snapshot')
     }
@@ -1250,6 +1693,86 @@ function transformCookedFoodIngredients(ctx: TransformContext) {
   })
 }
 
+function validateCookedFoodAggregates(
+  cookedFoods: JsonObject[],
+  ingredients: JsonObject[],
+) {
+  const ingredientsByFood = new Map<string, JsonObject[]>()
+  for (const ingredient of ingredients) {
+    const cookedFoodId = ingredient.cookedFoodId as string
+    const rows = ingredientsByFood.get(cookedFoodId) ?? []
+    rows.push(ingredient)
+    ingredientsByFood.set(cookedFoodId, rows)
+  }
+  for (const cookedFood of cookedFoods) {
+    const cookedFoodId = cookedFood._id as string
+    const rows = ingredientsByFood.get(cookedFoodId) ?? []
+    let derivedCalories = 0
+    let derivedRawWeight = 0
+    for (const row of rows) {
+      const countedAmount = row.countedAmount as number | undefined
+      const ignored = row.ignoreCaloriesSnapshot as boolean
+      let rowCalories = 0
+      if (!ignored && countedAmount !== undefined) {
+        rowCalories =
+          row.sourceType === 'ingredient'
+            ? ((row.ingredientCaloriesSnapshot as number) * countedAmount) /
+              countedAmount
+            : (countedAmount *
+                Math.round(row.ingredientKcalPer100Snapshot as number)) /
+              100
+      }
+      derivedCalories = requireFiniteDerivedNumber(
+        derivedCalories + rowCalories,
+        'cookedFoods',
+        cookedFoodId,
+        'child-derived totalCalories',
+      )
+      if (
+        countedAmount !== undefined &&
+        row.ingredientKcalBasisUnitSnapshot === 'g'
+      ) {
+        derivedRawWeight = requireFiniteDerivedNumber(
+          derivedRawWeight + countedAmount,
+          'cookedFoods',
+          cookedFoodId,
+          'child-derived totalRawWeightGrams',
+        )
+      }
+    }
+
+    const totalCalories = cookedFood.totalCalories as number
+    if (!approximatelyEqual(totalCalories, derivedCalories, rows.length)) {
+      throw new Error(
+        `${describeRecord('cookedFoods', cookedFoodId)} has totalCalories ${totalCalories} inconsistent with child-derived totalCalories ${derivedCalories}; current updates recompute this aggregate.`,
+      )
+    }
+    const expectedKcalPer100 = Math.round(
+      requireFiniteDerivedNumber(
+        (totalCalories / (cookedFood.finishedWeightGrams as number)) * 100,
+        'cookedFoods',
+        cookedFoodId,
+        'child-derived kcalPer100',
+      ),
+    )
+    if (
+      !approximatelyEqual(cookedFood.kcalPer100 as number, expectedKcalPer100)
+    ) {
+      throw new Error(
+        `${describeRecord('cookedFoods', cookedFoodId)} has kcalPer100 ${String(cookedFood.kcalPer100)} inconsistent with round-trip kcalPer100 ${expectedKcalPer100}; current updates recompute this value.`,
+      )
+    }
+    const totalRawWeightGrams = cookedFood.totalRawWeightGrams as number
+    if (
+      !approximatelyEqual(totalRawWeightGrams, derivedRawWeight, rows.length)
+    ) {
+      throw new Error(
+        `${describeRecord('cookedFoods', cookedFoodId)} has totalRawWeightGrams ${totalRawWeightGrams} inconsistent with child-derived totalRawWeightGrams ${derivedRawWeight}; current updates recompute this aggregate.`,
+      )
+    }
+  }
+}
+
 function transformMeals(ctx: TransformContext) {
   const itemsByMeal = new Map<string, JsonObject[]>()
   for (const item of ctx.source.get('mealItems') ?? []) {
@@ -1263,17 +1786,22 @@ function transformMeals(ctx: TransformContext) {
     const base = baseRecord(record, 'meals')
     const id = base._id
     const mealItems = itemsByMeal.get(id) ?? []
-    const totalCalories = mealItems.reduce(
-      (sum, item) =>
-        sum +
-        requireFiniteNumber(
-          item,
-          'caloriesSnapshot',
-          'mealItems',
-          systemFields(item, 'mealItems')._id,
-          { nonNegative: true },
-        ),
-      0,
+    const totalCalories = requireFiniteDerivedNumber(
+      mealItems.reduce(
+        (sum, item) =>
+          sum +
+          requireFiniteNumber(
+            item,
+            'caloriesSnapshot',
+            'mealItems',
+            systemFields(item, 'mealItems')._id,
+            { nonNegative: true },
+          ),
+        0,
+      ),
+      'meals',
+      id,
+      'totalCalories',
     )
     const target: JsonObject = {
       ...base,
@@ -1284,7 +1812,12 @@ function transformMeals(ctx: TransformContext) {
       itemCount: mealItems.length,
       createdAt: requireTimestamp(record, 'createdAt', 'meals', id),
     }
-    addOptionalTextFields(target, record, 'meals', id, ['name', 'notes'])
+    optionalField(
+      target,
+      'name',
+      optionalRoundTripText(record, 'name', 'meals', id, MAX_NAME_LENGTH),
+    )
+    optionalField(target, 'notes', optionalString(record, 'notes', 'meals', id))
     if (record.totalCalories === undefined) {
       ctx.reporter.count('generated_meal_total')
     } else if (record.totalCalories !== totalCalories) {
@@ -1320,20 +1853,20 @@ function mealItemFallbackSnapshot(ctx: TransformContext, record: JsonObject) {
   })
 }
 
-function fixedMealItemName(
-  ctx: TransformContext,
-  record: JsonObject,
-  id: string,
-) {
+function fixedMealItemName(record: JsonObject, id: string) {
   const name = optionalString(record, 'nameSnapshot', 'mealItems', id)
-  if (name) return name
-  ctx.reporter.issue(
-    'defaulted_snapshot_name',
-    'mealItems',
-    id,
-    'The missing fixed-calorie item name was replaced with Unknown item.',
+  if (name) {
+    return requireRoundTripText(
+      { nameSnapshot: name },
+      'nameSnapshot',
+      'mealItems',
+      id,
+      MAX_NAME_LENGTH,
+    )
+  }
+  throw new Error(
+    `${describeRecord('mealItems', id)} cannot recover nameSnapshot required by a fixed-calorie item.`,
   )
-  return 'Unknown item'
 }
 
 function transformMealItems(ctx: TransformContext) {
@@ -1364,7 +1897,7 @@ function transformMealItems(ctx: TransformContext) {
       return {
         ...common,
         sourceType: 'fixedCalories',
-        nameSnapshot: fixedMealItemName(ctx, record, id),
+        nameSnapshot: fixedMealItemName(record, id),
         caloriesSnapshot,
       }
     }
@@ -1376,20 +1909,6 @@ function transformMealItems(ctx: TransformContext) {
       id,
       { positive: true },
     )
-
-    if (
-      sourceType === 'custom' &&
-      record.ingredientId === undefined &&
-      consumedWeightGrams === 100
-    ) {
-      ctx.reporter.count('converted_quick_add_to_fixed_calories')
-      return {
-        ...common,
-        sourceType: 'fixedCalories',
-        nameSnapshot: fixedMealItemName(ctx, record, id),
-        caloriesSnapshot,
-      }
-    }
 
     if (sourceType === 'cookedFood') {
       const cookedFood = assertOptionalReferenceOwner(
@@ -1406,6 +1925,12 @@ function transformMealItems(ctx: TransformContext) {
         id,
       )
       if (cookedFood && cookedFoodId) {
+        assertFiniteSameWeightHistoricalScale(
+          caloriesSnapshot,
+          consumedWeightGrams,
+          'mealItems',
+          id,
+        )
         const storedName = optionalString(
           record,
           'nameSnapshot',
@@ -1429,7 +1954,12 @@ function transformMealItems(ctx: TransformContext) {
         )
         const kcalPer100Snapshot =
           storedKcalPer100Snapshot ??
-          (caloriesSnapshot * 100) / consumedWeightGrams
+          requireFiniteDerivedNumber(
+            (caloriesSnapshot / consumedWeightGrams) * 100,
+            'mealItems',
+            id,
+            'kcalPer100Snapshot',
+          )
         if (storedKcalPer100Snapshot === undefined) {
           ctx.reporter.issue(
             'defaulted_snapshot_kcal',
@@ -1471,11 +2001,8 @@ function transformMealItems(ctx: TransformContext) {
           caloriesSnapshot,
         }
       }
-      ctx.reporter.issue(
-        'converted_missing_cooked_food_reference',
-        'mealItems',
-        id,
-        'A missing cooked-food reference was converted to a custom weight snapshot.',
+      throw new Error(
+        `${describeRecord('mealItems', id)} has cookedFoodId referencing missing cookedFoods document ${cookedFoodId ?? '<missing-id>'}; repair the reference or convert it explicitly in the working copy.`,
       )
     } else if (
       sourceType !== 'ingredient' &&
@@ -1492,6 +2019,73 @@ function transformMealItems(ctx: TransformContext) {
       sourceType === 'ingredient' && snapshot.ingredientId
         ? 'ingredient'
         : 'customByWeight'
+    if (resolvedSourceType === 'customByWeight') {
+      requireRoundTripText(
+        { nameSnapshot: snapshot.name },
+        'nameSnapshot',
+        'mealItems',
+        id,
+        MAX_NAME_LENGTH,
+      )
+    }
+    if (
+      resolvedSourceType === 'customByWeight' &&
+      snapshot.kcalBasisUnit !== 'g'
+    ) {
+      ctx.reporter.issue(
+        'converted_non_gram_custom_meal_to_fixed_calories',
+        'mealItems',
+        id,
+        'A non-gram custom weight snapshot was converted to fixed calories using its exact stored name and calories so it remains editable.',
+      )
+      return {
+        ...common,
+        sourceType: 'fixedCalories',
+        nameSnapshot: snapshot.name,
+        caloriesSnapshot,
+      }
+    }
+    if (resolvedSourceType === 'customByWeight') {
+      assertRoundTripKcal(
+        snapshot.kcalPer100,
+        snapshot.ignoreCalories,
+        'mealItems',
+        id,
+        'kcalPer100Snapshot',
+        'ignoreCaloriesSnapshot',
+      )
+      const recomputedCalories = requireFiniteDerivedNumber(
+        snapshot.ignoreCalories
+          ? 0
+          : (consumedWeightGrams * Math.round(snapshot.kcalPer100)) / 100,
+        'mealItems',
+        id,
+        'round-trip caloriesSnapshot',
+      )
+      if (!approximatelyEqual(caloriesSnapshot, recomputedCalories)) {
+        throw new Error(
+          `${describeRecord('mealItems', id)} has caloriesSnapshot ${caloriesSnapshot} inconsistent with custom-weight round-trip caloriesSnapshot ${recomputedCalories}; current updates recompute this value.`,
+        )
+      }
+    }
+    if (resolvedSourceType === 'ingredient') {
+      if (snapshot.ignoreCalories) {
+        assertIgnoredCaloriesZero(
+          caloriesSnapshot,
+          'mealItems',
+          id,
+          'caloriesSnapshot',
+          'ignoreCaloriesSnapshot',
+        )
+      } else {
+        assertFiniteSameWeightHistoricalScale(
+          caloriesSnapshot,
+          consumedWeightGrams,
+          'mealItems',
+          id,
+        )
+      }
+    }
     const target: JsonObject = {
       ...common,
       sourceType: resolvedSourceType,
@@ -1529,7 +2123,12 @@ function generateDailySummaries(meals: JsonObject[], reporter: Reporter) {
     const key = JSON.stringify([ownerTokenIdentifier, personId, eatenOn])
     const existing = summaries.get(key)
     if (existing) {
-      existing.consumedCalories += meal.totalCalories as number
+      existing.consumedCalories = requireFiniteDerivedNumber(
+        existing.consumedCalories + (meal.totalCalories as number),
+        'dailySummaries',
+        `${ownerTokenIdentifier}/${personId}/${eatenOn}`,
+        'consumedCalories',
+      )
       existing.mealCount += 1
       existing.createdAt = Math.min(existing.createdAt, createdAt)
       existing.updatedAt = Math.max(existing.updatedAt, createdAt)
@@ -1562,8 +2161,11 @@ function transformKnownTables(ctx: TransformContext) {
   result.set('recipeVersions', transformRecipeVersions(ctx))
   result.set('recipeVersionIngredients', transformRecipeVersionIngredients(ctx))
   result.set('cookSessions', transformCookSessions(ctx))
-  result.set('cookedFoods', transformCookedFoods(ctx))
-  result.set('cookedFoodIngredients', transformCookedFoodIngredients(ctx))
+  const cookedFoods = transformCookedFoods(ctx)
+  const cookedFoodIngredients = transformCookedFoodIngredients(ctx)
+  validateCookedFoodAggregates(cookedFoods, cookedFoodIngredients)
+  result.set('cookedFoods', cookedFoods)
+  result.set('cookedFoodIngredients', cookedFoodIngredients)
   const meals = transformMeals(ctx)
   result.set('meals', meals)
   result.set('mealItems', transformMealItems(ctx))
@@ -1571,10 +2173,56 @@ function transformKnownTables(ctx: TransformContext) {
   return result
 }
 
+function assertFiniteOutputNumbers(tables: Map<string, JsonObject[]>) {
+  const visit = (
+    value: unknown,
+    table: string,
+    documentId: string,
+    path: string,
+  ) => {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        throw new Error(
+          `${describeRecord(table, documentId)} produced non-finite output number at ${path}.`,
+        )
+      }
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) =>
+        visit(entry, table, documentId, `${path}[${index}]`),
+      )
+      return
+    }
+    if (!isJsonObject(value)) return
+    for (const [key, entry] of Object.entries(value)) {
+      visit(entry, table, documentId, path ? `${path}.${key}` : key)
+    }
+  }
+
+  for (const [table, records] of tables) {
+    records.forEach((record, index) => {
+      const documentId =
+        typeof record._id === 'string' && record._id.length > 0
+          ? record._id
+          : `<generated-row-${index + 1}>`
+      visit(record, table, documentId, '')
+    })
+  }
+}
+
 export function transformExportTables(
   source: Map<string, JsonObject[]>,
   ignoredFiles: string[] = [],
 ): TransformResult {
+  const missingApplicationTables = APPLICATION_TABLES.filter(
+    (table) => !source.has(table),
+  )
+  if (missingApplicationTables.length > 0) {
+    throw new Error(
+      `Input export is missing required application tables: ${missingApplicationTables.join(', ')}. Pass an explicit empty array for every genuinely empty table.`,
+    )
+  }
   const reporter = createReporter()
   const sourceWithoutSummaries = new Map(source)
   const existingSummaries = sourceWithoutSummaries.get('dailySummaries') ?? []
@@ -1589,6 +2237,7 @@ export function transformExportTables(
     reporter,
   }
   validateCoreRelationships(ctx)
+  validateChildRowLimits(ctx)
   const tables = transformKnownTables(ctx)
 
   const passthroughTables = [...source.keys()]
@@ -1602,6 +2251,7 @@ export function transformExportTables(
   for (const table of passthroughTables) {
     tables.set(table, source.get(table) ?? [])
   }
+  assertFiniteOutputNumbers(tables)
 
   const inputCounts = sortedRecord(
     [...source].map(([table, records]) => [table, records.length]),
@@ -1705,6 +2355,14 @@ export async function readConvexDirectoryExport(inputDirectory: string) {
   }
   if (tables.size === 0) {
     throw new Error(`No table JSONL files were found in ${resolvedInput}.`)
+  }
+  const missingApplicationTables = APPLICATION_TABLES.filter(
+    (table) => !tables.has(table),
+  )
+  if (missingApplicationTables.length > 0) {
+    throw new Error(
+      `Input export is missing required application table JSONL files: ${missingApplicationTables.join(', ')}.`,
+    )
   }
   return { tables, ignoredFiles }
 }

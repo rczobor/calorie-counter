@@ -4,6 +4,7 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 
+import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
 import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
 import {
@@ -23,8 +24,13 @@ const mealDto = v.object({
   archived: v.boolean(),
   totalCalories: v.number(),
   itemCount: v.number(),
+  editRevision: v.number(),
   createdAt: v.number(),
 })
+
+function mealWithoutOwner(meal: Doc<'meals'>) {
+  return { ...withoutOwner(meal), editRevision: meal.editRevision ?? 0 }
+}
 
 const mealItemCommon = {
   _id: v.id('mealItems'),
@@ -51,6 +57,7 @@ const mealItemDto = v.union(
   }),
   v.object({
     ...weightedMealItemFields,
+    kcalBasisUnitSnapshot: v.literal('g'),
     sourceType: v.literal('customByWeight'),
     ingredientId: v.optional(v.id('ingredients')),
   }),
@@ -117,7 +124,7 @@ export const listForDay = query({
                   .eq('archived', archived),
             )
     const result = await mealsQuery.order('desc').paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    return { ...result, page: result.page.map(mealWithoutOwner) }
   },
 })
 
@@ -144,7 +151,7 @@ export const getDetail = query({
     if (items.length > MAX_CHILD_ROWS) {
       throw new Error('Meal contains too many items.')
     }
-    return { meal: withoutOwner(meal), items: items.map(withoutOwner) }
+    return { meal: mealWithoutOwner(meal), items: items.map(withoutOwner) }
   },
 })
 

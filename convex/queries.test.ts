@@ -10,6 +10,7 @@ import {
   insertCookSession,
   insertMeal,
   insertMealItem,
+  readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
@@ -81,6 +82,7 @@ describe('nutrition scoped queries', () => {
     })
     await user.mutation(api.nutrition.setMealArchived, {
       mealId: archivedMealId,
+      expectedEditRevision: await readEditRevision(t, archivedMealId),
       archived: true,
     })
     const paginationOpts = { numItems: 10, cursor: null }
@@ -143,6 +145,126 @@ describe('nutrition scoped queries', () => {
       mealCount: 1,
     })
     expect(history.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+  })
+
+  it('normalizes missing legacy edit revisions in every editable DTO', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const legacy = await t.run(async (ctx) => {
+      const createdAt = Date.now()
+      const personId = await ctx.db.insert('people', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        name: 'Legacy person',
+        currentDailyGoalKcal: 2_000,
+        archived: false,
+        createdAt,
+      })
+      const groupId = await ctx.db.insert('foodGroups', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        name: 'Legacy group',
+        appliesTo: 'ingredient',
+        archived: false,
+        createdAt,
+      })
+      const ingredientId = await ctx.db.insert('ingredients', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        name: 'Legacy ingredient',
+        kcalPer100: 100,
+        kcalBasisUnit: 'g',
+        ignoreCalories: false,
+        groupId,
+        archived: false,
+        createdAt,
+      })
+      const recipeId = await ctx.db.insert('recipes', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        name: 'Legacy recipe',
+        archived: false,
+        latestVersionNumber: 1,
+        createdAt,
+      })
+      await ctx.db.insert('recipeVersions', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        recipeId,
+        versionNumber: 1,
+        name: 'Legacy recipe',
+        createdAt,
+      })
+      const sessionId = await ctx.db.insert('cookSessions', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        label: 'Legacy session',
+        searchText: '2026-04-04 Legacy session',
+        cookedAt: createdAt,
+        archived: false,
+        updatedAt: createdAt,
+        createdAt,
+      })
+      const cookedFoodId = await ctx.db.insert('cookedFoods', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        cookSessionId: sessionId,
+        name: 'Legacy cooked food',
+        finishedWeightGrams: 100,
+        totalRawWeightGrams: 100,
+        totalCalories: 100,
+        kcalPer100: 100,
+        archived: false,
+        createdAt,
+      })
+      const mealId = await ctx.db.insert('meals', {
+        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        personId,
+        name: 'Legacy meal',
+        eatenOn: '2026-04-04',
+        archived: false,
+        totalCalories: 0,
+        itemCount: 0,
+        createdAt,
+      })
+      return {
+        personId,
+        groupId,
+        ingredientId,
+        recipeId,
+        sessionId,
+        cookedFoodId,
+        mealId,
+      }
+    })
+
+    const [
+      person,
+      group,
+      ingredient,
+      recipe,
+      currentRecipe,
+      session,
+      food,
+      meal,
+    ] = await Promise.all([
+      user.query(api.people.get, { personId: legacy.personId }),
+      user.query(api.catalog.getFoodGroup, { groupId: legacy.groupId }),
+      user.query(api.catalog.getIngredient, {
+        ingredientId: legacy.ingredientId,
+      }),
+      user.query(api.catalog.getRecipe, { recipeId: legacy.recipeId }),
+      user.query(api.recipes.getCurrent, { recipeId: legacy.recipeId }),
+      user.query(api.cooking.getSession, { sessionId: legacy.sessionId }),
+      user.query(api.cooking.getCookedFoodDetail, {
+        cookedFoodId: legacy.cookedFoodId,
+      }),
+      user.query(api.meals.getDetail, { mealId: legacy.mealId }),
+    ])
+
+    expect([
+      person?.editRevision,
+      group?.editRevision,
+      ingredient?.editRevision,
+      recipe?.editRevision,
+      currentRecipe?.recipe.editRevision,
+      session?.editRevision,
+      food?.cookedFood.editRevision,
+      meal?.meal.editRevision,
+    ]).toEqual([0, 0, 0, 0, 0, 0, 0, 0])
   })
 
   it('rejects pagination requests above the shared page-size bound', async () => {
@@ -242,6 +364,7 @@ describe('nutrition scoped queries', () => {
     })
     await user.mutation(api.nutrition.setPersonArchived, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       archived: true,
     })
     const sessionId = await insertCookSession(t, {
@@ -274,11 +397,13 @@ describe('nutrition scoped queries', () => {
     })
     await user.mutation(api.nutrition.updatePersonGoal, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       goalKcal: 1900,
       effectiveDate: '2026-02-01',
     })
     await user.mutation(api.nutrition.updatePersonGoal, {
       personId,
+      expectedEditRevision: await readEditRevision(t, personId),
       goalKcal: 2000,
       effectiveDate: '2026-03-01',
     })
@@ -360,42 +485,49 @@ describe('nutrition scoped queries', () => {
       expect(
         userA.mutation(api.nutrition.setPersonArchived, {
           personId,
+          expectedEditRevision: seeded.person!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
       expect(
         userA.mutation(api.nutrition.setFoodGroupArchived, {
           groupId,
+          expectedEditRevision: seeded.group!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
       expect(
         userA.mutation(api.nutrition.setIngredientArchived, {
           ingredientId,
+          expectedEditRevision: seeded.ingredient!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
       expect(
         userA.mutation(api.nutrition.setRecipeArchived, {
           recipeId,
+          expectedEditRevision: seeded.recipe!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
       expect(
         userA.mutation(api.nutrition.setCookSessionArchived, {
           sessionId,
+          expectedEditRevision: seeded.session!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
       expect(
         userA.mutation(api.nutrition.setCookedFoodArchived, {
           cookedFoodId,
+          expectedEditRevision: seeded.cookedFood!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
       expect(
         userA.mutation(api.nutrition.setMealArchived, {
           mealId,
+          expectedEditRevision: seeded.meal!.editRevision ?? 0,
           archived: true,
         }),
       ).rejects.toThrow('not found'),
@@ -403,30 +535,37 @@ describe('nutrition scoped queries', () => {
 
     await userB.mutation(api.nutrition.setPersonArchived, {
       personId,
+      expectedEditRevision: seeded.person!.editRevision ?? 0,
       archived: true,
     })
     await userB.mutation(api.nutrition.setFoodGroupArchived, {
       groupId,
+      expectedEditRevision: seeded.group!.editRevision ?? 0,
       archived: true,
     })
     await userB.mutation(api.nutrition.setIngredientArchived, {
       ingredientId,
+      expectedEditRevision: seeded.ingredient!.editRevision ?? 0,
       archived: true,
     })
     await userB.mutation(api.nutrition.setRecipeArchived, {
       recipeId,
+      expectedEditRevision: seeded.recipe!.editRevision ?? 0,
       archived: true,
     })
     await userB.mutation(api.nutrition.setCookSessionArchived, {
       sessionId,
+      expectedEditRevision: seeded.session!.editRevision ?? 0,
       archived: true,
     })
     await userB.mutation(api.nutrition.setCookedFoodArchived, {
       cookedFoodId,
+      expectedEditRevision: seeded.cookedFood!.editRevision ?? 0,
       archived: true,
     })
     await userB.mutation(api.nutrition.setMealArchived, {
       mealId,
+      expectedEditRevision: seeded.meal!.editRevision ?? 0,
       archived: true,
     })
 
