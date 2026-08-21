@@ -14,6 +14,7 @@
     {
       "description": "Allow Nitro prereleases after one day.",
       "matchPackageNames": ["nitro"],
+      "ignoreUnstable": false,
       "minimumReleaseAge": "1 day"
     },
     {
