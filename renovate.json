@@ -12,6 +12,23 @@
   "rangeStrategy": "bump",
   "packageRules": [
     {
+      "description": "Follow Nitro's dated prereleases.",
+      "matchPackageNames": ["nitro"],
+      "ignoreUnstable": false
+    },
+    {
+      "description": "Allow Nitro prereleases after one day.",
+      "matchPackageNames": ["nitro"],
+      "matchNewValue": "/-/",
+      "minimumReleaseAge": "1 day"
+    },
+    {
+      "description": "Do not delay Docker pinning updates.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["pinDigest"],
+      "minimumReleaseAge": null
+    },
+    {
       "description": "Group TanStack packages.",
       "matchPackageNames": ["@tanstack/**"],
       "groupName": "TanStack packages"
