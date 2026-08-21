@@ -12,9 +12,14 @@
   "rangeStrategy": "bump",
   "packageRules": [
     {
+      "description": "Follow Nitro's dated prereleases.",
+      "matchPackageNames": ["nitro"],
+      "ignoreUnstable": false
+    },
+    {
       "description": "Allow Nitro prereleases after one day.",
       "matchPackageNames": ["nitro"],
-      "ignoreUnstable": false,
+      "matchNewValue": "/-/",
       "minimumReleaseAge": "1 day"
     },
     {
