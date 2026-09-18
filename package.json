@@ -2,7 +2,7 @@
   "name": "calorie-counter",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.4.1",
+  "packageManager": "pnpm@12.4.2",
   "engines": {
     "node": ">=24.21.0"
   },
@@ -26,10 +26,10 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
-    "@clerk/react": "6.15.2",
+    "@clerk/react": "6.16.1",
     "@fontsource-variable/inter": "^5.3.0",
-    "@tanstack/react-router": "^1.170.35",
-    "@tanstack/react-start": "^1.168.52",
+    "@tanstack/react-router": "^1.170.36",
+    "@tanstack/react-start": "^1.168.54",
     "@tanstack/react-table": "^9.2.4",
     "@vercel/analytics": "2.0.1",
     "@vercel/speed-insights": "2.0.0",
@@ -37,13 +37,13 @@
     "clsx": "^2.1.1",
     "convex": "^1.45.0",
     "date-fns": "^4.4.0",
-    "lucide-react": "^1.45.0",
+    "lucide-react": "^1.46.0",
     "next-themes": "^0.4.6",
     "react": "^19.3.0",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.3.0",
     "sonner": "^2.0.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
@@ -53,15 +53,15 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/devtools-vite": "^0.8.5",
     "@tanstack/react-devtools": "^0.10.12",
-    "@tanstack/react-router-devtools": "^1.167.1",
-    "@testing-library/dom": "^10.4.1",
+    "@tanstack/react-router-devtools": "^1.167.2",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
-    "@types/node": "^26.5.1",
+    "@types/node": "^26.6.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^5.0.0",
+    "@vitest/coverage-v8": "^5.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "convex-test": "^0.0.58",
     "eslint": "^10.10.0",
@@ -77,6 +77,6 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.70.0",
     "vite": "^8.3.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.1"
   }
 }
