@@ -3,8 +3,7 @@
   "extends": [
     "config:recommended",
     ":configMigration",
-    "security:minimumReleaseAgeNpm",
-    ":maintainLockFilesWeekly"
+    "security:minimumReleaseAgeNpm"
   ],
   "labels": ["dependencies"],
   "prConcurrentLimit": 5,
