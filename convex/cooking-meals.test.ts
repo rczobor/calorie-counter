@@ -64,9 +64,10 @@ describe('nutrition cooking and meal mutations', () => {
   it('creates cooked food nutrition snapshots and touches the session', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
+    const previousUpdatedAt = new Date('2026-04-03T12:00:00').getTime()
     const sessionId = await insertCookSession(t, {
-      cookedAt: new Date('2026-04-03T12:00:00').getTime(),
-      updatedAt: new Date('2026-04-03T12:00:00').getTime(),
+      cookedAt: previousUpdatedAt,
+      updatedAt: previousUpdatedAt,
     })
     const ingredientId = await insertIngredient(t, {
       name: 'Oats',
@@ -119,7 +120,8 @@ describe('nutrition cooking and meal mutations', () => {
       kcalPer100: 167,
       notes: 'Batch',
     })
-    expect(session?.updatedAt).toBe(Date.now())
+    expect(session?.updatedAt).toBe(cookedFood?.createdAt)
+    expect(session?.updatedAt).toBeGreaterThan(previousUpdatedAt)
     expect(ingredientLines).toHaveLength(1)
     expect(ingredientLines[0]).toMatchObject({
       ingredientId,
