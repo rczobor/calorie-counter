@@ -976,7 +976,7 @@ function MealDashboardPageContent() {
                 : 'Add items below, then create the meal.'
             }
           >
-            <fieldset className="contents" disabled={isRunning}>
+            <fieldset className="min-w-0 space-y-4" disabled={isRunning}>
               <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                 <div className="space-y-2">
                   <Label className="uppercase tracking-[0.08em] text-muted-foreground">
@@ -1044,7 +1044,7 @@ function MealDashboardPageContent() {
                   Loading meal items...
                 </p>
               ) : null}
-              <fieldset className="contents" disabled={!isEditingMealHydrated}>
+              <fieldset className="min-w-0" disabled={!isEditingMealHydrated}>
                 <div className="mt-1 border-t border-border/40 pt-4">
                   <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                     Add items

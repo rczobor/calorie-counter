@@ -1286,7 +1286,7 @@ function ManagePageContent() {
           <TabsContent value="ingredients" className="mt-4">
             <div className="grid grid-cols-1 gap-6">
               <IngredientsSection>
-                <fieldset className="contents" disabled={isRunning}>
+                <fieldset className="min-w-0 space-y-3" disabled={isRunning}>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Input
                       aria-label="Ingredient name"
@@ -1463,7 +1463,7 @@ function ManagePageContent() {
                   </p>
                 ) : null}
                 <fieldset
-                  className="contents"
+                  className="min-w-0 space-y-3"
                   disabled={isRunning || !isEditingRecipeHydrated}
                 >
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -1803,7 +1803,7 @@ function ManagePageContent() {
           <TabsContent value="groups" className="mt-4">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
               <FoodGroupsSection>
-                <fieldset className="contents" disabled={isRunning}>
+                <fieldset className="min-w-0" disabled={isRunning}>
                   <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                     <Input
                       aria-label="Group name"
