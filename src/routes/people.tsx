@@ -407,7 +407,7 @@ function PeoplePageContent() {
       >
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
           <PersonFormSection isEditing={Boolean(editingPersonId)}>
-            <fieldset className="contents" disabled={isRunning}>
+            <fieldset className="min-w-0 space-y-3" disabled={isRunning}>
               <div className="space-y-2">
                 <Label htmlFor="personName">Name</Label>
                 <Input

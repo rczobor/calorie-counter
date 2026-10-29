@@ -1907,7 +1907,7 @@ function CookingPageContent() {
         onShowArchivedChange={setShowArchived}
       >
         <div className="mt-4 space-y-3">
-          <fieldset className="contents" disabled={isRunning}>
+          <fieldset className="min-w-0" disabled={isRunning}>
             <section>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
