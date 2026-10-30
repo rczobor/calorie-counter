@@ -11,8 +11,13 @@
 import type * as catalog from "../catalog.js";
 import type * as cooking from "../cooking.js";
 import type * as history from "../history.js";
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as mcp from "../mcp.js";
+import type * as mcpMealCorrections from "../mcpMealCorrections.js";
+import type * as mcpOperations from "../mcpOperations.js";
+import type * as mcpValidators from "../mcpValidators.js";
 import type * as meals from "../meals.js";
 import type * as nutrition from "../nutrition.js";
 import type * as people from "../people.js";
@@ -30,8 +35,13 @@ declare const fullApi: ApiFromModules<{
   catalog: typeof catalog;
   cooking: typeof cooking;
   history: typeof history;
+  http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/validation": typeof lib_validation;
+  mcp: typeof mcp;
+  mcpMealCorrections: typeof mcpMealCorrections;
+  mcpOperations: typeof mcpOperations;
+  mcpValidators: typeof mcpValidators;
   meals: typeof meals;
   nutrition: typeof nutrition;
   people: typeof people;
@@ -66,4 +76,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

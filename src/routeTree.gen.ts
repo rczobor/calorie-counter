@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CatalogRouteImport } from './routes/catalog'
+import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as CookingRouteImport } from './routes/cooking'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as PeopleRouteImport } from './routes/people'
+import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const CatalogRoute = CatalogRouteImport.update({
   id: '/catalog',
   path: '/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectRoute = ConnectRouteImport.update({
+  id: '/connect',
+  path: '/connect',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CookingRoute = CookingRouteImport.update({
@@ -40,43 +47,78 @@ const PeopleRoute = PeopleRouteImport.update({
   path: '/people',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
+  id: '/settings/integrations',
+  path: '/settings/integrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/connect': typeof ConnectRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
   '/people': typeof PeopleRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/connect': typeof ConnectRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
   '/people': typeof PeopleRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/connect': typeof ConnectRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
   '/people': typeof PeopleRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/catalog' | '/cooking' | '/history' | '/people'
+  fullPaths:
+    | '/'
+    | '/catalog'
+    | '/connect'
+    | '/cooking'
+    | '/history'
+    | '/people'
+    | '/settings/integrations'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/catalog' | '/cooking' | '/history' | '/people'
-  id: '__root__' | '/' | '/catalog' | '/cooking' | '/history' | '/people'
+  to:
+    | '/'
+    | '/catalog'
+    | '/connect'
+    | '/cooking'
+    | '/history'
+    | '/people'
+    | '/settings/integrations'
+  id:
+    | '__root__'
+    | '/'
+    | '/catalog'
+    | '/connect'
+    | '/cooking'
+    | '/history'
+    | '/people'
+    | '/settings/integrations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogRoute: typeof CatalogRoute
+  ConnectRoute: typeof ConnectRoute
   CookingRoute: typeof CookingRoute
   HistoryRoute: typeof HistoryRoute
   PeopleRoute: typeof PeopleRoute
+  SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -93,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog'
       fullPath: '/catalog'
       preLoaderRoute: typeof CatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect': {
+      id: '/connect'
+      path: '/connect'
+      fullPath: '/connect'
+      preLoaderRoute: typeof ConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cooking': {
@@ -116,15 +165,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeopleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/integrations': {
+      id: '/settings/integrations'
+      path: '/settings/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof SettingsIntegrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogRoute: CatalogRoute,
+  ConnectRoute: ConnectRoute,
   CookingRoute: CookingRoute,
   HistoryRoute: HistoryRoute,
   PeopleRoute: PeopleRoute,
+  SettingsIntegrationsRoute: SettingsIntegrationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

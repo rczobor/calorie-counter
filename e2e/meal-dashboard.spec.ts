@@ -1,5 +1,29 @@
 import { expect, test } from '@playwright/test'
 
+test('integration settings and expired consent routes load in authenticated mock mode', async ({
+  page,
+}) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto('/settings/integrations')
+  await expect(
+    page.getByRole('heading', { name: 'Integrations', exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText(
+      'The ChatGPT integration has not been enabled for this deployment.',
+    ),
+  ).toBeVisible()
+  await page.goto('/connect?request=expired')
+  await expect(
+    page.getByText(/This request has expired or was already handled/),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Allow access' })).toHaveCount(
+    0,
+  )
+  expect(errors).toEqual([])
+})
+
 test('an authenticated user can create a quick-add meal', async ({ page }) => {
   const pageErrors: Error[] = []
   page.on('pageerror', (error) => pageErrors.push(error))

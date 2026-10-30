@@ -1,4 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "headers": [
+    {
+      "source": "/connect",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ],
   "ignoreCommand": "case \"$VERCEL_ENV:$VERCEL_GIT_COMMIT_REF\" in preview:renovate/*) exit 0 ;; *) exit 1 ;; esac"
 }

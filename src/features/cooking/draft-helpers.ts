@@ -17,6 +17,7 @@ export type ExistingCookedFoodIngredientDraft = {
   referenceAmount: number
   referenceUnit: NutritionUnit
   countedAmount?: number
+  nutritionProvenance?: { source: string; assumptions: string }
   notes?: string
 }
 
@@ -33,6 +34,7 @@ export type CustomCookedFoodIngredientDraft = {
   referenceUnit: NutritionUnit
   countedAmount?: number
   saveToCatalog: boolean
+  nutritionProvenance?: { source: string; assumptions: string }
   notes?: string
 }
 
@@ -40,6 +42,7 @@ export type CookedFoodIngredientDraft =
   ExistingCookedFoodIngredientDraft | CustomCookedFoodIngredientDraft
 
 export type CookingDraft = {
+  nutritionProvenance?: { source: string; assumptions: string }
   draftId: string
   sessionId: Id<'cookSessions'>
   persistedCookedFoodId?: Id<'cookedFoods'>
@@ -164,6 +167,7 @@ export function createDraftFromCookedFood(
     | 'recipeId'
     | 'recipeVersionId'
     | 'notes'
+    | 'nutritionProvenance'
     | 'editRevision'
   >,
   ingredientLines: Array<OwnerFree<Doc<'cookedFoodIngredients'>>>,
@@ -180,6 +184,7 @@ export function createDraftFromCookedFood(
     recipeId: food.recipeId ?? '',
     recipeVersionId: food.recipeVersionId ?? '',
     notes: food.notes ?? '',
+    nutritionProvenance: food.nutritionProvenance,
     ingredientLines: ingredientLines.map((line) => {
       const referenceAmount = line.referenceAmount
       const referenceUnit = line.referenceUnit
@@ -199,6 +204,7 @@ export function createDraftFromCookedFood(
           referenceUnit,
           countedAmount,
           notes: line.notes,
+          nutritionProvenance: line.nutritionProvenance,
         }
       }
 
@@ -216,6 +222,7 @@ export function createDraftFromCookedFood(
         countedAmount,
         saveToCatalog: false,
         notes: line.notes,
+        nutritionProvenance: line.nutritionProvenance,
       }
     }),
   })
@@ -233,6 +240,7 @@ export function duplicateCookingDraft(sourceDraft: CookingDraft) {
     recipeDraftName: '',
     recipeDraftInstructions: '',
     notes: sourceDraft.notes,
+    nutritionProvenance: sourceDraft.nutritionProvenance,
     ingredientLines: sourceDraft.ingredientLines.map(cloneIngredientLine),
   })
 }

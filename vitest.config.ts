@@ -21,6 +21,7 @@ export default defineConfig({
         // Deployment/auth configuration is validated by Convex deploy and the
         // authenticated browser smoke rather than unit coverage.
         'convex/auth.config.ts',
+        'convex/convex.config.ts',
         'src/routeTree.gen.ts',
         // Route modules are composition-heavy integration boundaries. Their
         // behavior is covered by route smoke tests rather than unit coverage.

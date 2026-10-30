@@ -46,7 +46,9 @@ export function assertOwnedOrThrow<TDoc extends OwnedDocument>(
   return doc
 }
 
-export async function requireAuthenticatedUser(ctx: QueryCtx | MutationCtx) {
+export async function requireAuthenticatedUser(
+  ctx: Pick<QueryCtx | MutationCtx, 'auth'>,
+) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
     throw new Error('Authentication required.')

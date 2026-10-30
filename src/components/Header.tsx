@@ -8,6 +8,7 @@ import {
   Flame,
   Users,
   UtensilsCrossed,
+  Plug,
 } from 'lucide-react'
 import ThemeSelector from './theme-selector'
 import { isClerkConfigured } from '@/integrations/clerk/config'
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/catalog', label: 'Catalog', icon: BookOpen },
   { to: '/people', label: 'People', icon: Users },
   { to: '/history', label: 'History', icon: Clock },
+  { to: '/settings/integrations', label: 'Integrations', icon: Plug },
 ] as const
 
 const NAV_LINK_CLASS =

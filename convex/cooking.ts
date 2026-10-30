@@ -14,7 +14,10 @@ import {
   MAX_SEARCH_RESULTS,
   normalizeSearch,
 } from './lib/validation'
-import { nutritionUnitValidator } from './validators'
+import {
+  nutritionUnitValidator,
+  nutritionProvenanceValidator,
+} from './validators'
 
 const COOK_SESSION_NOT_FOUND = 'Cook session not found.'
 
@@ -76,6 +79,7 @@ const linkedRecipeDto = v.object({
 })
 
 const cookedFoodDto = v.object({
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   _id: v.id('cookedFoods'),
   _creationTime: v.number(),
   cookSessionId: v.id('cookSessions'),
@@ -101,6 +105,7 @@ function cookedFoodWithoutOwner(cookedFood: Doc<'cookedFoods'>) {
 }
 
 const cookedIngredientCommon = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   _id: v.id('cookedFoodIngredients'),
   _creationTime: v.number(),
   cookedFoodId: v.id('cookedFoods'),

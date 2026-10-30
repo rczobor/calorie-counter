@@ -1,5 +1,10 @@
 import { v } from 'convex/values'
 
+export const nutritionProvenanceValidator = v.object({
+  source: v.string(),
+  assumptions: v.string(),
+})
+
 export const nutritionUnitValidator = v.union(
   v.literal('pinch'),
   v.literal('teaspoon'),
@@ -8,6 +13,13 @@ export const nutritionUnitValidator = v.union(
   v.literal('g'),
   v.literal('ml'),
 )
+
+export const expectedNutritionSnapshotValidator = v.object({
+  name: v.string(),
+  kcalPer100: v.number(),
+  kcalBasisUnit: nutritionUnitValidator,
+  ignoreCalories: v.boolean(),
+})
 
 export const groupScopeValidator = v.union(
   v.literal('ingredient'),
@@ -81,6 +93,7 @@ export const recipeVersionsFields = {
 }
 
 const recipeVersionIngredientCommonFields = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   ...ownerFields,
   recipeVersionId: v.id('recipeVersions'),
   ingredientNameSnapshot: v.string(),
@@ -123,6 +136,7 @@ export const cookSessionsFields = {
 }
 
 export const cookedFoodsFields = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   ...ownerFields,
   cookSessionId: v.id('cookSessions'),
   name: v.string(),
@@ -140,6 +154,7 @@ export const cookedFoodsFields = {
 }
 
 const cookedFoodIngredientCommonFields = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   ...ownerFields,
   cookedFoodId: v.id('cookedFoods'),
   ingredientNameSnapshot: v.string(),
@@ -184,6 +199,7 @@ export const mealsFields = {
 }
 
 const mealItemCommonFields = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   ...ownerFields,
   mealId: v.id('meals'),
   nameSnapshot: v.string(),
