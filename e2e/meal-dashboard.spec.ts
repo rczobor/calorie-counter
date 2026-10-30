@@ -64,3 +64,42 @@ test('the cooking route loads in authenticated mock mode', async ({ page }) => {
   await expect(page.getByText('No batches found.')).toBeVisible()
   expect(pageErrors).toEqual([])
 })
+
+test('meal drafts recover after refresh and remain independent across tabs', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/')
+  await page.getByLabel('Meal name').fill('First tab draft')
+  await page.getByLabel('Quick add name').fill('Banana')
+  await page.getByLabel('Quick add calories').fill('105')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByLabel('Quick add name').fill('Unfinished snack')
+
+  const otherTab = await context.newPage()
+  await otherTab.goto('/')
+  await expect(otherTab.getByLabel('Meal name')).toHaveValue('')
+  await otherTab.getByLabel('Meal name').fill('Second tab draft')
+
+  await page.reload()
+  await expect(page.getByText('Draft restored in this tab.')).toBeVisible()
+  await expect(page.getByLabel('Meal name')).toHaveValue('First tab draft')
+  await expect(page.getByLabel('Quick add name')).toHaveValue(
+    'Unfinished snack',
+  )
+  await expect(
+    page.getByRole('button', { name: 'Create meal (1 item)' }),
+  ).toBeEnabled()
+  await otherTab.reload()
+  await expect(otherTab.getByLabel('Meal name')).toHaveValue('Second tab draft')
+
+  await page.getByRole('button', { name: 'Create meal (1 item)' }).click()
+  await expect(page.getByText('Meal created.', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel('Meal name')).toHaveValue('')
+  await expect(page.getByLabel('Quick add name')).toHaveValue('')
+  await expect(page.getByText('Draft restored in this tab.')).toHaveCount(0)
+  await otherTab.reload()
+  await expect(otherTab.getByLabel('Meal name')).toHaveValue('Second tab draft')
+  await otherTab.close()
+})

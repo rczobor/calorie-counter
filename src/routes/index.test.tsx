@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react'
 import { getFunctionName, type FunctionReference } from 'convex/server'
 import type { ComponentType } from 'react'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Doc } from '../../convex/_generated/dataModel'
@@ -67,17 +68,28 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
     isConfirmDialogOpen: false,
     isRunning: false,
     runAction: async (_successText: string, action: () => Promise<unknown>) =>
-      action(),
+      action().then(
+        () => true,
+        () => false,
+      ),
     confirmAndRunAction: vi.fn(),
     handleConfirmDialogOpenChange: vi.fn(),
     confirmPendingAction: vi.fn(),
   }),
 }))
 
+let mockDraftIdentity = { isLoaded: true, userId: 'meal-user' as string | null }
+
+vi.mock('@/features/cooking/draft-persistence-identity', () => ({
+  useDraftPersistenceIdentity: () => mockDraftIdentity,
+}))
+
 import { Route as MealsRoute } from '@/routes/index'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  window.sessionStorage.clear()
+  mockDraftIdentity = { isLoaded: true, userId: 'meal-user' }
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-04-04T12:00:00'))
   mockMealDashboardData = createDashboardFixture()
@@ -97,9 +109,200 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('Meals route', () => {
+  it('recovers added items and unfinished input after a remount', () => {
+    configureMutationMocks()
+    const view = renderMealsRoute()
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'Lunch draft' },
+    })
+    fireEvent.change(screen.getByLabelText('Quick add name'), {
+      target: { value: 'Banana' },
+    })
+    fireEvent.change(screen.getByLabelText('Quick add calories'), {
+      target: { value: '105' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New' }))
+    fireEvent.change(screen.getByLabelText('Custom ingredient name'), {
+      target: { value: 'Unfinished oats' },
+    })
+    fireEvent.change(screen.getByLabelText('Custom ingredient kcal per 100'), {
+      target: { value: '370' },
+    })
+    fireEvent.change(screen.getByLabelText('Custom ingredient grams'), {
+      target: { value: '5' },
+    })
+    view.unmount()
+    vi.setSystemTime(new Date('2026-04-05T12:00:00'))
+    renderMealsRoute()
+
+    expect(screen.getByText('Draft restored in this tab.')).toBeTruthy()
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'Lunch draft',
+    )
+    expect(screen.getByLabelText('Meal date').textContent).toContain(
+      'April 4th',
+    )
+    expect(screen.getByText(/Banana.*105 kcal/)).toBeTruthy()
+    expect(screen.getByLabelText('Custom ingredient name')).toHaveProperty(
+      'value',
+      'Unfinished oats',
+    )
+    expect(
+      screen.getByLabelText('Custom ingredient kcal per 100'),
+    ).toHaveProperty('value', '370')
+    expect(screen.getByLabelText('Custom ingredient grams')).toHaveProperty(
+      'value',
+      '5',
+    )
+  })
+
+  it('keeps drafts isolated when the signed-in account changes', () => {
+    configureMutationMocks()
+    const view = renderMealsRoute()
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'First account' },
+    })
+    const Component = MealsRoute.options.component as ComponentType
+    mockDraftIdentity = { isLoaded: true, userId: 'another-user' }
+    view.rerender(<Component />)
+    expect(screen.getByLabelText('Meal name')).toHaveProperty('value', '')
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'Second account' },
+    })
+    mockDraftIdentity = { isLoaded: true, userId: 'meal-user' }
+    view.rerender(<Component />)
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'First account',
+    )
+    expect(window.sessionStorage.length).toBe(2)
+  })
+
+  it('does not persist without a signed-in identity', () => {
+    mockDraftIdentity = { isLoaded: true, userId: null }
+    configureMutationMocks()
+    renderMealsRoute()
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'Unscoped' },
+    })
+    expect(window.sessionStorage.length).toBe(0)
+  })
+
+  it('requires confirmation before discarding a recovered draft', () => {
+    configureMutationMocks()
+    const view = renderMealsRoute()
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'Keep until confirmed' },
+    })
+    view.unmount()
+    renderMealsRoute()
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'Keep until confirmed',
+    )
+    expect(window.sessionStorage.length).toBe(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Discard draft',
+      }),
+    )
+    expect(screen.getByLabelText('Meal name')).toHaveProperty('value', '')
+    expect(window.sessionStorage.length).toBe(0)
+    expect(screen.queryByText('Draft restored in this tab.')).toBeNull()
+  })
+
+  it('preserves the recovered edit baseline when the server meal has changed', async () => {
+    const meal = createMealDoc('meal-concurrent', 'person-1', {
+      name: 'Original meal',
+      editRevision: 7,
+    })
+    mockMealDashboardData = createDashboardFixture({ meals: [meal] })
+    const item = createMealItemDoc('item-original', meal._id, {
+      sourceType: 'fixedCalories',
+      nameSnapshot: 'Original food',
+      caloriesSnapshot: 100,
+      notes: 'Original note',
+      nutritionProvenance: { source: 'Estimate', assumptions: 'One serving' },
+    })
+    mockMealDetailItems = [item]
+    const mutations = configureMutationMocks()
+    const view = renderMealsRoute()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'My unsaved changes' },
+    })
+    view.unmount()
+    mockMealDashboardData = createDashboardFixture({
+      meals: [{ ...meal, editRevision: 8 }],
+    })
+    mockMealDetailItems = [
+      createMealItemDoc('item-replaced', meal._id, {
+        nameSnapshot: 'Changed elsewhere',
+      }),
+    ]
+    mutations.updateMeal.mockRejectedValueOnce(
+      new Error('Meal changed elsewhere'),
+    )
+    renderMealsRoute()
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'My unsaved changes',
+    )
+    expect(screen.getByText(/Original food.*100 kcal/)).toBeTruthy()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save meal changes' }))
+    })
+    expect(mutations.updateMeal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedEditRevision: 7,
+        expectedMealItemIds: [item._id],
+        items: [
+          expect.objectContaining({
+            existingMealItemId: item._id,
+            notes: 'Original note',
+            nutritionProvenance: item.nutritionProvenance,
+          }),
+        ],
+      }),
+    )
+    expect(window.sessionStorage.length).toBe(1)
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'My unsaved changes',
+    )
+  })
+
+  it('keeps meal entry usable when session storage is blocked', () => {
+    const warning = vi.spyOn(toast, 'warning')
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('Blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('Blocked')
+    })
+    configureMutationMocks()
+    renderMealsRoute()
+    fireEvent.change(screen.getByLabelText('Meal name'), {
+      target: { value: 'Still usable' },
+    })
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining('Draft recovery is unavailable'),
+    )
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'Still usable',
+    )
+  })
+
   it('shows the saved estimate source and assumptions when opening a meal', () => {
     const meal = createMealDoc('meal-estimate', 'person-1', {
       name: 'Restaurant lunch',
@@ -141,6 +344,7 @@ describe('Meals route', () => {
       )
     })
 
+    expect(window.sessionStorage.length).toBe(0)
     expect(mutations.createMeal).toHaveBeenCalledTimes(1)
     expect(mutations.createMeal).toHaveBeenCalledWith({
       personId: mockMealDashboardData.people[0]?._id,
