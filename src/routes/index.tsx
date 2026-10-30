@@ -34,70 +34,24 @@ import {
   type MealDashboardMeal as Meal,
   useMealDashboardDomainData,
 } from '@/features/meals/use-meal-dashboard-domain-data'
+import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
+import {
+  readMealDraft,
+  writeMealDraft,
+  type DraftMealItem,
+  type MealDraft,
+} from '@/features/meals/meal-draft'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import {
   formatCookSessionLabel,
   formatKcalPer100,
   toLocalDateString,
   toTimestampFromDate,
-  type NutritionUnit,
 } from '@/lib/nutrition'
 
 type MealMutationItem = FunctionArgs<
   typeof api.nutrition.createMeal
 >['items'][number]
-
-type ExistingIngredientMealItemDraft = {
-  sourceType: 'ingredient'
-  existingMealItemId?: Id<'mealItems'>
-  ingredientId: Id<'ingredients'>
-  nameSnapshot: string
-  kcalPer100Snapshot: number
-  kcalBasisUnitSnapshot: NutritionUnit
-  ignoreCaloriesSnapshot: boolean
-  consumedWeightGrams: number
-  caloriesPerWeightSnapshot: number
-  notes?: string
-}
-
-type CustomIngredientMealItemDraft = {
-  sourceType: 'customByWeight'
-  existingMealItemId?: Id<'mealItems'>
-  ingredientId?: Id<'ingredients'>
-  name: string
-  kcalPer100: number
-  kcalBasisUnit: 'g'
-  ignoreCalories: boolean
-  consumedWeightGrams: number
-  saveToCatalog: boolean
-  notes?: string
-}
-
-type FixedCaloriesMealItemDraft = {
-  sourceType: 'fixedCalories'
-  existingMealItemId?: Id<'mealItems'>
-  name: string
-  calories: number
-  notes?: string
-}
-
-type CookedFoodMealItemDraft = {
-  sourceType: 'cookedFood'
-  existingMealItemId?: Id<'mealItems'>
-  cookedFoodId: Id<'cookedFoods'>
-  nameSnapshot: string
-  kcalPer100Snapshot: number
-  consumedWeightGrams: number
-  caloriesPerWeightSnapshot: number
-  notes?: string
-}
-
-type DraftMealItem = (
-  | ExistingIngredientMealItemDraft
-  | CustomIngredientMealItemDraft
-  | CookedFoodMealItemDraft
-  | FixedCaloriesMealItemDraft
-) & { nutritionProvenance?: { source: string; assumptions: string } }
 
 type IngredientSelectionRow = {
   id: Id<'ingredients'>
@@ -168,23 +122,39 @@ export const Route = createFileRoute('/')({
 })
 
 function MealDashboardPage() {
+  const { isLoaded, userId } = useDraftPersistenceIdentity()
   if (!isConvexConfigured) {
     return <ConfigMissingState />
   }
 
-  return <MealDashboardPageContent />
+  return (
+    <MealDashboardPageContent
+      key={isLoaded ? userId : 'loading'}
+      userId={isLoaded ? userId : null}
+    />
+  )
 }
 
-function MealDashboardPageContent() {
+function MealDashboardPageContent({ userId }: { userId: string | null }) {
+  const [restoredDraft] = useState(() =>
+    userId ? readMealDraft(userId) : null,
+  )
+  const [showRestoredNotice, setShowRestoredNotice] = useState(
+    Boolean(restoredDraft),
+  )
+  const persistenceFailedRef = useRef(false)
+  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false)
   const [showArchivedMeals, setShowArchivedMeals] = useState(false)
 
   const [selectedPersonId, setSelectedPersonId] = useState<Id<'people'> | ''>(
     () => {
+      if (restoredDraft) return restoredDraft.selectedPersonId
       const id = new URLSearchParams(window.location.search).get('personId')
       return id && /^[a-z0-9]{20,64}$/i.test(id) ? (id as Id<'people'>) : ''
     },
   )
   const [mealDate, setMealDate] = useState(() => {
+    if (restoredDraft) return restoredDraft.mealDate
     const value = new URLSearchParams(window.location.search).get('date')
     if (value) {
       try {
@@ -196,37 +166,61 @@ function MealDashboardPageContent() {
     }
     return toLocalDateString(Date.now())
   })
-  const [mealName, setMealName] = useState('')
-  const [editingMealId, setEditingMealId] = useState<Id<'meals'> | null>(null)
+  const [mealName, setMealName] = useState(restoredDraft?.mealName ?? '')
+  const [editingMealId, setEditingMealId] = useState<Id<'meals'> | null>(
+    restoredDraft?.editingMealId ?? null,
+  )
 
   const [itemMode, setItemMode] = useState<
     'quick' | 'catalog' | 'new' | 'cookedFood'
-  >('quick')
-  const [itemQuickName, setItemQuickName] = useState('')
-  const [itemQuickCalories, setItemQuickCalories] = useState('')
+  >(restoredDraft?.itemMode ?? 'quick')
+  const [itemQuickName, setItemQuickName] = useState(
+    restoredDraft?.itemQuickName ?? '',
+  )
+  const [itemQuickCalories, setItemQuickCalories] = useState(
+    restoredDraft?.itemQuickCalories ?? '',
+  )
   const [itemIngredientId, setItemIngredientId] = useState<
     Id<'ingredients'> | ''
-  >('')
+  >(restoredDraft?.itemIngredientId ?? '')
   const [selectedCookSessionId, setSelectedCookSessionId] = useState<
     Id<'cookSessions'> | ''
-  >('')
+  >(restoredDraft?.selectedCookSessionId ?? '')
   const [itemCookedFoodId, setItemCookedFoodId] = useState<
     Id<'cookedFoods'> | ''
-  >('')
-  const [itemCustomName, setItemCustomName] = useState('')
-  const [itemCustomKcalPer100, setItemCustomKcalPer100] = useState('')
-  const [itemCustomIgnoreCalories, setItemCustomIgnoreCalories] =
-    useState(false)
-  const [itemCustomSaveToCatalog, setItemCustomSaveToCatalog] = useState(true)
-  const [itemWeight, setItemWeight] = useState('')
+  >(restoredDraft?.itemCookedFoodId ?? '')
+  const [itemCustomName, setItemCustomName] = useState(
+    restoredDraft?.itemCustomName ?? '',
+  )
+  const [itemCustomKcalPer100, setItemCustomKcalPer100] = useState(
+    restoredDraft?.itemCustomKcalPer100 ?? '',
+  )
+  const [itemCustomIgnoreCalories, setItemCustomIgnoreCalories] = useState(
+    restoredDraft?.itemCustomIgnoreCalories ?? false,
+  )
+  const [itemCustomSaveToCatalog, setItemCustomSaveToCatalog] = useState(
+    restoredDraft?.itemCustomSaveToCatalog ?? true,
+  )
+  const [itemWeight, setItemWeight] = useState(restoredDraft?.itemWeight ?? '')
   const [editingDraftItemIndex, setEditingDraftItemIndex] = useState<
     number | null
-  >(null)
-  const [mealItems, setMealItems] = useState<DraftMealItem[]>([])
-  const hydratedMealIdRef = useRef<Id<'meals'> | null>(null)
-  const expectedMealEditRevisionRef = useRef(0)
-  const expectedMealItemIdsRef = useRef<Id<'mealItems'>[]>([])
-  const [hydratedMealId, setHydratedMealId] = useState<Id<'meals'> | null>(null)
+  >(restoredDraft?.editingDraftItemIndex ?? null)
+  const [mealItems, setMealItems] = useState<DraftMealItem[]>(
+    restoredDraft?.mealItems ?? [],
+  )
+  // Recovered edits keep their original snapshots and revision, even if the server meal is newer.
+  const hydratedMealIdRef = useRef<Id<'meals'> | null>(
+    restoredDraft?.editingMealId ?? null,
+  )
+  const [expectedMealEditRevision, setExpectedMealEditRevision] = useState(
+    restoredDraft?.expectedMealEditRevision ?? 0,
+  )
+  const [expectedMealItemIds, setExpectedMealItemIds] = useState<
+    Id<'mealItems'>[]
+  >(restoredDraft?.expectedMealItemIds ?? [])
+  const [hydratedMealId, setHydratedMealId] = useState<Id<'meals'> | null>(
+    restoredDraft?.editingMealId ?? null,
+  )
   const defaultPersonAppliedRef = useRef(false)
   const defaultCookSessionAppliedRef = useRef(false)
   const {
@@ -829,12 +823,13 @@ function MealDashboardPageContent() {
   }
 
   const resetMealForm = () => {
+    setShowRestoredNotice(false)
     setMealName('')
     setEditingMealId(null)
     setMealItems([])
     hydratedMealIdRef.current = null
-    expectedMealEditRevisionRef.current = 0
-    expectedMealItemIdsRef.current = []
+    setExpectedMealEditRevision(0)
+    setExpectedMealItemIds([])
     setHydratedMealId(null)
     resetDraftItemInputs()
   }
@@ -853,8 +848,8 @@ function MealDashboardPageContent() {
     setEditingMealId(meal._id)
     setMealItems([])
     hydratedMealIdRef.current = null
-    expectedMealEditRevisionRef.current = 0
-    expectedMealItemIdsRef.current = []
+    setExpectedMealEditRevision(0)
+    setExpectedMealItemIds([])
     setHydratedMealId(null)
   }
 
@@ -928,13 +923,63 @@ function MealDashboardPageContent() {
         }
       }),
     )
-    expectedMealItemIdsRef.current = editingMealDetail.items.map(
-      (row) => row._id,
-    )
-    expectedMealEditRevisionRef.current = editingMealDetail.meal.editRevision
+    setExpectedMealItemIds(editingMealDetail.items.map((row) => row._id))
+    setExpectedMealEditRevision(editingMealDetail.meal.editRevision)
     hydratedMealIdRef.current = editingMealId
     setHydratedMealId(editingMealId)
   }, [editingMealDetail, editingMealId])
+
+  const draft = {
+    selectedPersonId,
+    mealDate,
+    mealName,
+    editingMealId,
+    mealItems,
+    expectedMealEditRevision,
+    expectedMealItemIds,
+    itemMode,
+    itemQuickName,
+    itemQuickCalories,
+    itemIngredientId,
+    selectedCookSessionId,
+    itemCookedFoodId,
+    itemCustomName,
+    itemCustomKcalPer100,
+    itemCustomIgnoreCalories,
+    itemCustomSaveToCatalog,
+    itemWeight,
+    editingDraftItemIndex,
+  } satisfies MealDraft
+  const hasDraft = Boolean(
+    editingMealId ||
+    mealName ||
+    mealItems.length ||
+    itemQuickName ||
+    itemQuickCalories ||
+    itemIngredientId ||
+    itemCookedFoodId ||
+    itemCustomName ||
+    itemCustomKcalPer100 ||
+    itemWeight ||
+    itemCustomIgnoreCalories ||
+    !itemCustomSaveToCatalog,
+  )
+  const serializedDraft = hasDraft
+    ? JSON.stringify({ version: 1, draft })
+    : null
+  const canPersistDraft = !editingMealId || hydratedMealId === editingMealId
+
+  useEffect(() => {
+    if (userId && canPersistDraft) {
+      const saved = writeMealDraft(userId, serializedDraft)
+      if (!saved && !persistenceFailedRef.current) {
+        toast.warning(
+          'Draft recovery is unavailable. Keep this tab open until you save your meal.',
+        )
+      }
+      persistenceFailedRef.current = !saved
+    }
+  }, [userId, serializedDraft, canPersistDraft])
 
   if (isLoading) {
     return (
@@ -997,6 +1042,11 @@ function MealDashboardPageContent() {
                 : 'Add items below, then create the meal.'
             }
           >
+            {showRestoredNotice ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                Draft restored in this tab.
+              </p>
+            ) : null}
             <fieldset className="min-w-0 space-y-4" disabled={isRunning}>
               <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                 <div className="space-y-2">
@@ -1481,9 +1531,8 @@ function MealDashboardPageContent() {
                         if (editingMealId) {
                           await updateMeal({
                             mealId: editingMealId,
-                            expectedEditRevision:
-                              expectedMealEditRevisionRef.current,
-                            expectedMealItemIds: expectedMealItemIdsRef.current,
+                            expectedEditRevision: expectedMealEditRevision,
+                            expectedMealItemIds,
                             personId: effectiveSelectedPersonId,
                             name: mealName.trim() || undefined,
                             eatenOn: mealDate,
@@ -1508,9 +1557,12 @@ function MealDashboardPageContent() {
                       ? `Create meal (${mealItems.length} item${mealItems.length === 1 ? '' : 's'})`
                       : 'Create meal'}
                 </Button>
-                {editingMealId ? (
-                  <Button variant="outline" onClick={resetMealForm}>
-                    Cancel edit
+                {hasDraft ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsDiscardDialogOpen(true)}
+                  >
+                    {editingMealId ? 'Cancel edit' : 'Discard draft'}
                   </Button>
                 ) : null}
               </div>
@@ -1560,6 +1612,18 @@ function MealDashboardPageContent() {
           </MealTableSection>
         </div>
       </PageShell>
+      <ConfirmDestructiveDialog
+        open={isDiscardDialogOpen}
+        onOpenChange={setIsDiscardDialogOpen}
+        onConfirm={() => {
+          resetMealForm()
+          setIsDiscardDialogOpen(false)
+        }}
+        title="Discard meal draft?"
+        description="Your unsaved meal changes in this tab will be lost."
+        confirmLabel="Discard draft"
+        disabled={isRunning}
+      />
       <ConfirmDestructiveDialog
         open={isConfirmDialogOpen}
         onOpenChange={handleConfirmDialogOpenChange}
