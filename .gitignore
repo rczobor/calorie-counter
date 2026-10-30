@@ -16,6 +16,7 @@ test-results/
 .convex-backups/
 .vinxi
 .vercel
+.mcp-test/
 __unconfig*
 todos.json
 .env*

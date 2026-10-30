@@ -1,5 +1,8 @@
 # Calorie Counter
 
+The optional [ChatGPT MCP integration](docs/chatgpt-mcp.md) supports natural-language
+meal logging and cooking through scoped, authenticated tools.
+
 A multi-person calorie tracking app built with TanStack Start, Convex, and
 Clerk authentication.
 

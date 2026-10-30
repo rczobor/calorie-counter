@@ -1,3 +1,4 @@
+import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { ChefHat, Copy, Plus, Trash2 } from 'lucide-react'
@@ -159,7 +160,10 @@ function CookingPageContent() {
   const [isSessionEditorVisible, setIsSessionEditorVisible] = useState(false)
   const [selectedCookSessionId, setSelectedCookSessionId] = useState<
     Id<'cookSessions'> | ''
-  >('')
+  >(() => {
+    const id = new URLSearchParams(window.location.search).get('sessionId')
+    return id && /^[a-z0-9]{20,64}$/i.test(id) ? (id as Id<'cookSessions'>) : ''
+  })
   const { activeDraftId, setActiveDraftId, drafts, setDrafts } =
     usePersistedCookingDrafts()
   const {
@@ -1283,6 +1287,7 @@ function CookingPageContent() {
               countedAmount,
               saveToCatalog: false,
               notes: line.notes,
+              nutritionProvenance: line.nutritionProvenance,
             }
           }
 
@@ -1307,6 +1312,7 @@ function CookingPageContent() {
               ingredient.ignoreCalories,
             ),
             notes: line.notes,
+            nutritionProvenance: line.nutritionProvenance,
           }
         })
         setRecipeDetailCache((current) => {
@@ -1462,6 +1468,7 @@ function CookingPageContent() {
       recipeVersionId: activeDraft.recipeVersionId || undefined,
       groupId: activeDraft.groupId || undefined,
       finishedWeightGrams: finishedWeight,
+      nutritionProvenance: activeDraft.nutritionProvenance,
       notes: activeDraft.notes.trim() || undefined,
       ingredients: activeDraft.ingredientLines.map((line) =>
         line.sourceType === 'ingredient'
@@ -1483,6 +1490,7 @@ function CookingPageContent() {
               referenceAmount: line.referenceAmount,
               referenceUnit: line.referenceUnit,
               countedAmount: line.countedAmount,
+              nutritionProvenance: line.nutritionProvenance,
               notes: normalizedLineNotes(
                 line.notes,
                 Boolean(line.existingCookedFoodIngredientId),
@@ -1501,6 +1509,7 @@ function CookingPageContent() {
               referenceUnit: line.referenceUnit,
               countedAmount: line.countedAmount,
               saveToCatalog: line.saveToCatalog,
+              nutritionProvenance: line.nutritionProvenance,
               notes: normalizedLineNotes(
                 line.notes,
                 Boolean(line.existingCookedFoodIngredientId),
@@ -1741,6 +1750,7 @@ function CookingPageContent() {
       cell: ({ row }) => (
         <div className="max-w-56 whitespace-normal">
           <p className="font-medium text-foreground">{row.original.name}</p>
+          <EstimateNotice provenance={row.original.food.nutritionProvenance} />
           <p className="mt-0.5 text-xs text-muted-foreground">
             {row.original.sessionLabel}
           </p>
@@ -2934,6 +2944,9 @@ function CookingPageContent() {
                                       <p className="truncate font-medium text-foreground">
                                         {lineName}
                                       </p>
+                                      <EstimateNotice
+                                        provenance={line.nutritionProvenance}
+                                      />
                                       <p className="mt-1 text-xs text-muted-foreground">
                                         {line.referenceAmount}{' '}
                                         {getNutritionUnitLabel(

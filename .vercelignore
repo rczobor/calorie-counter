@@ -1,0 +1,8 @@
+.env*
+.convex/
+.mcp-test/
+.git/
+node_modules/
+coverage/
+playwright-report/
+test-results/

@@ -378,6 +378,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
 
   const functionName = getFunctionName(query)
+  if (functionName === 'mcp:getConfiguration')
+    return { enabled: false, url: null } as FunctionReturnType<Query>
+  if (functionName === 'mcp:getAuthRequest')
+    return null as FunctionReturnType<Query>
   if (functionName === 'people:get') {
     const personId = (args as { personId: Id<'people'> }).personId
     const person = snapshot.dashboard.people.find(
@@ -466,6 +470,17 @@ export function useConvex() {
       )
     },
   }
+}
+
+export function useAction<Action extends FunctionReference<'action'>>(
+  action: Action,
+) {
+  const name = getFunctionName(action)
+  return useCallback<
+    (args: FunctionArgs<Action>) => Promise<FunctionReturnType<Action>>
+  >(async () => {
+    throw new Error(`The browser smoke adapter does not implement ${name}.`)
+  }, [name])
 }
 
 export function useConvexAuth() {

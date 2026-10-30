@@ -4,7 +4,10 @@ import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
 import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
 import { MAX_CHILD_ROWS } from './lib/validation'
-import { nutritionUnitValidator } from './validators'
+import {
+  nutritionUnitValidator,
+  nutritionProvenanceValidator,
+} from './validators'
 
 const recipeDto = v.object({
   _id: v.id('recipes'),
@@ -33,6 +36,7 @@ const recipeVersionDto = v.object({
 })
 
 const recipeLineCommon = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   _id: v.id('recipeVersionIngredients'),
   _creationTime: v.number(),
   recipeVersionId: v.id('recipeVersions'),

@@ -3,10 +3,12 @@ pnpm-lock.yaml
 dist
 .output
 .vercel
+.mcp-test
 coverage
 playwright-report
 test-results
 .convex-backups
+.convex
 .pnpm-store
 .agents
 .codex

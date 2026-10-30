@@ -1,3 +1,4 @@
+import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import type { FunctionArgs } from 'convex/server'
@@ -38,6 +39,7 @@ import {
   formatCookSessionLabel,
   formatKcalPer100,
   toLocalDateString,
+  toTimestampFromDate,
   type NutritionUnit,
 } from '@/lib/nutrition'
 
@@ -90,11 +92,12 @@ type CookedFoodMealItemDraft = {
   notes?: string
 }
 
-type DraftMealItem =
+type DraftMealItem = (
   | ExistingIngredientMealItemDraft
   | CustomIngredientMealItemDraft
   | CookedFoodMealItemDraft
   | FixedCaloriesMealItemDraft
+) & { nutritionProvenance?: { source: string; assumptions: string } }
 
 type IngredientSelectionRow = {
   id: Id<'ingredients'>
@@ -176,9 +179,23 @@ function MealDashboardPageContent() {
   const [showArchivedMeals, setShowArchivedMeals] = useState(false)
 
   const [selectedPersonId, setSelectedPersonId] = useState<Id<'people'> | ''>(
-    '',
+    () => {
+      const id = new URLSearchParams(window.location.search).get('personId')
+      return id && /^[a-z0-9]{20,64}$/i.test(id) ? (id as Id<'people'>) : ''
+    },
   )
-  const [mealDate, setMealDate] = useState(() => toLocalDateString(Date.now()))
+  const [mealDate, setMealDate] = useState(() => {
+    const value = new URLSearchParams(window.location.search).get('date')
+    if (value) {
+      try {
+        toTimestampFromDate(value)
+        return value
+      } catch {
+        /* Ignore invalid link dates. */
+      }
+    }
+    return toLocalDateString(Date.now())
+  })
   const [mealName, setMealName] = useState('')
   const [editingMealId, setEditingMealId] = useState<Id<'meals'> | null>(null)
 
@@ -867,6 +884,7 @@ function MealDashboardPageContent() {
                 ? row.caloriesSnapshot / row.consumedWeightGrams
                 : 0,
             notes: row.notes,
+            nutritionProvenance: row.nutritionProvenance,
           }
         }
         if (row.sourceType === 'customByWeight') {
@@ -881,6 +899,7 @@ function MealDashboardPageContent() {
             consumedWeightGrams: row.consumedWeightGrams,
             saveToCatalog: false,
             notes: row.notes,
+            nutritionProvenance: row.nutritionProvenance,
           }
         }
         if (row.sourceType === 'cookedFood') {
@@ -896,6 +915,7 @@ function MealDashboardPageContent() {
                 ? row.caloriesSnapshot / row.consumedWeightGrams
                 : 0,
             notes: row.notes,
+            nutritionProvenance: row.nutritionProvenance,
           }
         }
         return {
@@ -904,6 +924,7 @@ function MealDashboardPageContent() {
           name: row.nameSnapshot,
           calories: row.caloriesSnapshot,
           notes: row.notes,
+          nutritionProvenance: row.nutritionProvenance,
         }
       }),
     )
@@ -1415,6 +1436,9 @@ function MealDashboardPageContent() {
                                 ? ` (+${itemCalories.toFixed(0)} kcal)`
                                 : ` - ${item.consumedWeightGrams.toFixed(0)} g (+${itemCalories.toFixed(0)} kcal)`}
                             </p>
+                            <EstimateNotice
+                              provenance={item.nutritionProvenance}
+                            />
                             <div className="flex shrink-0 items-center gap-1">
                               <Button
                                 size="xs"

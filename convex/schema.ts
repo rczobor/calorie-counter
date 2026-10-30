@@ -1,4 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+import { cookingResult, mealResult } from './mcpValidators'
 
 import {
   cookedFoodIngredientRecordValidator,
@@ -17,6 +19,22 @@ import {
 } from './validators'
 
 export default defineSchema({
+  mcpOperations: defineTable({
+    ownerTokenIdentifier: v.string(),
+    connectionId: v.string(),
+    operation: v.union(
+      v.literal('meal'),
+      v.literal('cooking'),
+      v.literal('mealCorrection'),
+    ),
+    key: v.string(),
+    input: v.string(),
+    result: v.union(mealResult, cookingResult),
+  }).index('by_ownerTokenIdentifier_and_connectionId_and_key', [
+    'ownerTokenIdentifier',
+    'connectionId',
+    'key',
+  ]),
   people: defineTable(peopleFields)
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_ownerTokenIdentifier_and_archived_and_name', [

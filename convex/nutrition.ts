@@ -4,8 +4,13 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
-import { v } from 'convex/values'
-import { groupScopeValidator, nutritionUnitValidator } from './validators'
+import { v, type Infer } from 'convex/values'
+import {
+  groupScopeValidator,
+  nutritionUnitValidator,
+  nutritionProvenanceValidator,
+  expectedNutritionSnapshotValidator,
+} from './validators'
 import {
   assertOwnedOrThrow,
   type AuthenticatedOwner,
@@ -36,13 +41,6 @@ const optionalNullableStringValidator = v.optional(
   v.union(v.string(), v.null()),
 )
 const MAX_INGREDIENT_LINES = MAX_CHILD_ROWS
-
-const expectedNutritionSnapshotValidator = v.object({
-  name: v.string(),
-  kcalPer100: v.number(),
-  kcalBasisUnit: nutritionUnitValidator,
-  ignoreCalories: v.boolean(),
-})
 
 const cookedFoodWriteResultValidator = v.object({
   cookedFoodId: v.id('cookedFoods'),
@@ -102,7 +100,10 @@ function assertExpectedIdSet(
   }
 }
 
-function getEditRevision(record: { editRevision?: number }, itemName: string) {
+export function getEditRevision(
+  record: { editRevision?: number },
+  itemName: string,
+) {
   const revision = record.editRevision ?? 0
   if (!Number.isSafeInteger(revision) || revision < 0) {
     throw new Error(`${itemName} has an invalid edit revision.`)
@@ -110,7 +111,7 @@ function getEditRevision(record: { editRevision?: number }, itemName: string) {
   return revision
 }
 
-function assertExpectedEditRevision(
+export function assertExpectedEditRevision(
   record: { editRevision?: number },
   expectedRevision: number,
   itemName: string,
@@ -171,6 +172,7 @@ const recipeIngredientValidator = v.union(
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
   v.object({
@@ -186,11 +188,12 @@ const recipeIngredientValidator = v.union(
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
     saveToCatalog: v.optional(v.boolean()),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
 )
 
-const cookedFoodIngredientValidator = v.union(
+export const cookedFoodIngredientValidator = v.union(
   v.object({
     sourceType: v.literal('ingredient'),
     existingCookedFoodIngredientId: v.optional(v.id('cookedFoodIngredients')),
@@ -199,6 +202,7 @@ const cookedFoodIngredientValidator = v.union(
     referenceAmount: v.number(),
     referenceUnit: nutritionUnitValidator,
     countedAmount: v.optional(v.number()),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
   v.object({
@@ -213,6 +217,7 @@ const cookedFoodIngredientValidator = v.union(
     referenceUnit: nutritionUnitValidator,
     countedAmount: v.optional(v.number()),
     saveToCatalog: v.optional(v.boolean()),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
 )
@@ -224,13 +229,14 @@ const cookedFoodRecipeDraftValidator = v.object({
   notes: v.optional(v.string()),
 })
 
-const mealItemInputValidator = v.union(
+export const mealItemInputValidator = v.union(
   v.object({
     sourceType: v.literal('ingredient'),
     existingMealItemId: v.optional(v.id('mealItems')),
     ingredientId: v.id('ingredients'),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     consumedWeightGrams: v.number(),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
   v.object({
@@ -243,6 +249,7 @@ const mealItemInputValidator = v.union(
     ignoreCalories: v.boolean(),
     consumedWeightGrams: v.number(),
     saveToCatalog: v.optional(v.boolean()),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
   v.object({
@@ -251,6 +258,7 @@ const mealItemInputValidator = v.union(
     cookedFoodId: v.id('cookedFoods'),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     consumedWeightGrams: v.number(),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
   v.object({
@@ -258,11 +266,13 @@ const mealItemInputValidator = v.union(
     existingMealItemId: v.optional(v.id('mealItems')),
     name: v.string(),
     calories: v.number(),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
 )
 
 type RecipeIngredientSnapshotBase = {
+  nutritionProvenance?: NutritionProvenance
   ingredientNameSnapshot: string
   kcalPer100Snapshot: number
   kcalBasisUnitSnapshot: NutritionUnit
@@ -282,7 +292,44 @@ type RecipeIngredientSnapshot =
       ingredientId?: Id<'ingredients'>
     })
 
+type NutritionProvenance = Infer<typeof nutritionProvenanceValidator>
+
+export function normalizeNutritionProvenance(
+  value: NutritionProvenance | undefined,
+) {
+  if (!value) return undefined
+  return {
+    source: normalizeRequiredText(
+      value.source,
+      'Estimate source',
+      MAX_NAME_LENGTH,
+    ),
+    assumptions: normalizeRequiredText(
+      value.assumptions,
+      'Estimate assumptions',
+      MAX_NOTES_LENGTH,
+    ),
+  }
+}
+
+export function summarizeEstimates(
+  values: Array<{ nutritionProvenance?: NutritionProvenance }>,
+) {
+  const estimates = values.flatMap((value) =>
+    value.nutritionProvenance ? [value.nutritionProvenance] : [],
+  )
+  if (estimates.length === 0) return undefined
+  return {
+    source: 'Estimated ingredients',
+    assumptions: estimates
+      .map((estimate) => `${estimate.source}: ${estimate.assumptions}`)
+      .join('; ')
+      .slice(0, MAX_NOTES_LENGTH),
+  }
+}
+
 type CookedIngredientSnapshotBase = {
+  nutritionProvenance?: NutritionProvenance
   existingCookedFoodIngredientId?: Id<'cookedFoodIngredients'>
   ingredientNameSnapshot: string
   referenceAmount: number
@@ -306,6 +353,7 @@ type CookedIngredientSnapshot =
     })
 
 type WeightedMealItemSnapshot = {
+  nutritionProvenance?: NutritionProvenance
   nameSnapshot: string
   consumedWeightGrams: number
   kcalPer100Snapshot: number
@@ -331,6 +379,7 @@ type MealItemSnapshot =
     })
   | {
       sourceType: 'fixedCalories'
+      nutritionProvenance?: NutritionProvenance
       nameSnapshot: string
       caloriesSnapshot: number
       notes?: string
@@ -408,7 +457,7 @@ function scaleHistoricalCalories(
   )
 }
 
-async function resolveRecipeLink(
+export async function resolveRecipeLink(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
   recipeId?: Id<'recipes'>,
@@ -500,35 +549,10 @@ async function saveCustomIngredientToCatalog(
   return await ingredientId
 }
 
-async function buildCookedFoodNutrition(
+export async function buildCookedFoodNutrition(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
-  ingredients: Array<
-    | {
-        sourceType: 'ingredient'
-        existingCookedFoodIngredientId?: Id<'cookedFoodIngredients'>
-        ingredientId: Id<'ingredients'>
-        expectedSnapshot?: ExpectedNutritionSnapshot
-        referenceAmount: number
-        referenceUnit: NutritionUnit
-        countedAmount?: number
-        notes?: string | null
-      }
-    | {
-        sourceType: 'custom'
-        existingCookedFoodIngredientId?: Id<'cookedFoodIngredients'>
-        ingredientId?: Id<'ingredients'>
-        name: string
-        kcalPer100: number
-        kcalBasisUnit?: NutritionUnit
-        ignoreCalories: boolean
-        referenceAmount: number
-        referenceUnit: NutritionUnit
-        countedAmount?: number
-        saveToCatalog?: boolean
-        notes?: string | null
-      }
-  >,
+  ingredients: Array<Infer<typeof cookedFoodIngredientValidator>>,
   finishedWeightGrams: number,
   options?: {
     persistAllCustomIngredients?: boolean
@@ -835,6 +859,17 @@ async function buildCookedFoodNutrition(
     })
   }
 
+  for (let index = 0; index < ingredientSnapshots.length; index++) {
+    const line = ingredients[index]
+    const existing = line.existingCookedFoodIngredientId
+      ? options?.existingIngredientsById?.get(
+          line.existingCookedFoodIngredientId,
+        )
+      : undefined
+    ingredientSnapshots[index].nutritionProvenance =
+      normalizeNutritionProvenance(line.nutritionProvenance) ??
+      existing?.nutritionProvenance
+  }
   return {
     totalRawWeightGrams,
     totalCalories,
@@ -852,30 +887,7 @@ async function buildCookedFoodNutrition(
 async function resolveRecipeIngredientLines(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
-  ingredientLines: Array<
-    | {
-        sourceType: 'ingredient'
-        existingRecipeVersionIngredientId?: Id<'recipeVersionIngredients'>
-        ingredientId: Id<'ingredients'>
-        expectedSnapshot?: ExpectedNutritionSnapshot
-        referenceAmount: number
-        referenceUnit: NutritionUnit
-        notes?: string | null
-      }
-    | {
-        sourceType: 'custom'
-        existingRecipeVersionIngredientId?: Id<'recipeVersionIngredients'>
-        ingredientId?: Id<'ingredients'>
-        name: string
-        kcalPer100: number
-        kcalBasisUnit?: NutritionUnit
-        ignoreCalories: boolean
-        referenceAmount: number
-        referenceUnit: NutritionUnit
-        saveToCatalog?: boolean
-        notes?: string | null
-      }
-  >,
+  ingredientLines: Array<Infer<typeof recipeIngredientValidator>>,
   options?: {
     persistAllCustomIngredients?: boolean
     existingLinesById?: Map<
@@ -1064,7 +1076,18 @@ async function resolveRecipeIngredientLines(
     })
   }
 
-  return resolvedLines
+  return resolvedLines.map((snapshot, index) => {
+    const line = ingredientLines[index]
+    const existing = line.existingRecipeVersionIngredientId
+      ? options?.existingLinesById?.get(line.existingRecipeVersionIngredientId)
+      : undefined
+    return {
+      ...snapshot,
+      nutritionProvenance:
+        normalizeNutritionProvenance(line.nutritionProvenance) ??
+        existing?.nutritionProvenance,
+    }
+  })
 }
 
 async function insertRecipeIngredientSnapshots(
@@ -1085,6 +1108,7 @@ async function insertRecipeIngredientSnapshots(
         referenceAmount: line.referenceAmount,
         referenceUnit: line.referenceUnit,
         notes: line.notes,
+        nutritionProvenance: line.nutritionProvenance,
       }
       return line.sourceType === 'ingredient'
         ? db.insert('recipeVersionIngredients', {
@@ -1121,6 +1145,7 @@ async function insertCookedIngredientSnapshots(
           snapshot.ingredientKcalBasisUnitSnapshot,
         ignoreCaloriesSnapshot: snapshot.ignoreCaloriesSnapshot,
         ingredientCaloriesSnapshot: snapshot.ingredientCaloriesSnapshot,
+        nutritionProvenance: snapshot.nutritionProvenance,
         notes: snapshot.notes,
       }
       return snapshot.sourceType === 'ingredient'
@@ -1170,6 +1195,7 @@ async function reconcileCookedIngredientSnapshots(
           snapshot.ingredientKcalBasisUnitSnapshot,
         ignoreCaloriesSnapshot: snapshot.ignoreCaloriesSnapshot,
         ingredientCaloriesSnapshot: snapshot.ingredientCaloriesSnapshot,
+        nutritionProvenance: snapshot.nutritionProvenance,
         notes: snapshot.notes,
       }
       if (snapshot.existingCookedFoodIngredientId) {
@@ -1206,46 +1232,10 @@ async function reconcileCookedIngredientSnapshots(
   )
 }
 
-async function buildMealItemSnapshots(
+export async function buildMealItemSnapshots(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
-  items: Array<
-    | {
-        sourceType: 'ingredient'
-        existingMealItemId?: Id<'mealItems'>
-        ingredientId: Id<'ingredients'>
-        expectedSnapshot?: ExpectedNutritionSnapshot
-        consumedWeightGrams: number
-        notes?: string | null
-      }
-    | {
-        sourceType: 'customByWeight'
-        existingMealItemId?: Id<'mealItems'>
-        ingredientId?: Id<'ingredients'>
-        name: string
-        kcalPer100: number
-        kcalBasisUnit?: 'g'
-        ignoreCalories: boolean
-        consumedWeightGrams: number
-        saveToCatalog?: boolean
-        notes?: string | null
-      }
-    | {
-        sourceType: 'cookedFood'
-        existingMealItemId?: Id<'mealItems'>
-        cookedFoodId: Id<'cookedFoods'>
-        expectedSnapshot?: ExpectedNutritionSnapshot
-        consumedWeightGrams: number
-        notes?: string | null
-      }
-    | {
-        sourceType: 'fixedCalories'
-        existingMealItemId?: Id<'mealItems'>
-        name: string
-        calories: number
-        notes?: string | null
-      }
-  >,
+  items: Array<Infer<typeof mealItemInputValidator>>,
   options?: {
     existingItemsById?: ReadonlyMap<Id<'mealItems'>, Doc<'mealItems'>>
   },
@@ -1268,8 +1258,8 @@ async function buildMealItemSnapshots(
   const createdIngredientByKey = new Map<string, Promise<Id<'ingredients'>>>()
   const now = Date.now()
 
-  return await Promise.all(
-    items.map(async (item) => {
+  const snapshots = await Promise.all(
+    items.map(async (item): Promise<MealItemSnapshot> => {
       if (item.sourceType === 'ingredient') {
         const existing = item.existingMealItemId
           ? options?.existingItemsById?.get(item.existingMealItemId)
@@ -1498,6 +1488,7 @@ async function buildMealItemSnapshots(
       return {
         sourceType: 'cookedFood' as const,
         cookedFoodId: cookedFood._id,
+        nutritionProvenance: cookedFood.nutritionProvenance,
         nameSnapshot: cookedFood.name,
         consumedWeightGrams: item.consumedWeightGrams,
         kcalPer100Snapshot: cookedFoodKcalPer100,
@@ -1508,6 +1499,19 @@ async function buildMealItemSnapshots(
       }
     }),
   )
+  return snapshots.map((snapshot, index) => {
+    const item = items[index]
+    const existing = item.existingMealItemId
+      ? options?.existingItemsById?.get(item.existingMealItemId)
+      : undefined
+    return {
+      ...snapshot,
+      nutritionProvenance:
+        normalizeNutritionProvenance(item.nutritionProvenance) ??
+        existing?.nutritionProvenance ??
+        snapshot.nutritionProvenance,
+    }
+  })
 }
 
 async function insertMealItemSnapshots(
@@ -1523,6 +1527,7 @@ async function insertMealItemSnapshots(
         mealId,
         nameSnapshot: snapshot.nameSnapshot,
         caloriesSnapshot: snapshot.caloriesSnapshot,
+        nutritionProvenance: snapshot.nutritionProvenance,
         notes: snapshot.notes,
       }
       if (snapshot.sourceType === 'fixedCalories') {
@@ -1562,7 +1567,7 @@ async function insertMealItemSnapshots(
   )
 }
 
-function sumMealItemCalories(snapshots: MealItemSnapshot[]) {
+export function sumMealItemCalories(snapshots: MealItemSnapshot[]) {
   return snapshots.reduce(
     (total, item) =>
       assertFiniteDerived(total + item.caloriesSnapshot, 'Meal total calories'),
@@ -2500,53 +2505,57 @@ export const deleteRecipe = mutation({
   },
 })
 
-export const createCookSession = mutation({
-  args: {
-    label: v.optional(v.string()),
-    cookedAt: v.number(),
-    cookedOn: v.optional(v.string()),
-    cookedByPersonId: v.optional(v.id('people')),
-    notes: v.optional(v.string()),
-  },
-  returns: v.id('cookSessions'),
-  handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
-    assertSafeTimestamp(args.cookedAt, 'Cooked at')
-    if (args.cookedByPersonId) {
-      const person = assertOwnedOrThrow(
-        await ctx.db.get(args.cookedByPersonId),
-        owner,
-        'Cook person not found.',
-      )
-      if (person.archived) {
-        throw new Error('Cook person not found.')
-      }
-    }
+export const createCookSessionInput = v.object({
+  label: v.optional(v.string()),
+  cookedAt: v.number(),
+  cookedOn: v.optional(v.string()),
+  cookedByPersonId: v.optional(v.id('people')),
+  notes: v.optional(v.string()),
+})
 
-    const now = Date.now()
-    const label =
-      normalizeOptionalText(args.label, 'Session label', MAX_NAME_LENGTH) ?? ''
-    const cookedOn =
-      args.cookedOn === undefined
-        ? new Date(args.cookedAt).toISOString().slice(0, 10)
-        : normalizeRequiredDate(args.cookedOn, 'Cooked on')
-    return await ctx.db.insert('cookSessions', {
-      ...ownerFields(owner),
-      label,
-      searchText: `${cookedOn} ${label}`.trim(),
-      cookedAt: args.cookedAt,
-      cookedByPersonId: args.cookedByPersonId,
-      notes: normalizeOptionalText(
-        args.notes,
-        'Session notes',
-        MAX_NOTES_LENGTH,
-      ),
-      archived: false,
-      editRevision: 0,
-      updatedAt: now,
-      createdAt: now,
-    })
-  },
+export async function createCookSessionForOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  args: Infer<typeof createCookSessionInput>,
+) {
+  assertSafeTimestamp(args.cookedAt, 'Cooked at')
+  if (args.cookedByPersonId) {
+    const person = assertOwnedOrThrow(
+      await ctx.db.get(args.cookedByPersonId),
+      owner,
+      'Cook person not found.',
+    )
+    if (person.archived) {
+      throw new Error('Cook person not found.')
+    }
+  }
+
+  const now = Date.now()
+  const label =
+    normalizeOptionalText(args.label, 'Session label', MAX_NAME_LENGTH) ?? ''
+  const cookedOn =
+    args.cookedOn === undefined
+      ? new Date(args.cookedAt).toISOString().slice(0, 10)
+      : normalizeRequiredDate(args.cookedOn, 'Cooked on')
+  return await ctx.db.insert('cookSessions', {
+    ...ownerFields(owner),
+    label,
+    searchText: `${cookedOn} ${label}`.trim(),
+    cookedAt: args.cookedAt,
+    cookedByPersonId: args.cookedByPersonId,
+    notes: normalizeOptionalText(args.notes, 'Session notes', MAX_NOTES_LENGTH),
+    archived: false,
+    editRevision: 0,
+    updatedAt: now,
+    createdAt: now,
+  })
+}
+
+export const createCookSession = mutation({
+  args: createCookSessionInput.fields,
+  returns: v.id('cookSessions'),
+  handler: async (ctx, args) =>
+    createCookSessionForOwner(ctx, await requireAuthenticatedUser(ctx), args),
 })
 
 export const updateCookSession = mutation({
@@ -2674,163 +2683,175 @@ export const deleteCookSession = mutation({
   },
 })
 
-export const createCookedFood = mutation({
-  args: {
-    cookSessionId: v.id('cookSessions'),
-    name: v.string(),
-    recipeId: v.optional(v.id('recipes')),
-    recipeVersionId: v.optional(v.id('recipeVersions')),
-    saveAsRecipe: v.optional(v.boolean()),
-    recipeDraft: v.optional(cookedFoodRecipeDraftValidator),
-    groupId: v.optional(v.id('foodGroups')),
-    finishedWeightGrams: v.number(),
-    notes: v.optional(v.string()),
-    ingredients: v.array(cookedFoodIngredientValidator),
-  },
-  returns: cookedFoodWriteResultValidator,
-  handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
-    assertNonEmpty(args.name, 'Cooked food name')
-    const cookSession = assertOwnedOrThrow(
-      await ctx.db.get(args.cookSessionId),
-      owner,
-      'Cook session not found.',
-    )
-    if (cookSession.archived) {
-      throw new Error('Cook session not found.')
-    }
-    if (args.saveAsRecipe && (args.recipeId || args.recipeVersionId)) {
-      throw new Error(
-        'Cannot select an existing recipe while saving as a new recipe.',
-      )
-    }
-    let existingRecipeLink: {
-      recipeId?: Id<'recipes'>
-      recipeVersionId?: Id<'recipeVersions'>
-    } = {}
-    if (!args.saveAsRecipe) {
-      existingRecipeLink = await resolveRecipeLink(
-        ctx.db,
-        owner,
-        args.recipeId,
-        args.recipeVersionId,
-      )
-    }
-    await assertGroupForScope(ctx.db, owner, args.groupId, 'cookedFood')
+export const createCookedFoodInput = v.object({
+  cookSessionId: v.id('cookSessions'),
+  name: v.string(),
+  recipeId: v.optional(v.id('recipes')),
+  recipeVersionId: v.optional(v.id('recipeVersions')),
+  saveAsRecipe: v.optional(v.boolean()),
+  recipeDraft: v.optional(cookedFoodRecipeDraftValidator),
+  groupId: v.optional(v.id('foodGroups')),
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
+  finishedWeightGrams: v.number(),
+  notes: v.optional(v.string()),
+  ingredients: v.array(cookedFoodIngredientValidator),
+})
 
-    const nutrition = await buildCookedFoodNutrition(
+export async function createCookedFoodForOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  args: Infer<typeof createCookedFoodInput>,
+) {
+  assertNonEmpty(args.name, 'Cooked food name')
+  const cookSession = assertOwnedOrThrow(
+    await ctx.db.get(args.cookSessionId),
+    owner,
+    'Cook session not found.',
+  )
+  if (cookSession.archived) {
+    throw new Error('Cook session not found.')
+  }
+  if (args.saveAsRecipe && (args.recipeId || args.recipeVersionId)) {
+    throw new Error(
+      'Cannot select an existing recipe while saving as a new recipe.',
+    )
+  }
+  let existingRecipeLink: {
+    recipeId?: Id<'recipes'>
+    recipeVersionId?: Id<'recipeVersions'>
+  } = {}
+  if (!args.saveAsRecipe) {
+    existingRecipeLink = await resolveRecipeLink(
       ctx.db,
       owner,
-      args.ingredients,
-      args.finishedWeightGrams,
-      {
-        persistAllCustomIngredients: Boolean(args.saveAsRecipe),
-      },
+      args.recipeId,
+      args.recipeVersionId,
     )
+  }
+  await assertGroupForScope(ctx.db, owner, args.groupId, 'cookedFood')
 
-    const now = Date.now()
-    let linkedRecipeId = existingRecipeLink.recipeId
-    let linkedRecipeVersionId = existingRecipeLink.recipeVersionId
-    if (args.saveAsRecipe) {
-      const recipeName = normalizeRequiredText(
-        args.recipeDraft?.name || args.name,
-        'Recipe name',
-      )
-      const recipeLines = nutrition.ingredientSnapshots
+  const nutrition = await buildCookedFoodNutrition(
+    ctx.db,
+    owner,
+    args.ingredients,
+    args.finishedWeightGrams,
+    {
+      persistAllCustomIngredients: Boolean(args.saveAsRecipe),
+    },
+  )
 
-      linkedRecipeId = await ctx.db.insert('recipes', {
-        ...ownerFields(owner),
-        name: recipeName,
-        description: normalizeOptionalText(
-          args.recipeDraft?.description,
-          'Recipe description',
-          MAX_DESCRIPTION_LENGTH,
-        ),
-        archived: false,
-        latestVersionNumber: 1,
-        editRevision: 0,
-        createdAt: now,
-      })
-      linkedRecipeVersionId = await ctx.db.insert('recipeVersions', {
-        ...ownerFields(owner),
-        recipeId: linkedRecipeId,
-        versionNumber: 1,
-        name: recipeName,
-        instructions: normalizeOptionalText(
-          args.recipeDraft?.instructions,
-          'Recipe instructions',
-          MAX_INSTRUCTIONS_LENGTH,
-        ),
-        notes: normalizeOptionalText(
-          args.recipeDraft?.notes,
-          'Recipe notes',
-          MAX_NOTES_LENGTH,
-        ),
-        createdAt: now,
-      })
-      const recipeSnapshots: RecipeIngredientSnapshot[] = recipeLines.map(
-        (line) =>
-          line.sourceType === 'ingredient'
-            ? {
-                ...line,
-                sourceType: 'ingredient',
-                ingredientId: line.ingredientId,
-                kcalPer100Snapshot: line.ingredientKcalPer100Snapshot,
-                kcalBasisUnitSnapshot: line.ingredientKcalBasisUnitSnapshot,
-              }
-            : {
-                ...line,
-                sourceType: 'custom',
-                ingredientId: line.ingredientId,
-                kcalPer100Snapshot: line.ingredientKcalPer100Snapshot,
-                kcalBasisUnitSnapshot: line.ingredientKcalBasisUnitSnapshot,
-              },
-      )
-      await insertRecipeIngredientSnapshots(
-        ctx.db,
-        owner,
-        linkedRecipeVersionId,
-        recipeSnapshots,
-      )
-    }
+  const now = Date.now()
+  let linkedRecipeId = existingRecipeLink.recipeId
+  let linkedRecipeVersionId = existingRecipeLink.recipeVersionId
+  if (args.saveAsRecipe) {
+    const recipeName = normalizeRequiredText(
+      args.recipeDraft?.name || args.name,
+      'Recipe name',
+    )
+    const recipeLines = nutrition.ingredientSnapshots
 
-    const cookedFoodId = await ctx.db.insert('cookedFoods', {
+    linkedRecipeId = await ctx.db.insert('recipes', {
       ...ownerFields(owner),
-      cookSessionId: args.cookSessionId,
-      name: args.name.trim(),
-      recipeId: linkedRecipeId,
-      recipeVersionId: linkedRecipeVersionId,
-      groupId: args.groupId,
-      finishedWeightGrams: args.finishedWeightGrams,
-      totalRawWeightGrams: nutrition.totalRawWeightGrams,
-      totalCalories: nutrition.totalCalories,
-      kcalPer100: nutrition.kcalPer100,
-      editRevision: 0,
-      notes: normalizeOptionalText(
-        args.notes,
-        'Cooked food notes',
-        MAX_NOTES_LENGTH,
+      name: recipeName,
+      description: normalizeOptionalText(
+        args.recipeDraft?.description,
+        'Recipe description',
+        MAX_DESCRIPTION_LENGTH,
       ),
       archived: false,
+      latestVersionNumber: 1,
+      editRevision: 0,
       createdAt: now,
     })
-
-    const cookedFoodIngredientIds = await insertCookedIngredientSnapshots(
+    linkedRecipeVersionId = await ctx.db.insert('recipeVersions', {
+      ...ownerFields(owner),
+      recipeId: linkedRecipeId,
+      versionNumber: 1,
+      name: recipeName,
+      instructions: normalizeOptionalText(
+        args.recipeDraft?.instructions,
+        'Recipe instructions',
+        MAX_INSTRUCTIONS_LENGTH,
+      ),
+      notes: normalizeOptionalText(
+        args.recipeDraft?.notes,
+        'Recipe notes',
+        MAX_NOTES_LENGTH,
+      ),
+      createdAt: now,
+    })
+    const recipeSnapshots: RecipeIngredientSnapshot[] = recipeLines.map(
+      (line) =>
+        line.sourceType === 'ingredient'
+          ? {
+              ...line,
+              sourceType: 'ingredient',
+              ingredientId: line.ingredientId,
+              kcalPer100Snapshot: line.ingredientKcalPer100Snapshot,
+              kcalBasisUnitSnapshot: line.ingredientKcalBasisUnitSnapshot,
+            }
+          : {
+              ...line,
+              sourceType: 'custom',
+              ingredientId: line.ingredientId,
+              kcalPer100Snapshot: line.ingredientKcalPer100Snapshot,
+              kcalBasisUnitSnapshot: line.ingredientKcalBasisUnitSnapshot,
+            },
+    )
+    await insertRecipeIngredientSnapshots(
       ctx.db,
       owner,
-      cookedFoodId,
-      nutrition.ingredientSnapshots,
+      linkedRecipeVersionId,
+      recipeSnapshots,
     )
+  }
 
-    await touchCookSession(ctx, owner, args.cookSessionId, now)
-    return {
-      cookedFoodId,
-      editRevision: 0,
-      cookedFoodIngredientIds,
-      recipeId: linkedRecipeId,
-      recipeVersionId: linkedRecipeVersionId,
-    }
-  },
+  const cookedFoodId = await ctx.db.insert('cookedFoods', {
+    ...ownerFields(owner),
+    cookSessionId: args.cookSessionId,
+    name: args.name.trim(),
+    recipeId: linkedRecipeId,
+    recipeVersionId: linkedRecipeVersionId,
+    groupId: args.groupId,
+    finishedWeightGrams: args.finishedWeightGrams,
+    totalRawWeightGrams: nutrition.totalRawWeightGrams,
+    totalCalories: nutrition.totalCalories,
+    kcalPer100: nutrition.kcalPer100,
+    nutritionProvenance:
+      normalizeNutritionProvenance(args.nutritionProvenance) ??
+      summarizeEstimates(nutrition.ingredientSnapshots),
+    editRevision: 0,
+    notes: normalizeOptionalText(
+      args.notes,
+      'Cooked food notes',
+      MAX_NOTES_LENGTH,
+    ),
+    archived: false,
+    createdAt: now,
+  })
+
+  const cookedFoodIngredientIds = await insertCookedIngredientSnapshots(
+    ctx.db,
+    owner,
+    cookedFoodId,
+    nutrition.ingredientSnapshots,
+  )
+
+  await touchCookSession(ctx, owner, args.cookSessionId, now)
+  return {
+    cookedFoodId,
+    editRevision: 0,
+    cookedFoodIngredientIds,
+    recipeId: linkedRecipeId,
+    recipeVersionId: linkedRecipeVersionId,
+  }
+}
+
+export const createCookedFood = mutation({
+  args: createCookedFoodInput.fields,
+  returns: cookedFoodWriteResultValidator,
+  handler: async (ctx, args) =>
+    createCookedFoodForOwner(ctx, await requireAuthenticatedUser(ctx), args),
 })
 
 export const updateCookedFood = mutation({
@@ -2843,6 +2864,7 @@ export const updateCookedFood = mutation({
     recipeId: v.optional(v.id('recipes')),
     recipeVersionId: v.optional(v.id('recipeVersions')),
     groupId: v.optional(v.id('foodGroups')),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     finishedWeightGrams: v.number(),
     notes: v.optional(v.string()),
     ingredients: v.array(cookedFoodIngredientValidator),
@@ -2926,6 +2948,10 @@ export const updateCookedFood = mutation({
       totalRawWeightGrams: nutrition.totalRawWeightGrams,
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
+      nutritionProvenance:
+        normalizeNutritionProvenance(args.nutritionProvenance) ??
+        summarizeEstimates(nutrition.ingredientSnapshots) ??
+        cookedFood.nutritionProvenance,
       editRevision,
       notes: normalizeOptionalText(
         args.notes,
@@ -3012,166 +3038,179 @@ export const deleteCookedFood = mutation({
   },
 })
 
-export const createMeal = mutation({
-  args: {
-    personId: v.id('people'),
-    name: v.optional(v.string()),
-    eatenOn: v.string(),
-    notes: v.optional(v.string()),
-    items: v.array(mealItemInputValidator),
-  },
-  returns: v.id('meals'),
-  handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
-    const person = assertOwnedOrThrow(
-      await ctx.db.get(args.personId),
-      owner,
-      'Person not found.',
-    )
-    if (person.archived) {
-      throw new Error('Person not found.')
-    }
-    const now = Date.now()
-    const itemSnapshots = await buildMealItemSnapshots(
-      ctx.db,
-      owner,
-      args.items,
-    )
-    const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
-    const totalCalories = sumMealItemCalories(itemSnapshots)
-    const mealId = await ctx.db.insert('meals', {
-      ...ownerFields(owner),
-      personId: args.personId,
-      name: normalizeOptionalText(args.name, 'Meal name', MAX_NAME_LENGTH),
-      eatenOn,
-      notes: normalizeOptionalText(args.notes, 'Meal notes', MAX_NOTES_LENGTH),
-      archived: false,
-      totalCalories,
-      itemCount: itemSnapshots.length,
-      editRevision: 0,
-      createdAt: now,
-    })
-    await insertMealItemSnapshots(ctx.db, owner, mealId, itemSnapshots)
-    await adjustDailySummary(
-      ctx.db,
-      owner,
-      { personId: args.personId, eatenOn },
-      { consumedCalories: totalCalories, mealCount: 1 },
-      now,
-    )
-    return mealId
-  },
+export const createMealInput = v.object({
+  personId: v.id('people'),
+  name: v.optional(v.string()),
+  eatenOn: v.string(),
+  notes: v.optional(v.string()),
+  items: v.array(mealItemInputValidator),
 })
 
+export async function createMealForOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  args: Infer<typeof createMealInput>,
+) {
+  const person = assertOwnedOrThrow(
+    await ctx.db.get(args.personId),
+    owner,
+    'Person not found.',
+  )
+  if (person.archived) {
+    throw new Error('Person not found.')
+  }
+  const now = Date.now()
+  const itemSnapshots = await buildMealItemSnapshots(ctx.db, owner, args.items)
+  const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
+  const totalCalories = sumMealItemCalories(itemSnapshots)
+  const mealId = await ctx.db.insert('meals', {
+    ...ownerFields(owner),
+    personId: args.personId,
+    name: normalizeOptionalText(args.name, 'Meal name', MAX_NAME_LENGTH),
+    eatenOn,
+    notes: normalizeOptionalText(args.notes, 'Meal notes', MAX_NOTES_LENGTH),
+    archived: false,
+    totalCalories,
+    itemCount: itemSnapshots.length,
+    editRevision: 0,
+    createdAt: now,
+  })
+  await insertMealItemSnapshots(ctx.db, owner, mealId, itemSnapshots)
+  await adjustDailySummary(
+    ctx.db,
+    owner,
+    { personId: args.personId, eatenOn },
+    { consumedCalories: totalCalories, mealCount: 1 },
+    now,
+  )
+  return mealId
+}
+
+export const createMeal = mutation({
+  args: createMealInput.fields,
+  returns: v.id('meals'),
+  handler: async (ctx, args) =>
+    createMealForOwner(ctx, await requireAuthenticatedUser(ctx), args),
+})
+
+export const updateMealInput = v.object({
+  mealId: v.id('meals'),
+  expectedMealItemIds: v.array(v.id('mealItems')),
+  expectedEditRevision: v.number(),
+  personId: v.id('people'),
+  name: v.optional(v.string()),
+  eatenOn: v.string(),
+  notes: optionalNullableStringValidator,
+  items: v.array(mealItemInputValidator),
+})
+
+export async function updateMealForOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  args: Infer<typeof updateMealInput>,
+) {
+  const meal = assertOwnedOrThrow(
+    await ctx.db.get(args.mealId),
+    owner,
+    'Meal not found.',
+  )
+  assertExpectedEditRevision(meal, args.expectedEditRevision, 'Meal')
+  const person = assertOwnedOrThrow(
+    await ctx.db.get(args.personId),
+    owner,
+    'Person not found.',
+  )
+  if (person.archived && person._id !== meal.personId) {
+    throw new Error('Person not found.')
+  }
+  const existingItems = await ctx.db
+    .query('mealItems')
+    .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+      q
+        .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+        .eq('mealId', args.mealId),
+    )
+    .take(MAX_INGREDIENT_LINES + 1)
+  if (existingItems.length > MAX_INGREDIENT_LINES) {
+    throw new Error('Meal has too many items to update safely.')
+  }
+  assertExpectedIdSet(
+    args.expectedMealItemIds,
+    existingItems.map((item) => item._id),
+    'Meal',
+  )
+  const existingItemsById = new Map(
+    existingItems.map((item) => [item._id, item] as const),
+  )
+  const snapshots = await buildMealItemSnapshots(ctx.db, owner, args.items, {
+    existingItemsById,
+  })
+  const totalCalories = sumMealItemCalories(snapshots)
+  const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
+  const mealPatch: {
+    personId: Id<'people'>
+    name?: string
+    eatenOn: string
+    notes?: string
+    totalCalories: number
+    itemCount: number
+    editRevision: number
+  } = {
+    personId: args.personId,
+    name: normalizeOptionalText(args.name, 'Meal name', MAX_NAME_LENGTH),
+    eatenOn,
+    totalCalories,
+    itemCount: snapshots.length,
+    editRevision: nextEditRevision(meal, 'Meal'),
+  }
+  if (args.notes !== undefined) {
+    mealPatch.notes = normalizeNullableText(args.notes)
+  }
+  await ctx.db.patch(args.mealId, mealPatch)
+  await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
+  await insertMealItemSnapshots(ctx.db, owner, args.mealId, snapshots)
+  const now = Date.now()
+  if (!meal.archived) {
+    const oldKey = { personId: meal.personId, eatenOn: meal.eatenOn }
+    const newKey = { personId: args.personId, eatenOn }
+    if (
+      oldKey.personId === newKey.personId &&
+      oldKey.eatenOn === newKey.eatenOn
+    ) {
+      await adjustDailySummary(
+        ctx.db,
+        owner,
+        newKey,
+        {
+          consumedCalories: totalCalories - meal.totalCalories,
+          mealCount: 0,
+        },
+        now,
+      )
+    } else {
+      await adjustDailySummary(
+        ctx.db,
+        owner,
+        oldKey,
+        { consumedCalories: -meal.totalCalories, mealCount: -1 },
+        now,
+      )
+      await adjustDailySummary(
+        ctx.db,
+        owner,
+        newKey,
+        { consumedCalories: totalCalories, mealCount: 1 },
+        now,
+      )
+    }
+  }
+}
+
 export const updateMeal = mutation({
-  args: {
-    mealId: v.id('meals'),
-    expectedMealItemIds: v.array(v.id('mealItems')),
-    expectedEditRevision: v.number(),
-    personId: v.id('people'),
-    name: v.optional(v.string()),
-    eatenOn: v.string(),
-    notes: optionalNullableStringValidator,
-    items: v.array(mealItemInputValidator),
-  },
+  args: updateMealInput.fields,
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
-    const meal = assertOwnedOrThrow(
-      await ctx.db.get(args.mealId),
-      owner,
-      'Meal not found.',
-    )
-    assertExpectedEditRevision(meal, args.expectedEditRevision, 'Meal')
-    const person = assertOwnedOrThrow(
-      await ctx.db.get(args.personId),
-      owner,
-      'Person not found.',
-    )
-    if (person.archived && person._id !== meal.personId) {
-      throw new Error('Person not found.')
-    }
-    const existingItems = await ctx.db
-      .query('mealItems')
-      .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('mealId', args.mealId),
-      )
-      .take(MAX_INGREDIENT_LINES + 1)
-    if (existingItems.length > MAX_INGREDIENT_LINES) {
-      throw new Error('Meal has too many items to update safely.')
-    }
-    assertExpectedIdSet(
-      args.expectedMealItemIds,
-      existingItems.map((item) => item._id),
-      'Meal',
-    )
-    const existingItemsById = new Map(
-      existingItems.map((item) => [item._id, item] as const),
-    )
-    const snapshots = await buildMealItemSnapshots(ctx.db, owner, args.items, {
-      existingItemsById,
-    })
-    const totalCalories = sumMealItemCalories(snapshots)
-    const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
-    const mealPatch: {
-      personId: Id<'people'>
-      name?: string
-      eatenOn: string
-      notes?: string
-      totalCalories: number
-      itemCount: number
-      editRevision: number
-    } = {
-      personId: args.personId,
-      name: normalizeOptionalText(args.name, 'Meal name', MAX_NAME_LENGTH),
-      eatenOn,
-      totalCalories,
-      itemCount: snapshots.length,
-      editRevision: nextEditRevision(meal, 'Meal'),
-    }
-    if (args.notes !== undefined) {
-      mealPatch.notes = normalizeNullableText(args.notes)
-    }
-    await ctx.db.patch(args.mealId, mealPatch)
-    await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
-    await insertMealItemSnapshots(ctx.db, owner, args.mealId, snapshots)
-    const now = Date.now()
-    if (!meal.archived) {
-      const oldKey = { personId: meal.personId, eatenOn: meal.eatenOn }
-      const newKey = { personId: args.personId, eatenOn }
-      if (
-        oldKey.personId === newKey.personId &&
-        oldKey.eatenOn === newKey.eatenOn
-      ) {
-        await adjustDailySummary(
-          ctx.db,
-          owner,
-          newKey,
-          {
-            consumedCalories: totalCalories - meal.totalCalories,
-            mealCount: 0,
-          },
-          now,
-        )
-      } else {
-        await adjustDailySummary(
-          ctx.db,
-          owner,
-          oldKey,
-          { consumedCalories: -meal.totalCalories, mealCount: -1 },
-          now,
-        )
-        await adjustDailySummary(
-          ctx.db,
-          owner,
-          newKey,
-          { consumedCalories: totalCalories, mealCount: 1 },
-          now,
-        )
-      }
-    }
+    await updateMealForOwner(ctx, await requireAuthenticatedUser(ctx), args)
   },
 })
 

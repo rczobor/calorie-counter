@@ -100,6 +100,30 @@ afterEach(() => {
 })
 
 describe('Meals route', () => {
+  it('shows the saved estimate source and assumptions when opening a meal', () => {
+    const meal = createMealDoc('meal-estimate', 'person-1', {
+      name: 'Restaurant lunch',
+    })
+    mockMealDashboardData = createDashboardFixture({ meals: [meal] })
+    mockMealDetailItems = [
+      createMealItemDoc('item-estimate', meal._id, {
+        sourceType: 'fixedCalories',
+        nameSnapshot: 'Restaurant lunch',
+        caloriesSnapshot: 700,
+        nutritionProvenance: {
+          source: 'Assistant estimate',
+          assumptions: 'Assumed one medium bowl.',
+        },
+      }),
+    ]
+    configureMutationMocks()
+    renderMealsRoute()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    const notice = screen.getByText('Estimated').closest('details')
+    expect(notice?.textContent).toContain(
+      'Assistant estimate: Assumed one medium bowl.',
+    )
+  })
   it('creates a meal from a quick-add item', async () => {
     const mutations = configureMutationMocks()
     renderMealsRoute()

@@ -12,7 +12,10 @@ import {
   MAX_CHILD_ROWS,
   normalizeRequiredDate,
 } from './lib/validation'
-import { nutritionUnitValidator } from './validators'
+import {
+  nutritionUnitValidator,
+  nutritionProvenanceValidator,
+} from './validators'
 
 const mealDto = v.object({
   _id: v.id('meals'),
@@ -33,6 +36,7 @@ function mealWithoutOwner(meal: Doc<'meals'>) {
 }
 
 const mealItemCommon = {
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   _id: v.id('mealItems'),
   _creationTime: v.number(),
   mealId: v.id('meals'),
