@@ -1,9 +1,10 @@
+import { Select as SelectPrimitive } from '@base-ui/react/select'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useSyncExternalStore } from 'react'
 
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { SelectContent, SelectItem } from '@/components/ui/select'
 
 const THEME_OPTIONS = [
   { label: 'Light', value: 'light', icon: Sun },
@@ -22,43 +23,35 @@ export default function ThemeSelector() {
   )
 
   if (!mounted) {
-    return (
-      <div
-        aria-hidden
-        className="h-8 w-24 rounded-lg border border-border/60 bg-muted/50 sm:w-39.5"
-      />
-    )
+    return <div aria-hidden className="size-9 rounded-md" />
   }
 
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Theme selector"
-      className="inline-flex items-center gap-0.5 rounded-lg border border-border/60 bg-muted/40 p-0.5 sm:gap-1 sm:p-1"
-    >
-      {THEME_OPTIONS.map((option) => {
-        const Icon = option.icon
-        const isSelected = theme === option.value
+  const selectedOption =
+    THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[2]
+  const Icon = selectedOption.icon
 
-        return (
-          <Button
-            key={option.value}
-            type="button"
-            size="xs"
-            variant={isSelected ? 'secondary' : 'ghost'}
-            aria-label={`Set ${option.label} theme`}
-            aria-pressed={isSelected}
-            onClick={() => setTheme(option.value)}
-            className={cn(
-              'min-w-8 rounded-md px-1.5 text-[11px] leading-none sm:min-w-11.5 sm:px-2',
-              isSelected && 'shadow-sm',
-            )}
-          >
-            <Icon className="size-3" />
-            <span className="hidden sm:inline">{option.label}</span>
-          </Button>
-        )
-      })}
-    </div>
+  return (
+    <SelectPrimitive.Root
+      value={selectedOption.value}
+      onValueChange={(value) => {
+        if (value) setTheme(value)
+      }}
+    >
+      <SelectPrimitive.Trigger
+        render={<Button variant="ghost" size="icon" />}
+        aria-label={`Theme: ${selectedOption.label}`}
+        title={`Theme: ${selectedOption.label}`}
+      >
+        <Icon aria-hidden="true" />
+      </SelectPrimitive.Trigger>
+      <SelectContent align="end" alignItemWithTrigger={false}>
+        {THEME_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            <option.icon aria-hidden="true" />
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </SelectPrimitive.Root>
   )
 }
