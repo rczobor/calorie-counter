@@ -173,9 +173,10 @@ selected Convex deployment needs its Clerk issuer configuration.
 
 Common commands:
 
-- `pnpm install` - install dependencies.
+- `pnpm run setup:worktree` - install locked dependencies in a fresh worktree.
 - `pnpm exec convex dev` - run Convex in a separate terminal.
 - `pnpm run dev` - start Vite on port `3000`.
+- `pnpm run dev:e2e` - review real components with synthetic data on loopback port `4173`; no account credentials or deployed backend are needed.
 - `pnpm run lint` / `pnpm run lint:fix` - check or fix lint errors.
 - `pnpm run typecheck` - type-check the app and Convex backend.
 - `pnpm run test` - run the Vitest suites.
@@ -188,15 +189,23 @@ Start with the smallest proof that exercises the changed behavior. Add or
 update focused tests for backend invariants and user-visible behavior; do not
 duplicate coverage merely to preserve an implementation detail.
 
-For non-trivial edits, run before handoff:
+During iteration, run the focused tests and relevant lint/type checks. Run the
+production build when bundling, SSR, dependencies, or deployment behavior changes.
+Use `pnpm run test:e2e -- <spec>` for affected browser flows. The browser command
+uses one worker locally and in CI, with a separate startup-readiness check; keep
+behavioral assertion timeouts unchanged when diagnosing startup failures.
 
-1. `pnpm run lint`
-2. `pnpm run typecheck`
-3. `pnpm run test`
-4. `pnpm run build`
+CI remains the authoritative final merge gate: formatting, lint, types, both
+coverage checks, browser workflows, and the build must pass on the latest head.
+When CI will run, do not repeat the full local suite for each small follow-up;
+run the affected tests and let the final CI run cover the complete revision.
+Without CI, run those same commands locally before calling a non-trivial change
+fully verified. Report any unavailable gate instead of treating it as passed.
 
-CI also enforces `pnpm run format:check`, coverage thresholds, and the
-Playwright browser smoke test.
+For UI review, use the real app components in `pnpm run dev:e2e`, not a separate
+HTML recreation. Check the affected states at desktop/mobile widths in light
+and dark mode, and provide evidence the user can open from their review device.
+Mocked browser checks do not prove live Clerk/Convex integration.
 
 ## Pull requests
 
@@ -208,6 +217,13 @@ Playwright browser smoke test.
   the user say otherwise.
 - Keep one concern per pull request. User-visible UI changes should include
   before/after evidence when practical.
+- For a batch request, snapshot the open PRs at the start. Newly arriving updates
+  belong to the next batch unless the user says otherwise.
+- When taking over a Renovate branch, fetch its latest head and add a separate
+  fix commit; do not amend the bot's commit or request a bot rebase over fixes.
+  Renovate stops updating a branch after a non-bot commit. Keep one writer,
+  preserve concurrent updates with a guarded push, and own validation to handoff.
+  Routine minor/patch updates are already grouped; keep major upgrades separate.
 
 ## Taste
 

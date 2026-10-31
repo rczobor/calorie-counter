@@ -8,18 +8,24 @@ Multi-person calorie tracking app. Users log meals, manage people with daily cal
 
 ## Commands
 
-- **Install**: `pnpm install`
+- **Install/worktree setup**: `pnpm run setup:worktree`
 - **Dev server**: `pnpm run dev` (port 3000) — also run `pnpm exec convex dev` in a separate terminal
 - **Build**: `pnpm run build`
 - **Lint**: `pnpm run lint` / `pnpm run lint:fix`
 - **Type check**: `pnpm run typecheck` (checks both app and convex)
 - **Test**: `pnpm run test` (Vitest suites under `src/`, `convex/`, and `scripts/`)
 - **Coverage**: `pnpm run test:coverage`
-- **Browser smoke**: `pnpm run test:e2e` (Playwright Chromium)
+- **Browser smoke**: `pnpm run test:e2e` (one worker, separate startup-readiness check)
+- **Synthetic UI review**: `pnpm run dev:e2e` (real components, loopback port 4173)
 - **Format**: `pnpm run format` (Prettier: no semicolons, single quotes, trailing commas)
 - **Add shadcn component**: `pnpm exec shadcn add <component>`
 
-Before submitting changes, run formatting, lint, typecheck, tests, and a production build. CI also enforces coverage thresholds and the Playwright browser smoke test.
+Use the verification and PR workflow in [AGENTS.md](AGENTS.md): focused tests and
+relevant static checks during iteration, then all final CI gates on the latest
+head. Run the full gate locally when CI is unavailable. A small follow-up does
+not require another full local suite before CI repeats it. UI review uses the
+real components with synthetic data; mocked checks do not verify live auth.
+Follow the same batch snapshot and single-writer Renovate takeover rules.
 
 ## Architecture
 
