@@ -4,9 +4,9 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 
-import type { Doc } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { query, type QueryCtx } from './_generated/server'
-import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
+import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
 import {
   assertPageSize,
   MAX_SEARCH_RESULTS,
@@ -54,7 +54,7 @@ function ingredientWithoutOwner(ingredient: Doc<'ingredients'>) {
 
 async function withIngredientGroupDetails(
   ctx: QueryCtx,
-  ownerTokenIdentifier: string,
+  householdId: Id<'households'>,
   ingredients: Doc<'ingredients'>[],
 ) {
   const groupIds = [
@@ -69,8 +69,7 @@ async function withIngredientGroupDetails(
   )
   const groupsById = new Map(
     groups.flatMap((group) =>
-      group?.ownerTokenIdentifier === ownerTokenIdentifier &&
-      group.appliesTo === 'ingredient'
+      group?.householdId === householdId && group.appliesTo === 'ingredient'
         ? [[group._id, group] as const]
         : [],
     ),
@@ -103,17 +102,19 @@ function recipeWithoutOwner(recipe: Doc<'recipes'>) {
 }
 
 export const listFoodGroups = query({
-  args: { archived: v.boolean(), paginationOpts: paginationOptsValidator },
+  args: {
+    householdId: v.optional(v.id('households')),
+    archived: v.boolean(),
+    paginationOpts: paginationOptsValidator,
+  },
   returns: paginationResultValidator(foodGroupDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const result = await ctx.db
       .query('foodGroups')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('archived', args.archived),
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', args.archived),
       )
       .paginate(args.paginationOpts)
     return { ...result, page: result.page.map(foodGroupWithoutOwner) }
@@ -121,12 +122,15 @@ export const listFoodGroups = query({
 })
 
 export const getFoodGroup = query({
-  args: { groupId: v.id('foodGroups') },
+  args: {
+    householdId: v.optional(v.id('households')),
+    groupId: v.id('foodGroups'),
+  },
   returns: v.union(v.null(), foodGroupDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const group = await ctx.db.get(args.groupId)
-    return group?.ownerTokenIdentifier === owner.ownerTokenIdentifier
+    return group?.householdId === owner.householdId
       ? foodGroupWithoutOwner(group)
       : null
   },
@@ -134,24 +138,23 @@ export const getFoodGroup = query({
 
 export const searchFoodGroups = query({
   args: {
+    householdId: v.optional(v.id('households')),
     appliesTo: groupScopeValidator,
     archived: v.boolean(),
     search: v.string(),
   },
   returns: v.array(foodGroupDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const search = normalizeSearch(args.search)
     if (!search) {
       const rows = await ctx.db
         .query('foodGroups')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_archived_and_appliesTo_and_name',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('archived', args.archived)
-              .eq('appliesTo', args.appliesTo),
+        .withIndex('by_householdId_and_archived_and_appliesTo_and_name', (q) =>
+          q
+            .eq('householdId', owner.householdId)
+            .eq('archived', args.archived)
+            .eq('appliesTo', args.appliesTo),
         )
         .take(MAX_SEARCH_RESULTS)
       return rows.map(foodGroupWithoutOwner)
@@ -161,7 +164,7 @@ export const searchFoodGroups = query({
       .withSearchIndex('search_name', (q) =>
         q
           .search('name', search)
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('archived', args.archived)
           .eq('appliesTo', args.appliesTo),
       )
@@ -172,31 +175,32 @@ export const searchFoodGroups = query({
 
 export const listIngredients = query({
   args: {
+    householdId: v.optional(v.id('households')),
     archived: v.boolean(),
     kcalBasisUnit: v.optional(nutritionUnitValidator),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(ingredientDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const result = args.kcalBasisUnit
       ? await ctx.db
           .query('ingredients')
           .withIndex(
-            'by_ownerTokenIdentifier_and_archived_and_kcalBasisUnit_and_name',
+            'by_householdId_and_archived_and_kcalBasisUnit_and_name',
             (q) =>
               q
-                .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                .eq('householdId', owner.householdId)
                 .eq('archived', args.archived)
                 .eq('kcalBasisUnit', args.kcalBasisUnit!),
           )
           .paginate(args.paginationOpts)
       : await ctx.db
           .query('ingredients')
-          .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+          .withIndex('by_householdId_and_archived_and_name', (q) =>
             q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', args.archived),
           )
           .paginate(args.paginationOpts)
@@ -204,7 +208,7 @@ export const listIngredients = query({
       ...result,
       page: await withIngredientGroupDetails(
         ctx,
-        owner.ownerTokenIdentifier,
+        owner.householdId,
         result.page,
       ),
     }
@@ -212,32 +216,34 @@ export const listIngredients = query({
 })
 
 export const getIngredient = query({
-  args: { ingredientId: v.id('ingredients') },
+  args: {
+    householdId: v.optional(v.id('households')),
+    ingredientId: v.id('ingredients'),
+  },
   returns: v.union(v.null(), ingredientDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const ingredient = await ctx.db.get(args.ingredientId)
-    if (ingredient?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (ingredient?.householdId !== owner.householdId) {
       return null
     }
-    const [result] = await withIngredientGroupDetails(
-      ctx,
-      owner.ownerTokenIdentifier,
-      [ingredient],
-    )
+    const [result] = await withIngredientGroupDetails(ctx, owner.householdId, [
+      ingredient,
+    ])
     return result ?? null
   },
 })
 
 export const searchIngredients = query({
   args: {
+    householdId: v.optional(v.id('households')),
     archived: v.boolean(),
     kcalBasisUnit: v.optional(nutritionUnitValidator),
     search: v.string(),
   },
   returns: v.array(ingredientDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const search = normalizeSearch(args.search)
     const rows = search
       ? await ctx.db
@@ -245,7 +251,7 @@ export const searchIngredients = query({
           .withSearchIndex('search_name', (q) => {
             const searchQuery = q
               .search('name', search)
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', args.archived)
             return args.kcalBasisUnit
               ? searchQuery.eq('kcalBasisUnit', args.kcalBasisUnit)
@@ -256,42 +262,40 @@ export const searchIngredients = query({
         ? await ctx.db
             .query('ingredients')
             .withIndex(
-              'by_ownerTokenIdentifier_and_archived_and_kcalBasisUnit_and_name',
+              'by_householdId_and_archived_and_kcalBasisUnit_and_name',
               (q) =>
                 q
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                  .eq('householdId', owner.householdId)
                   .eq('archived', args.archived)
                   .eq('kcalBasisUnit', args.kcalBasisUnit!),
             )
             .take(MAX_SEARCH_RESULTS)
         : await ctx.db
             .query('ingredients')
-            .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+            .withIndex('by_householdId_and_archived_and_name', (q) =>
               q
-                .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                .eq('householdId', owner.householdId)
                 .eq('archived', args.archived),
             )
             .take(MAX_SEARCH_RESULTS)
-    return await withIngredientGroupDetails(
-      ctx,
-      owner.ownerTokenIdentifier,
-      rows,
-    )
+    return await withIngredientGroupDetails(ctx, owner.householdId, rows)
   },
 })
 
 export const listRecipes = query({
-  args: { archived: v.boolean(), paginationOpts: paginationOptsValidator },
+  args: {
+    householdId: v.optional(v.id('households')),
+    archived: v.boolean(),
+    paginationOpts: paginationOptsValidator,
+  },
   returns: paginationResultValidator(recipeDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const result = await ctx.db
       .query('recipes')
-      .withIndex('by_ownerTokenIdentifier_and_archived', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('archived', args.archived),
+      .withIndex('by_householdId_and_archived', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', args.archived),
       )
       .order('desc')
       .paginate(args.paginationOpts)
@@ -300,22 +304,29 @@ export const listRecipes = query({
 })
 
 export const getRecipe = query({
-  args: { recipeId: v.id('recipes') },
+  args: {
+    householdId: v.optional(v.id('households')),
+    recipeId: v.id('recipes'),
+  },
   returns: v.union(v.null(), recipeDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const recipe = await ctx.db.get(args.recipeId)
-    return recipe?.ownerTokenIdentifier === owner.ownerTokenIdentifier
+    return recipe?.householdId === owner.householdId
       ? recipeWithoutOwner(recipe)
       : null
   },
 })
 
 export const searchRecipes = query({
-  args: { archived: v.boolean(), search: v.string() },
+  args: {
+    householdId: v.optional(v.id('households')),
+    archived: v.boolean(),
+    search: v.string(),
+  },
   returns: v.array(recipeDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const search = normalizeSearch(args.search)
     const rows = search
       ? await ctx.db
@@ -323,15 +334,15 @@ export const searchRecipes = query({
           .withSearchIndex('search_name', (q) =>
             q
               .search('name', search)
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', args.archived),
           )
           .take(MAX_SEARCH_RESULTS)
       : await ctx.db
           .query('recipes')
-          .withIndex('by_ownerTokenIdentifier_and_archived', (q) =>
+          .withIndex('by_householdId_and_archived', (q) =>
             q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', args.archived),
           )
           .order('desc')

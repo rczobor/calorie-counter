@@ -1,10 +1,12 @@
 // @vitest-environment edge-runtime
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { api } from './_generated/api'
 import { makeFunctionReference } from 'convex/server'
 
 import {
   asTestUserWithToken,
   createConvexTest,
+  testHouseholdId,
 } from '../src/tests/convex-test-utils'
 
 type SeedDefaultsArgs = {
@@ -55,84 +57,88 @@ async function readSeedData(
   t: ReturnType<typeof createConvexTest>,
   ownerTokenIdentifier: string,
 ) {
+  await asTestUserWithToken(t, ownerTokenIdentifier).mutation(
+    api.households.ensurePersonal,
+    {},
+  )
   return await t.run(async (ctx) => {
     return {
       people: await ctx.db
         .query('people')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       personGoalHistory: await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       foodGroups: await ctx.db
         .query('foodGroups')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       recipes: await ctx.db
         .query('recipes')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       recipeVersions: await ctx.db
         .query('recipeVersions')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       recipeVersionIngredients: await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       cookSessions: await ctx.db
         .query('cookSessions')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       cookedFoods: await ctx.db
         .query('cookedFoods')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       cookedFoodIngredients: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       meals: await ctx.db
         .query('meals')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       mealItems: await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId_and_mealId', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       dailySummaries: await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_eatenOn', (q) =>
-          q.eq('ownerTokenIdentifier', ownerTokenIdentifier),
+        .withIndex('by_householdId_and_eatenOn', (q) =>
+          q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
     }
@@ -701,11 +707,16 @@ describe('default seed data', () => {
   it('uses exact lookups when the owner has more rows than the former scan cap', async () => {
     const t = createConvexTest()
     const token = 'https://issuer.example|large-account'
+    const householdId = await asTestUserWithToken(t, token).mutation(
+      api.households.ensurePersonal,
+      {},
+    )
 
     await t.run(async (ctx) => {
       for (let index = 0; index < 5_001; index += 1) {
         await ctx.db.insert('recipes', {
           ownerTokenIdentifier: token,
+          householdId,
           name: `Unrelated recipe ${index}`,
           archived: false,
           latestVersionNumber: 1,
@@ -720,9 +731,9 @@ describe('default seed data', () => {
     const recipes = await t.run(async (ctx) =>
       ctx.db
         .query('recipes')
-        .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q
-            .eq('ownerTokenIdentifier', token)
+            .eq('householdId', testHouseholdId(t, token))
             .eq('archived', false)
             .eq('name', 'Chicken rice bowl'),
         )

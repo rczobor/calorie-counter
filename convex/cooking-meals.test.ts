@@ -7,6 +7,7 @@ import {
   asTestUser,
   asTestUserWithToken,
   createConvexTest,
+  testHouseholdId,
   insertCookSession,
   insertIngredient,
   insertMeal,
@@ -19,13 +20,14 @@ import {
 type TestContext = ReturnType<typeof createConvexTest>
 
 async function readMealItemIds(t: TestContext, mealId: Id<'meals'>) {
+  await asTestUser(t).mutation(api.households.ensurePersonal, {})
   return await t.run(async (ctx) =>
     (
       await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect()
@@ -41,9 +43,9 @@ async function readCookedFoodIngredientIds(
     (
       await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', cookedFoodId),
         )
         .collect()
@@ -102,9 +104,9 @@ describe('nutrition cooking and meal mutations', () => {
         const cookedFood = await ctx.db.get(cookedFoodId)
         const ingredientLines = await ctx.db
           .query('cookedFoodIngredients')
-          .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+          .withIndex('by_householdId_and_cookedFoodId', (q) =>
             q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
               .eq('cookedFoodId', cookedFoodId),
           )
           .collect()
@@ -172,26 +174,26 @@ describe('nutrition cooking and meal mutations', () => {
       const cookedFood = await ctx.db.get(cookedFoodId)
       const ingredients = await ctx.db
         .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       const recipes = await ctx.db
         .query('recipes')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       const versions = await ctx.db
         .query('recipeVersions')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       const versionLines = await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       return { cookedFood, ingredients, recipes, versions, versionLines }
@@ -251,16 +253,16 @@ describe('nutrition cooking and meal mutations', () => {
       cookedFood: await ctx.db.get(cookedFoodId),
       lines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', cookedFoodId),
         )
         .collect(),
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
     }))
@@ -311,9 +313,9 @@ describe('nutrition cooking and meal mutations', () => {
       const meal = await ctx.db.get(mealId)
       const items = await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect()
@@ -358,9 +360,9 @@ describe('nutrition cooking and meal mutations', () => {
       meal: await ctx.db.get(mealId),
       item: await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .unique(),
@@ -387,13 +389,11 @@ describe('nutrition cooking and meal mutations', () => {
         async (ctx) =>
           await ctx.db
             .query('dailySummaries')
-            .withIndex(
-              'by_ownerTokenIdentifier_and_personId_and_eatenOn',
-              (q) =>
-                q
-                  .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
-                  .eq('personId', personId)
-                  .eq('eatenOn', eatenOn),
+            .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
+              q
+                .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
+                .eq('personId', personId)
+                .eq('eatenOn', eatenOn),
             )
             .unique(),
       )
@@ -613,15 +613,15 @@ describe('nutrition cooking and meal mutations', () => {
     const { ingredients, items } = await t.run(async (ctx) => ({
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
       items: await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect(),
@@ -671,9 +671,9 @@ describe('nutrition cooking and meal mutations', () => {
     const currentItem = await t.run(async (ctx) =>
       ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .unique(),
@@ -749,15 +749,15 @@ describe('nutrition cooking and meal mutations', () => {
     const records = await t.run(async (ctx) => ({
       meals: await ctx.db
         .query('meals')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
       summary: await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId)
             .eq('eatenOn', '2026-04-04'),
         )
@@ -796,17 +796,17 @@ describe('nutrition cooking and meal mutations', () => {
       meal: await ctx.db.get(mealId),
       item: await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .unique(),
       summary: await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId)
             .eq('eatenOn', '2026-04-04'),
         )
@@ -839,9 +839,9 @@ describe('nutrition cooking and meal mutations', () => {
       item: await ctx.db.get(before.item!._id),
       summary: await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId)
             .eq('eatenOn', '2026-04-04'),
         )
@@ -885,15 +885,15 @@ describe('nutrition cooking and meal mutations', () => {
     const records = await t.run(async (ctx) => ({
       meals: await ctx.db
         .query('meals')
-        .withIndex('by_ownerTokenIdentifier', (q) =>
-          q.eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
       summary: await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId)
             .eq('eatenOn', '2026-04-04'),
         )
@@ -1070,9 +1070,9 @@ describe('nutrition cooking and meal mutations', () => {
       cookedFood: await ctx.db.get(seeded.cookedFoodId),
       lines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', seeded.cookedFoodId),
         )
         .collect(),
@@ -1234,9 +1234,9 @@ describe('nutrition cooking and meal mutations', () => {
     const items = await t.run(async (ctx) => {
       return await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect()
@@ -1385,9 +1385,9 @@ describe('nutrition cooking and meal mutations', () => {
       const meal = await ctx.db.get(mealId)
       const items = await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect()
@@ -1455,17 +1455,17 @@ describe('nutrition cooking and meal mutations', () => {
       referencedFood: await ctx.db.get(referencedFoodId),
       firstLines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', firstFoodId),
         )
         .collect(),
       referencedLines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', referencedFoodId),
         )
         .collect(),
@@ -1547,9 +1547,9 @@ describe('nutrition cooking and meal mutations', () => {
       meal: await ctx.db.get(mealId),
       items: await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect(),
@@ -1639,9 +1639,9 @@ describe('nutrition cooking and meal mutations', () => {
       cookedFood: await ctx.db.get(cookedFoodId),
       lines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', cookedFoodId),
         )
         .collect(),

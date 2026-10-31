@@ -1,5 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
+import {
+  useMutation,
+  usePaginatedQuery,
+  useQuery,
+} from '@/features/households/convex-hooks'
 import type { FunctionReturnType } from 'convex/server'
 import { Target, Trash2, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'

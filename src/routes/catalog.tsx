@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpenText, Trash2 } from 'lucide-react'
 

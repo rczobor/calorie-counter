@@ -6,6 +6,7 @@ import { api } from './_generated/api'
 import {
   asTestUser,
   createConvexTest,
+  testHouseholdId,
   insertCookSession,
   insertFoodGroup,
   insertIngredient,
@@ -21,9 +22,9 @@ async function readMealItemIds(t: TestContext, mealId: Id<'meals'>) {
     (
       await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+        .withIndex('by_householdId_and_mealId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('mealId', mealId),
         )
         .collect()
@@ -39,9 +40,9 @@ async function readCookedFoodIngredientIds(
     (
       await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('cookedFoodId', cookedFoodId),
         )
         .collect()
@@ -54,9 +55,9 @@ async function readMealState(t: TestContext, mealId: Id<'meals'>) {
     meal: await ctx.db.get(mealId),
     item: await ctx.db
       .query('mealItems')
-      .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
+      .withIndex('by_householdId_and_mealId', (q) =>
         q
-          .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+          .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
           .eq('mealId', mealId),
       )
       .unique(),
@@ -71,9 +72,9 @@ async function readCookedFoodState(
     cookedFood: await ctx.db.get(cookedFoodId),
     line: await ctx.db
       .query('cookedFoodIngredients')
-      .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+      .withIndex('by_householdId_and_cookedFoodId', (q) =>
         q
-          .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+          .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
           .eq('cookedFoodId', cookedFoodId),
       )
       .unique(),
@@ -159,9 +160,9 @@ describe('historical reference invariants', () => {
       await t.run(async (ctx) =>
         ctx.db
           .query('dailySummaries')
-          .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+          .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
             q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
               .eq('personId', personId)
               .eq('eatenOn', '2026-04-04'),
           )
@@ -822,9 +823,9 @@ describe('historical reference invariants', () => {
     const currentLine = await t.run(async (ctx) =>
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeVersionId', recipe.recipeVersionId),
         )
         .unique(),
@@ -1040,9 +1041,9 @@ describe('historical reference invariants', () => {
     const updatedRecipeLine = await t.run(async (ctx) =>
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeVersionId', updatedRecipe.recipeVersionId),
         )
         .unique(),

@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+import { api } from '../../convex/_generated/api'
+import type { FunctionReference, OptionalRestArgs } from 'convex/server'
 import { convexTest } from 'convex-test'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 
@@ -25,23 +27,57 @@ export function createConvexTest() {
   })
 }
 
+const householdIds = new WeakMap<
+  ReturnType<typeof createConvexTest>,
+  Map<string, Id<'households'>>
+>()
+
+export function testHouseholdId(
+  t: ReturnType<typeof createConvexTest>,
+  token = TEST_TOKEN_IDENTIFIER,
+) {
+  const id = householdIds.get(t)?.get(token)
+  if (!id)
+    throw new Error('Bootstrap the test household before inspecting its data.')
+  return id
+}
+
 export function asTestUser(t: ReturnType<typeof createConvexTest>) {
-  return t.withIdentity({
-    subject: TEST_USER_ID,
-    tokenIdentifier: TEST_TOKEN_IDENTIFIER,
-    issuer: 'https://example.test',
-  })
+  return asTestUserWithToken(t, TEST_TOKEN_IDENTIFIER)
 }
 
 export function asTestUserWithToken(
   t: ReturnType<typeof createConvexTest>,
   tokenIdentifier: string,
 ) {
-  return t.withIdentity({
+  const user = t.withIdentity({
     subject: TEST_USER_ID,
     tokenIdentifier,
     issuer: 'https://example.test',
   })
+  async function bootstrap() {
+    const id = await user.mutation(api.households.ensurePersonal, {})
+    const scopes = householdIds.get(t) ?? new Map<string, Id<'households'>>()
+    scopes.set(tokenIdentifier, id)
+    householdIds.set(t, scopes)
+  }
+  return {
+    ...user,
+    query: async <Query extends FunctionReference<'query'>>(
+      reference: Query,
+      ...args: OptionalRestArgs<Query>
+    ) => {
+      await bootstrap()
+      return user.query(async (ctx) => ctx.runQuery(reference, ...args))
+    },
+    mutation: async <Mutation extends FunctionReference<'mutation'>>(
+      reference: Mutation,
+      ...args: OptionalRestArgs<Mutation>
+    ) => {
+      await bootstrap()
+      return user.mutation(async (ctx) => ctx.runMutation(reference, ...args))
+    },
+  }
 }
 
 export async function readEditRevision<Table extends EditRevisionTable>(

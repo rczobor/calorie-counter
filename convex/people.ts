@@ -6,7 +6,7 @@ import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
-import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
+import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
 import {
   assertPageSize,
   MAX_SEARCH_RESULTS,
@@ -45,19 +45,18 @@ const goalDto = v.object({
 
 export const list = query({
   args: {
+    householdId: v.optional(v.id('households')),
     archived: v.boolean(),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(personDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const result = await ctx.db
       .query('people')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('archived', args.archived),
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', args.archived),
       )
       .paginate(args.paginationOpts)
     return { ...result, page: result.page.map(personWithoutOwner) }
@@ -65,12 +64,15 @@ export const list = query({
 })
 
 export const get = query({
-  args: { personId: v.id('people') },
+  args: {
+    householdId: v.optional(v.id('households')),
+    personId: v.id('people'),
+  },
   returns: v.union(v.null(), personDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const person = await ctx.db.get(args.personId)
-    if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (person?.householdId !== owner.householdId) {
       return null
     }
     return personWithoutOwner(person)
@@ -79,30 +81,29 @@ export const get = query({
 
 export const listWithToday = query({
   args: {
+    householdId: v.optional(v.id('households')),
     archived: v.boolean(),
     today: v.string(),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(personWithTodayDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const today = normalizeRequiredDate(args.today, 'Today')
     assertPageSize(args.paginationOpts.numItems)
     const result = await ctx.db
       .query('people')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('archived', args.archived),
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', args.archived),
       )
       .paginate(args.paginationOpts)
     const page = await Promise.all(
       result.page.map(async (person) => {
         const summary = await ctx.db
           .query('dailySummaries')
-          .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+          .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
             q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('personId', person._id)
               .eq('eatenOn', today),
           )
@@ -118,10 +119,14 @@ export const listWithToday = query({
 })
 
 export const search = query({
-  args: { archived: v.boolean(), search: v.string() },
+  args: {
+    householdId: v.optional(v.id('households')),
+    archived: v.boolean(),
+    search: v.string(),
+  },
   returns: v.array(personDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const search = normalizeSearch(args.search)
     const rows = search
       ? await ctx.db
@@ -129,15 +134,15 @@ export const search = query({
           .withSearchIndex('search_name', (q) =>
             q
               .search('name', search)
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', args.archived),
           )
           .take(MAX_SEARCH_RESULTS)
       : await ctx.db
           .query('people')
-          .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+          .withIndex('by_householdId_and_archived_and_name', (q) =>
             q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', args.archived),
           )
           .take(MAX_SEARCH_RESULTS)
@@ -147,19 +152,18 @@ export const search = query({
 
 export const listGoalHistory = query({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(goalDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const result = await ctx.db
       .query('personGoalHistory')
-      .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('personId', args.personId),
+      .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
+        q.eq('householdId', owner.householdId).eq('personId', args.personId),
       )
       .order('desc')
       .paginate(args.paginationOpts)

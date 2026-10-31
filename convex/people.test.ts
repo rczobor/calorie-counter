@@ -6,6 +6,7 @@ import {
   asTestUser,
   asTestUserWithToken,
   createConvexTest,
+  testHouseholdId,
   insertCookSession,
   insertMeal,
   readEditRevision,
@@ -37,9 +38,9 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+        .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId),
         )
         .collect()
@@ -75,9 +76,9 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+        .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId),
         )
         .collect()
@@ -188,9 +189,9 @@ describe('nutrition people mutations', () => {
       const person = await ctx.db.get(personId)
       const history = await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+        .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId),
         )
         .collect()
@@ -236,9 +237,9 @@ describe('nutrition people mutations', () => {
       person: await ctx.db.get(personId),
       history: await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
+        .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('personId', personId),
         )
         .collect(),

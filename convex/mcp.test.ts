@@ -53,6 +53,10 @@ async function credential(
   owner = TEST_TOKEN_IDENTIFIER,
   grantedScopes = scopes,
 ) {
+  await asTestUserWithToken(t, owner).mutation(
+    api.households.ensurePersonal,
+    {},
+  )
   const token = `test-${crypto.randomUUID()}`
   const id = await t.mutation(components.mcp.grants.createApiKey, {
     userId: owner,
@@ -705,7 +709,7 @@ describe('MCP integration', () => {
       await call(t, token, 'log_meal', args),
       mealResult,
     )
-    expect(saved.url).toContain('https://app.example.test/?personId=')
+    expect(saved.url).toContain('https://app.example.test/?householdId=')
     expect(
       await output(await call(t, token, 'log_meal', args), mealResult),
     ).toEqual(saved)
@@ -976,5 +980,96 @@ describe('MCP integration', () => {
     expect(
       await t.run((ctx) => ctx.db.query('cookedFoods').take(10)),
     ).toHaveLength(1)
+  })
+})
+
+describe('MCP household authorization', () => {
+  it('discovers shared households, scopes tool calls explicitly, and revokes access on membership removal', async () => {
+    const t = setup()
+    const robi = asTestUser(t)
+    const viki = asTestUserWithToken(t, 'https://clerk.example|viki')
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const invite = await robi.mutation(api.households.invite, { householdId })
+    await viki.mutation(api.households.acceptInvitation, { token: invite })
+    const personId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Viki',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-10-31',
+    })
+    const own = await credential(t, 'https://clerk.example|viki')
+    const listed = await output(
+      await call(t, own.token, 'list_households', {}),
+      v.object({
+        households: v.array(
+          v.object({ householdId: v.id('households'), name: v.string() }),
+        ),
+      }),
+    )
+    expect(
+      listed.households.some((row) => row.householdId === householdId),
+    ).toBe(true)
+    const input = {
+      personId,
+      eatenOn: '2026-10-31',
+      items: [
+        { sourceType: 'fixedCalories' as const, name: 'Snack', calories: 100 },
+      ],
+    }
+    const preview = await output(
+      await call(t, own.token, 'preview_meal', { householdId, input }),
+      mealPreview,
+    )
+    expect(preview.input.personId).toBe(personId)
+    const saved = await output(
+      await call(t, own.token, 'log_meal', {
+        householdId,
+        input: preview.input,
+        operationKey: 'shared-snack',
+      }),
+      mealResult,
+    )
+    expect(saved.url).toContain(`householdId=${householdId}`)
+    expect(
+      (
+        await robi.query(api.meals.getDaySummary, {
+          householdId,
+          personId,
+          eatenOn: '2026-10-31',
+        })
+      )?.consumedCalories,
+    ).toBe(100)
+    // Omitting a household never silently adopts the browser's selected shared household.
+    expect(
+      await (await call(t, own.token, 'preview_meal', { input })).json(),
+    ).toMatchObject({ result: { isError: true } })
+    const member = (
+      await robi.query(api.households.members, { householdId })
+    ).find((row) => !row.isYou)!
+    await robi.mutation(api.households.updateMember, {
+      householdId,
+      memberId: member._id,
+      role: 'remove',
+    })
+    expect(
+      await (
+        await call(t, own.token, 'log_meal', {
+          householdId,
+          input: preview.input,
+          operationKey: 'shared-snack',
+        })
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    const after = await output(
+      await call(t, own.token, 'list_households', {}),
+      v.object({
+        households: v.array(
+          v.object({ householdId: v.id('households'), name: v.string() }),
+        ),
+      }),
+    )
+    expect(
+      after.households.some((row) => row.householdId === householdId),
+    ).toBe(false)
   })
 })

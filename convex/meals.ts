@@ -6,7 +6,7 @@ import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
-import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
+import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
 import {
   assertPageSize,
   MAX_CHILD_ROWS,
@@ -89,6 +89,7 @@ const summaryDto = v.object({
 
 export const listForDay = query({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     eatenOn: v.string(),
     archived: v.optional(v.boolean()),
@@ -96,11 +97,11 @@ export const listForDay = query({
   },
   returns: paginationResultValidator(mealDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
     const person = await ctx.db.get(args.personId)
-    if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (person?.householdId !== owner.householdId) {
       throw new Error('Person not found.')
     }
     const archived = args.archived
@@ -108,21 +109,19 @@ export const listForDay = query({
       archived === undefined
         ? ctx.db
             .query('meals')
-            .withIndex(
-              'by_ownerTokenIdentifier_and_personId_and_eatenOn',
-              (q) =>
-                q
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-                  .eq('personId', args.personId)
-                  .eq('eatenOn', eatenOn),
+            .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
+              q
+                .eq('householdId', owner.householdId)
+                .eq('personId', args.personId)
+                .eq('eatenOn', eatenOn),
             )
         : ctx.db
             .query('meals')
             .withIndex(
-              'by_ownerTokenIdentifier_and_personId_and_eatenOn_and_archived',
+              'by_householdId_and_personId_and_eatenOn_and_archived',
               (q) =>
                 q
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                  .eq('householdId', owner.householdId)
                   .eq('personId', args.personId)
                   .eq('eatenOn', eatenOn)
                   .eq('archived', archived),
@@ -133,23 +132,21 @@ export const listForDay = query({
 })
 
 export const getDetail = query({
-  args: { mealId: v.id('meals') },
+  args: { householdId: v.optional(v.id('households')), mealId: v.id('meals') },
   returns: v.union(
     v.null(),
     v.object({ meal: mealDto, items: v.array(mealItemDto) }),
   ),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const meal = await ctx.db.get(args.mealId)
-    if (meal?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (meal?.householdId !== owner.householdId) {
       return null
     }
     const items = await ctx.db
       .query('mealItems')
-      .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('mealId', args.mealId),
+      .withIndex('by_householdId_and_mealId', (q) =>
+        q.eq('householdId', owner.householdId).eq('mealId', args.mealId),
       )
       .take(MAX_CHILD_ROWS + 1)
     if (items.length > MAX_CHILD_ROWS) {
@@ -160,16 +157,20 @@ export const getDetail = query({
 })
 
 export const getDaySummary = query({
-  args: { personId: v.id('people'), eatenOn: v.string() },
+  args: {
+    householdId: v.optional(v.id('households')),
+    personId: v.id('people'),
+    eatenOn: v.string(),
+  },
   returns: v.union(v.null(), summaryDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
     const summary = await ctx.db
       .query('dailySummaries')
-      .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+      .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('personId', args.personId)
           .eq('eatenOn', eatenOn),
       )

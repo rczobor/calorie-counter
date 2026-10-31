@@ -1,6 +1,6 @@
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { ChefHat, Copy, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 

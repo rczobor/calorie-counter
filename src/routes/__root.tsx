@@ -7,6 +7,7 @@ import { ClerkLoaded, ClerkLoading, Show, SignInButton } from '@clerk/react'
 import { useConvexAuth } from 'convex/react'
 
 import Header from '../components/Header'
+import { HouseholdProvider } from '@/features/households/household-context'
 
 import ClerkProvider from '../integrations/clerk/provider'
 import { isClerkConfigured } from '../integrations/clerk/config'
@@ -112,7 +113,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <ClerkProvider>
               <ConvexProvider>
                 <Header />
-                <AuthGate>{children}</AuthGate>
+                <AuthGate>
+                  <HouseholdProvider>{children}</HouseholdProvider>
+                </AuthGate>
                 <Toaster richColors />
                 {import.meta.env.DEV ? (
                   <TanStackDevtools

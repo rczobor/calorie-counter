@@ -41,7 +41,8 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
         <CardHeader>
           <CardTitle>Connect an AI assistant</CardTitle>
           <CardDescription>
-            Grant access to your Calorie Counter account.
+            Grant access to the households your Calorie Counter account belongs
+            to.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -101,8 +102,11 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
                 ))}
               </ul>
               <p className="text-sm text-muted-foreground">
-                The assistant will receive food and nutrition data needed for
-                your requests. You can disconnect it in Integrations settings.
+                The assistant can access people, meals, goals, history, catalog,
+                and cooking in all households you belong to, including
+                households you join later, within the permissions above. It
+                chooses the household explicitly for each request. You can
+                disconnect it in Integrations settings.
               </p>
               <div className="flex gap-2">
                 <Button disabled={pending} onClick={() => void decide(true)}>

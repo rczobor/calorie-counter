@@ -21,12 +21,13 @@ silently erasing them. Recipe versions and goal history exist so later edits do
 not rewrite the past. Hard-delete only when the existing domain rules prove it
 is safe.
 
-### 2. Every account owns its data
+### 2. Every household owns its data
 
-All protected Convex paths authenticate with `requireAuthenticatedUser` and
-scope reads, writes, searches, and related-record lookups to the authenticated
-owner. A document ID supplied by the client is never authorization by itself.
-Validate ownership again when following relationships between documents.
+All protected domain paths authenticate with `requireAuthenticatedHousehold`
+and verify current household membership. Scope reads, writes, searches, and
+related-record lookups to that household. Account-level integration and
+membership endpoints authenticate with `requireAuthenticatedUser`. A document ID supplied by the client is never authorization by itself.
+Validate household scope again when following relationships between documents.
 
 ### 3. Nutrition math is predictable
 
@@ -58,10 +59,13 @@ with one of them, surface the tradeoff instead of quietly working around it.
 
 Use these terms consistently in code and conversation:
 
-- **owner**: the authenticated Clerk/Convex identity that owns a complete data
-  set.
-- **person**: someone whose meals and calorie goals are tracked within an
-  owner's data.
+- **account**: an authenticated Clerk/Convex identity.
+- **household**: the shared nutrition dataset and its authorization boundary; an
+  account may belong to several households.
+- **owner**: legacy naming for an authorized household scope in existing backend
+  helpers. `ownerTokenIdentifier` is account attribution, not authorization.
+- **person**: someone whose meals and calorie goals are tracked within a
+  household's data.
 - **catalog**: reusable food groups, ingredients, and recipes.
 - **recipe version**: an immutable historical composition of a recipe.
 - **cook session**: one cooking event that produces one or more cooked foods.
@@ -76,7 +80,7 @@ Use these terms consistently in code and conversation:
    nutrition totals lie. Follow existing archive and reference checks; do not
    replace them with unconditional deletes.
 2. **Trusting a foreign ID.** Queries and mutations must reject related records
-   from another owner even when their IDs are valid. Authenticate, scope the
+   from another household even when their IDs are valid. Authenticate, scope the
    initial lookup, and verify every referenced document.
 3. **Contracting a schema too early.** Existing Convex documents may still have
    the old shape. Deploy compatibility code before backfilling or tightening a
@@ -92,7 +96,7 @@ data. Before calling a feature complete, consider each applicable layer:
 - **Input boundary.** Trim strings, enforce required fields, assert positive or
   otherwise bounded numbers, and validate dates and units.
 - **Authorization.** Require an authenticated user and keep every lookup
-  owner-scoped.
+  household-scoped.
 - **Write model.** Preserve archive, versioning, reference, and summary
   invariants in Convex rather than relying on the UI.
 - **Read model.** Use an existing index when one matches. Add a schema index for
@@ -107,7 +111,7 @@ data. Before calling a feature complete, consider each applicable layer:
 ## How it works
 
 TanStack Start supplies the application shell and file-based routing.
-Authenticated React routes subscribe to owner-scoped Convex queries and invoke
+Authenticated React routes subscribe to household-scoped Convex queries and invoke
 Convex mutations. Clerk issues the `convex` JWT used to establish identity.
 Convex owns validation, authorization, historical references, recipe versions,
 cooking composition, meals, and daily summaries; the frontend owns interaction
@@ -128,7 +132,7 @@ state and presentation, not trust-boundary rules.
 - `convex/validators.ts`: Shared persisted and input shapes.
 - `convex/nutrition.ts`: Authenticated mutations and shared write invariants.
 - `convex/{catalog,cooking,history,meals,people,recipes}.ts`: Bounded,
-  owner-scoped domain queries.
+  household-scoped domain queries.
 - `convex/lib/*`: Shared backend authentication and validation helpers.
 - `scripts/*`: Explicit operational tooling such as seeding and export
   transformation.
