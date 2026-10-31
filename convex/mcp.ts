@@ -53,9 +53,12 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: async (ctx, _args, user) => ({
-        households: await ctx.runQuery(internal.mcpOperations.listHouseholds, {
-          user,
-        }),
+        households: await ctx.runMutation(
+          internal.mcpOperations.listHouseholds,
+          {
+            user,
+          },
+        ),
       }),
     }),
     search_foods: tool({
@@ -77,7 +80,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: (ctx, args, user) =>
-        ctx.runQuery(internal.mcpOperations.searchFoods, { ...args, user }),
+        ctx.runMutation(internal.mcpOperations.searchFoods, { ...args, user }),
     }),
     get_food_details: tool({
       description:
@@ -96,7 +99,10 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: (ctx, args, user) =>
-        ctx.runQuery(internal.mcpOperations.getFoodDetails, { ...args, user }),
+        ctx.runMutation(internal.mcpOperations.getFoodDetails, {
+          ...args,
+          user,
+        }),
     }),
     get_day: tool({
       description:
@@ -116,7 +122,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: (ctx, args, user) =>
-        ctx.runQuery(internal.mcpOperations.getDay, { ...args, user }),
+        ctx.runMutation(internal.mcpOperations.getDay, { ...args, user }),
     }),
     get_meal: tool({
       description:
@@ -134,7 +140,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: (ctx, args, user) =>
-        ctx.runQuery(internal.mcpMealCorrections.getMeal, { ...args, user }),
+        ctx.runMutation(internal.mcpMealCorrections.getMeal, { ...args, user }),
     }),
     preview_meal_correction: tool({
       description:
@@ -270,7 +276,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: (ctx, args, user) =>
-        ctx.runQuery(internal.mcpOperations.getLoggingContext, {
+        ctx.runMutation(internal.mcpOperations.getLoggingContext, {
           ...args,
           user,
           now: Date.now(),

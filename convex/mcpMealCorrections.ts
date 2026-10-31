@@ -3,7 +3,6 @@ import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import {
   internalMutation,
-  internalQuery,
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
@@ -154,7 +153,7 @@ function summary({
   }
 }
 
-export const getMeal = internalQuery({
+export const getMeal = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
     user: vMcpUser(),

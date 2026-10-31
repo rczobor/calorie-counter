@@ -1,13 +1,8 @@
 import { vMcpUser, type McpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
-import {
-  internalQuery,
-  env,
-  internalMutation,
-  type MutationCtx,
-  type QueryCtx,
-} from './_generated/server'
+import { env, internalMutation, type MutationCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
+import { ensurePersonalHousehold } from './households'
 import { components } from './_generated/api'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
 import {
@@ -92,14 +87,23 @@ export async function findReceipt(
         .eq('key', `${operation}:${operationKey}`),
     )
     .unique()
-  if (
-    receipt &&
-    (receipt.householdId !== owner.householdId ||
-      receipt.input !== canonical(input))
-  )
+  if (receipt && receipt.householdId !== owner.householdId) {
+    // Old receipts belong only to this account's original household, never a shared one.
+    const originalHousehold =
+      receipt.householdId === undefined
+        ? await ctx.db.get(owner.householdId)
+        : null
+    if (originalHousehold?.personalOwnerTokenIdentifier !== user.userId)
+      throw new ConvexError(
+        'This operation key belongs to a different household. Retry it in its original household.',
+      )
+  }
+  if (receipt && receipt.input !== canonical(input))
     throw new ConvexError(
       'This operation key was already used with different inputs. Use a new key for a different operation.',
     )
+  if (receipt && receipt.householdId === undefined)
+    await ctx.db.patch(receipt._id, { householdId: owner.householdId })
   return receipt
 }
 
@@ -514,7 +518,7 @@ export const logCooking = internalMutation({
 })
 
 export async function requireMcpOwner(
-  ctx: QueryCtx | MutationCtx,
+  ctx: MutationCtx,
   user: McpUser,
   scope: string,
   householdId?: Id<'households'>,
@@ -529,10 +533,12 @@ export async function requireMcpOwner(
       'This connection does not have permission for this operation. Reconnect with the required permissions.',
     )
   }
+  // Even read tools can be the first request from a connection created before households.
+  await ensurePersonalHousehold(ctx, user.userId)
   return requireHouseholdForAccount(ctx, user.userId, householdId)
 }
 
-export const searchFoods = internalQuery({
+export const searchFoods = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
     user: vMcpUser(),
@@ -664,7 +670,7 @@ export const searchFoods = internalQuery({
     }),
 })
 
-export const getFoodDetails = internalQuery({
+export const getFoodDetails = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
     user: vMcpUser(),
@@ -807,7 +813,7 @@ export const getFoodDetails = internalQuery({
     }),
 })
 
-export const getDay = internalQuery({
+export const getDay = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
     user: vMcpUser(),
@@ -879,7 +885,7 @@ export const getDay = internalQuery({
     }),
 })
 
-export const getLoggingContext = internalQuery({
+export const getLoggingContext = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
     user: vMcpUser(),
@@ -924,7 +930,7 @@ export const getLoggingContext = internalQuery({
   },
 })
 
-export const listHouseholds = internalQuery({
+export const listHouseholds = internalMutation({
   args: { user: vMcpUser() },
   returns: v.array(
     v.object({ householdId: v.id('households'), name: v.string() }),
@@ -938,6 +944,7 @@ export const listHouseholds = internalQuery({
       throw new ConvexError(
         'This connection does not have permission for this operation.',
       )
+    await ensurePersonalHousehold(ctx, args.user.userId)
     const memberships = await ctx.db
       .query('householdMembers')
       .withIndex('by_tokenIdentifier_and_householdId', (q) =>

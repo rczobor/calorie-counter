@@ -9,6 +9,7 @@ import { mcp } from './mcp'
 import {
   mealPreview,
   mealResult,
+  cookingResult,
   cookingInput,
   mealDetails,
   mealCorrectionPreview,
@@ -53,10 +54,6 @@ async function credential(
   owner = TEST_TOKEN_IDENTIFIER,
   grantedScopes = scopes,
 ) {
-  await asTestUserWithToken(t, owner).mutation(
-    api.households.ensurePersonal,
-    {},
-  )
   const token = `test-${crypto.randomUUID()}`
   const id = await t.mutation(components.mcp.grants.createApiKey, {
     userId: owner,
@@ -109,6 +106,33 @@ async function output<V extends GenericValidator>(
   )
     throw new Error(JSON.stringify(body))
   return validated(validator, body.result.structuredContent)
+}
+
+async function makeReceiptLegacy(t: Test, connectionId: string, key: string) {
+  return t.run(async (ctx) => {
+    const receipt = await ctx.db
+      .query('mcpOperations')
+      .withIndex('by_ownerTokenIdentifier_and_connectionId_and_key', (q) =>
+        q
+          .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+          .eq('connectionId', connectionId)
+          .eq('key', key),
+      )
+      .unique()
+    if (!receipt?.householdId)
+      throw new Error('Expected a scoped operation receipt.')
+    const path =
+      'mealId' in receipt.result
+        ? `/?personId=${receipt.result.personId}&date=${receipt.result.eatenOn}`
+        : `/cooking?sessionId=${receipt.result.sessionId}`
+    const result = {
+      ...receipt.result,
+      path,
+      url: `https://app.example.test${path}`,
+    }
+    await ctx.db.patch(receipt._id, { householdId: undefined, result })
+    return { id: receipt._id, householdId: receipt.householdId, result }
+  })
 }
 
 async function correctionFixture() {
@@ -546,12 +570,12 @@ describe('MCP integration', () => {
     const user = { userId: TEST_TOKEN_IDENTIFIER, scopes, connectionId: id }
     const args = { user, now: Date.parse('2026-10-29T23:30:00Z') }
     expect(
-      await t.query(internal.mcpOperations.getLoggingContext, {
+      await t.mutation(internal.mcpOperations.getLoggingContext, {
         ...args,
         timeZone: 'Europe/Budapest',
       }),
     ).toMatchObject({ localDate: '2026-10-30' })
-    const context = await t.query(
+    const context = await t.mutation(
       internal.mcpOperations.getLoggingContext,
       args,
     )
@@ -559,7 +583,7 @@ describe('MCP integration', () => {
     expect(JSON.stringify(context)).not.toContain(TEST_TOKEN_IDENTIFIER)
     expect(JSON.stringify(context)).not.toContain('Private person note')
     await expect(
-      t.query(internal.mcpOperations.getLoggingContext, {
+      t.mutation(internal.mcpOperations.getLoggingContext, {
         ...args,
         timeZone: 'not-a-zone',
       }),
@@ -1071,5 +1095,220 @@ describe('MCP household authorization', () => {
     expect(
       after.households.some((row) => row.householdId === householdId),
     ).toBe(false)
+  })
+})
+
+describe('MCP upgrade compatibility', () => {
+  it.each(['list_households', 'get_logging_context', 'search_foods'])(
+    'bootstraps an existing connection on its first %s call without a browser visit',
+    async (tool) => {
+      const t = setup()
+      const personId = await insertPerson(t)
+      const ingredientId = await insertIngredient(t)
+      const own = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
+      expect(
+        await t.run((ctx) => ctx.db.query('households').collect()),
+      ).toEqual([])
+      const args =
+        tool === 'search_foods' ? { kind: 'ingredient', search: '' } : {}
+      const body: unknown = await (await call(t, own.token, tool, args)).json()
+      expect(body).toMatchObject({
+        result: { structuredContent: expect.any(Object) },
+      })
+      const records = await t.run(async (ctx) => ({
+        households: await ctx.db.query('households').collect(),
+        people: await ctx.db.get(personId),
+        ingredient: await ctx.db.get(ingredientId),
+      }))
+      expect(records.households).toHaveLength(1)
+      expect(records.people).toMatchObject({
+        _id: personId,
+        householdId: records.households[0]._id,
+        name: 'Alex',
+      })
+      expect(records.ingredient).toMatchObject({
+        _id: ingredientId,
+        householdId: records.households[0]._id,
+      })
+    },
+  )
+
+  it('replays a legacy meal receipt without duplicating totals, and rejects changed inputs and other households', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const args = {
+      operationKey: 'legacy-meal',
+      input: {
+        personId,
+        eatenOn: '2026-10-31',
+        items: [
+          {
+            sourceType: 'fixedCalories' as const,
+            name: 'Snack',
+            calories: 125,
+          },
+        ],
+      },
+    }
+    await output(await call(t, own.token, 'log_meal', args), mealResult)
+    const legacy = await makeReceiptLegacy(t, own.id, 'meal:legacy-meal')
+    expect(
+      await (
+        await call(t, own.token, 'log_meal', {
+          ...args,
+          input: { ...args.input, name: 'Changed input' },
+        })
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    const partner = asTestUserWithToken(t, 'partner|token')
+    const sharedHouseholdId = await partner.mutation(
+      api.households.ensurePersonal,
+      {},
+    )
+    const invitation = await partner.mutation(api.households.invite, {
+      householdId: sharedHouseholdId,
+    })
+    await asTestUser(t).mutation(api.households.acceptInvitation, {
+      token: invitation,
+    })
+    expect(
+      await (
+        await call(t, own.token, 'log_meal', {
+          ...args,
+          householdId: sharedHouseholdId,
+        })
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    expect(
+      (await t.run((ctx) => ctx.db.get(legacy.id)))?.householdId,
+    ).toBeUndefined()
+    expect(
+      await output(await call(t, own.token, 'log_meal', args), mealResult),
+    ).toEqual(legacy.result)
+    expect((await t.run((ctx) => ctx.db.get(legacy.id)))?.householdId).toBe(
+      legacy.householdId,
+    )
+    expect(
+      await output(await call(t, own.token, 'log_meal', args), mealResult),
+    ).toEqual(legacy.result)
+    expect(
+      await (
+        await call(t, own.token, 'log_meal', {
+          ...args,
+          householdId: sharedHouseholdId,
+        })
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    expect(
+      await asTestUser(t).query(api.meals.getDaySummary, {
+        personId,
+        eatenOn: args.input.eatenOn,
+      }),
+    ).toMatchObject({ consumedCalories: 125, mealCount: 1 })
+  })
+
+  it('replays a legacy cooking receipt without creating another session or cooked food', async () => {
+    const t = setup()
+    const own = await credential(t)
+    const input = {
+      session: {
+        label: 'Soup',
+        cookedAt: Date.parse('2026-10-31T10:00:00Z'),
+        cookedOn: '2026-10-31',
+      },
+      outputs: [
+        {
+          name: 'Soup',
+          finishedWeightGrams: 200,
+          ingredients: [
+            {
+              sourceType: 'custom' as const,
+              name: 'Carrots',
+              kcalPer100: 100,
+              kcalBasisUnit: 'g' as const,
+              ignoreCalories: false,
+              referenceAmount: 100,
+              referenceUnit: 'g' as const,
+              countedAmount: 100,
+            },
+          ],
+        },
+      ],
+    }
+    const args = { input, operationKey: 'legacy-cooking' }
+    await output(await call(t, own.token, 'log_cooking', args), cookingResult)
+    const legacy = await makeReceiptLegacy(t, own.id, 'cooking:legacy-cooking')
+    await t.run(async (ctx) => {
+      for (const table of [
+        'cookSessions',
+        'cookedFoods',
+        'cookedFoodIngredients',
+      ] as const) {
+        for (const row of await ctx.db.query(table).collect())
+          await ctx.db.patch(row._id, { householdId: undefined })
+      }
+      const members = await ctx.db
+        .query('householdMembers')
+        .withIndex('by_householdId', (q) =>
+          q.eq('householdId', legacy.householdId),
+        )
+        .collect()
+      for (const member of members) await ctx.db.delete(member._id)
+      await ctx.db.delete(legacy.householdId)
+    })
+    expect(await t.run((ctx) => ctx.db.query('households').collect())).toEqual(
+      [],
+    )
+    expect(
+      await output(
+        await call(t, own.token, 'log_cooking', args),
+        cookingResult,
+      ),
+    ).toEqual(legacy.result)
+    const migratedReceipt = await t.run((ctx) => ctx.db.get(legacy.id))
+    expect(migratedReceipt?.householdId).toBeDefined()
+    expect(migratedReceipt?.householdId).not.toBe(legacy.householdId)
+    const records = await t.run(async (ctx) => ({
+      sessions: await ctx.db.query('cookSessions').collect(),
+      foods: await ctx.db.query('cookedFoods').collect(),
+    }))
+    expect(records.sessions).toHaveLength(1)
+    expect(records.foods).toHaveLength(1)
+    expect(records.sessions[0].householdId).toBe(migratedReceipt?.householdId)
+    expect(records.foods[0].householdId).toBe(migratedReceipt?.householdId)
+  })
+
+  it('replays a legacy correction receipt despite its now-stale revision, without applying the correction twice', async () => {
+    const { t, own, mealId, detail, personId } = await correctionFixture()
+    const args = {
+      operationKey: 'legacy-correction',
+      input: {
+        mealId,
+        expectedEditRevision: detail.editRevision,
+        itemChanges: [],
+        name: 'Corrected breakfast',
+      },
+    }
+    await output(await call(t, own.token, 'correct_meal', args), mealResult)
+    const legacy = await makeReceiptLegacy(
+      t,
+      own.id,
+      'mealCorrection:legacy-correction',
+    )
+    const before = await t.run((ctx) => ctx.db.get(mealId))
+    expect(
+      await output(await call(t, own.token, 'correct_meal', args), mealResult),
+    ).toEqual(legacy.result)
+    expect(await t.run((ctx) => ctx.db.get(mealId))).toEqual(before)
+    expect((await t.run((ctx) => ctx.db.get(legacy.id)))?.householdId).toBe(
+      legacy.householdId,
+    )
+    expect(
+      await asTestUser(t).query(api.meals.getDaySummary, {
+        personId,
+        eatenOn: '2026-10-30',
+      }),
+    ).toMatchObject({ consumedCalories: 110, mealCount: 1 })
   })
 })
