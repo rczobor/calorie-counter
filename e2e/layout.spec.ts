@@ -1,5 +1,32 @@
 import { expect, test, type Locator } from '@playwright/test'
 
+test('fitting desktop content does not scroll, but taller content remains reachable', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await expect(page.getByText('Seeded breakfast')).toBeVisible()
+
+  const fittingHeight = await page.evaluate(() => ({
+    document: document.documentElement.scrollHeight,
+    viewport: window.innerHeight,
+  }))
+  expect(fittingHeight.document).toBe(fittingHeight.viewport)
+
+  await page.setViewportSize({ width: 1440, height: 400 })
+  const overflowingHeight = await page.evaluate(() => ({
+    document: document.documentElement.scrollHeight,
+    viewport: window.innerHeight,
+  }))
+  expect(overflowingHeight.document).toBeGreaterThan(overflowingHeight.viewport)
+  await page
+    .getByRole('button', { name: 'Create meal', exact: true })
+    .scrollIntoViewIfNeeded()
+  await expect(
+    page.getByRole('button', { name: 'Create meal', exact: true }),
+  ).toBeInViewport()
+})
+
 async function expectVerticalGap(
   above: Locator,
   below: Locator,

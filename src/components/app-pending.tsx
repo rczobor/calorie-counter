@@ -7,7 +7,7 @@ export function AppPending() {
     <main
       role="status"
       aria-live="polite"
-      className="min-h-[calc(100vh-4rem)] bg-background px-4 py-10 sm:px-6"
+      className="flex-1 bg-background px-4 py-10 sm:px-6"
     >
       <section className="mx-auto w-full max-w-3xl rounded-lg border border-border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-3">

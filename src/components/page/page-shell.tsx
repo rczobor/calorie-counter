@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-const SHELL_BACKGROUND_CLASS = 'min-h-[calc(100vh-3rem)] bg-background'
+const SHELL_BACKGROUND_CLASS = 'flex-1 bg-background'
 
 const WIDTH_CLASS_MAP = {
   '6xl': 'max-w-6xl',
