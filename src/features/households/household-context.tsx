@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { toErrorMessage } from '@/lib/nutrition'
+import { HouseholdInvitation } from './household-invitation'
 
 export type HouseholdContextValue = {
   householdId?: Id<'households'>
@@ -116,20 +117,30 @@ function HouseholdSession({
   if (!household)
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6">
-        <p>
-          Your selected household is no longer available. Choose a household to
-          continue.
-        </p>
-        <Select
-          ariaLabel="Household"
-          options={households.map((row) => ({
-            value: row._id,
-            label: row.name,
-          }))}
-          onValueChange={(id) => {
-            if (id) selectHousehold(id)
-          }}
-        />
+        {households.length === 0 ? (
+          <p>
+            You no longer belong to any households. Ask a household admin for an
+            invitation link to join again.
+          </p>
+        ) : (
+          <>
+            <p>
+              Your selected household is no longer available. Choose a household
+              to continue.
+            </p>
+            <Select
+              ariaLabel="Household"
+              options={households.map((row) => ({
+                value: row._id,
+                label: row.name,
+              }))}
+              onValueChange={(id) => {
+                if (id) selectHousehold(id)
+              }}
+            />
+          </>
+        )}
+        <HouseholdInvitation onJoined={selectHousehold} />
       </div>
     )
   return (

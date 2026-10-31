@@ -10,21 +10,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getFunctionName } from 'convex/server'
 import { HouseholdSettings } from './household-settings'
 
-const { query, rename, invite, accept, revoke, updateMember, selectHousehold } =
-  vi.hoisted(() => ({
-    query: vi.fn(),
-    rename: vi.fn(),
-    invite: vi.fn(),
-    accept: vi.fn(),
-    revoke: vi.fn(),
-    updateMember: vi.fn(),
-    selectHousehold: vi.fn(),
-  }))
+const {
+  query,
+  paginated,
+  loadMore,
+  rename,
+  invite,
+  accept,
+  revoke,
+  updateMember,
+  selectHousehold,
+} = vi.hoisted(() => ({
+  query: vi.fn(),
+  paginated: vi.fn(),
+  loadMore: vi.fn(),
+  rename: vi.fn(),
+  invite: vi.fn(),
+  accept: vi.fn(),
+  revoke: vi.fn(),
+  updateMember: vi.fn(),
+  selectHousehold: vi.fn(),
+}))
 vi.mock('./household-context', () => ({
   useHousehold: () => ({ householdId: 'home', selectHousehold }),
 }))
 vi.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => query(...args),
+  usePaginatedQuery: (...args: unknown[]) => paginated(...args),
   useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
     ({
       'households:rename': rename,
@@ -35,11 +47,24 @@ vi.mock('convex/react', () => ({
     })[getFunctionName(reference)],
 }))
 let role = 'admin'
+let invitationStatus = 'Exhausted'
+let invitationRows: Array<{
+  _id: string
+  expiresAt: number
+  revokedAt?: number
+}> = []
 let invitation: { householdId: string; name: string } | null = null
 beforeEach(() => {
   vi.resetAllMocks()
   window.history.replaceState(null, '', '/household')
   role = 'admin'
+  invitationStatus = 'Exhausted'
+  invitationRows = [{ _id: 'invite', expiresAt: Date.now() + 100000 }]
+  paginated.mockImplementation(() => ({
+    results: invitationRows,
+    status: invitationStatus,
+    loadMore,
+  }))
   invitation = null
   query.mockImplementation((reference) => {
     switch (getFunctionName(reference)) {
@@ -47,8 +72,6 @@ beforeEach(() => {
         return [{ _id: 'home', name: 'Home', role }]
       case 'households:members':
         return [{ _id: 'me', name: 'Robi', role, isYou: true }]
-      case 'households:invitations':
-        return [{ _id: 'invite', expiresAt: Date.now() + 100000 }]
       case 'households:inspectInvitation':
         return invitation
     }
@@ -150,6 +173,54 @@ describe('household settings', () => {
       'textContent',
       'Promote another admin first.',
     )
+  })
+
+  it('loads older invitation pages so an active link remains reachable behind revoked links', async () => {
+    invitationRows = [
+      {
+        _id: 'new-revoked',
+        expiresAt: Date.now() + 100000,
+        revokedAt: Date.now(),
+      },
+    ]
+    invitationStatus = 'CanLoadMore'
+    const view = render(<HouseholdSettings />)
+    expect(
+      screen.queryByRole('button', { name: 'Revoke invitation' }),
+    ).toBeNull()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Load more invitations' }),
+    )
+    expect(loadMore).toHaveBeenCalledWith(20)
+    invitationRows = [
+      ...invitationRows,
+      { _id: 'older-active', expiresAt: Date.now() + 100000 },
+    ]
+    invitationStatus = 'Exhausted'
+    view.rerender(<HouseholdSettings />)
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation' }))
+    await waitFor(() =>
+      expect(revoke).toHaveBeenCalledWith({
+        householdId: 'home',
+        invitationId: 'older-active',
+      }),
+    )
+  })
+
+  it('shows invitation acceptance errors without requiring household access', async () => {
+    window.history.replaceState(null, '', '/household#invite=join-token')
+    invitation = { householdId: 'shared-home', name: 'Shared home' }
+    accept.mockRejectedValue(new Error('This invitation has expired.'))
+    render(<HouseholdSettings />)
+    fireEvent.click(screen.getByRole('button', { name: 'Join household' }))
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'This invitation has expired.',
+    )
+    expect(selectHousehold).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('button', { name: 'Join household' }),
+    ).toHaveProperty('disabled', false)
   })
 
   it('revokes only the invitation selected by the admin', async () => {

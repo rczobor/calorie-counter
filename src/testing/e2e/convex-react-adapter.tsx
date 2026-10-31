@@ -390,8 +390,6 @@ export function useQuery<Query extends FunctionReference<'query'>>(
     return [
       { _id: 'e2e-member', name: 'Alex', role: 'admin', isYou: true },
     ] as FunctionReturnType<Query>
-  if (functionName === 'households:invitations')
-    return [] as FunctionReturnType<Query>
   if (functionName === 'households:inspectInvitation')
     return null as FunctionReturnType<Query>
   if (functionName === 'mcp:getConfiguration')

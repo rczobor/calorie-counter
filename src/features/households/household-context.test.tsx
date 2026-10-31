@@ -204,6 +204,54 @@ describe('device household selection', () => {
     expect(screen.queryByLabelText('Draft')).toBeNull()
   })
 
+  it('lets an account with no memberships recover through an invitation without mounting unscoped features', async () => {
+    households = []
+    window.history.replaceState(null, '', '/household')
+    query.mockImplementation((reference) => {
+      if (getFunctionName(reference) === 'households:list') return households
+      if (getFunctionName(reference) === 'households:inspectInvitation')
+        return { householdId: second, name: 'Other home' }
+      return []
+    })
+    mutation.mockImplementation((args: { token?: string }) => {
+      if (args.token) {
+        households = [{ _id: second, name: 'Other home', role: 'member' }]
+        return Promise.resolve(second)
+      }
+      return Promise.resolve(first)
+    })
+    mount()
+    expect(
+      await screen.findByText(/no longer belong to any households/),
+    ).toBeTruthy()
+    expect(screen.queryByRole('combobox', { name: 'Household' })).toBeNull()
+    expect(screen.queryByLabelText('Draft')).toBeNull()
+    expect(
+      query.mock.calls.map(([reference]) => getFunctionName(reference)),
+    ).not.toContain('people:search')
+    window.history.replaceState(null, '', '/household#invite=return-token')
+    fireEvent(window, new HashChangeEvent('hashchange'))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Join household' }),
+    )
+    await screen.findByText('robi:household-b')
+    expect(mutation).toHaveBeenCalledWith({ token: 'return-token' })
+    expect(window.location.hash).toBe('')
+    expect(window.localStorage.getItem('calorie-counter:household:robi')).toBe(
+      second,
+    )
+  })
+
+  it('explains recovery when no household or invitation is available', async () => {
+    households = []
+    mount()
+    expect(
+      await screen.findByText(/Ask a household admin for an invitation link/),
+    ).toBeTruthy()
+    expect(screen.queryByRole('combobox', { name: 'Household' })).toBeNull()
+    expect(screen.queryByLabelText('Draft')).toBeNull()
+  })
+
   it('requires a new selection when saved membership is unavailable', async () => {
     window.localStorage.setItem(
       'calorie-counter:household:robi',

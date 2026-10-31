@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { useHousehold } from './household-context'
+import { HouseholdInvitation } from './household-invitation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,22 +24,14 @@ export function HouseholdSettings() {
     api.households.members,
     householdId ? { householdId } : 'skip',
   )
-  const invitations = useQuery(
+  const invitations = usePaginatedQuery(
     api.households.invitations,
     householdId ? { householdId } : 'skip',
-  )
-  const [token, setToken] = useState(
-    () =>
-      new URLSearchParams(window.location.hash.slice(1)).get('invite') ?? '',
+    { initialNumItems: 20 },
   )
   const [now] = useState(Date.now)
-  const invitation = useQuery(
-    api.households.inspectInvitation,
-    token ? { token, now } : 'skip',
-  )
   const rename = useMutation(api.households.rename)
   const invite = useMutation(api.households.invite)
-  const accept = useMutation(api.households.acceptInvitation)
   const revoke = useMutation(api.households.revokeInvitation)
   const updateMember = useMutation(api.households.updateMember)
   const [name, setName] = useState<string | null>(null)
@@ -79,47 +72,7 @@ export function HouseholdSettings() {
           {error}
         </p>
       ) : null}
-      {token ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Household invitation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {invitation === undefined ? (
-              <p role="status">Loading invitation…</p>
-            ) : !invitation ? (
-              <p>
-                This invitation has expired, was revoked, or was already used.
-              </p>
-            ) : (
-              <>
-                <p>
-                  Join <strong>{invitation.name}</strong>?
-                </p>
-                <p>
-                  Joining gives you access to all of this household’s nutrition
-                  data, including everyone’s past meals and goals. Members can
-                  manage the shared data. Your existing household stays
-                  separate.
-                </p>
-                <Button
-                  disabled={pending}
-                  onClick={() =>
-                    void run(async () => {
-                      const id = await accept({ token })
-                      window.history.replaceState(null, '', '/household')
-                      setToken('')
-                      selectHousehold?.(id)
-                    })
-                  }
-                >
-                  Join household
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
+      <HouseholdInvitation onJoined={selectHousehold} />
       {!household || !householdId || members === undefined ? (
         <p role="status">Loading household…</p>
       ) : (
@@ -275,8 +228,8 @@ export function HouseholdSettings() {
                     </Button>
                   </div>
                 ) : null}
-                {invitations
-                  ?.filter(
+                {invitations.results
+                  .filter(
                     (row) =>
                       !row.acceptedAt && !row.revokedAt && row.expiresAt > now,
                   )
@@ -302,6 +255,21 @@ export function HouseholdSettings() {
                       </Button>
                     </div>
                   ))}
+                {invitations.status === 'LoadingFirstPage' ? (
+                  <p role="status">Loading invitations…</p>
+                ) : null}
+                {invitations.status === 'CanLoadMore' ||
+                invitations.status === 'LoadingMore' ? (
+                  <Button
+                    variant="outline"
+                    disabled={pending || invitations.status === 'LoadingMore'}
+                    onClick={() => invitations.loadMore(20)}
+                  >
+                    {invitations.status === 'LoadingMore'
+                      ? 'Loading more invitations…'
+                      : 'Load more invitations'}
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}

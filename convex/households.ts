@@ -1,4 +1,8 @@
 import { v } from 'convex/values'
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from 'convex/server'
 import type { Id } from './_generated/dataModel'
 import {
   mutation,
@@ -10,7 +14,7 @@ import {
   requireAuthenticatedHousehold,
   requireAuthenticatedUser,
 } from './lib/auth'
-import { normalizeRequiredText } from './lib/validation'
+import { assertPageSize, normalizeRequiredText } from './lib/validation'
 
 const MAX_MEMBERS = 20
 const MAX_HOUSEHOLDS = 10
@@ -252,8 +256,11 @@ export const invite = mutation({
 })
 
 export const invitations = query({
-  args: { householdId: v.id('households') },
-  returns: v.array(
+  args: {
+    householdId: v.id('households'),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(
     v.object({
       _id: v.id('householdInvitations'),
       expiresAt: v.number(),
@@ -263,17 +270,21 @@ export const invitations = query({
   ),
   handler: async (ctx, args) => {
     await requireAuthenticatedHousehold(ctx, args.householdId)
-    const rows = await ctx.db
+    assertPageSize(args.paginationOpts.numItems)
+    const result = await ctx.db
       .query('householdInvitations')
       .withIndex('by_householdId', (q) => q.eq('householdId', args.householdId))
       .order('desc')
-      .take(20)
-    return rows.map(({ _id, expiresAt, acceptedAt, revokedAt }) => ({
-      _id,
-      expiresAt,
-      acceptedAt,
-      revokedAt,
-    }))
+      .paginate(args.paginationOpts)
+    return {
+      ...result,
+      page: result.page.map(({ _id, expiresAt, acceptedAt, revokedAt }) => ({
+        _id,
+        expiresAt,
+        acceptedAt,
+        revokedAt,
+      })),
+    }
   },
 })
 

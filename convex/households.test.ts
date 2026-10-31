@@ -418,6 +418,85 @@ describe('household sharing', () => {
     )
   })
 
+  it('requires a valid invitation to regain membership after leaving the only household', async () => {
+    const { robi, viki, householdId } = await setupHousehold()
+    const members = await robi.query(api.households.members, { householdId })
+    const creator = members.find((row) => row.isYou)!
+    const partner = members.find((row) => !row.isYou)!
+    await robi.mutation(api.households.updateMember, {
+      householdId,
+      memberId: partner._id,
+      role: 'admin',
+    })
+    await robi.mutation(api.households.updateMember, {
+      householdId,
+      memberId: creator._id,
+      role: 'remove',
+    })
+    await robi.mutation(api.households.ensurePersonal, {})
+    expect(await robi.query(api.households.list, {})).toEqual([])
+    const token = await viki.mutation(api.households.invite, { householdId })
+    expect(
+      await robi.query(api.households.inspectInvitation, {
+        token,
+        now: Date.now(),
+      }),
+    ).toEqual({ householdId, name: 'My household' })
+    await robi.mutation(api.households.acceptInvitation, { token })
+    expect(await robi.query(api.households.list, {})).toEqual([
+      { _id: householdId, name: 'My household', role: 'member' },
+    ])
+  })
+
+  it('paginates past newer revoked invitations so an older active link can be revoked', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-31T10:00:00Z'))
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const householdId = await user.mutation(api.households.ensurePersonal, {})
+    const token = await user.mutation(api.households.invite, { householdId })
+    const oldest = await user.query(api.households.invitations, {
+      householdId,
+      paginationOpts: page,
+    })
+    const oldestId = oldest.page[0]._id
+    for (let index = 0; index < 20; index++) {
+      vi.setSystemTime(Date.now() + 1000)
+      await user.mutation(api.households.invite, { householdId })
+      const newest = await user.query(api.households.invitations, {
+        householdId,
+        paginationOpts: { numItems: 1, cursor: null },
+      })
+      await user.mutation(api.households.revokeInvitation, {
+        householdId,
+        invitationId: newest.page[0]._id,
+      })
+    }
+    const first = await user.query(api.households.invitations, {
+      householdId,
+      paginationOpts: page,
+    })
+    expect(first.page).toHaveLength(20)
+    expect(first.page.every((row) => row.revokedAt !== undefined)).toBe(true)
+    expect(first.isDone).toBe(false)
+    const older = await user.query(api.households.invitations, {
+      householdId,
+      paginationOpts: { ...page, cursor: first.continueCursor },
+    })
+    expect(older.page).toEqual([expect.objectContaining({ _id: oldestId })])
+    expect(older.isDone).toBe(true)
+    await user.mutation(api.households.revokeInvitation, {
+      householdId,
+      invitationId: older.page[0]._id,
+    })
+    await expect(
+      asTestUserWithToken(t, 'other|account').mutation(
+        api.households.acceptInvitation,
+        { token },
+      ),
+    ).rejects.toThrow('expired')
+  })
+
   it('requires authentication for household discovery, bootstrap, and invitation inspection', async () => {
     const t = createConvexTest()
     await expect(t.query(api.households.list, {})).rejects.toThrow(
