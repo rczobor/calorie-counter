@@ -36,11 +36,6 @@ vi.mock('convex/react', () => ({
   usePaginatedQuery: (...args: unknown[]) => paginated(...args),
   useConvex: () => ({ query: clientQuery }),
 }))
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}))
 const first = asId<'households'>('household-a')
 const second = asId<'households'>('household-b')
 let households = [
@@ -141,6 +136,8 @@ describe('device household selection', () => {
   it('persists selection per account and remounts household-scoped draft identity', async () => {
     const view = mount()
     await screen.findByText('robi:household-a')
+    expect(screen.queryByRole('combobox', { name: 'Household' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Manage household' })).toBeNull()
     fireEvent.change(screen.getByLabelText('Draft'), {
       target: { value: 'Unsaved home draft' },
     })

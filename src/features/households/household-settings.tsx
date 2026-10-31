@@ -7,6 +7,7 @@ import { HouseholdInvitation } from './household-invitation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import {
   Card,
   CardContent,
@@ -73,7 +74,7 @@ export function HouseholdSettings() {
         </p>
       ) : null}
       <HouseholdInvitation onJoined={selectHousehold} />
-      {!household || !householdId || members === undefined ? (
+      {!households || !household || !householdId || members === undefined ? (
         <p role="status">Loading household…</p>
       ) : (
         <>
@@ -85,7 +86,24 @@ export function HouseholdSettings() {
                 nutrition data.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Switch household</p>
+                <Select
+                  ariaLabel="Switch household"
+                  value={householdId}
+                  options={households.map((row) => ({
+                    value: row._id,
+                    label: row.name,
+                  }))}
+                  onValueChange={(id) => {
+                    if (id) selectHousehold?.(id)
+                  }}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Your choice is remembered on this device.
+                </p>
+              </div>
               {isAdmin ? (
                 <form
                   className="flex flex-wrap items-end gap-3"

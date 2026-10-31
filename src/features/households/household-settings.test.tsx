@@ -69,7 +69,10 @@ beforeEach(() => {
   query.mockImplementation((reference) => {
     switch (getFunctionName(reference)) {
       case 'households:list':
-        return [{ _id: 'home', name: 'Home', role }]
+        return [
+          { _id: 'home', name: 'Home', role },
+          { _id: 'other', name: 'Other home', role: 'member' },
+        ]
       case 'households:members':
         return [{ _id: 'me', name: 'Robi', role, isYou: true }]
       case 'households:inspectInvitation':
@@ -85,6 +88,17 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('household settings', () => {
+  it('lets ordinary members switch to another household', async () => {
+    role = 'member'
+    render(<HouseholdSettings />)
+    fireEvent.click(screen.getByRole('combobox', { name: 'Switch household' }))
+    fireEvent.keyDown(
+      await screen.findByRole('option', { name: 'Other home' }),
+      { key: 'Enter' },
+    )
+    expect(selectHousehold).toHaveBeenCalledWith('other')
+  })
+
   it('lets admins rename the household and create a copyable invitation without sending it', async () => {
     render(<HouseholdSettings />)
     fireEvent.change(screen.getByLabelText('Household name'), {
