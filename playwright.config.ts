@@ -9,7 +9,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Cold Vite compilation repeatedly timed out with parallel local workers.
+  workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL,
@@ -17,14 +18,22 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: `pnpm exec vite dev --host 127.0.0.1 --port ${port} --strictPort --mode e2e`,
+    command: 'pnpm run dev:e2e',
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [
     {
+      name: 'app-ready',
+      testMatch: 'app.setup.ts',
+      timeout: 90_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'chromium',
+      testMatch: '**/*.spec.ts',
+      dependencies: ['app-ready'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

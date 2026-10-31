@@ -24,7 +24,9 @@
     "test:coverage:per-file": "vitest run --config vitest.per-file.config.ts --coverage",
     "test:e2e": "playwright test",
     "test:mcp:https": "node e2e/mcp-https.ts",
-    "deploy:mcp:test": "node scripts/deploy-mcp-test.ts"
+    "deploy:mcp:test": "node scripts/deploy-mcp-test.ts",
+    "setup:worktree": "pnpm install --frozen-lockfile",
+    "dev:e2e": "vite dev --host 127.0.0.1 --port 4173 --strictPort --mode e2e"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

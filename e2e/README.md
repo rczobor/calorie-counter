@@ -20,3 +20,23 @@ client-side calculations; it is not a separate test page.
 The mock flag defaults to off, `.env.e2e` contains no secrets, and Vite refuses
 to create a production build while the flag is enabled. Run live Clerk/Convex
 integration checks separately against a disposable deployment.
+
+## Run and review
+
+Use the Node version declared in `package.json`, then run
+`pnpm run setup:worktree`. The frozen install preserves the lockfile and needs
+no environment file. Install Chromium once when missing with
+`pnpm exec playwright install chromium`.
+
+`pnpm run test:e2e` uses one worker in both local and CI runs. A setup project
+waits for the hydrated, seeded app before the workflow tests start, separating
+cold compilation failures from normal five-second UI assertions. Playwright
+starts and stops its own server and refuses to reuse an occupied port. Run a
+focused flow with `pnpm run test:e2e -- e2e/layout.spec.ts`.
+
+For visual iteration, `pnpm run dev:e2e` serves these same real components and
+synthetic households at `http://127.0.0.1:4173/`. Stop that manual server before
+running the browser suite. Review light/dark mode, desktop/mobile layouts, and
+the affected empty, loading, and error states. Share evidence through the
+reviewer's supported surface; a host-local path alone is insufficient on a
+remote device. No separate design-only implementation is needed.

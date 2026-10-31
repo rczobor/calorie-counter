@@ -82,11 +82,15 @@ manual data migration for the current small datasets.
 
 ## Local Setup
 
-1. Install dependencies.
+1. Use the Node version declared in `package.json`, then install locked dependencies.
 
 ```bash
-pnpm install --frozen-lockfile
+pnpm run setup:worktree
 ```
+
+For browser tests and visual iteration without account credentials, see
+[the synthetic browser workflow](e2e/README.md). Normal development below uses
+your selected Clerk and Convex development environment.
 
 2. Create `.env.local`.
 
@@ -304,7 +308,9 @@ operator action; no repository script performs the destructive steps.
 
 ## Scripts
 
+- `pnpm run setup:worktree`: Install dependencies without changing the lockfile
 - `pnpm run dev`: Start local dev server (port `3000`)
+- `pnpm run dev:e2e`: Review real components with synthetic data (loopback port `4173`)
 - `pnpm run build`: Production build (client + SSR bundles)
 - `pnpm run preview`: Preview production build
 - `pnpm run seed:defaults`: Seed the selected Convex deployment with default data
