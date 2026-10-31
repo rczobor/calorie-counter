@@ -6,6 +6,7 @@ import {
   ChefHat,
   Clock,
   Flame,
+  House,
   Users,
   UtensilsCrossed,
   Plug,
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: '/people', label: 'People', icon: Users },
   { to: '/history', label: 'History', icon: Clock },
   { to: '/settings/integrations', label: 'Integrations', icon: Plug },
+  { to: '/household', label: 'Household', icon: House },
 ] as const
 
 const NAV_LINK_CLASS =

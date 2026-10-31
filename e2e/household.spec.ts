@@ -32,24 +32,29 @@ test('device selections and unsaved meals stay with their household after switch
     exact: true,
   })
   const household = page.getByRole('combobox', {
-    name: 'Household',
+    name: 'Switch household',
     exact: true,
   })
+  await expect(household).toHaveCount(0)
   await person.click()
   await page.getByRole('option', { name: 'Viki', exact: true }).click()
   await page.getByLabel('Meal name').fill('Home draft')
+  await page.goto('/household')
   await household.click()
   await page
     .getByRole('option', { name: 'Shared household', exact: true })
     .click()
+  await page.goto('/')
   await expect(page.getByLabel('Meal name')).toHaveValue('')
   await expect(person).toContainText('Alex')
   await page.getByLabel('Meal name').fill('Shared draft')
   await page.reload()
-  await expect(household).toContainText('Shared household')
+  await expect(person).toContainText('Alex')
   await expect(page.getByLabel('Meal name')).toHaveValue('Shared draft')
+  await page.goto('/household')
   await household.click()
   await page.getByRole('option', { name: 'My household', exact: true }).click()
+  await page.goto('/')
   await expect(page.getByLabel('Meal name')).toHaveValue('Home draft')
   await expect(person).toContainText('Viki')
   await page.reload()

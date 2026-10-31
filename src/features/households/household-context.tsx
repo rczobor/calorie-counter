@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -147,26 +146,6 @@ function HouseholdSession({
     <HouseholdContext.Provider
       value={{ householdId: household._id, selectHousehold }}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-4 pt-4 sm:px-6">
-        <Select
-          ariaLabel="Household"
-          size="sm"
-          value={household._id}
-          options={households.map((row) => ({
-            value: row._id,
-            label: row.name,
-          }))}
-          onValueChange={(id) => {
-            if (id) selectHousehold(id)
-          }}
-        />
-        <Link
-          className="text-sm font-medium underline underline-offset-4"
-          to="/household"
-        >
-          Manage household
-        </Link>
-      </div>
       <DraftPersistenceIdentityProvider
         key={household._id}
         value={{

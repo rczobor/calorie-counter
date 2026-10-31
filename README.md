@@ -55,9 +55,9 @@ manage the household name, invitations, and other members. The last admin must
 promote another member before leaving or stepping down. Removing an account
 never deletes tracked people or historical nutrition data.
 
-Use **Manage household** to create a single-use invitation link, valid for seven
-days. Anyone with the link can accept it, so share it privately. The recipient
-reviews what sharing includes before joining. Invitations can be revoked.
+Open **Household** from the navigation to switch households or create a
+single-use invitation link, valid for seven days. Anyone with the link can accept
+it, so share it privately. The recipient reviews what sharing includes before joining. Invitations can be revoked.
 Joining adds access; existing households and their data stay separate. An
 account that leaves its last household can accept a new invitation from the
 recovery screen; signing in again never restores removed access automatically.
