@@ -1916,7 +1916,7 @@ function CookingPageContent() {
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-6">
           <fieldset className="min-w-0" disabled={isRunning}>
             <section>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2290,7 +2290,7 @@ function CookingPageContent() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="cookedFoodName">Name</Label>
                         <Input
                           id="cookedFoodName"
@@ -2304,7 +2304,7 @@ function CookingPageContent() {
                           }
                         />
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label>Group</Label>
                         <div className="space-y-1">
                           <Select
@@ -2339,7 +2339,7 @@ function CookingPageContent() {
                           ) : null}
                         </div>
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="finishedWeight">Finished weight</Label>
                         <Input
                           id="finishedWeight"
@@ -2418,7 +2418,7 @@ function CookingPageContent() {
                       ) : null}
 
                       <div className="mt-4 space-y-4">
-                        <div>
+                        <div className="space-y-2">
                           <Label htmlFor="ingredientLineNotes">
                             Line notes
                           </Label>
@@ -2514,7 +2514,7 @@ function CookingPageContent() {
                               )}
                             >
                               {shouldAutoFillIngredientReference ? null : (
-                                <div>
+                                <div className="space-y-2">
                                   <Label htmlFor="lineReferenceAmount">
                                     Ref. amount
                                   </Label>
@@ -2533,7 +2533,7 @@ function CookingPageContent() {
                                 </div>
                               )}
                               {shouldAutoFillIngredientReference ? null : (
-                                <div>
+                                <div className="space-y-2">
                                   <Label>Ref. unit</Label>
                                   <Select
                                     ariaLabel="Reference unit"
@@ -2551,7 +2551,7 @@ function CookingPageContent() {
                                   />
                                 </div>
                               )}
-                              <div>
+                              <div className="space-y-2">
                                 <Label htmlFor="lineCountedAmount">
                                   {shouldAutoFillIngredientReference
                                     ? 'Amount'
@@ -2595,7 +2595,7 @@ function CookingPageContent() {
                                   : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]',
                               )}
                             >
-                              <div>
+                              <div className="space-y-2">
                                 <Label htmlFor="customIngredientName">
                                   Ingredient
                                 </Label>
@@ -2613,7 +2613,7 @@ function CookingPageContent() {
                               </div>
                               {activeDraft.lineCustomIgnoreCalories ? null : (
                                 <>
-                                  <div>
+                                  <div className="space-y-2">
                                     <Label htmlFor="lineCustomKcal">
                                       kcal / 100
                                     </Label>
@@ -2630,7 +2630,7 @@ function CookingPageContent() {
                                       }
                                     />
                                   </div>
-                                  <div>
+                                  <div className="space-y-2">
                                     <Label>Basis unit</Label>
                                     <Select
                                       ariaLabel="Custom kcal basis"
@@ -2660,7 +2660,7 @@ function CookingPageContent() {
                               )}
                             >
                               {shouldAutoFillCustomReference ? null : (
-                                <div>
+                                <div className="space-y-2">
                                   <Label htmlFor="customReferenceAmount">
                                     Ref. amount
                                   </Label>
@@ -2679,7 +2679,7 @@ function CookingPageContent() {
                                 </div>
                               )}
                               {shouldAutoFillCustomReference ? null : (
-                                <div>
+                                <div className="space-y-2">
                                   <Label>Ref. unit</Label>
                                   <Select
                                     ariaLabel="Custom reference unit"
@@ -2697,7 +2697,7 @@ function CookingPageContent() {
                                   />
                                 </div>
                               )}
-                              <div>
+                              <div className="space-y-2">
                                 <Label htmlFor="customCountedAmount">
                                   {shouldAutoFillCustomReference
                                     ? 'Amount'
