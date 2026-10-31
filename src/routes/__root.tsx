@@ -112,10 +112,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           ) : (
             <ClerkProvider>
               <ConvexProvider>
-                <Header />
-                <AuthGate>
-                  <HouseholdProvider>{children}</HouseholdProvider>
-                </AuthGate>
+                <div className="flex min-h-dvh flex-col">
+                  <Header />
+                  <AuthGate>
+                    <HouseholdProvider>{children}</HouseholdProvider>
+                  </AuthGate>
+                </div>
                 <Toaster richColors />
                 {import.meta.env.DEV ? (
                   <TanStackDevtools
@@ -163,7 +165,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!isClerkConfigured) {
     return (
-      <main className="min-h-[calc(100vh-2.5rem)] px-4 py-10 sm:px-6">
+      <main className="flex-1 px-4 py-10 sm:px-6">
         <Card className="mx-auto max-w-xl">
           <CardHeader className="space-y-3">
             <CardTitle>Authentication setup required</CardTitle>
@@ -248,7 +250,7 @@ function AuthStatusCard({
   action?: React.ReactNode
 }) {
   return (
-    <main className="min-h-[calc(100vh-2.5rem)] px-4 py-10 sm:px-6">
+    <main className="flex-1 px-4 py-10 sm:px-6">
       <Card className="mx-auto max-w-xl">
         <CardHeader className="space-y-3">
           <CardTitle>{title}</CardTitle>
