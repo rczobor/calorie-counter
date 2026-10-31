@@ -3,7 +3,6 @@ import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import {
   internalMutation,
-  internalQuery,
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
@@ -58,10 +57,8 @@ async function loadMeal(
   )
   const items = await ctx.db
     .query('mealItems')
-    .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-      q
-        .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-        .eq('mealId', mealId),
+    .withIndex('by_householdId_and_mealId', (q) =>
+      q.eq('householdId', owner.householdId).eq('mealId', mealId),
     )
     .take(31)
   assertArrayLimit(items, 30, 'Meal items; use the app to correct larger meals')
@@ -156,14 +153,23 @@ function summary({
   }
 }
 
-export const getMeal = internalQuery({
-  args: { user: vMcpUser(), mealId: v.id('meals') },
+export const getMeal = internalMutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    mealId: v.id('meals'),
+  },
   returns: mealDetails,
   handler: (ctx, args) =>
     domainResult(async () => {
       const current = await loadMeal(
         ctx,
-        requireMcpOwner(args.user, 'nutrition:read'),
+        await requireMcpOwner(
+          ctx,
+          args.user,
+          'nutrition:read',
+          args.householdId,
+        ),
         args.mealId,
       )
       return {
@@ -295,7 +301,11 @@ async function prepareCorrection(
 }
 
 export const previewMealCorrection = internalMutation({
-  args: { user: vMcpUser(), input: mealCorrectionInput },
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: mealCorrectionInput,
+  },
   returns: mealCorrectionPreview,
   handler: (ctx, args) =>
     domainResult(
@@ -303,7 +313,12 @@ export const previewMealCorrection = internalMutation({
         (
           await prepareCorrection(
             ctx,
-            requireMcpOwner(args.user, 'nutrition:read'),
+            await requireMcpOwner(
+              ctx,
+              args.user,
+              'nutrition:read',
+              args.householdId,
+            ),
             args.input,
           )
         ).preview,
@@ -312,6 +327,7 @@ export const previewMealCorrection = internalMutation({
 
 export const correctMeal = internalMutation({
   args: {
+    householdId: v.optional(v.id('households')),
     user: vMcpUser(),
     input: mealCorrectionInput,
     operationKey: v.string(),
@@ -319,10 +335,16 @@ export const correctMeal = internalMutation({
   returns: mealResult,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const owner = requireMcpOwner(args.user, 'meals:write')
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'meals:write',
+        args.householdId,
+      )
       const receipt = await findReceipt(
         ctx,
         args.user,
+        owner,
         'mealCorrection',
         args.operationKey,
         args.input,
@@ -341,7 +363,7 @@ export const correctMeal = internalMutation({
         throws: true,
       })
       await updateMealForOwner(ctx, owner, update)
-      const path = `/?personId=${update.personId}&date=${update.eatenOn}`
+      const path = `/?householdId=${owner.householdId}&personId=${update.personId}&date=${update.eatenOn}`
       const result = {
         mealId: update.mealId,
         personId: update.personId,

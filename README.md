@@ -22,10 +22,13 @@ Clerk authentication.
 - `/catalog`: Catalog management for food groups, ingredients, and recipes.
 - `/cooking`: Cooking batches, reusable recipes, and cooked-food drafts.
 - `/history`: Person-scoped calorie and goal history across a date range.
+- `/household`: Household naming, invitations, roles, and membership.
 
 ## Convex Domain Model
 
 The Convex schema currently includes:
+
+- `households`, `householdMembers`, `householdInvitations`
 
 - `people`, `personGoalHistory`
 - `foodGroups`, `ingredients`
@@ -43,6 +46,39 @@ TanStack Start is intentionally retained while authenticated feature routes
 render on the client and subscribe directly to Convex. The rationale and
 conditions for revisiting that choice are recorded in
 [`docs/adr/0001-client-only-tanstack-start.md`](docs/adr/0001-client-only-tanstack-start.md).
+
+## Households
+
+Accounts can belong to multiple households. Every household member can view and
+manage its people, goals, catalog, recipes, cooking, meals, and history. Admins
+manage the household name, invitations, and other members. The last admin must
+promote another member before leaving or stepping down. Removing an account
+never deletes tracked people or historical nutrition data.
+
+Use **Manage household** to create a single-use invitation link, valid for seven
+days. Anyone with the link can accept it, so share it privately. The recipient
+reviews what sharing includes before joining. Invitations can be revoked.
+Joining adds access; existing households and their data stay separate. An
+account that leaves its last household can accept a new invitation from the
+recovery screen; signing in again never restores removed access automatically.
+Invitation management has pagination so older active links remain reachable for
+revocation even after newer links have been used or revoked.
+
+The selected household and person persist in local storage per account and
+household on each device. Meal drafts remain per tab; cooking drafts remain
+per account and household. Switching households remounts feature state. A saved
+person that is archived or unavailable must be replaced explicitly.
+
+On first use, the app creates an account's original personal household and
+assigns its legacy records to that household in a single transaction. IDs,
+references, snapshots, totals, and timestamps are preserved. The compatibility
+schema allows missing `householdId` only for existing records; every new domain
+write sets it, and all authorization, indexes, and searches use it. The legacy
+`ownerTokenIdentifier` field retains account attribution and supports the
+bounded migration, not access rights. Migration stops atomically if any legacy
+table has more than 200 records for that account; larger datasets need a
+separately rehearsed migration. This deployment requires no production reset or
+manual data migration for the current small datasets.
 
 ## Local Setup
 

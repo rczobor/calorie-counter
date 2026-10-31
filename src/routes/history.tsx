@@ -1,6 +1,8 @@
+import { usePersonSelection } from '@/features/households/use-person-selection'
+import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { createFileRoute } from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
-import { usePaginatedQuery, useQuery } from 'convex/react'
+import { usePaginatedQuery, useQuery } from '@/features/households/convex-hooks'
 import {
   addDays,
   differenceInCalendarDays,
@@ -97,9 +99,8 @@ function HistoryPage() {
 }
 
 function HistoryPageContent() {
-  const [selectedPersonId, setSelectedPersonId] = useState<Id<'people'> | ''>(
-    '',
-  )
+  const { userId } = useDraftPersistenceIdentity()
+  const [selectedPersonId, setSelectedPersonId] = usePersonSelection(userId)
   const [startDate, setStartDate] = useState(() =>
     toLocalDateString(addDays(new Date(), -6).getTime()),
   )
@@ -148,7 +149,7 @@ function HistoryPageContent() {
     }
     defaultPersonAppliedRef.current = true
     setSelectedPersonId(firstPerson._id)
-  }, [people, selectedPersonId])
+  }, [people, selectedPersonId, setSelectedPersonId])
 
   const effectiveSelectedPersonId: Id<'people'> | '' =
     selectedPersonId &&

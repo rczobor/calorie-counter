@@ -56,9 +56,32 @@ vi.mock('@/components/ui/date-picker', () => ({
   ),
 }))
 
+import { DraftPersistenceIdentityProvider } from '@/features/cooking/draft-persistence-identity'
 import { Route as HistoryRoute } from '@/routes/history'
 
 describe('History route', () => {
+  it('uses the same household-specific device person preference as meal logging', () => {
+    mockPeople = [
+      createPersonDoc('person-alex', 'Alex'),
+      createPersonDoc('person-viki', 'Viki'),
+    ]
+    window.localStorage.setItem(
+      'calorie-counter:person:robi:home',
+      'person-viki',
+    )
+    const Component = HistoryRoute.options.component as ComponentType
+    render(
+      <DraftPersistenceIdentityProvider
+        value={{ isLoaded: true, userId: 'robi:home' }}
+      >
+        <Component />
+      </DraftPersistenceIdentityProvider>,
+    )
+    expect(lastHistoryArgs).toEqual(
+      expect.objectContaining({ personId: 'person-viki' }),
+    )
+  })
+
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-04T12:00:00'))

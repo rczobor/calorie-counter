@@ -8,8 +8,11 @@ external Clerk gate, and aliases only Convex's React transport to
 The adapter is deliberately narrow: it serves seeded data through the same
 bounded domain queries as production (`people:list`, `catalog:listIngredients`,
 `cooking:listSessions`, `cooking:listCookedFoodsForSession`,
-`meals:listForDay`, `meals:getDaySummary`, and `meals:getDetail`). It supports
-`nutrition:createMeal` for the browser flow. Unsupported queries return no data
+`meals:listForDay`, `meals:getDaySummary`, and `meals:getDetail`). It also serves two synthetic households and people, household membership
+settings, and the bootstrap mutation. It supports `nutrition:createMeal` for
+the browser flow. Household tests verify device selections and draft isolation
+across switching and refresh; backend tests cover actual membership and data
+isolation. Unsupported queries return no data
 and unsupported mutations fail with an explicit error. The browser still
 exercises the real router, dashboard, form controls, table, toast, and
 client-side calculations; it is not a separate test page.

@@ -14,6 +14,7 @@ import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as CookingRouteImport } from './routes/cooking'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as PeopleRouteImport } from './routes/people'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 
@@ -42,6 +43,11 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HouseholdRoute = HouseholdRouteImport.update({
+  id: '/household',
+  path: '/household',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PeopleRoute = PeopleRouteImport.update({
   id: '/people',
   path: '/people',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/connect': typeof ConnectRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
+  '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/connect': typeof ConnectRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
+  '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/connect': typeof ConnectRoute
   '/cooking': typeof CookingRoute
   '/history': typeof HistoryRoute
+  '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/cooking'
     | '/history'
+    | '/household'
     | '/people'
     | '/settings/integrations'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/cooking'
     | '/history'
+    | '/household'
     | '/people'
     | '/settings/integrations'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/cooking'
     | '/history'
+    | '/household'
     | '/people'
     | '/settings/integrations'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   ConnectRoute: typeof ConnectRoute
   CookingRoute: typeof CookingRoute
   HistoryRoute: typeof HistoryRoute
+  HouseholdRoute: typeof HouseholdRoute
   PeopleRoute: typeof PeopleRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/household': {
+      id: '/household'
+      path: '/household'
+      fullPath: '/household'
+      preLoaderRoute: typeof HouseholdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/people': {
       id: '/people'
       path: '/people'
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConnectRoute: ConnectRoute,
   CookingRoute: CookingRoute,
   HistoryRoute: HistoryRoute,
+  HouseholdRoute: HouseholdRoute,
   PeopleRoute: PeopleRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
 }

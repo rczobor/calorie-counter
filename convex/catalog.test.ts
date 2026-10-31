@@ -6,6 +6,7 @@ import {
   asTestUser,
   asTestUserWithToken,
   createConvexTest,
+  testHouseholdId,
   insertCookSession,
   insertIngredient,
   insertPerson,
@@ -317,9 +318,9 @@ describe('nutrition catalog mutations', () => {
         }
         const versions = await ctx.db
           .query('recipeVersions')
-          .withIndex('by_ownerTokenIdentifier_and_recipeId', (q) =>
+          .withIndex('by_householdId_and_recipeId', (q) =>
             q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
               .eq('recipeId', created.recipeId),
           )
           .collect()
@@ -331,17 +332,17 @@ describe('nutrition catalog mutations', () => {
         }
         const oldVersionLines = await ctx.db
           .query('recipeVersionIngredients')
-          .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          .withIndex('by_householdId_and_recipeVersionId', (q) =>
             q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
               .eq('recipeVersionId', created.recipeVersionId),
           )
           .collect()
         const newVersionLines = await ctx.db
           .query('recipeVersionIngredients')
-          .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+          .withIndex('by_householdId_and_recipeVersionId', (q) =>
             q
-              .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+              .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
               .eq('recipeVersionId', currentVersion._id),
           )
           .collect()
@@ -451,9 +452,9 @@ describe('nutrition catalog mutations', () => {
     const originalLine = await t.run(async (ctx) =>
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeVersionId', created.recipeVersionId),
         )
         .unique(),
@@ -502,9 +503,9 @@ describe('nutrition catalog mutations', () => {
     const newLine = await t.run(async (ctx) =>
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeVersionId', updated.recipeVersionId),
         )
         .unique(),
@@ -542,9 +543,9 @@ describe('nutrition catalog mutations', () => {
     const currentLine = await t.run(async (ctx) =>
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeVersionId', created.recipeVersionId),
         )
         .unique(),
@@ -604,9 +605,9 @@ describe('nutrition catalog mutations', () => {
     const foreignLine = await t.run(async (ctx) =>
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', otherToken)
+            .eq('householdId', testHouseholdId(t, otherToken))
             .eq('recipeVersionId', foreignRecipe.recipeVersionId),
         )
         .unique(),
@@ -786,9 +787,9 @@ describe('nutrition catalog mutations', () => {
       }
       const versions = await ctx.db
         .query('recipeVersions')
-        .withIndex('by_ownerTokenIdentifier_and_recipeId', (q) =>
+        .withIndex('by_householdId_and_recipeId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeId', created.recipeId),
         )
         .collect()
@@ -800,9 +801,9 @@ describe('nutrition catalog mutations', () => {
       }
       return await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
             .eq('recipeVersionId', currentVersion._id),
         )
         .collect()

@@ -1,14 +1,15 @@
 import { vMcpUser, type McpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
-import {
-  internalQuery,
-  env,
-  internalMutation,
-  type MutationCtx,
-} from './_generated/server'
+import { env, internalMutation, type MutationCtx } from './_generated/server'
+import type { Id } from './_generated/dataModel'
+import { ensurePersonalHousehold } from './households'
 import { components } from './_generated/api'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
-import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
+import {
+  assertOwnedOrThrow,
+  requireHouseholdForAccount,
+  type AuthenticatedOwner,
+} from './lib/auth'
 import {
   assertArrayLimit,
   assertSafeTimestamp,
@@ -69,6 +70,7 @@ export function canonical(value: unknown): string {
 export async function findReceipt(
   ctx: MutationCtx,
   user: McpUser,
+  owner: AuthenticatedOwner,
   operation: 'meal' | 'cooking' | 'mealCorrection',
   operationKey: string,
   input: unknown,
@@ -85,10 +87,23 @@ export async function findReceipt(
         .eq('key', `${operation}:${operationKey}`),
     )
     .unique()
+  if (receipt && receipt.householdId !== owner.householdId) {
+    // Old receipts belong only to this account's original household, never a shared one.
+    const originalHousehold =
+      receipt.householdId === undefined
+        ? await ctx.db.get(owner.householdId)
+        : null
+    if (originalHousehold?.personalOwnerTokenIdentifier !== user.userId)
+      throw new ConvexError(
+        'This operation key belongs to a different household. Retry it in its original household.',
+      )
+  }
   if (receipt && receipt.input !== canonical(input))
     throw new ConvexError(
       'This operation key was already used with different inputs. Use a new key for a different operation.',
     )
+  if (receipt && receipt.householdId === undefined)
+    await ctx.db.patch(receipt._id, { householdId: owner.householdId })
   return receipt
 }
 
@@ -221,27 +236,47 @@ async function prepareMeal(
 }
 
 export const previewMeal = internalMutation({
-  args: { user: vMcpUser(), input: mealInput },
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: mealInput,
+  },
   returns: mealPreview,
   handler: (ctx, args) =>
-    domainResult(() =>
+    domainResult(async () =>
       prepareMeal(
         ctx,
-        requireMcpOwner(args.user, 'nutrition:read'),
+        await requireMcpOwner(
+          ctx,
+          args.user,
+          'nutrition:read',
+          args.householdId,
+        ),
         args.input,
       ),
     ),
 })
 
 export const logMeal = internalMutation({
-  args: { user: vMcpUser(), input: mealInput, operationKey: v.string() },
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: mealInput,
+    operationKey: v.string(),
+  },
   returns: mealResult,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const owner = requireMcpOwner(args.user, 'meals:write')
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'meals:write',
+        args.householdId,
+      )
       const receipt = await findReceipt(
         ctx,
         args.user,
+        owner,
         'meal',
         args.operationKey,
         args.input,
@@ -262,9 +297,9 @@ export const logMeal = internalMutation({
         personId: preview.input.personId,
         eatenOn: preview.input.eatenOn,
         totalCalories: preview.totalCalories,
-        path: `/?personId=${preview.input.personId}&date=${preview.input.eatenOn}`,
+        path: `/?householdId=${owner.householdId}&personId=${preview.input.personId}&date=${preview.input.eatenOn}`,
         url: appUrl(
-          `/?personId=${preview.input.personId}&date=${preview.input.eatenOn}`,
+          `/?householdId=${owner.householdId}&personId=${preview.input.personId}&date=${preview.input.eatenOn}`,
         ),
       }
       await ctx.db.insert('mcpOperations', {
@@ -388,27 +423,47 @@ async function prepareCooking(
 }
 
 export const previewCooking = internalMutation({
-  args: { user: vMcpUser(), input: cookingInput },
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: cookingInput,
+  },
   returns: cookingPreview,
   handler: (ctx, args) =>
-    domainResult(() =>
+    domainResult(async () =>
       prepareCooking(
         ctx,
-        requireMcpOwner(args.user, 'nutrition:read'),
+        await requireMcpOwner(
+          ctx,
+          args.user,
+          'nutrition:read',
+          args.householdId,
+        ),
         args.input,
       ),
     ),
 })
 
 export const logCooking = internalMutation({
-  args: { user: vMcpUser(), input: cookingInput, operationKey: v.string() },
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: cookingInput,
+    operationKey: v.string(),
+  },
   returns: cookingResult,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const owner = requireMcpOwner(args.user, 'cooking:write')
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'cooking:write',
+        args.householdId,
+      )
       const receipt = await findReceipt(
         ctx,
         args.user,
+        owner,
         'cooking',
         args.operationKey,
         args.input,
@@ -445,8 +500,10 @@ export const logCooking = internalMutation({
       const result = {
         sessionId,
         foods,
-        path: `/cooking?sessionId=${sessionId}`,
-        url: appUrl(`/cooking?sessionId=${sessionId}`),
+        path: `/cooking?householdId=${owner.householdId}&sessionId=${sessionId}`,
+        url: appUrl(
+          `/cooking?householdId=${owner.householdId}&sessionId=${sessionId}`,
+        ),
       }
       await ctx.db.insert('mcpOperations', {
         ...owner,
@@ -460,10 +517,12 @@ export const logCooking = internalMutation({
     }),
 })
 
-export function requireMcpOwner(
+export async function requireMcpOwner(
+  ctx: MutationCtx,
   user: McpUser,
   scope: string,
-): AuthenticatedOwner {
+  householdId?: Id<'households'>,
+): Promise<AuthenticatedOwner> {
   if (
     !user.userId ||
     !user.connectionId ||
@@ -474,11 +533,14 @@ export function requireMcpOwner(
       'This connection does not have permission for this operation. Reconnect with the required permissions.',
     )
   }
-  return { ownerTokenIdentifier: user.userId }
+  // Even read tools can be the first request from a connection created before households.
+  await ensurePersonalHousehold(ctx, user.userId)
+  return requireHouseholdForAccount(ctx, user.userId, householdId)
 }
 
-export const searchFoods = internalQuery({
+export const searchFoods = internalMutation({
   args: {
+    householdId: v.optional(v.id('households')),
     user: vMcpUser(),
     kind: foodKind,
     search: v.string(),
@@ -488,7 +550,12 @@ export const searchFoods = internalQuery({
   returns: searchResult,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const owner = requireMcpOwner(args.user, 'nutrition:read')
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
       const search = normalizeSearch(args.search)
       const pagination = {
         numItems: 20,
@@ -502,15 +569,13 @@ export const searchFoods = internalQuery({
               .withSearchIndex('search_name', (q) =>
                 q
                   .search('name', search)
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                  .eq('householdId', owner.householdId)
                   .eq('archived', false),
               )
           : ctx.db
               .query('ingredients')
-              .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-                q
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-                  .eq('archived', false),
+              .withIndex('by_householdId_and_archived_and_name', (q) =>
+                q.eq('householdId', owner.householdId).eq('archived', false),
               )
         const page = await rows.paginate(pagination)
         return {
@@ -532,15 +597,13 @@ export const searchFoods = internalQuery({
               .withSearchIndex('search_name', (q) =>
                 q
                   .search('name', search)
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+                  .eq('householdId', owner.householdId)
                   .eq('archived', false),
               )
           : ctx.db
               .query('recipes')
-              .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-                q
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-                  .eq('archived', false),
+              .withIndex('by_householdId_and_archived_and_name', (q) =>
+                q.eq('householdId', owner.householdId).eq('archived', false),
               )
         const page = await rows.paginate(pagination)
         return {
@@ -565,27 +628,23 @@ export const searchFoods = internalQuery({
         ? ctx.db.query('cookedFoods').withSearchIndex('search_name', (q) => {
             const scoped = q
               .search('name', search)
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('archived', false)
             return sessionId ? scoped.eq('cookSessionId', sessionId) : scoped
           })
         : sessionId
           ? ctx.db
               .query('cookedFoods')
-              .withIndex(
-                'by_ownerTokenIdentifier_and_cookSessionId_and_archived',
-                (q) =>
-                  q
-                    .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-                    .eq('cookSessionId', sessionId)
-                    .eq('archived', false),
+              .withIndex('by_householdId_and_cookSessionId_and_archived', (q) =>
+                q
+                  .eq('householdId', owner.householdId)
+                  .eq('cookSessionId', sessionId)
+                  .eq('archived', false),
               )
           : ctx.db
               .query('cookedFoods')
-              .withIndex('by_ownerTokenIdentifier_and_archived', (q) =>
-                q
-                  .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-                  .eq('archived', false),
+              .withIndex('by_householdId_and_archived', (q) =>
+                q.eq('householdId', owner.householdId).eq('archived', false),
               )
               .order('desc')
       const page = await rows.paginate(pagination)
@@ -611,12 +670,22 @@ export const searchFoods = internalQuery({
     }),
 })
 
-export const getFoodDetails = internalQuery({
-  args: { user: vMcpUser(), kind: foodKind, id: v.string() },
+export const getFoodDetails = internalMutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    kind: foodKind,
+    id: v.string(),
+  },
   returns: foodDetails,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const owner = requireMcpOwner(args.user, 'nutrition:read')
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
       if (args.kind === 'ingredient') {
         const id = ctx.db.normalizeId('ingredients', args.id)
         const food = assertOwnedOrThrow(
@@ -652,10 +721,8 @@ export const getFoodDetails = internalQuery({
         )
         const ingredients = await ctx.db
           .query('cookedFoodIngredients')
-          .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('cookedFoodId', food._id),
+          .withIndex('by_householdId_and_cookedFoodId', (q) =>
+            q.eq('householdId', owner.householdId).eq('cookedFoodId', food._id),
           )
           .take(MAX_CHILD_ROWS + 1)
         assertArrayLimit(ingredients, MAX_CHILD_ROWS, 'Ingredients')
@@ -701,21 +768,19 @@ export const getFoodDetails = internalQuery({
       if (recipe.archived) throw new ConvexError('Recipe is archived.')
       const version = await ctx.db
         .query('recipeVersions')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_recipeId_and_versionNumber',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('recipeId', recipe._id)
-              .eq('versionNumber', recipe.latestVersionNumber),
+        .withIndex('by_householdId_and_recipeId_and_versionNumber', (q) =>
+          q
+            .eq('householdId', owner.householdId)
+            .eq('recipeId', recipe._id)
+            .eq('versionNumber', recipe.latestVersionNumber),
         )
         .unique()
       if (!version) throw new ConvexError('Recipe version not found.')
       const lines = await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('recipeVersionId', version._id),
         )
         .take(MAX_CHILD_ROWS + 1)
@@ -748,8 +813,9 @@ export const getFoodDetails = internalQuery({
     }),
 })
 
-export const getDay = internalQuery({
+export const getDay = internalMutation({
   args: {
+    householdId: v.optional(v.id('households')),
     user: vMcpUser(),
     personId: v.id('people'),
     eatenOn: v.string(),
@@ -758,7 +824,12 @@ export const getDay = internalQuery({
   returns: dayResult,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const owner = requireMcpOwner(args.user, 'nutrition:read')
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
       const person = assertOwnedOrThrow(
         await ctx.db.get(args.personId),
         owner,
@@ -767,32 +838,30 @@ export const getDay = internalQuery({
       const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
       const summary = await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('personId', person._id)
             .eq('eatenOn', eatenOn),
         )
         .unique()
       const goal = await ctx.db
         .query('personGoalHistory')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_personId_and_effectiveDate',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('personId', person._id)
-              .lte('effectiveDate', eatenOn),
+        .withIndex('by_householdId_and_personId_and_effectiveDate', (q) =>
+          q
+            .eq('householdId', owner.householdId)
+            .eq('personId', person._id)
+            .lte('effectiveDate', eatenOn),
         )
         .order('desc')
         .first()
       const meals = await ctx.db
         .query('meals')
         .withIndex(
-          'by_ownerTokenIdentifier_and_personId_and_eatenOn_and_archived',
+          'by_householdId_and_personId_and_eatenOn_and_archived',
           (q) =>
             q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+              .eq('householdId', owner.householdId)
               .eq('personId', person._id)
               .eq('eatenOn', eatenOn)
               .eq('archived', false),
@@ -816,8 +885,9 @@ export const getDay = internalQuery({
     }),
 })
 
-export const getLoggingContext = internalQuery({
+export const getLoggingContext = internalMutation({
   args: {
+    householdId: v.optional(v.id('households')),
     user: vMcpUser(),
     now: v.number(),
     timeZone: v.optional(v.string()),
@@ -825,7 +895,12 @@ export const getLoggingContext = internalQuery({
   },
   returns: loggingContextResult,
   handler: async (ctx, args) => {
-    const owner = requireMcpOwner(args.user, 'nutrition:read')
+    const owner = await requireMcpOwner(
+      ctx,
+      args.user,
+      'nutrition:read',
+      args.householdId,
+    )
     let localDate: string | null = null
     if (args.timeZone) {
       try {
@@ -843,10 +918,8 @@ export const getLoggingContext = internalQuery({
     }
     const result = await ctx.db
       .query('people')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('archived', false),
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', false),
       )
       .paginate({ numItems: 50, cursor: args.cursor ?? null })
     return {
@@ -854,5 +927,36 @@ export const getLoggingContext = internalQuery({
       cursor: result.isDone ? null : result.continueCursor,
       localDate,
     }
+  },
+})
+
+export const listHouseholds = internalMutation({
+  args: { user: vMcpUser() },
+  returns: v.array(
+    v.object({ householdId: v.id('households'), name: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    if (
+      !args.user.userId ||
+      !args.user.connectionId ||
+      !args.user.scopes.includes('nutrition:read')
+    )
+      throw new ConvexError(
+        'This connection does not have permission for this operation.',
+      )
+    await ensurePersonalHousehold(ctx, args.user.userId)
+    const memberships = await ctx.db
+      .query('householdMembers')
+      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
+        q.eq('tokenIdentifier', args.user.userId),
+      )
+      .take(10)
+    const result = []
+    for (const membership of memberships) {
+      const household = await ctx.db.get(membership.householdId)
+      if (household)
+        result.push({ householdId: household._id, name: household.name })
+    }
+    return result
   },
 })

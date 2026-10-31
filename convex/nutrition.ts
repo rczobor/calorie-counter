@@ -16,7 +16,7 @@ import {
   type AuthenticatedOwner,
   isOwnedBy,
   ownerFields,
-  requireAuthenticatedUser,
+  requireAuthenticatedHousehold,
 } from './lib/auth'
 import {
   assertArrayLimit,
@@ -1589,9 +1589,9 @@ async function adjustDailySummary(
   }
   const current = await db
     .query('dailySummaries')
-    .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+    .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
       q
-        .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+        .eq('householdId', owner.householdId)
         .eq('personId', key.personId)
         .eq('eatenOn', key.eatenOn),
     )
@@ -1656,10 +1656,8 @@ async function deleteCookedFoodWithChildren(
   )
   const mealRefs = await ctx.db
     .query('mealItems')
-    .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
-      q
-        .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-        .eq('cookedFoodId', cookedFoodId),
+    .withIndex('by_householdId_and_cookedFoodId', (q) =>
+      q.eq('householdId', owner.householdId).eq('cookedFoodId', cookedFoodId),
     )
     .first()
   if (mealRefs) {
@@ -1668,10 +1666,8 @@ async function deleteCookedFoodWithChildren(
 
   const ingredientRows = await ctx.db
     .query('cookedFoodIngredients')
-    .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
-      q
-        .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-        .eq('cookedFoodId', cookedFoodId),
+    .withIndex('by_householdId_and_cookedFoodId', (q) =>
+      q.eq('householdId', owner.householdId).eq('cookedFoodId', cookedFoodId),
     )
     .take(MAX_INGREDIENT_LINES + 1)
   if (ingredientRows.length > MAX_INGREDIENT_LINES) {
@@ -1687,6 +1683,7 @@ async function deleteCookedFoodWithChildren(
 
 export const createPerson = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     name: v.string(),
     currentDailyGoalKcal: v.number(),
     notes: v.optional(v.string()),
@@ -1694,7 +1691,7 @@ export const createPerson = mutation({
   },
   returns: v.id('people'),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Name')
     assertPositive(args.currentDailyGoalKcal, 'Daily goal')
     const now = Date.now()
@@ -1724,6 +1721,7 @@ export const createPerson = mutation({
 
 export const updatePerson = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     expectedEditRevision: v.number(),
     name: v.string(),
@@ -1734,7 +1732,7 @@ export const updatePerson = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const person = assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
@@ -1782,6 +1780,7 @@ export const updatePerson = mutation({
 
 export const updatePersonGoal = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     expectedEditRevision: v.number(),
     goalKcal: v.number(),
@@ -1790,7 +1789,7 @@ export const updatePersonGoal = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPositive(args.goalKcal, 'Goal')
     const person = assertOwnedOrThrow(
       await ctx.db.get(args.personId),
@@ -1826,13 +1825,14 @@ export const updatePersonGoal = mutation({
 
 export const setPersonArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const person = assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
@@ -1851,12 +1851,13 @@ export const setPersonArchived = mutation({
 
 export const deletePerson = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const person = assertOwnedOrThrow(
       await ctx.db.get(args.personId),
       owner,
@@ -1866,17 +1867,15 @@ export const deletePerson = mutation({
     const [mealRefs, cookingRefs] = await Promise.all([
       ctx.db
         .query('meals')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('personId', args.personId),
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
+          q.eq('householdId', owner.householdId).eq('personId', args.personId),
         )
         .first(),
       ctx.db
         .query('cookSessions')
-        .withIndex('by_ownerTokenIdentifier_and_cookedByPersonId', (q) =>
+        .withIndex('by_householdId_and_cookedByPersonId', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('cookedByPersonId', args.personId),
         )
         .first(),
@@ -1888,10 +1887,8 @@ export const deletePerson = mutation({
     }
     const goalRows = await ctx.db
       .query('personGoalHistory')
-      .withIndex('by_ownerTokenIdentifier_and_personId_and_createdAt', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('personId', args.personId),
+      .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
+        q.eq('householdId', owner.householdId).eq('personId', args.personId),
       )
       .take(MAX_INGREDIENT_LINES + 1)
     if (goalRows.length > MAX_INGREDIENT_LINES) {
@@ -1906,12 +1903,13 @@ export const deletePerson = mutation({
 
 export const createFoodGroup = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     name: v.string(),
     appliesTo: groupScopeValidator,
   },
   returns: v.id('foodGroups'),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Group name')
     const now = Date.now()
     return await ctx.db.insert('foodGroups', {
@@ -1927,6 +1925,7 @@ export const createFoodGroup = mutation({
 
 export const updateFoodGroup = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     groupId: v.id('foodGroups'),
     expectedEditRevision: v.number(),
     name: v.string(),
@@ -1934,7 +1933,7 @@ export const updateFoodGroup = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Group name')
     const group = assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
@@ -1946,18 +1945,14 @@ export const updateFoodGroup = mutation({
       const [ingredients, cookedFoods] = await Promise.all([
         ctx.db
           .query('ingredients')
-          .withIndex('by_ownerTokenIdentifier_and_groupId', (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('groupId', args.groupId),
+          .withIndex('by_householdId_and_groupId', (q) =>
+            q.eq('householdId', owner.householdId).eq('groupId', args.groupId),
           )
           .first(),
         ctx.db
           .query('cookedFoods')
-          .withIndex('by_ownerTokenIdentifier_and_groupId', (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('groupId', args.groupId),
+          .withIndex('by_householdId_and_groupId', (q) =>
+            q.eq('householdId', owner.householdId).eq('groupId', args.groupId),
           )
           .first(),
       ])
@@ -1977,13 +1972,14 @@ export const updateFoodGroup = mutation({
 
 export const setFoodGroupArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     groupId: v.id('foodGroups'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const group = assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
       owner,
@@ -2002,12 +1998,13 @@ export const setFoodGroupArchived = mutation({
 
 export const deleteFoodGroup = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     groupId: v.id('foodGroups'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const group = assertOwnedOrThrow(
       await ctx.db.get(args.groupId),
       owner,
@@ -2017,18 +2014,14 @@ export const deleteFoodGroup = mutation({
     const [ingredients, cookedFoods] = await Promise.all([
       ctx.db
         .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier_and_groupId', (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('groupId', args.groupId),
+        .withIndex('by_householdId_and_groupId', (q) =>
+          q.eq('householdId', owner.householdId).eq('groupId', args.groupId),
         )
         .first(),
       ctx.db
         .query('cookedFoods')
-        .withIndex('by_ownerTokenIdentifier_and_groupId', (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('groupId', args.groupId),
+        .withIndex('by_householdId_and_groupId', (q) =>
+          q.eq('householdId', owner.householdId).eq('groupId', args.groupId),
         )
         .first(),
     ])
@@ -2044,6 +2037,7 @@ export const deleteFoodGroup = mutation({
 
 export const createIngredient = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     name: v.string(),
     brand: v.optional(v.string()),
     kcalPer100: v.number(),
@@ -2054,7 +2048,7 @@ export const createIngredient = mutation({
   },
   returns: v.id('ingredients'),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Ingredient name')
     const normalizedKcalPer100 = normalizeKcalPer100(args.kcalPer100, {
       allowZero: args.ignoreCalories,
@@ -2085,6 +2079,7 @@ export const createIngredient = mutation({
 
 export const updateIngredient = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     ingredientId: v.id('ingredients'),
     expectedEditRevision: v.number(),
     name: v.string(),
@@ -2097,7 +2092,7 @@ export const updateIngredient = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const ingredient = assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
       owner,
@@ -2139,13 +2134,14 @@ export const updateIngredient = mutation({
 
 export const setIngredientArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     ingredientId: v.id('ingredients'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const ingredient = assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
       owner,
@@ -2168,12 +2164,13 @@ export const setIngredientArchived = mutation({
 
 export const deleteIngredient = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     ingredientId: v.id('ingredients'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const ingredient = assertOwnedOrThrow(
       await ctx.db.get(args.ingredientId),
       owner,
@@ -2187,25 +2184,25 @@ export const deleteIngredient = mutation({
     const [recipeRefs, cookedRefs, mealRefs] = await Promise.all([
       ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_ingredientId', (q) =>
+        .withIndex('by_householdId_and_ingredientId', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('ingredientId', args.ingredientId),
         )
         .first(),
       ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_ingredientId', (q) =>
+        .withIndex('by_householdId_and_ingredientId', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('ingredientId', args.ingredientId),
         )
         .first(),
       ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_ingredientId', (q) =>
+        .withIndex('by_householdId_and_ingredientId', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('ingredientId', args.ingredientId),
         )
         .first(),
@@ -2219,6 +2216,7 @@ export const deleteIngredient = mutation({
 
 export const createRecipe = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     name: v.string(),
     description: v.optional(v.string()),
     instructions: v.optional(v.string()),
@@ -2230,7 +2228,7 @@ export const createRecipe = mutation({
     recipeVersionId: v.id('recipeVersions'),
   }),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const recipeName = normalizeRequiredText(args.name, 'Recipe name')
     const resolvedLines = await resolveRecipeIngredientLines(
       ctx.db,
@@ -2284,6 +2282,7 @@ export const createRecipe = mutation({
 
 export const updateRecipeCurrentVersion = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     recipeId: v.id('recipes'),
     expectedRecipeVersionId: v.id('recipeVersions'),
     expectedEditRevision: v.number(),
@@ -2298,7 +2297,7 @@ export const updateRecipeCurrentVersion = mutation({
     versionNumber: v.number(),
   }),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const recipe = assertOwnedOrThrow(
       await ctx.db.get(args.recipeId),
       owner,
@@ -2308,13 +2307,11 @@ export const updateRecipeCurrentVersion = mutation({
     const recipeName = normalizeRequiredText(args.name, 'Recipe name')
     const current = await ctx.db
       .query('recipeVersions')
-      .withIndex(
-        'by_ownerTokenIdentifier_and_recipeId_and_versionNumber',
-        (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('recipeId', args.recipeId)
-            .eq('versionNumber', recipe.latestVersionNumber),
+      .withIndex('by_householdId_and_recipeId_and_versionNumber', (q) =>
+        q
+          .eq('householdId', owner.householdId)
+          .eq('recipeId', args.recipeId)
+          .eq('versionNumber', recipe.latestVersionNumber),
       )
       .unique()
     if (!current) {
@@ -2327,9 +2324,9 @@ export const updateRecipeCurrentVersion = mutation({
     }
     const currentLines = await ctx.db
       .query('recipeVersionIngredients')
-      .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+      .withIndex('by_householdId_and_recipeVersionId', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('recipeVersionId', current._id),
       )
       .take(MAX_INGREDIENT_LINES + 1)
@@ -2426,13 +2423,14 @@ export const updateRecipeCurrentVersion = mutation({
 
 export const setRecipeArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     recipeId: v.id('recipes'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const recipe = assertOwnedOrThrow(
       await ctx.db.get(args.recipeId),
       owner,
@@ -2451,12 +2449,13 @@ export const setRecipeArchived = mutation({
 
 export const deleteRecipe = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     recipeId: v.id('recipes'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const recipe = assertOwnedOrThrow(
       await ctx.db.get(args.recipeId),
       owner,
@@ -2465,10 +2464,8 @@ export const deleteRecipe = mutation({
     assertExpectedEditRevision(recipe, args.expectedEditRevision, 'Recipe')
     const cookedRef = await ctx.db
       .query('cookedFoods')
-      .withIndex('by_ownerTokenIdentifier_and_recipeId', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('recipeId', args.recipeId),
+      .withIndex('by_householdId_and_recipeId', (q) =>
+        q.eq('householdId', owner.householdId).eq('recipeId', args.recipeId),
       )
       .first()
     if (cookedRef) {
@@ -2477,10 +2474,8 @@ export const deleteRecipe = mutation({
 
     const versions = await ctx.db
       .query('recipeVersions')
-      .withIndex('by_ownerTokenIdentifier_and_recipeId', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('recipeId', args.recipeId),
+      .withIndex('by_householdId_and_recipeId', (q) =>
+        q.eq('householdId', owner.householdId).eq('recipeId', args.recipeId),
       )
       .take(2)
     if (versions.length !== 1) {
@@ -2490,9 +2485,9 @@ export const deleteRecipe = mutation({
     }
     const versionIngredients = await ctx.db
       .query('recipeVersionIngredients')
-      .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+      .withIndex('by_householdId_and_recipeVersionId', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('recipeVersionId', versions[0]._id),
       )
       .take(MAX_INGREDIENT_LINES + 1)
@@ -2552,14 +2547,22 @@ export async function createCookSessionForOwner(
 }
 
 export const createCookSession = mutation({
-  args: createCookSessionInput.fields,
+  args: {
+    householdId: v.optional(v.id('households')),
+    ...createCookSessionInput.fields,
+  },
   returns: v.id('cookSessions'),
   handler: async (ctx, args) =>
-    createCookSessionForOwner(ctx, await requireAuthenticatedUser(ctx), args),
+    createCookSessionForOwner(
+      ctx,
+      await requireAuthenticatedHousehold(ctx, args.householdId),
+      args,
+    ),
 })
 
 export const updateCookSession = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     sessionId: v.id('cookSessions'),
     expectedEditRevision: v.number(),
     label: v.optional(v.string()),
@@ -2570,7 +2573,7 @@ export const updateCookSession = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const session = assertOwnedOrThrow(
       await ctx.db.get(args.sessionId),
       owner,
@@ -2623,13 +2626,14 @@ export const updateCookSession = mutation({
 
 export const setCookSessionArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     sessionId: v.id('cookSessions'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const session = assertOwnedOrThrow(
       await ctx.db.get(args.sessionId),
       owner,
@@ -2652,12 +2656,13 @@ export const setCookSessionArchived = mutation({
 
 export const deleteCookSession = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     sessionId: v.id('cookSessions'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const session = assertOwnedOrThrow(
       await ctx.db.get(args.sessionId),
       owner,
@@ -2670,9 +2675,9 @@ export const deleteCookSession = mutation({
     )
     const cookedFood = await ctx.db
       .query('cookedFoods')
-      .withIndex('by_ownerTokenIdentifier_and_cookSessionId', (q) =>
+      .withIndex('by_householdId_and_cookSessionId', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('cookSessionId', args.sessionId),
       )
       .first()
@@ -2848,14 +2853,22 @@ export async function createCookedFoodForOwner(
 }
 
 export const createCookedFood = mutation({
-  args: createCookedFoodInput.fields,
+  args: {
+    householdId: v.optional(v.id('households')),
+    ...createCookedFoodInput.fields,
+  },
   returns: cookedFoodWriteResultValidator,
   handler: async (ctx, args) =>
-    createCookedFoodForOwner(ctx, await requireAuthenticatedUser(ctx), args),
+    createCookedFoodForOwner(
+      ctx,
+      await requireAuthenticatedHousehold(ctx, args.householdId),
+      args,
+    ),
 })
 
 export const updateCookedFood = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     cookedFoodId: v.id('cookedFoods'),
     expectedCookedFoodIngredientIds: v.array(v.id('cookedFoodIngredients')),
     expectedEditRevision: v.number(),
@@ -2871,7 +2884,7 @@ export const updateCookedFood = mutation({
   },
   returns: cookedFoodWriteResultValidator,
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
       owner,
@@ -2909,9 +2922,9 @@ export const updateCookedFood = mutation({
 
     const oldRows = await ctx.db
       .query('cookedFoodIngredients')
-      .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
+      .withIndex('by_householdId_and_cookedFoodId', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('cookedFoodId', args.cookedFoodId),
       )
       .take(MAX_INGREDIENT_LINES + 1)
@@ -2983,13 +2996,14 @@ export const updateCookedFood = mutation({
 
 export const setCookedFoodArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     cookedFoodId: v.id('cookedFoods'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
       owner,
@@ -3013,12 +3027,13 @@ export const setCookedFoodArchived = mutation({
 
 export const deleteCookedFood = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     cookedFoodId: v.id('cookedFoods'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const cookedFood = assertOwnedOrThrow(
       await ctx.db.get(args.cookedFoodId),
       owner,
@@ -3087,10 +3102,17 @@ export async function createMealForOwner(
 }
 
 export const createMeal = mutation({
-  args: createMealInput.fields,
+  args: {
+    householdId: v.optional(v.id('households')),
+    ...createMealInput.fields,
+  },
   returns: v.id('meals'),
   handler: async (ctx, args) =>
-    createMealForOwner(ctx, await requireAuthenticatedUser(ctx), args),
+    createMealForOwner(
+      ctx,
+      await requireAuthenticatedHousehold(ctx, args.householdId),
+      args,
+    ),
 })
 
 export const updateMealInput = v.object({
@@ -3125,10 +3147,8 @@ export async function updateMealForOwner(
   }
   const existingItems = await ctx.db
     .query('mealItems')
-    .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-      q
-        .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-        .eq('mealId', args.mealId),
+    .withIndex('by_householdId_and_mealId', (q) =>
+      q.eq('householdId', owner.householdId).eq('mealId', args.mealId),
     )
     .take(MAX_INGREDIENT_LINES + 1)
   if (existingItems.length > MAX_INGREDIENT_LINES) {
@@ -3207,22 +3227,30 @@ export async function updateMealForOwner(
 }
 
 export const updateMeal = mutation({
-  args: updateMealInput.fields,
+  args: {
+    householdId: v.optional(v.id('households')),
+    ...updateMealInput.fields,
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await updateMealForOwner(ctx, await requireAuthenticatedUser(ctx), args)
+    await updateMealForOwner(
+      ctx,
+      await requireAuthenticatedHousehold(ctx, args.householdId),
+      args,
+    )
   },
 })
 
 export const setMealArchived = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     mealId: v.id('meals'),
     expectedEditRevision: v.number(),
     archived: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const meal = assertOwnedOrThrow(
       await ctx.db.get(args.mealId),
       owner,
@@ -3253,12 +3281,13 @@ export const setMealArchived = mutation({
 
 export const deleteMeal = mutation({
   args: {
+    householdId: v.optional(v.id('households')),
     mealId: v.id('meals'),
     expectedEditRevision: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const meal = assertOwnedOrThrow(
       await ctx.db.get(args.mealId),
       owner,
@@ -3267,10 +3296,8 @@ export const deleteMeal = mutation({
     assertExpectedEditRevision(meal, args.expectedEditRevision, 'Meal')
     const items = await ctx.db
       .query('mealItems')
-      .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-          .eq('mealId', args.mealId),
+      .withIndex('by_householdId_and_mealId', (q) =>
+        q.eq('householdId', owner.householdId).eq('mealId', args.mealId),
       )
       .take(MAX_INGREDIENT_LINES + 1)
     if (items.length > MAX_INGREDIENT_LINES) {

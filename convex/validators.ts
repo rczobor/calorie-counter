@@ -27,7 +27,9 @@ export const groupScopeValidator = v.union(
 )
 
 const ownerFields = {
+  // Account attribution is retained for legacy migration; authorization uses householdId.
   ownerTokenIdentifier: v.string(),
+  householdId: v.optional(v.id('households')),
 }
 
 export const peopleFields = {

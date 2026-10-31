@@ -1,6 +1,7 @@
+import { usePersonSelection } from '@/features/households/use-person-selection'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import type { FunctionArgs } from 'convex/server'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Pencil, Plus, Trash2, X } from 'lucide-react'
@@ -146,13 +147,17 @@ function MealDashboardPageContent({ userId }: { userId: string | null }) {
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false)
   const [showArchivedMeals, setShowArchivedMeals] = useState(false)
 
-  const [selectedPersonId, setSelectedPersonId] = useState<Id<'people'> | ''>(
+  const [selectedPersonId, setSelectedPersonId] = usePersonSelection(
+    userId,
     () => {
       if (restoredDraft) return restoredDraft.selectedPersonId
       const id = new URLSearchParams(window.location.search).get('personId')
-      return id && /^[a-z0-9]{20,64}$/i.test(id) ? (id as Id<'people'>) : ''
+      return id && /^[a-z0-9]{20,64}$/i.test(id)
+        ? (id as Id<'people'>)
+        : undefined
     },
   )
+
   const [mealDate, setMealDate] = useState(() => {
     if (restoredDraft) return restoredDraft.mealDate
     const value = new URLSearchParams(window.location.search).get('date')
@@ -264,7 +269,7 @@ function MealDashboardPageContent({ userId }: { userId: string | null }) {
     }
     defaultPersonAppliedRef.current = true
     setSelectedPersonId(firstPerson._id)
-  }, [people, selectedPersonId])
+  }, [people, selectedPersonId, setSelectedPersonId])
 
   useEffect(() => {
     if (selectedCookSessionId) {
@@ -1071,6 +1076,17 @@ function MealDashboardPageContent({ userId }: { userId: string | null }) {
                         placeholder="Select person"
                         ariaLabel="Select person"
                       />
+                      {selectedPersonId &&
+                      !effectiveSelectedPersonId &&
+                      !isLoading ? (
+                        <p
+                          role="status"
+                          className="text-sm text-muted-foreground"
+                        >
+                          The selected person is unavailable. Choose an active
+                          person to log a meal.
+                        </p>
+                      ) : null}
                       {paging.people.canLoadMore ||
                       paging.people.isLoadingMore ? (
                         <Button

@@ -143,3 +143,24 @@ connections when appropriate, and leave historical snapshots intact.
 
 Official references: [ChatGPT MCP connections](https://developers.openai.com/api/docs/guides/custom-mcp-server),
 [Convex MCP component](https://www.convex.dev/components/mcp).
+
+## Household access
+
+An MCP connection belongs to an account and can access its current household
+memberships, within its granted scopes. This includes households the account
+joins later; the consent page explains that access. Each tool call checks live
+membership, including idempotent retries, so removing a household member
+immediately removes the connection's access to that household. Existing
+connections initialize and migrate their original household on their first tool
+call, including discovery and reads, without needing a browser visit. This
+transactional bootstrap never restores a removed membership.
+
+Use `list_households` to discover choices, ask which household the user means,
+and pass `householdId` to nutrition tools. Omitting it uses the account's original
+personal household; browser selection never changes an MCP connection's target.
+Receipts saved before households existed remain replayable in the account's
+original household. A matching retry attaches the household to the receipt and
+returns its original result, without repeating the nutrition write. Replays in
+another household and changed inputs are rejected.
+People are shared household records, not authenticated accounts. New operation
+links include the household so another device opens the right context.

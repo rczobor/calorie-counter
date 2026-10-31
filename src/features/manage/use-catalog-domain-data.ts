@@ -1,4 +1,4 @@
-import { usePaginatedQuery, useQuery } from 'convex/react'
+import { usePaginatedQuery, useQuery } from '@/features/households/convex-hooks'
 import type { FunctionReturnType } from 'convex/server'
 import { useMemo } from 'react'
 

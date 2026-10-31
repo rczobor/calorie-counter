@@ -112,7 +112,10 @@ function createInitialState(): MockState {
 
   return {
     dashboard: {
-      people: [person],
+      people: [
+        person,
+        { ...person, _id: 'e2e-person-viki' as Id<'people'>, name: 'Viki' },
+      ],
       ingredients: [],
       cookSessions: [],
       cookedFoods: [],
@@ -378,6 +381,17 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
 
   const functionName = getFunctionName(query)
+  if (functionName === 'households:list')
+    return [
+      { _id: 'e2e-household', name: 'My household', role: 'admin' },
+      { _id: 'e2e-shared-household', name: 'Shared household', role: 'member' },
+    ] as FunctionReturnType<Query>
+  if (functionName === 'households:members')
+    return [
+      { _id: 'e2e-member', name: 'Alex', role: 'admin', isYou: true },
+    ] as FunctionReturnType<Query>
+  if (functionName === 'households:inspectInvitation')
+    return null as FunctionReturnType<Query>
   if (functionName === 'mcp:getConfiguration')
     return { enabled: false, url: null } as FunctionReturnType<Query>
   if (functionName === 'mcp:getAuthRequest')
@@ -445,6 +459,8 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
   const functionName = getFunctionName(mutation)
   return useCallback(
     async (args: FunctionArgs<Mutation>) => {
+      if (functionName === 'households:ensurePersonal')
+        return 'e2e-household' as FunctionReturnType<Mutation>
       if (functionName === 'nutrition:createMeal') {
         return createMeal(
           args as unknown as CreateMealArgs,

@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 
 import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
-import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
+import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
 import { MAX_CHILD_ROWS } from './lib/validation'
 import {
   nutritionUnitValidator,
@@ -72,7 +72,10 @@ const referencedIngredientDto = v.object({
 })
 
 export const getCurrent = query({
-  args: { recipeId: v.id('recipes') },
+  args: {
+    householdId: v.optional(v.id('households')),
+    recipeId: v.id('recipes'),
+  },
   returns: v.union(
     v.null(),
     v.object({
@@ -83,20 +86,18 @@ export const getCurrent = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const recipe = await ctx.db.get(args.recipeId)
-    if (recipe?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (recipe?.householdId !== owner.householdId) {
       return null
     }
     const version = await ctx.db
       .query('recipeVersions')
-      .withIndex(
-        'by_ownerTokenIdentifier_and_recipeId_and_versionNumber',
-        (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('recipeId', recipe._id)
-            .eq('versionNumber', recipe.latestVersionNumber),
+      .withIndex('by_householdId_and_recipeId_and_versionNumber', (q) =>
+        q
+          .eq('householdId', owner.householdId)
+          .eq('recipeId', recipe._id)
+          .eq('versionNumber', recipe.latestVersionNumber),
       )
       .unique()
     if (!version) {
@@ -104,9 +105,9 @@ export const getCurrent = query({
     }
     const ingredients = await ctx.db
       .query('recipeVersionIngredients')
-      .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+      .withIndex('by_householdId_and_recipeVersionId', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('recipeVersionId', version._id),
       )
       .take(MAX_CHILD_ROWS + 1)
@@ -125,7 +126,7 @@ export const getCurrent = query({
         ingredientIds.map((ingredientId) => ctx.db.get(ingredientId)),
       )
     ).flatMap((ingredient) =>
-      ingredient?.ownerTokenIdentifier === owner.ownerTokenIdentifier
+      ingredient?.householdId === owner.householdId
         ? [
             {
               _id: ingredient._id,

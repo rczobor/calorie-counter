@@ -89,6 +89,7 @@ import { Route as MealsRoute } from '@/routes/index'
 beforeEach(() => {
   vi.clearAllMocks()
   window.sessionStorage.clear()
+  window.localStorage.clear()
   mockDraftIdentity = { isLoaded: true, userId: 'meal-user' }
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-04-04T12:00:00'))
@@ -113,6 +114,43 @@ afterEach(() => {
 })
 
 describe('Meals route', () => {
+  it('restores the device person selection independently of drafts and account identity', () => {
+    const alex = createPersonDoc('person-alex', 'Alex')
+    const viki = createPersonDoc('person-viki', 'Viki')
+    mockMealDashboardData = createDashboardFixture({ people: [alex, viki] })
+    window.localStorage.setItem('calorie-counter:person:meal-user', viki._id)
+    configureMutationMocks()
+    const view = renderMealsRoute()
+    expect(screen.getByLabelText('Select person').textContent).toContain('Viki')
+    expect(
+      window.localStorage.getItem('calorie-counter:person:meal-user'),
+    ).toBe(viki._id)
+    view.unmount()
+    const restored = renderMealsRoute()
+    expect(screen.getByLabelText('Select person').textContent).toContain('Viki')
+    restored.unmount()
+    mockDraftIdentity = { isLoaded: true, userId: 'another-account' }
+    renderMealsRoute()
+    expect(screen.getByLabelText('Select person').textContent).toContain('Alex')
+  })
+
+  it('requires an explicit replacement for an unavailable saved person', () => {
+    window.localStorage.setItem(
+      'calorie-counter:person:meal-user',
+      'missing-person',
+    )
+    configureMutationMocks()
+    renderMealsRoute()
+    expect(screen.getByText(/selected person is unavailable/)).toBeTruthy()
+    expect(screen.getByLabelText('Select person').textContent).toContain(
+      'Select person',
+    )
+    expect(screen.getByRole('button', { name: 'Create meal' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
   it('recovers added items and unfinished input after a remount', () => {
     configureMutationMocks()
     const view = renderMealsRoute()

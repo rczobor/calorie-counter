@@ -2,9 +2,11 @@ import { v } from 'convex/values'
 
 import { internalMutation, type MutationCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
+import { ensurePersonalHousehold } from './households'
 import { normalizeRequiredDate } from './lib/validation'
 
 type SeedOwner = {
+  householdId: Id<'households'>
   ownerTokenIdentifier: string
 }
 
@@ -52,6 +54,7 @@ function toSearchDateString(timestamp: number) {
 
 function ownerFields(owner: SeedOwner) {
   return {
+    householdId: owner.householdId,
     ownerTokenIdentifier: owner.ownerTokenIdentifier,
   }
 }
@@ -97,6 +100,7 @@ async function resolveSeedOwner(
   }
 
   return {
+    householdId: await ensurePersonalHousehold(ctx, `${issuer}|${subject}`),
     ownerTokenIdentifier: `${issuer}|${subject}`,
   }
 }
@@ -159,9 +163,9 @@ export const defaults = internalMutation({
     async function ensurePerson(name: string, currentDailyGoalKcal: number) {
       const matches = await ctx.db
         .query('people')
-        .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('archived', false)
             .eq('name', name),
         )
@@ -203,14 +207,12 @@ export const defaults = internalMutation({
     ) {
       const existing = await ctx.db
         .query('foodGroups')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_archived_and_appliesTo_and_name',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('archived', false)
-              .eq('appliesTo', appliesTo)
-              .eq('name', name),
+        .withIndex('by_householdId_and_archived_and_appliesTo_and_name', (q) =>
+          q
+            .eq('householdId', owner.householdId)
+            .eq('archived', false)
+            .eq('appliesTo', appliesTo)
+            .eq('name', name),
         )
         .first()
       if (existing) {
@@ -237,9 +239,9 @@ export const defaults = internalMutation({
     }) {
       const matches = await ctx.db
         .query('ingredients')
-        .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('archived', false)
             .eq('name', input.name),
         )
@@ -316,9 +318,9 @@ export const defaults = internalMutation({
 
     const recipeMatches = await ctx.db
       .query('recipes')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('archived', false)
           .eq('name', 'Chicken rice bowl'),
       )
@@ -335,13 +337,11 @@ export const defaults = internalMutation({
       }
       const matchingVersions = await ctx.db
         .query('recipeVersions')
-        .withIndex(
-          'by_ownerTokenIdentifier_and_recipeId_and_versionNumber',
-          (q) =>
-            q
-              .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-              .eq('recipeId', recipe._id)
-              .eq('versionNumber', recipe.latestVersionNumber),
+        .withIndex('by_householdId_and_recipeId_and_versionNumber', (q) =>
+          q
+            .eq('householdId', owner.householdId)
+            .eq('recipeId', recipe._id)
+            .eq('versionNumber', recipe.latestVersionNumber),
         )
         .take(2)
       if (matchingVersions.length !== 1) {
@@ -350,9 +350,9 @@ export const defaults = internalMutation({
       const version = matchingVersions[0]!
       const versionLines = await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_recipeVersionId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('recipeVersionId', version._id),
         )
         .take(MAX_EXACT_SEED_MATCHES + 1)
@@ -461,9 +461,9 @@ export const defaults = internalMutation({
 
     const sessionMatches = await ctx.db
       .query('cookSessions')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_label', (q) =>
+      .withIndex('by_householdId_and_archived_and_label', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('archived', false)
           .eq('label', 'Sunday prep'),
       )
@@ -491,9 +491,9 @@ export const defaults = internalMutation({
 
     const cookedFoodMatches = await ctx.db
       .query('cookedFoods')
-      .withIndex('by_ownerTokenIdentifier_and_archived_and_name', (q) =>
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('archived', false)
           .eq('name', 'Chicken rice bowl portions'),
       )
@@ -522,10 +522,8 @@ export const defaults = internalMutation({
       }
       const cookedLines = await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_ownerTokenIdentifier_and_cookedFoodId', (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('cookedFoodId', food._id),
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
+          q.eq('householdId', owner.householdId).eq('cookedFoodId', food._id),
         )
         .take(MAX_EXACT_SEED_MATCHES + 1)
       assertExactSeedMatchesAreBounded('cooked food ingredients', cookedLines)
@@ -632,14 +630,12 @@ export const defaults = internalMutation({
 
     const mealMatches = await ctx.db
       .query('meals')
-      .withIndex(
-        'by_ownerTokenIdentifier_and_personId_and_eatenOn_and_name',
-        (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('personId', alexId)
-            .eq('eatenOn', today)
-            .eq('name', 'Preview breakfast'),
+      .withIndex('by_householdId_and_personId_and_eatenOn_and_name', (q) =>
+        q
+          .eq('householdId', owner.householdId)
+          .eq('personId', alexId)
+          .eq('eatenOn', today)
+          .eq('name', 'Preview breakfast'),
       )
       .take(MAX_EXACT_SEED_MATCHES + 1)
     assertExactSeedMatchesAreBounded('meals', mealMatches)
@@ -659,10 +655,8 @@ export const defaults = internalMutation({
       }
       const mealItems = await ctx.db
         .query('mealItems')
-        .withIndex('by_ownerTokenIdentifier_and_mealId', (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('mealId', meal._id),
+        .withIndex('by_householdId_and_mealId', (q) =>
+          q.eq('householdId', owner.householdId).eq('mealId', meal._id),
         )
         .take(MAX_EXACT_SEED_MATCHES + 1)
       assertExactSeedMatchesAreBounded('meal items', mealItems)
@@ -754,9 +748,9 @@ export const defaults = internalMutation({
     if (createdMealTotalCalories !== undefined) {
       const existingSummary = await ctx.db
         .query('dailySummaries')
-        .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
           q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+            .eq('householdId', owner.householdId)
             .eq('personId', alexId)
             .eq('eatenOn', today),
         )

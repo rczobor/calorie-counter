@@ -5,7 +5,7 @@ import {
 import { v } from 'convex/values'
 
 import { query } from './_generated/server'
-import { requireAuthenticatedUser, withoutOwner } from './lib/auth'
+import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
 import {
   assertHistoryRange,
   assertPageSize,
@@ -36,6 +36,7 @@ const goalDto = v.object({
 
 export const list = query({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     startDate: v.string(),
     endDate: v.string(),
@@ -43,20 +44,20 @@ export const list = query({
   },
   returns: paginationResultValidator(summaryDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
     const startDate = normalizeRequiredDate(args.startDate, 'Start date')
     const endDate = normalizeRequiredDate(args.endDate, 'End date')
     assertHistoryRange(startDate, endDate)
     const person = await ctx.db.get(args.personId)
-    if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (person?.householdId !== owner.householdId) {
       throw new Error('Person not found.')
     }
     const result = await ctx.db
       .query('dailySummaries')
-      .withIndex('by_ownerTokenIdentifier_and_personId_and_eatenOn', (q) =>
+      .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
         q
-          .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
+          .eq('householdId', owner.householdId)
           .eq('personId', args.personId)
           .gte('eatenOn', startDate)
           .lte('eatenOn', endDate),
@@ -69,30 +70,29 @@ export const list = query({
 
 export const goalsForRange = query({
   args: {
+    householdId: v.optional(v.id('households')),
     personId: v.id('people'),
     startDate: v.string(),
     endDate: v.string(),
   },
   returns: v.array(goalDto),
   handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedUser(ctx)
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const startDate = normalizeRequiredDate(args.startDate, 'Start date')
     const endDate = normalizeRequiredDate(args.endDate, 'End date')
     assertHistoryRange(startDate, endDate)
     const person = await ctx.db.get(args.personId)
-    if (person?.ownerTokenIdentifier !== owner.ownerTokenIdentifier) {
+    if (person?.householdId !== owner.householdId) {
       throw new Error('Person not found.')
     }
     const inRange = await ctx.db
       .query('personGoalHistory')
-      .withIndex(
-        'by_ownerTokenIdentifier_and_personId_and_effectiveDate',
-        (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('personId', args.personId)
-            .gte('effectiveDate', startDate)
-            .lte('effectiveDate', endDate),
+      .withIndex('by_householdId_and_personId_and_effectiveDate', (q) =>
+        q
+          .eq('householdId', owner.householdId)
+          .eq('personId', args.personId)
+          .gte('effectiveDate', startDate)
+          .lte('effectiveDate', endDate),
       )
       .order('desc')
       .take(MAX_RELATED_ROWS + 1)
@@ -102,13 +102,11 @@ export const goalsForRange = query({
 
     const precedingGoal = await ctx.db
       .query('personGoalHistory')
-      .withIndex(
-        'by_ownerTokenIdentifier_and_personId_and_effectiveDate',
-        (q) =>
-          q
-            .eq('ownerTokenIdentifier', owner.ownerTokenIdentifier)
-            .eq('personId', args.personId)
-            .lt('effectiveDate', startDate),
+      .withIndex('by_householdId_and_personId_and_effectiveDate', (q) =>
+        q
+          .eq('householdId', owner.householdId)
+          .eq('personId', args.personId)
+          .lt('effectiveDate', startDate),
       )
       .order('desc')
       .first()
