@@ -1,7 +1,7 @@
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 
 import { createDraftId } from '@/lib/id'
-import type { NutritionUnit } from '@/lib/nutrition'
+import type { NutritionUnit, NutritionProvenance } from '@/lib/nutrition'
 
 export { createDraftId } from '@/lib/id'
 
@@ -17,7 +17,7 @@ export type ExistingCookedFoodIngredientDraft = {
   referenceAmount: number
   referenceUnit: NutritionUnit
   countedAmount?: number
-  nutritionProvenance?: { source: string; assumptions: string }
+  nutritionProvenance?: NutritionProvenance
   notes?: string
 }
 
@@ -34,7 +34,7 @@ export type CustomCookedFoodIngredientDraft = {
   referenceUnit: NutritionUnit
   countedAmount?: number
   saveToCatalog: boolean
-  nutritionProvenance?: { source: string; assumptions: string }
+  nutritionProvenance?: NutritionProvenance
   notes?: string
 }
 
@@ -42,7 +42,7 @@ export type CookedFoodIngredientDraft =
   ExistingCookedFoodIngredientDraft | CustomCookedFoodIngredientDraft
 
 export type CookingDraft = {
-  nutritionProvenance?: { source: string; assumptions: string }
+  nutritionProvenance?: NutritionProvenance
   draftId: string
   sessionId: Id<'cookSessions'>
   persistedCookedFoodId?: Id<'cookedFoods'>

@@ -10,10 +10,17 @@ import {
   mealPreview,
   mealResult,
   cookingResult,
+  cookingPreview,
   cookingInput,
   mealDetails,
   mealCorrectionPreview,
   type mealCorrectionInput,
+  loggingContextResult,
+  loggingContext,
+  savedFoodResult,
+  searchResult,
+  foodDetails,
+  dayResult,
 } from './mcpValidators'
 import {
   createConvexTest,
@@ -121,6 +128,8 @@ async function makeReceiptLegacy(t: Test, connectionId: string, key: string) {
       .unique()
     if (!receipt?.householdId)
       throw new Error('Expected a scoped operation receipt.')
+    if ('foodId' in receipt.result)
+      throw new Error('Expected a meal or cooking receipt.')
     const path =
       'mealId' in receipt.result
         ? `/?personId=${receipt.result.personId}&date=${receipt.result.eatenOn}`
@@ -1310,5 +1319,505 @@ describe('MCP upgrade compatibility', () => {
         eatenOn: '2026-10-30',
       }),
     ).toMatchObject({ consumedCalories: 110, mealCount: 1 })
+  })
+})
+
+describe('MCP conversation regressions', () => {
+  it('remembers explicit context across connections, resolves local dates, and clears or invalidates defaults safely', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const householdId = await asTestUser(t).mutation(
+      api.households.ensurePersonal,
+      {},
+    )
+    const own = await credential(t)
+    const preferences = {
+      householdId,
+      personId,
+      timeZone: 'Europe/Budapest',
+      confirmationMode: 'explicitOnly' as const,
+    }
+    const changed = await output(
+      await call(t, own.token, 'set_logging_preferences', { preferences }),
+      v.object({ context: v.union(loggingContext, v.null()) }),
+    )
+    expect(changed.context).toMatchObject({
+      householdId,
+      defaultPersonId: personId,
+      confirmationMode: 'explicitOnly',
+    })
+    const second = await credential(t)
+    const context = await output(
+      await call(t, second.token, 'get_logging_context', {}),
+      loggingContextResult,
+    )
+    expect(context.context).toEqual(changed.context)
+    const user = {
+      userId: TEST_TOKEN_IDENTIFIER,
+      connectionId: second.id,
+      scopes,
+    }
+    expect(
+      (
+        await t.mutation(internal.mcpOperations.getLoggingContext, {
+          user,
+          now: Date.parse('2026-11-01T23:30:00Z'),
+        })
+      ).localDate,
+    ).toBe('2026-11-02')
+    const overridden = await output(
+      await call(t, second.token, 'get_logging_context', {
+        timeZone: 'America/New_York',
+      }),
+      loggingContextResult,
+    )
+    expect(overridden.context?.timeZone).toBe('America/New_York')
+    await expect(
+      t.mutation(internal.mcpContext.setLoggingPreferences, {
+        user,
+        preferences: { ...preferences, timeZone: 'not-a-timezone' },
+      }),
+    ).rejects.toThrow('IANA timezone')
+    await t.run((ctx) => ctx.db.patch(personId, { archived: true }))
+    const archived = await output(
+      await call(t, second.token, 'get_logging_context', {}),
+      loggingContextResult,
+    )
+    expect(archived.context).toMatchObject({
+      requiresPersonSelection: true,
+      confirmationMode: 'always',
+    })
+    expect(archived.context?.defaultPersonId).toBeUndefined()
+    await output(
+      await call(t, own.token, 'set_logging_preferences', {
+        preferences: null,
+      }),
+      v.object({ context: v.null() }),
+    )
+    expect(
+      await t.run((ctx) => ctx.db.query('mcpPreferences').take(2)),
+    ).toHaveLength(0)
+    const read = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
+    expect(
+      (await call(t, read.token, 'set_logging_preferences', { preferences }))
+        .status,
+    ).toBe(403)
+    expect((await call(t, read.token, 'save_food_from_meal', {})).status).toBe(
+      403,
+    )
+  })
+
+  it('never falls back after saved household membership is removed, while an explicit accessible household overrides it', async () => {
+    const t = setup()
+    const host = asTestUser(t)
+    const guest = asTestUserWithToken(t, 'guest|token')
+    const householdId = await host.mutation(api.households.ensurePersonal, {})
+    const guestHousehold = await guest.mutation(
+      api.households.ensurePersonal,
+      {},
+    )
+    await guest.mutation(api.households.acceptInvitation, {
+      token: await host.mutation(api.households.invite, { householdId }),
+    })
+    const personId = await host.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Alex',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-11-01',
+    })
+    const own = await credential(t, 'guest|token')
+    const user = { userId: 'guest|token', connectionId: own.id, scopes }
+    await t.mutation(internal.mcpContext.setLoggingPreferences, {
+      user,
+      preferences: {
+        householdId,
+        personId,
+        timeZone: 'Europe/Budapest',
+        confirmationMode: 'always',
+      },
+    })
+    const explicit = await output(
+      await call(t, own.token, 'get_logging_context', {
+        householdId: guestHousehold,
+      }),
+      loggingContextResult,
+    )
+    expect(explicit.context).toMatchObject({
+      householdId: guestHousehold,
+      requiresPersonSelection: true,
+    })
+    expect(explicit.context?.defaultPersonId).toBeUndefined()
+    await expect(
+      t.mutation(internal.mcpContext.setLoggingPreferences, {
+        user,
+        preferences: {
+          householdId: guestHousehold,
+          personId,
+          timeZone: 'Europe/Budapest',
+          confirmationMode: 'always',
+        },
+      }),
+    ).rejects.toThrow('Person not found')
+    const member = (
+      await host.query(api.households.members, { householdId })
+    ).find((row) => !row.isYou)!
+    await host.mutation(api.households.updateMember, {
+      householdId,
+      memberId: member._id,
+      role: 'remove',
+    })
+    await expect(
+      t.mutation(internal.mcpOperations.getLoggingContext, { user, now: 0 }),
+    ).rejects.toThrow('Saved household is unavailable')
+    expect(
+      (
+        await output(
+          await call(t, own.token, 'get_logging_context', {
+            householdId: guestHousehold,
+          }),
+          loggingContextResult,
+        )
+      ).context?.householdId,
+    ).toBe(guestHousehold)
+  })
+
+  it('updates a pending lunch, returns server totals, and corrects one meal with both days accounted for', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const otherPersonId = await insertPerson(t, { name: 'Another person' })
+    const own = await credential(t)
+    const input = {
+      personId,
+      eatenOn: '2026-11-01',
+      name: 'Lunch',
+      items: [
+        {
+          sourceType: 'customByWeight' as const,
+          name: 'Chili',
+          kcalPer100: 100,
+          ignoreCalories: false,
+          consumedWeightGrams: 300,
+        },
+      ],
+    }
+    const first = await output(
+      await call(t, own.token, 'preview_meal', { input }),
+      mealPreview,
+    )
+    expect(first.projectedDailySummary?.consumedCalories).toBe(300)
+    const latest = await output(
+      await call(t, own.token, 'preview_meal', {
+        input: {
+          ...input,
+          items: [
+            ...input.items,
+            {
+              sourceType: 'customByWeight',
+              name: 'Bread',
+              kcalPer100: 268,
+              ignoreCalories: false,
+              consumedWeightGrams: 96,
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    expect(latest.dailySummary?.mealCount).toBe(0)
+    expect(latest.projectedDailySummary).toMatchObject({
+      consumedCalories: 557.28,
+      remainingCalories: 1442.72,
+      mealCount: 1,
+    })
+    const saved = await output(
+      await call(t, own.token, 'log_meal', {
+        input: latest.input,
+        operationKey: 'lunch',
+      }),
+      mealResult,
+    )
+    expect(saved.dailySummary).toMatchObject({
+      consumedCalories: 557.28,
+      mealCount: 1,
+    })
+    const detail = await output(
+      await call(t, own.token, 'get_meal', { mealId: saved.mealId }),
+      mealDetails,
+    )
+    const correction = await output(
+      await call(t, own.token, 'preview_meal_correction', {
+        input: {
+          mealId: saved.mealId,
+          expectedEditRevision: detail.editRevision,
+          personId: otherPersonId,
+          eatenOn: '2026-11-02',
+          itemChanges: [
+            {
+              kind: 'portion',
+              itemId: detail.items[1].id,
+              consumedWeightGrams: 71,
+            },
+          ],
+        },
+      }),
+      mealCorrectionPreview,
+    )
+    expect(correction.after.totalCalories).toBeCloseTo(490.28)
+    expect(correction.dailySummaries?.[0].after).toMatchObject({
+      consumedCalories: 0,
+      mealCount: 0,
+    })
+    expect(correction.dailySummaries?.[1].after).toMatchObject({
+      personId: otherPersonId,
+      consumedCalories: 490.28,
+      mealCount: 1,
+    })
+    const updated = await output(
+      await call(t, own.token, 'correct_meal', {
+        input: correction.input,
+        operationKey: 'bread-correction',
+      }),
+      mealResult,
+    )
+    expect(updated.mealId).toBe(saved.mealId)
+    expect(updated.dailySummary?.consumedCalories).toBeCloseTo(490.28)
+    expect(updated.affectedDailySummaries).toHaveLength(2)
+  })
+
+  it('preserves a supplied label through save, discovery, and reuse without inventing an estimate', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const provenance = {
+      kind: 'provided' as const,
+      source: 'User-provided label',
+      assumptions:
+        '14 kcal per serving supplied by the user; not independently verified.',
+    }
+    const preview = await output(
+      await call(t, own.token, 'preview_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-01',
+          items: [
+            {
+              sourceType: 'fixedCalories',
+              name: 'Vitamins',
+              calories: 14,
+              nutritionProvenance: provenance,
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    const meal = await output(
+      await call(t, own.token, 'log_meal', {
+        input: preview.input,
+        operationKey: 'vitamins',
+      }),
+      mealResult,
+    )
+    const detail = await output(
+      await call(t, own.token, 'get_meal', { mealId: meal.mealId }),
+      mealDetails,
+    )
+    const saved = await output(
+      await call(t, own.token, 'save_food_from_meal', {
+        mealId: meal.mealId,
+        itemId: detail.items[0].id,
+        operationKey: 'remember-vitamins',
+      }),
+      savedFoodResult,
+    )
+    const found = await output(
+      await call(t, own.token, 'search_foods', {
+        kind: 'savedFood',
+        search: 'Vitamins',
+      }),
+      searchResult,
+    )
+    expect(found.foods).toHaveLength(1)
+    expect(found.foods[0]).toMatchObject({
+      id: saved.foodId,
+      nutrition: { kind: 'fixedCalories', calories: 14 },
+      nutritionProvenance: provenance,
+    })
+    const food = await output(
+      await call(t, own.token, 'get_food_details', {
+        kind: 'savedFood',
+        id: saved.foodId,
+      }),
+      foodDetails,
+    )
+    expect(food.nutritionProvenance).toEqual(provenance)
+    const reused = await output(
+      await call(t, own.token, 'preview_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-02',
+          items: [
+            {
+              sourceType: 'savedFood',
+              savedFoodId: saved.foodId,
+              portion: { servings: 1 },
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    expect(reused.totalCalories).toBe(14)
+    expect(reused.items[0].nutritionProvenance).toEqual(provenance)
+    const logged = await output(
+      await call(t, own.token, 'log_meal', {
+        input: reused.input,
+        operationKey: 'tomorrow-vitamins',
+      }),
+      mealResult,
+    )
+    expect(logged.dailySummary?.consumedCalories).toBe(14)
+  })
+
+  it('uses cooked pumpkin nutrition in cookies and rejects a source changed since preview', async () => {
+    const t = setup()
+    const own = await credential(t)
+    const pumpkin = await output(
+      await call(t, own.token, 'preview_cooking', {
+        input: {
+          session: { cookedAt: 1, cookedOn: '2026-11-01' },
+          outputs: [
+            {
+              name: 'Baked pumpkin',
+              finishedWeightGrams: 1200,
+              ingredients: [
+                {
+                  sourceType: 'custom',
+                  name: 'Raw pumpkin',
+                  kcalPer100: 45,
+                  kcalBasisUnit: 'g',
+                  ignoreCalories: false,
+                  referenceAmount: 2000,
+                  referenceUnit: 'g',
+                  countedAmount: 2000,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      cookingPreview,
+    )
+    const batch = await output(
+      await call(t, own.token, 'log_cooking', {
+        input: pumpkin.input,
+        operationKey: 'pumpkin',
+      }),
+      cookingResult,
+    )
+    expect(batch.foods[0].kcalPer100).toBe(75)
+    const preview = await output(
+      await call(t, own.token, 'preview_cooking', {
+        input: {
+          session: { cookedAt: 2, cookedOn: '2026-11-02' },
+          outputs: [
+            {
+              name: 'Pumpkin cookies',
+              finishedWeightGrams: 250,
+              ingredients: [
+                {
+                  sourceType: 'cookedFood',
+                  cookedFoodId: batch.foods[0].id,
+                  consumedWeightGrams: 300,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      cookingPreview,
+    )
+    expect(preview.outputs[0].totalCalories).toBe(225)
+    const cookies = await output(
+      await call(t, own.token, 'log_cooking', {
+        input: preview.input,
+        operationKey: 'cookies',
+      }),
+      cookingResult,
+    )
+    expect(cookies.foods[0].totalCalories).toBe(225)
+    await t.run((ctx) => ctx.db.patch(batch.foods[0].id, { editRevision: 1 }))
+    expect(
+      await (
+        await call(t, own.token, 'log_cooking', {
+          input: preview.input,
+          operationKey: 'cookies-changed-source',
+        })
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    expect(
+      await output(
+        await call(t, own.token, 'log_cooking', {
+          input: preview.input,
+          operationKey: 'cookies',
+        }),
+        cookingResult,
+      ),
+    ).toEqual(cookies)
+  })
+
+  it('recovers separate meal saves without duplicating an uncertain commit or presenting old totals as current', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const input = (name: string, calories: number) => ({
+      personId,
+      eatenOn: '2026-11-02',
+      name,
+      items: [{ sourceType: 'fixedCalories' as const, name, calories }],
+    })
+    const breakfast = await output(
+      await call(t, own.token, 'log_meal', {
+        input: input('Breakfast', 200),
+        operationKey: 'breakfast',
+      }),
+      mealResult,
+    )
+    expect(
+      await (
+        await call(t, own.token, 'log_meal', {
+          input: input('Lunch', -1),
+          operationKey: 'lunch',
+        })
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    await output(
+      await call(t, own.token, 'log_meal', {
+        input: input('Lunch', 400),
+        operationKey: 'lunch',
+      }),
+      mealResult,
+    )
+    await output(
+      await call(t, own.token, 'log_meal', {
+        input: input('Dinner', 600),
+        operationKey: 'dinner',
+      }),
+      mealResult,
+    )
+    const retry = await output(
+      await call(t, own.token, 'log_meal', {
+        input: input('Breakfast', 200),
+        operationKey: 'breakfast',
+      }),
+      mealResult,
+    )
+    expect(retry).toEqual(breakfast)
+    expect(retry.dailySummary?.consumedCalories).toBe(200)
+    const day = await output(
+      await call(t, own.token, 'get_day', { personId, eatenOn: '2026-11-02' }),
+      dayResult,
+    )
+    expect(day).toMatchObject({ mealCount: 3, consumedCalories: 1200 })
   })
 })

@@ -1,6 +1,12 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { cookingResult, mealResult } from './mcpValidators'
+import {
+  cookingResult,
+  mealResult,
+  savedFoodResult,
+  savedFoodNutrition,
+  loggingPreferences,
+} from './mcpValidators'
 
 import {
   cookedFoodIngredientRecordValidator,
@@ -16,9 +22,29 @@ import {
   recipesFields,
   recipeVersionIngredientRecordValidator,
   recipeVersionsFields,
+  nutritionProvenanceValidator,
 } from './validators'
 
 export default defineSchema({
+  mcpPreferences: defineTable({
+    tokenIdentifier: v.string(),
+    ...loggingPreferences.fields,
+  }).index('by_tokenIdentifier', ['tokenIdentifier']),
+  mcpSavedFoods: defineTable({
+    ownerTokenIdentifier: v.string(),
+    householdId: v.id('households'),
+    name: v.string(),
+    nutrition: savedFoodNutrition,
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
+    sourceMealId: v.id('meals'),
+    sourceItemId: v.id('mealItems'),
+    createdAt: v.number(),
+  })
+    .index('by_householdId_and_name', ['householdId', 'name'])
+    .searchIndex('search_name', {
+      searchField: 'name',
+      filterFields: ['householdId'],
+    }),
   households: defineTable({
     name: v.string(),
     personalOwnerTokenIdentifier: v.optional(v.string()),
@@ -54,10 +80,11 @@ export default defineSchema({
       v.literal('meal'),
       v.literal('cooking'),
       v.literal('mealCorrection'),
+      v.literal('savedFood'),
     ),
     key: v.string(),
     input: v.string(),
-    result: v.union(mealResult, cookingResult),
+    result: v.union(mealResult, cookingResult, savedFoodResult),
   }).index('by_ownerTokenIdentifier_and_connectionId_and_key', [
     'ownerTokenIdentifier',
     'connectionId',

@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 
 export const nutritionProvenanceValidator = v.object({
+  kind: v.optional(v.union(v.literal('estimate'), v.literal('provided'))),
   source: v.string(),
   assumptions: v.string(),
 })

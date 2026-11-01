@@ -299,6 +299,7 @@ export function normalizeNutritionProvenance(
 ) {
   if (!value) return undefined
   return {
+    ...(value.kind ? { kind: value.kind } : {}),
     source: normalizeRequiredText(
       value.source,
       'Estimate source',
@@ -319,8 +320,12 @@ export function summarizeEstimates(
     value.nutritionProvenance ? [value.nutritionProvenance] : [],
   )
   if (estimates.length === 0) return undefined
+  const allProvided = estimates.every((value) => value.kind === 'provided')
   return {
-    source: 'Estimated ingredients',
+    ...(allProvided ? { kind: 'provided' as const } : {}),
+    source: allProvided
+      ? 'Ingredient nutrition sources'
+      : 'Estimated ingredients',
     assumptions: estimates
       .map((estimate) => `${estimate.source}: ${estimate.assumptions}`)
       .join('; ')
@@ -1575,6 +1580,27 @@ export function sumMealItemCalories(snapshots: MealItemSnapshot[]) {
   )
 }
 
+export function calculateDailySummaryChange(
+  current: { consumedCalories: number; mealCount: number },
+  delta: { consumedCalories: number; mealCount: number },
+) {
+  const consumedCalories = assertFiniteDerived(
+    current.consumedCalories + delta.consumedCalories,
+    'Daily summary calories',
+  )
+  const mealCount = assertSafeDerivedInteger(
+    current.mealCount + delta.mealCount,
+    'Daily summary meal count',
+  )
+  if (mealCount < 0 || consumedCalories < -0.000_001) {
+    throw new Error('Daily summary would become inconsistent.')
+  }
+  return {
+    consumedCalories: mealCount === 0 ? 0 : Math.max(0, consumedCalories),
+    mealCount,
+  }
+}
+
 async function adjustDailySummary(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
@@ -1596,17 +1622,10 @@ async function adjustDailySummary(
         .eq('eatenOn', key.eatenOn),
     )
     .unique()
-  const consumedCalories = assertFiniteDerived(
-    (current?.consumedCalories ?? 0) + delta.consumedCalories,
-    'Daily summary calories',
+  const { consumedCalories, mealCount } = calculateDailySummaryChange(
+    current ?? { consumedCalories: 0, mealCount: 0 },
+    delta,
   )
-  const mealCount = assertSafeDerivedInteger(
-    (current?.mealCount ?? 0) + delta.mealCount,
-    'Daily summary meal count',
-  )
-  if (mealCount < 0 || consumedCalories < -0.000_001) {
-    throw new Error('Daily summary would become inconsistent.')
-  }
   if (mealCount === 0) {
     if (current) {
       await db.delete(current._id)

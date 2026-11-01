@@ -8,6 +8,11 @@ import {
 } from './_generated/server'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
 import {
+  describeContext,
+  readDailySummary,
+  projectDailySummary,
+} from './mcpContext'
+import {
   assertArrayLimit,
   normalizeOptionalText,
   normalizeRequiredDate,
@@ -162,17 +167,15 @@ export const getMeal = internalMutation({
   returns: mealDetails,
   handler: (ctx, args) =>
     domainResult(async () => {
-      const current = await loadMeal(
+      const owner = await requireMcpOwner(
         ctx,
-        await requireMcpOwner(
-          ctx,
-          args.user,
-          'nutrition:read',
-          args.householdId,
-        ),
-        args.mealId,
+        args.user,
+        'nutrition:read',
+        args.householdId,
       )
+      const current = await loadMeal(ctx, owner, args.mealId)
       return {
+        context: await describeContext(ctx, owner),
         mealId: current.meal._id,
         editRevision: getEditRevision(current.meal, 'Meal'),
         ...summary(current),
@@ -281,9 +284,44 @@ async function prepareCorrection(
   const snapshots = await buildMealItemSnapshots(ctx.db, owner, items, {
     existingItemsById: new Map(current.items.map((item) => [item._id, item])),
   })
+  const beforeDay = await readDailySummary(
+    ctx,
+    owner,
+    current.person._id,
+    current.meal.eatenOn,
+  )
+  const sameDay =
+    person._id === current.person._id && args.eatenOn === current.meal.eatenOn
+  const afterCalories = sumMealItemCalories(snapshots)
+  const dailySummaries = [
+    {
+      before: beforeDay,
+      after: projectDailySummary(
+        beforeDay,
+        sameDay
+          ? afterCalories - current.meal.totalCalories
+          : -current.meal.totalCalories,
+        sameDay ? 0 : -1,
+      ),
+    },
+  ]
+  if (!sameDay) {
+    const destination = await readDailySummary(
+      ctx,
+      owner,
+      person._id,
+      args.eatenOn,
+    )
+    dailySummaries.push({
+      before: destination,
+      after: projectDailySummary(destination, afterCalories, 1),
+    })
+  }
   return {
     args,
     preview: {
+      context: await describeContext(ctx, owner),
+      dailySummaries,
       input,
       before: summary(current),
       after: {
@@ -364,7 +402,20 @@ export const correctMeal = internalMutation({
       })
       await updateMealForOwner(ctx, owner, update)
       const path = `/?householdId=${owner.householdId}&personId=${update.personId}&date=${update.eatenOn}`
+      const affectedDailySummaries = await Promise.all(
+        (preview.dailySummaries ?? []).map(({ after }) =>
+          readDailySummary(ctx, owner, after.personId, after.eatenOn),
+        ),
+      )
       const result = {
+        context: await describeContext(ctx, owner),
+        dailySummary: await readDailySummary(
+          ctx,
+          owner,
+          update.personId,
+          update.eatenOn,
+        ),
+        affectedDailySummaries,
         mealId: update.mealId,
         personId: update.personId,
         eatenOn: update.eatenOn,

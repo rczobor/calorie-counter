@@ -60,15 +60,33 @@ creation or device-code flow is exposed in this release.
 
 ## What users can do
 
-- Find ingredients, recipes, and cooked batches by name and inspect composition.
+- Find ingredients, recipes, cooked batches, and explicitly saved reusable foods
+  by name and inspect nutrition and composition.
 - Read a person's meals, daily calorie total, and goal for an explicit date.
 - Preview and record a meal from catalog foods, cooked portions, custom nutrition,
   or fixed calories.
 - Preview and record a session with up to five outputs and 50 ingredients per
   output, then log portions using the returned cooked-food IDs.
+- Remember logging defaults with `set_logging_preferences`: household, person,
+  IANA timezone, and confirmation policy. Pass `preferences: null` to clear them.
+- Save a logged food for reuse with `save_food_from_meal`, using IDs from
+  `get_meal`. This copies historical nutrition into a household-scoped MCP saved
+  food; it does not edit the meal or add an ingredient to the app catalog. Fixed
+  foods use `portion: { servings: 1 }`; weighted foods use `{ grams: 100 }`.
+  Search with `kind: "savedFood"` and log with `sourceType: "savedFood"`. Cooked
+  foods are already reusable and should keep their original batch IDs.
+- Reuse a cooked batch as a cooking ingredient with `sourceType: "cookedFood"`,
+  its `cookedFoodId`, and `consumedWeightGrams`. Preview resolves the cooked
+  nutrition and preserves composition evidence in the new ingredient snapshot.
+  Saving requires the returned expected snapshot and edit revision. A source
+  composition over 50 lines or a resulting snapshot note over 2,000 characters
+  must be simplified in the app; it is rejected rather than silently truncated.
 - Save estimates with a stated source and assumptions. Labels persist in meal,
   cooked-food, and recipe-version snapshots; opening a meal or cooked food in the
-  app shows the estimate information.
+  app shows the estimate information. `nutritionProvenance.kind` defaults to
+  `estimate` for existing records; use `provided` for exact user/label values,
+  retaining their stated source and basis. The app labels these as “Nutrition
+  source”, not “Estimated”. Supplied sources are still unverified claims.
 - Correct an existing meal's portions, custom calorie estimates, name, person,
   or date after reviewing before/after values. Unmentioned items and private
   notes are preserved, and moved meals update both affected daily summaries.
@@ -82,7 +100,14 @@ the explicit local cooking date. Ingredient meals require grams. Cooking's
 `countedAmount` is in the ingredient's calorie basis unit; reference quantities
 alone do not establish a conversion from cans, bowls, or spoons.
 
-The assistant should show the preview and ask before saving. ChatGPT's own write
+The default `confirmationMode: "always"` shows a preview and asks before saving.
+A user may explicitly choose `explicitOnly` after its behavior is explained:
+fully specified, non-estimated new meals that the user asks to log can be
+previewed and saved in the same turn. Estimates, cooking, corrections, and
+transfers between households always require review and approval. Missing or
+archived person defaults revert to the conservative confirmation behavior.
+Clarify material ambiguity (for example single versus double toast slices) and
+prefer measured weights over photo estimates. ChatGPT's own write
 confirmation settings can be changed by the user; previews and model-provided
 booleans are not independent proof of human approval. Server-side scopes,
 ownership checks, numeric validation, and snapshot checks always apply.
@@ -105,7 +130,17 @@ archived sources require a new preview. Each intentional save needs a unique
 `operationKey`; retries reuse the same key and input. Replays return the first
 result, and changed inputs with the same key fail. The receipt and the nutrition
 write commit in one transaction, including all cooking outputs or the meal's
-daily-summary adjustment.
+daily-summary adjustment. Previews return current and projected server daily
+summaries; saves return the resulting summary. Correction previews and saves
+include both days when a meal moves. Summaries have a `capturedAt` timestamp: a
+replayed receipt returns the original point-in-time summary, not a fresh daily
+read. Old receipts without summary fields remain replayable. Use `get_day` for
+the current state.
+
+Several meals are separate operations. Keep each approved input and operation
+key, report any partial completion, and retry uncertain saves with their original
+keys before proceeding. Never claim that a partially completed set was rolled
+back or save successful entries again with new keys.
 
 Writes are limited per owner to 30 per minute with a burst capacity of 10. Meal
 requests allow 30 items; write/preview inputs are capped at 64,000 characters.
@@ -137,6 +172,41 @@ ChatGPT account and exercise:
 6. Decline a save, resolve a missing portion/finished weight, and check a relative
    date near midnight in the chosen timezone.
 
+The synthetic [conversation evaluation cases](chatgpt-mcp-evaluation.md) cover
+cooked-food reuse, persistent context, pending-meal changes, corrections, supplied
+nutrition versus estimates, and interrupted multi-meal saves. HTTP tests exercise
+the tool contracts; actual ChatGPT tool-selection checks remain a separate manual
+evaluation and must be recorded as run or not run.
+
+### Release and refresh existing ChatGPT connections
+
+1. Deploy the merged Convex schema/functions to the intended deployment through
+   the approved release process. Merge alone does not prove that the live MCP
+   backend has been updated. Version 1.2.0 adds tables and optional fields; it
+   does not require a data backfill or credential replacement. Deploy the
+   frontend too so supplied nutrition receives the updated source label.
+2. For each separately created personal ChatGPT connection, open **Plugins**,
+   select the existing Calorie Counter connection, and choose **Refresh**. Verify
+   that `set_logging_preferences` and `save_food_from_meal` are advertised.
+3. Start a new conversation and enable the plugin. Set the desired defaults, for
+   example: “Remember Home, Alex, Europe/Budapest, and always ask before saving.”
+   The stored defaults then apply across conversations and connections for that
+   same Calorie Counter account. They are not inferred from browser selection.
+4. No OAuth disconnect/recreation is needed for a normal metadata refresh. These
+   tools reuse existing scopes: `meals:write` also covers reusable-food saves and
+   logging preferences. A read-only grant remains read-only. If a connection
+   lacks a needed scope, authorize the additional permissions; metadata refresh
+   cannot grant scopes. Different accounts set their own defaults.
+
+A new conversation alone is insufficient for changed tool schemas, descriptions,
+or server instructions. OpenAI explicitly documents server deployment followed by
+connection refresh and a new conversation in its
+[refresh procedure](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata),
+with the metadata fetched by Refresh described in the
+[custom MCP guide](https://developers.openai.com/api/docs/guides/custom-mcp-server#how-to-use).
+Those sources do not establish universal refresh propagation for every shared
+workspace connection; verify the new tools in the connection each person uses.
+
 Production activation is a separate release action. Preserve existing data when
 rolling back: disable the MCP routes by unsetting the consent URL, revoke
 connections when appropriate, and leave historical snapshots intact.
@@ -156,8 +226,15 @@ call, including discovery and reads, without needing a browser visit. This
 transactional bootstrap never restores a removed membership.
 
 Use `list_households` to discover choices, ask which household the user means,
-and pass `householdId` to nutrition tools. Omitting it uses the account's original
-personal household; browser selection never changes an MCP connection's target.
+and pass `householdId` to nutrition tools. Omitting it uses explicitly saved MCP preferences, or the account's original
+personal household when no preferences exist; browser selection never changes
+an MCP connection's target. Read, preview, and meal/cooking save responses include resolved context.
+An explicit household overrides saved defaults without importing a person from
+another household. If membership in the remembered household is removed, calls
+refuse access and request a new selection; they never silently fall back.
+Use `get_logging_context` in a fresh conversation to retrieve defaults and the
+current local date. Ask only for missing or ambiguous choices. Preferences can
+be reset with `set_logging_preferences` even after the old membership is gone.
 Receipts saved before households existed remain replayable in the account's
 original household. A matching retry attaches the household to the receipt and
 returns its original result, without repeating the nutrition write. Replays in
