@@ -28,12 +28,19 @@ function readSelection(key: string) {
   }
 }
 
-export function HouseholdProvider({ children }: { children: React.ReactNode }) {
+export function HouseholdProvider({
+  children,
+  accountPage = false,
+}: {
+  children: React.ReactNode
+  accountPage?: boolean
+}) {
   const identity = useDraftPersistenceIdentity()
   return (
     <HouseholdSession
       key={identity.userId ?? 'loading'}
       userId={identity.userId}
+      accountPage={accountPage}
     >
       {children}
     </HouseholdSession>
@@ -43,9 +50,11 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 function HouseholdSession({
   children,
   userId,
+  accountPage,
 }: {
   children: React.ReactNode
   userId: string | null
+  accountPage: boolean
 }) {
   const storageKey = `calorie-counter:household:${userId}`
   const [selected, setSelected] = useState(() => {
@@ -113,6 +122,7 @@ function HouseholdSession({
         Preparing your household…
       </p>
     )
+  if (!household && accountPage) return <>{children}</>
   if (!household)
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6">

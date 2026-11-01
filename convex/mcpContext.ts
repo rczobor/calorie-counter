@@ -1,9 +1,14 @@
 import { vMcpUser, type McpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
-import { internalMutation, type MutationCtx } from './_generated/server'
+import {
+  internalMutation,
+  type MutationCtx,
+  type QueryCtx,
+} from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { ensurePersonalHousehold } from './households'
 import { calculateDailySummaryChange } from './nutrition'
+import { readDayNutrition } from './lib/dayNutrition'
 import {
   assertOwnedOrThrow,
   requireHouseholdForAccount,
@@ -27,7 +32,7 @@ function requireAccount(user: McpUser, scope = 'nutrition:read') {
     )
 }
 
-export function getPreferences(ctx: MutationCtx, userId: string) {
+export function getPreferences(ctx: Pick<QueryCtx, 'db'>, userId: string) {
   return ctx.db
     .query('mcpPreferences')
     .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', userId))
@@ -121,37 +126,44 @@ export const setLoggingPreferences = internalMutation({
   handler: async (ctx, { user, preferences }) => {
     requireAccount(user, 'meals:write')
     await ensurePersonalHousehold(ctx, user.userId)
-    const previous = await getPreferences(ctx, user.userId)
-    if (!preferences) {
-      if (previous) await ctx.db.delete(previous._id)
-      return { context: null }
-    }
-    const owner = await requireHouseholdForAccount(
+    const owner = await updateLoggingPreferencesForAccount(
       ctx,
       user.userId,
-      preferences.householdId,
+      preferences,
     )
-    const person = assertOwnedOrThrow(
-      await ctx.db.get(preferences.personId),
-      owner,
-      'Person not found.',
-    )
-    if (person.archived)
-      throw new ConvexError('Person is archived. Choose an active person.')
-    localCalendarDate(preferences.timeZone, Date.now())
-    if (previous)
-      await ctx.db.replace(previous._id, {
-        tokenIdentifier: user.userId,
-        ...preferences,
-      })
-    else
-      await ctx.db.insert('mcpPreferences', {
-        tokenIdentifier: user.userId,
-        ...preferences,
-      })
-    return { context: await describeContext(ctx, owner) }
+    return { context: owner ? await describeContext(ctx, owner) : null }
   },
 })
+
+export async function updateLoggingPreferencesForAccount(
+  ctx: MutationCtx,
+  tokenIdentifier: string,
+  preferences: Infer<typeof loggingPreferences> | null,
+) {
+  const previous = await getPreferences(ctx, tokenIdentifier)
+  if (!preferences) {
+    if (previous) await ctx.db.delete(previous._id)
+    return null
+  }
+  const owner = await requireHouseholdForAccount(
+    ctx,
+    tokenIdentifier,
+    preferences.householdId,
+  )
+  const person = assertOwnedOrThrow(
+    await ctx.db.get(preferences.personId),
+    owner,
+    'Person not found.',
+  )
+  if (person.archived)
+    throw new ConvexError('Person is archived. Choose an active person.')
+  localCalendarDate(preferences.timeZone, Date.now())
+  if (previous)
+    await ctx.db.replace(previous._id, { tokenIdentifier, ...preferences })
+  else
+    await ctx.db.insert('mcpPreferences', { tokenIdentifier, ...preferences })
+  return owner
+}
 
 export async function readDailySummary(
   ctx: MutationCtx,
@@ -159,40 +171,8 @@ export async function readDailySummary(
   personId: Id<'people'>,
   eatenOn: string,
 ): Promise<Infer<typeof dailySummary>> {
-  const person = assertOwnedOrThrow(
-    await ctx.db.get(personId),
-    owner,
-    'Person not found.',
-  )
-  const summary = await ctx.db
-    .query('dailySummaries')
-    .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
-      q
-        .eq('householdId', owner.householdId)
-        .eq('personId', personId)
-        .eq('eatenOn', eatenOn),
-    )
-    .unique()
-  const goal = await ctx.db
-    .query('personGoalHistory')
-    .withIndex('by_householdId_and_personId_and_effectiveDate', (q) =>
-      q
-        .eq('householdId', owner.householdId)
-        .eq('personId', personId)
-        .lte('effectiveDate', eatenOn),
-    )
-    .order('desc')
-    .first()
-  const consumedCalories = summary?.consumedCalories ?? 0
-  const goalKcal = goal?.goalKcal ?? person.currentDailyGoalKcal
   return {
-    personId,
-    person: person.name,
-    eatenOn,
-    consumedCalories,
-    goalKcal,
-    mealCount: summary?.mealCount ?? 0,
-    remainingCalories: goalKcal - consumedCalories,
+    ...(await readDayNutrition(ctx, owner, personId, eatenOn)),
     capturedAt: Date.now(),
   }
 }

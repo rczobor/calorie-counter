@@ -53,6 +53,8 @@ export async function resolveSavedMealItem(
     owner,
     'Saved food not found.',
   )
+  if (food.archived)
+    throw new ConvexError('Saved food is archived. Choose an active food.')
   const expectedSnapshot = {
     name: food.name,
     nutrition: food.nutrition,

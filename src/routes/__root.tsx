@@ -1,4 +1,9 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import {
+  HeadContent,
+  Scripts,
+  createRootRoute,
+  useRouterState,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Analytics } from '@vercel/analytics/react'
@@ -83,6 +88,12 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const accountPage = useRouterState({
+    select: (state) =>
+      ['/settings', '/settings/integrations', '/connect'].includes(
+        state.location.pathname,
+      ),
+  })
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -115,7 +126,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <div className="flex min-h-dvh flex-col">
                   <Header />
                   <AuthGate>
-                    <HouseholdProvider>{children}</HouseholdProvider>
+                    <HouseholdProvider accountPage={accountPage}>
+                      {children}
+                    </HouseholdProvider>
                   </AuthGate>
                 </div>
                 <Toaster richColors />

@@ -115,6 +115,22 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('device household selection', () => {
+  it('keeps account settings accessible without an available selected household', async () => {
+    households = []
+    render(
+      <DraftPersistenceIdentityProvider
+        value={{ isLoaded: true, userId: 'robi' }}
+      >
+        <HouseholdProvider accountPage>
+          <p>Account connection controls</p>
+        </HouseholdProvider>
+      </DraftPersistenceIdentityProvider>,
+    )
+    expect(await screen.findByText('Account connection controls')).toBeTruthy()
+    expect(
+      query.mock.calls.map(([reference]) => getFunctionName(reference)),
+    ).not.toContain('people:search')
+  })
   it('renders the application shell without browser globals during SSR', () => {
     vi.stubGlobal('window', undefined)
     try {

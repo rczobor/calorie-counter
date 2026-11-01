@@ -7,6 +7,7 @@ import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
 import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
+import { dayNutrition, readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
   MAX_CHILD_ROWS,
@@ -176,5 +177,23 @@ export const getDaySummary = query({
       )
       .unique()
     return summary ? withoutOwner(summary) : null
+  },
+})
+
+export const getDayNutrition = query({
+  args: {
+    householdId: v.optional(v.id('households')),
+    personId: v.id('people'),
+    eatenOn: v.string(),
+  },
+  returns: dayNutrition,
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    return readDayNutrition(
+      ctx,
+      owner,
+      args.personId,
+      normalizeRequiredDate(args.eatenOn, 'Meal date'),
+    )
   },
 })

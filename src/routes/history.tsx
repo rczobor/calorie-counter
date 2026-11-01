@@ -1,3 +1,4 @@
+import { useHousehold } from '@/features/households/household-context'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { createFileRoute } from '@tanstack/react-router'
@@ -25,12 +26,22 @@ import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select } from '@/components/ui/select'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import { toLocalDateString } from '@/lib/nutrition'
+import { toLocalDateString, toErrorMessage } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/history')({
   ssr: false,
   component: HistoryPage,
+  errorComponent: ({ error, reset }) => (
+    <PageShell title="History">
+      <p role="alert" className="mt-4 text-sm text-destructive">
+        History could not be loaded: {toErrorMessage(error)}
+      </p>
+      <Button className="mt-3" variant="outline" onClick={reset}>
+        Retry
+      </Button>
+    </PageShell>
+  ),
 })
 
 type DayRow = {
@@ -38,6 +49,7 @@ type DayRow = {
   consumed: number
   goal: number
   remaining: number
+  mealCount: number
 }
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
@@ -60,7 +72,10 @@ const columns: DataTableColumnDef<DayRow>[] = [
   {
     accessorKey: 'consumed',
     header: 'Consumed',
-    cell: ({ row }) => `${Math.round(row.original.consumed)} kcal`,
+    cell: ({ row }) =>
+      row.original.mealCount > 0
+        ? `${Math.round(row.original.consumed)} kcal`
+        : 'No meals logged',
   },
   {
     accessorKey: 'goal',
@@ -100,6 +115,8 @@ function HistoryPage() {
 
 function HistoryPageContent() {
   const { userId } = useDraftPersistenceIdentity()
+  const { householdId } = useHousehold()
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedPersonId, setSelectedPersonId] = usePersonSelection(userId)
   const [startDate, setStartDate] = useState(() =>
     toLocalDateString(addDays(new Date(), -6).getTime()),
@@ -179,6 +196,9 @@ function HistoryPageContent() {
   })
   const goals = useQuery(api.history.goalsForRange, historyArgs)
   const isHistoryComplete = historyStatus === 'Exhausted'
+  useEffect(() => {
+    if (historyStatus === 'CanLoadMore') loadMoreHistory(HISTORY_PAGE_SIZE)
+  }, [historyStatus, loadMoreHistory])
 
   const rows = useMemo(() => {
     if (
@@ -192,9 +212,11 @@ function HistoryPageContent() {
     }
 
     const caloriesByDate = new Map<string, number>()
+    const mealsByDate = new Map<string, number>()
 
     for (const summary of summaries) {
       caloriesByDate.set(summary.eatenOn, summary.consumedCalories)
+      mealsByDate.set(summary.eatenOn, summary.mealCount)
     }
 
     const result: DayRow[] = []
@@ -212,6 +234,7 @@ function HistoryPageContent() {
         consumed,
         goal,
         remaining: goal - consumed,
+        mealCount: mealsByDate.get(dateKey) ?? 0,
       })
       current = addDays(current, 1)
     }
@@ -230,9 +253,19 @@ function HistoryPageContent() {
   ])
 
   const avgConsumed = useMemo(() => {
-    if (rows.length === 0) return 0
-    return rows.reduce((sum, row) => sum + row.consumed, 0) / rows.length
+    const logged = rows.filter((row) => row.mealCount > 0)
+    if (logged.length === 0) return 0
+    return logged.reduce((sum, row) => sum + row.consumed, 0) / logged.length
   }, [rows])
+  const selectedDay = rows.find((row) => row.date === selectedDate) ?? rows[0]
+  const dayHref = (day: string) => {
+    const search = new URLSearchParams({
+      date: day,
+      personId: effectiveSelectedPersonId,
+    })
+    if (householdId) search.set('householdId', householdId)
+    return `/?${search}`
+  }
   const setPresetDays = (days: number) => {
     setEndDate(toLocalDateString(Date.now()))
     setStartDate(toLocalDateString(addDays(new Date(), -(days - 1)).getTime()))
@@ -292,24 +325,33 @@ function HistoryPageContent() {
               </Button>
             ) : null}
           </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              From
-            </p>
-            <DatePicker
-              value={startDate}
-              onChange={setStartDate}
-              ariaLabel="History start date"
-            />
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">To</p>
-            <DatePicker
-              value={endDate}
-              onChange={setEndDate}
-              ariaLabel="History end date"
-            />
-          </div>
+          <details>
+            <summary className="cursor-pointer rounded-md border px-3 py-2 text-sm">
+              Custom range
+            </summary>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  From
+                </p>
+                <DatePicker
+                  value={startDate}
+                  onChange={setStartDate}
+                  ariaLabel="History start date"
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  To
+                </p>
+                <DatePicker
+                  value={endDate}
+                  onChange={setEndDate}
+                  ariaLabel="History end date"
+                />
+              </div>
+            </div>
+          </details>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setPresetDays(7)}>
               7 days
@@ -334,62 +376,74 @@ function HistoryPageContent() {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  Current daily goal
+                  Average on days with meals logged
                 </span>
                 <span className="text-sm font-semibold">
-                  {selectedPerson
-                    ? `${selectedPerson.currentDailyGoalKcal.toFixed(0)} kcal`
+                  {rows.some((row) => row.mealCount > 0)
+                    ? `${Math.round(avgConsumed)} kcal`
                     : '--'}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  Avg. Consumed / Day
+                  Days with meals
                 </span>
                 <span className="text-sm font-semibold">
-                  {rows.length > 0 ? `${Math.round(avgConsumed)} kcal` : '--'}
+                  {rows.filter((row) => row.mealCount > 0).length}
                 </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Days</span>
-                <span className="text-sm font-semibold">{rows.length}</span>
               </div>
             </div>
 
             {isHistoryComplete ? (
               <>
-                <HistoryChart rows={rows} />
+                <HistoryChart
+                  rows={rows}
+                  selectedDate={selectedDay?.date}
+                  onSelect={setSelectedDate}
+                />
+                {selectedDay ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
+                    <div>
+                      <p className="font-medium">
+                        {format(parseISO(selectedDay.date), 'EEE, MMM d')}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {selectedDay.mealCount
+                          ? `${Math.round(selectedDay.consumed)} / ${Math.round(selectedDay.goal)} kcal · ${Math.round(Math.abs(selectedDay.remaining))} ${selectedDay.remaining < 0 ? 'over' : 'left'}`
+                          : 'No meals logged'}
+                      </p>
+                    </div>
+                    <a
+                      href={dayHref(selectedDay.date)}
+                      className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
+                    >
+                      View day →
+                    </a>
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  No-meal days are excluded from the average. Logged
+                  zero-calorie meals are included.
+                </p>
 
-                <div>
+                <details>
+                  <summary className="cursor-pointer py-2 text-sm underline underline-offset-4">
+                    Daily values
+                  </summary>
                   <DataTable
                     columns={columns}
                     data={rows}
                     emptyText="No data for the selected range."
                   />
-                </div>
+                </details>
               </>
             ) : null}
 
             {historyStatus === 'CanLoadMore' ||
             historyStatus === 'LoadingMore' ? (
-              <div
-                role="status"
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-3"
-              >
-                <p className="text-sm text-muted-foreground">
-                  More saved days exist in this range. Load every page before
-                  totals, averages, and zero-calorie days are shown.
-                </p>
-                <Button
-                  variant="outline"
-                  disabled={historyStatus === 'LoadingMore'}
-                  onClick={() => loadMoreHistory(HISTORY_PAGE_SIZE)}
-                >
-                  {historyStatus === 'LoadingMore'
-                    ? 'Loading history...'
-                    : 'Load more history'}
-                </Button>
-              </div>
+              <p role="status" className="text-sm text-muted-foreground">
+                Loading the complete date range…
+              </p>
             ) : null}
           </>
         )}
@@ -398,7 +452,15 @@ function HistoryPageContent() {
   )
 }
 
-function HistoryChart({ rows }: { rows: DayRow[] }) {
+function HistoryChart({
+  rows,
+  selectedDate,
+  onSelect,
+}: {
+  rows: DayRow[]
+  selectedDate?: string
+  onSelect: (date: string) => void
+}) {
   const chronologicalRows = [...rows].reverse()
   const maxValue = Math.max(
     1,
@@ -433,19 +495,26 @@ function HistoryChart({ rows }: { rows: DayRow[] }) {
           </span>
         </div>
       </div>
-      <div className="flex h-52 items-end gap-2 overflow-x-auto pb-2">
+      <div className="flex h-52 items-end gap-1 overflow-x-auto pb-2">
         {chronologicalRows.map((row) => {
           const consumedHeight = Math.max(2, (row.consumed / maxValue) * 100)
           const goalHeight = Math.max(2, (row.goal / maxValue) * 100)
           return (
-            <div
+            <button
+              type="button"
               key={row.date}
-              className="flex min-w-10 flex-1 flex-col items-center gap-2"
+              aria-label={`${row.date}: ${row.mealCount ? `${Math.round(row.consumed)} kcal, goal ${Math.round(row.goal)} kcal` : 'No meals logged'}`}
+              aria-pressed={selectedDate === row.date}
+              onClick={() => onSelect(row.date)}
+              className="flex min-w-8 flex-1 flex-col items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
               title={`${row.date}: ${Math.round(row.consumed)} / ${Math.round(row.goal)} kcal`}
             >
               <div className="flex h-40 w-full items-end justify-center gap-1 rounded-md bg-muted/35 px-1 py-2">
                 <div
-                  className="w-2 rounded-t bg-primary"
+                  className={cn(
+                    'w-2 rounded-t',
+                    row.mealCount > 0 ? 'bg-primary' : 'bg-muted-foreground/30',
+                  )}
                   style={{ height: `${consumedHeight}%` }}
                 />
                 <div
@@ -454,9 +523,9 @@ function HistoryChart({ rows }: { rows: DayRow[] }) {
                 />
               </div>
               <span className="text-[0.7rem] text-muted-foreground">
-                {format(parseISO(row.date), 'MMM d')}
+                {format(parseISO(row.date), rows.length <= 7 ? 'EEE' : 'd')}
               </span>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -478,7 +547,7 @@ function getEffectiveGoalKcal(
       effectiveGoal === undefined ||
       entry.effectiveDate > effectiveGoal.effectiveDate ||
       (entry.effectiveDate === effectiveGoal.effectiveDate &&
-        entry.createdAt > effectiveGoal.createdAt)
+        entry._creationTime > effectiveGoal._creationTime)
     ) {
       effectiveGoal = entry
     }
