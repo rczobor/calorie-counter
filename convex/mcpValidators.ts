@@ -10,7 +10,60 @@ const notes = {
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
 }
 const weighted = { consumedWeightGrams: v.number(), ...notes }
+export const savedFoodNutrition = v.union(
+  v.object({
+    kind: v.literal('byWeight'),
+    kcalPer100: v.number(),
+    ignoreCalories: v.boolean(),
+  }),
+  v.object({ kind: v.literal('fixedCalories'), calories: v.number() }),
+)
+export const savedFoodSnapshot = v.object({
+  name: v.string(),
+  nutrition: savedFoodNutrition,
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
+})
+export const savedFoodResult = v.object({
+  foodId: v.id('mcpSavedFoods'),
+  name: v.string(),
+  householdId: v.id('households'),
+})
+export const loggingPreferences = v.object({
+  householdId: v.id('households'),
+  personId: v.id('people'),
+  timeZone: v.string(),
+  confirmationMode: v.union(v.literal('always'), v.literal('explicitOnly')),
+})
+export const loggingContext = v.object({
+  householdId: v.id('households'),
+  household: v.string(),
+  defaultPersonId: v.optional(v.id('people')),
+  defaultPerson: v.optional(v.string()),
+  timeZone: v.optional(v.string()),
+  confirmationMode: v.union(v.literal('always'), v.literal('explicitOnly')),
+  requiresPersonSelection: v.boolean(),
+})
+export const dailySummary = v.object({
+  personId: v.id('people'),
+  person: v.string(),
+  eatenOn: v.string(),
+  consumedCalories: v.number(),
+  goalKcal: v.number(),
+  mealCount: v.number(),
+  remainingCalories: v.number(),
+  capturedAt: v.number(),
+})
 export const mcpMealItem = v.union(
+  v.object({
+    sourceType: v.literal('savedFood'),
+    savedFoodId: v.id('mcpSavedFoods'),
+    portion: v.union(
+      v.object({ grams: v.number() }),
+      v.object({ servings: v.number() }),
+    ),
+    expectedSnapshot: v.optional(savedFoodSnapshot),
+    ...notes,
+  }),
   v.object({
     sourceType: v.literal('ingredient'),
     ingredientId: v.id('ingredients'),
@@ -53,6 +106,14 @@ const cookingAmount = {
 }
 export const mcpCookingIngredient = v.union(
   v.object({
+    sourceType: v.literal('cookedFood'),
+    cookedFoodId: v.id('cookedFoods'),
+    consumedWeightGrams: v.number(),
+    expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
+    expectedEditRevision: v.optional(v.number()),
+    ...notes,
+  }),
+  v.object({
     sourceType: v.literal('ingredient'),
     ingredientId: v.id('ingredients'),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
@@ -91,6 +152,9 @@ export const cookingInput = v.object({
 
 export const mealPreview = v.object({
   input: mealInput,
+  context: v.optional(loggingContext),
+  dailySummary: v.optional(dailySummary),
+  projectedDailySummary: v.optional(dailySummary),
   totalCalories: v.number(),
   items: v.array(
     v.object({
@@ -102,6 +166,7 @@ export const mealPreview = v.object({
 })
 export const cookingPreview = v.object({
   input: cookingInput,
+  context: v.optional(loggingContext),
   outputs: v.array(
     v.object({
       name: v.string(),
@@ -113,6 +178,9 @@ export const cookingPreview = v.object({
   ),
 })
 export const mealResult = v.object({
+  context: v.optional(loggingContext),
+  dailySummary: v.optional(dailySummary),
+  affectedDailySummaries: v.optional(v.array(dailySummary)),
   url: v.optional(v.string()),
   mealId: v.id('meals'),
   personId: v.id('people'),
@@ -121,6 +189,7 @@ export const mealResult = v.object({
   path: v.string(),
 })
 export const cookingResult = v.object({
+  context: v.optional(loggingContext),
   url: v.optional(v.string()),
   sessionId: v.id('cookSessions'),
   foods: v.array(
@@ -193,11 +262,16 @@ const mealCorrectionSummary = {
   items: v.array(mealCorrectionItem),
 }
 export const mealDetails = v.object({
+  context: v.optional(loggingContext),
   mealId: v.id('meals'),
   editRevision: v.number(),
   ...mealCorrectionSummary,
 })
 export const mealCorrectionPreview = v.object({
+  context: v.optional(loggingContext),
+  dailySummaries: v.optional(
+    v.array(v.object({ before: dailySummary, after: dailySummary })),
+  ),
   input: mealCorrectionInput,
   before: v.object(mealCorrectionSummary),
   after: v.object(mealCorrectionSummary),
@@ -207,6 +281,7 @@ export const foodKind = v.union(
   v.literal('ingredient'),
   v.literal('cookedFood'),
   v.literal('recipe'),
+  v.literal('savedFood'),
 )
 export const foodCandidate = v.object({
   brand: v.optional(v.string()),
@@ -218,8 +293,11 @@ export const foodCandidate = v.object({
   cookedAt: v.optional(v.number()),
   sessionId: v.optional(v.id('cookSessions')),
   versionId: v.optional(v.id('recipeVersions')),
+  nutrition: v.optional(savedFoodNutrition),
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
 })
 export const foodDetails = v.object({
+  context: v.optional(loggingContext),
   food: foodCandidate,
   finishedWeightGrams: v.optional(v.number()),
   totalCalories: v.optional(v.number()),
@@ -240,17 +318,20 @@ export const foodDetails = v.object({
 })
 
 export const loggingContextResult = v.object({
+  context: v.optional(loggingContext),
   people: v.array(v.object({ id: v.id('people'), name: v.string() })),
   cursor: v.union(v.string(), v.null()),
   localDate: v.union(v.string(), v.null()),
 })
 
 export const searchResult = v.object({
+  context: v.optional(loggingContext),
   foods: v.array(foodCandidate),
   cursor: v.union(v.string(), v.null()),
 })
 
 export const dayResult = v.object({
+  context: v.optional(loggingContext),
   person: v.string(),
   eatenOn: v.string(),
   consumedCalories: v.number(),

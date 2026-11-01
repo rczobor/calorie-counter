@@ -3,6 +3,7 @@ import {
   NUTRITION_UNIT_OPTIONS,
   toTimestampFromDate,
   type NutritionUnit,
+  type NutritionProvenance,
 } from '@/lib/nutrition'
 
 type ExistingIngredientMealItemDraft = {
@@ -55,7 +56,7 @@ export type DraftMealItem = (
   | CustomIngredientMealItemDraft
   | CookedFoodMealItemDraft
   | FixedCaloriesMealItemDraft
-) & { nutritionProvenance?: { source: string; assumptions: string } }
+) & { nutritionProvenance?: NutritionProvenance }
 
 export type MealDraft = {
   selectedPersonId: Id<'people'> | ''
@@ -103,7 +104,10 @@ function isMealItem(value: unknown): value is DraftMealItem {
     (value.nutritionProvenance !== undefined &&
       (!isRecord(value.nutritionProvenance) ||
         typeof value.nutritionProvenance.source !== 'string' ||
-        typeof value.nutritionProvenance.assumptions !== 'string'))
+        typeof value.nutritionProvenance.assumptions !== 'string' ||
+        (value.nutritionProvenance.kind !== undefined &&
+          value.nutritionProvenance.kind !== 'estimate' &&
+          value.nutritionProvenance.kind !== 'provided')))
   ) {
     return false
   }

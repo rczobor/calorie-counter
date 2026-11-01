@@ -1,15 +1,19 @@
 import { vMcpUser, type McpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
 import { env, internalMutation, type MutationCtx } from './_generated/server'
-import type { Id } from './_generated/dataModel'
 import { ensurePersonalHousehold } from './households'
 import { components } from './_generated/api'
-import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
 import {
-  assertOwnedOrThrow,
-  requireHouseholdForAccount,
-  type AuthenticatedOwner,
-} from './lib/auth'
+  describeContext,
+  localCalendarDate,
+  projectDailySummary,
+  readDailySummary,
+  requireMcpOwner,
+} from './mcpContext'
+export { requireMcpOwner } from './mcpContext'
+import { resolveCookedIngredient, resolveSavedMealItem } from './mcpFoodReuse'
+import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
+import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
 import {
   assertArrayLimit,
   assertSafeTimestamp,
@@ -30,7 +34,7 @@ import {
   createCookedFoodForOwner,
   resolveRecipeLink,
   summarizeEstimates,
-  normalizeNutritionProvenance,
+  combineNutritionProvenance,
 } from './nutrition'
 import {
   loggingContextResult,
@@ -71,7 +75,7 @@ export async function findReceipt(
   ctx: MutationCtx,
   user: McpUser,
   owner: AuthenticatedOwner,
-  operation: 'meal' | 'cooking' | 'mealCorrection',
+  operation: 'meal' | 'cooking' | 'mealCorrection' | 'savedFood',
   operationKey: string,
   input: unknown,
 ) {
@@ -132,7 +136,8 @@ function requireSnapshots(
     items.some(
       (item) =>
         (item.sourceType === 'ingredient' ||
-          item.sourceType === 'cookedFood') &&
+          item.sourceType === 'cookedFood' ||
+          item.sourceType === 'savedFood') &&
         !item.expectedSnapshot,
     )
   )
@@ -158,8 +163,20 @@ async function prepareMeal(
   if (person.archived)
     throw new ConvexError('Person is archived. Choose an active person.')
   assertArrayLimit(input.items, 30, 'Meal items')
+  const savedItems = await Promise.all(
+    input.items.map(async (item) =>
+      item.sourceType === 'savedFood'
+        ? await resolveSavedMealItem(ctx, owner, item)
+        : null,
+    ),
+  )
   const resolvedItems = await Promise.all(
-    input.items.map(async (item) => {
+    input.items.map(async (item, index) => {
+      if (item.sourceType === 'savedFood') {
+        const saved = savedItems[index]
+        if (!saved) throw new ConvexError('Saved food not found.')
+        return saved.input
+      }
       if (item.sourceType === 'ingredient' && !item.expectedSnapshot) {
         const ingredient = assertOwnedOrThrow(
           await ctx.db.get(item.ingredientId),
@@ -224,14 +241,40 @@ async function prepareMeal(
       }
     return item
   })
+  const dailySummary = await readDailySummary(
+    ctx,
+    owner,
+    person._id,
+    normalized.eatenOn,
+  )
+  const totalCalories = sumMealItemCalories(snapshots)
   return {
-    input: { ...normalized, items },
-    totalCalories: sumMealItemCalories(snapshots),
-    items: snapshots.map((item) => ({
-      name: item.nameSnapshot,
-      calories: item.caloriesSnapshot,
-      nutritionProvenance: item.nutritionProvenance,
-    })),
+    writeInput: { ...normalized, items },
+    preview: {
+      input: {
+        ...normalized,
+        items: items.map((item, index) => {
+          const original = input.items[index]
+          const saved = savedItems[index]
+          return original.sourceType === 'savedFood' && saved
+            ? { ...original, expectedSnapshot: saved.expectedSnapshot }
+            : item
+        }),
+      },
+      context: await describeContext(ctx, owner),
+      dailySummary,
+      projectedDailySummary: projectDailySummary(
+        dailySummary,
+        totalCalories,
+        1,
+      ),
+      totalCalories,
+      items: snapshots.map((item) => ({
+        name: item.nameSnapshot,
+        calories: item.caloriesSnapshot,
+        nutritionProvenance: item.nutritionProvenance,
+      })),
+    },
   }
 }
 
@@ -243,17 +286,20 @@ export const previewMeal = internalMutation({
   },
   returns: mealPreview,
   handler: (ctx, args) =>
-    domainResult(async () =>
-      prepareMeal(
-        ctx,
-        await requireMcpOwner(
-          ctx,
-          args.user,
-          'nutrition:read',
-          args.householdId,
-        ),
-        args.input,
-      ),
+    domainResult(
+      async () =>
+        (
+          await prepareMeal(
+            ctx,
+            await requireMcpOwner(
+              ctx,
+              args.user,
+              'nutrition:read',
+              args.householdId,
+            ),
+            args.input,
+          )
+        ).preview,
     ),
 })
 
@@ -286,13 +332,20 @@ export const logMeal = internalMutation({
         throw new ConvexError('Operation result is unavailable.')
       }
       requireSnapshots(args.input.items)
-      const preview = await prepareMeal(ctx, owner, args.input)
+      const { preview, writeInput } = await prepareMeal(ctx, owner, args.input)
       await limiter.limit(ctx, 'writes', {
         key: owner.ownerTokenIdentifier,
         throws: true,
       })
-      const mealId = await createMealForOwner(ctx, owner, preview.input)
+      const mealId = await createMealForOwner(ctx, owner, writeInput)
       const result = {
+        context: await describeContext(ctx, owner),
+        dailySummary: await readDailySummary(
+          ctx,
+          owner,
+          preview.input.personId,
+          preview.input.eatenOn,
+        ),
         mealId,
         personId: preview.input.personId,
         eatenOn: preview.input.eatenOn,
@@ -353,11 +406,24 @@ async function prepareCooking(
   }
   const outputs = []
   const previews = []
+  const writeOutputs = []
   for (const output of input.outputs) {
     assertArrayLimit(output.ingredients, 50, 'Ingredients')
     await resolveRecipeLink(ctx.db, owner, undefined, output.recipeVersionId)
+    const cookedIngredients = await Promise.all(
+      output.ingredients.map(async (line) =>
+        line.sourceType === 'cookedFood'
+          ? await resolveCookedIngredient(ctx, owner, line)
+          : null,
+      ),
+    )
     const ingredients = await Promise.all(
-      output.ingredients.map(async (line) => {
+      output.ingredients.map(async (line, index) => {
+        if (line.sourceType === 'cookedFood') {
+          const cooked = cookedIngredients[index]
+          if (!cooked) throw new ConvexError('Cooked food not found.')
+          return cooked.input
+        }
         if (line.sourceType !== 'ingredient' || line.expectedSnapshot)
           return line
         const ingredient = assertOwnedOrThrow(
@@ -382,7 +448,7 @@ async function prepareCooking(
       ingredients,
       output.finishedWeightGrams,
     )
-    outputs.push({
+    const resolvedOutput = {
       ...output,
       name: normalizeRequiredText(
         output.name,
@@ -394,7 +460,7 @@ async function prepareCooking(
         'Cooked food notes',
         MAX_NOTES_LENGTH,
       ),
-      ingredients: output.ingredients.map((line, index) => {
+      ingredients: ingredients.map((line, index) => {
         const snapshot = nutrition.ingredientSnapshots[index]
         return line.sourceType === 'ingredient'
           ? {
@@ -408,18 +474,41 @@ async function prepareCooking(
             }
           : line
       }),
+    }
+    writeOutputs.push(resolvedOutput)
+    outputs.push({
+      ...resolvedOutput,
+      ingredients: resolvedOutput.ingredients.map((line, index) => {
+        const original = output.ingredients[index]
+        const cooked = cookedIngredients[index]
+        return original.sourceType === 'cookedFood' && cooked
+          ? {
+              ...original,
+              expectedSnapshot: cooked.expectedSnapshot,
+              expectedEditRevision: cooked.expectedEditRevision,
+            }
+          : line
+      }),
     })
     previews.push({
       name: output.name.trim(),
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
       finishedWeightGrams: output.finishedWeightGrams,
-      nutritionProvenance:
-        normalizeNutritionProvenance(output.nutritionProvenance) ??
+      nutritionProvenance: combineNutritionProvenance(
         summarizeEstimates(nutrition.ingredientSnapshots),
+        output.nutritionProvenance,
+      ),
     })
   }
-  return { input: { session, outputs }, outputs: previews }
+  return {
+    writeInput: { session, outputs: writeOutputs },
+    preview: {
+      context: await describeContext(ctx, owner),
+      input: { session, outputs },
+      outputs: previews,
+    },
+  }
 }
 
 export const previewCooking = internalMutation({
@@ -430,17 +519,20 @@ export const previewCooking = internalMutation({
   },
   returns: cookingPreview,
   handler: (ctx, args) =>
-    domainResult(async () =>
-      prepareCooking(
-        ctx,
-        await requireMcpOwner(
-          ctx,
-          args.user,
-          'nutrition:read',
-          args.householdId,
-        ),
-        args.input,
-      ),
+    domainResult(
+      async () =>
+        (
+          await prepareCooking(
+            ctx,
+            await requireMcpOwner(
+              ctx,
+              args.user,
+              'nutrition:read',
+              args.householdId,
+            ),
+            args.input,
+          )
+        ).preview,
     ),
 })
 
@@ -472,9 +564,24 @@ export const logCooking = internalMutation({
         if ('sessionId' in receipt.result) return receipt.result
         throw new ConvexError('Operation result is unavailable.')
       }
-      for (const output of args.input.outputs)
+      for (const output of args.input.outputs) {
         requireSnapshots(output.ingredients)
-      const preview = await prepareCooking(ctx, owner, args.input)
+        if (
+          output.ingredients.some(
+            (line) =>
+              line.sourceType === 'cookedFood' &&
+              line.expectedEditRevision === undefined,
+          )
+        )
+          throw new ConvexError(
+            'Preview first to obtain the cooked batch revision.',
+          )
+      }
+      const { preview, writeInput } = await prepareCooking(
+        ctx,
+        owner,
+        args.input,
+      )
       await limiter.limit(ctx, 'writes', {
         key: owner.ownerTokenIdentifier,
         throws: true,
@@ -484,7 +591,7 @@ export const logCooking = internalMutation({
           ? preview.input.session.sessionId
           : await createCookSessionForOwner(ctx, owner, preview.input.session)
       const foods = []
-      for (const [index, output] of preview.input.outputs.entries()) {
+      for (const [index, output] of writeInput.outputs.entries()) {
         const food = await createCookedFoodForOwner(ctx, owner, {
           ...output,
           cookSessionId: sessionId,
@@ -498,6 +605,7 @@ export const logCooking = internalMutation({
         })
       }
       const result = {
+        context: await describeContext(ctx, owner),
         sessionId,
         foods,
         path: `/cooking?householdId=${owner.householdId}&sessionId=${sessionId}`,
@@ -517,27 +625,6 @@ export const logCooking = internalMutation({
     }),
 })
 
-export async function requireMcpOwner(
-  ctx: MutationCtx,
-  user: McpUser,
-  scope: string,
-  householdId?: Id<'households'>,
-): Promise<AuthenticatedOwner> {
-  if (
-    !user.userId ||
-    !user.connectionId ||
-    !user.scopes.includes('nutrition:read') ||
-    !user.scopes.includes(scope)
-  ) {
-    throw new ConvexError(
-      'This connection does not have permission for this operation. Reconnect with the required permissions.',
-    )
-  }
-  // Even read tools can be the first request from a connection created before households.
-  await ensurePersonalHousehold(ctx, user.userId)
-  return requireHouseholdForAccount(ctx, user.userId, householdId)
-}
-
 export const searchFoods = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
@@ -556,11 +643,43 @@ export const searchFoods = internalMutation({
         'nutrition:read',
         args.householdId,
       )
+      const context = await describeContext(ctx, owner)
       const search = normalizeSearch(args.search)
       const pagination = {
         numItems: 20,
         cursor: args.cursor ?? null,
         maximumRowsRead: 100,
+      }
+      if (args.kind === 'savedFood') {
+        const rows = search
+          ? ctx.db
+              .query('mcpSavedFoods')
+              .withSearchIndex('search_name', (q) =>
+                q.search('name', search).eq('householdId', owner.householdId),
+              )
+          : ctx.db
+              .query('mcpSavedFoods')
+              .withIndex('by_householdId_and_name', (q) =>
+                q.eq('householdId', owner.householdId),
+              )
+        const page = await rows.paginate(pagination)
+        return {
+          context,
+          foods: page.page.map((food) => ({
+            kind: 'savedFood' as const,
+            id: food._id,
+            name: food.name,
+            nutrition: food.nutrition,
+            nutritionProvenance: food.nutritionProvenance,
+            ...(food.nutrition.kind === 'byWeight'
+              ? {
+                  kcalPer100: food.nutrition.kcalPer100,
+                  kcalBasisUnit: 'g' as const,
+                }
+              : {}),
+          })),
+          cursor: page.isDone ? null : page.continueCursor,
+        }
       }
       if (args.kind === 'ingredient') {
         const rows = search
@@ -579,6 +698,7 @@ export const searchFoods = internalMutation({
               )
         const page = await rows.paginate(pagination)
         return {
+          context,
           foods: page.page.map((food) => ({
             kind: 'ingredient' as const,
             brand: food.brand,
@@ -607,6 +727,7 @@ export const searchFoods = internalMutation({
               )
         const page = await rows.paginate(pagination)
         return {
+          context,
           foods: page.page.map((food) => ({
             kind: 'recipe' as const,
             id: food._id,
@@ -666,7 +787,11 @@ export const searchFoods = internalMutation({
           }
         }),
       )
-      return { foods, cursor: page.isDone ? null : page.continueCursor }
+      return {
+        context,
+        foods,
+        cursor: page.isDone ? null : page.continueCursor,
+      }
     }),
 })
 
@@ -686,6 +811,27 @@ export const getFoodDetails = internalMutation({
         'nutrition:read',
         args.householdId,
       )
+      const context = await describeContext(ctx, owner)
+      if (args.kind === 'savedFood') {
+        const id = ctx.db.normalizeId('mcpSavedFoods', args.id)
+        const food = assertOwnedOrThrow(
+          id ? await ctx.db.get(id) : null,
+          owner,
+          'Saved food not found.',
+        )
+        return {
+          context,
+          food: {
+            kind: 'savedFood' as const,
+            id: food._id,
+            name: food.name,
+            nutrition: food.nutrition,
+            nutritionProvenance: food.nutritionProvenance,
+          },
+          nutritionProvenance: food.nutritionProvenance,
+          ingredients: [],
+        }
+      }
       if (args.kind === 'ingredient') {
         const id = ctx.db.normalizeId('ingredients', args.id)
         const food = assertOwnedOrThrow(
@@ -695,6 +841,7 @@ export const getFoodDetails = internalMutation({
         )
         if (food.archived) throw new ConvexError('Ingredient is archived.')
         return {
+          context,
           food: {
             kind: 'ingredient' as const,
             brand: food.brand,
@@ -734,6 +881,7 @@ export const getFoodDetails = internalMutation({
               'Ingredient not found.',
             )
         return {
+          context,
           food: {
             kind: 'cookedFood' as const,
             id: food._id,
@@ -793,6 +941,7 @@ export const getFoodDetails = internalMutation({
             'Ingredient not found.',
           )
       return {
+        context,
         food: {
           kind: 'recipe' as const,
           id: recipe._id,
@@ -836,25 +985,7 @@ export const getDay = internalMutation({
         'Person not found.',
       )
       const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
-      const summary = await ctx.db
-        .query('dailySummaries')
-        .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
-          q
-            .eq('householdId', owner.householdId)
-            .eq('personId', person._id)
-            .eq('eatenOn', eatenOn),
-        )
-        .unique()
-      const goal = await ctx.db
-        .query('personGoalHistory')
-        .withIndex('by_householdId_and_personId_and_effectiveDate', (q) =>
-          q
-            .eq('householdId', owner.householdId)
-            .eq('personId', person._id)
-            .lte('effectiveDate', eatenOn),
-        )
-        .order('desc')
-        .first()
+      const summary = await readDailySummary(ctx, owner, person._id, eatenOn)
       const meals = await ctx.db
         .query('meals')
         .withIndex(
@@ -871,9 +1002,10 @@ export const getDay = internalMutation({
       return {
         person: person.name,
         eatenOn,
-        consumedCalories: summary?.consumedCalories ?? 0,
-        goalKcal: goal?.goalKcal ?? person.currentDailyGoalKcal,
-        mealCount: summary?.mealCount ?? 0,
+        context: await describeContext(ctx, owner),
+        consumedCalories: summary.consumedCalories,
+        goalKcal: summary.goalKcal,
+        mealCount: summary.mealCount,
         meals: meals.page.map((meal) => ({
           id: meal._id,
           name: meal.name,
@@ -901,21 +1033,9 @@ export const getLoggingContext = internalMutation({
       'nutrition:read',
       args.householdId,
     )
-    let localDate: string | null = null
-    if (args.timeZone) {
-      try {
-        localDate = new Intl.DateTimeFormat('en-CA', {
-          timeZone: args.timeZone,
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(args.now)
-      } catch {
-        throw new ConvexError(
-          'Supply a valid IANA timezone, such as Europe/Budapest.',
-        )
-      }
-    }
+    const context = await describeContext(ctx, owner)
+    const timeZone = args.timeZone ?? context.timeZone
+    const localDate = timeZone ? localCalendarDate(timeZone, args.now) : null
     const result = await ctx.db
       .query('people')
       .withIndex('by_householdId_and_archived_and_name', (q) =>
@@ -923,6 +1043,7 @@ export const getLoggingContext = internalMutation({
       )
       .paginate({ numItems: 50, cursor: args.cursor ?? null })
     return {
+      context: { ...context, timeZone },
       people: result.page.map((p) => ({ id: p._id, name: p.name })),
       cursor: result.isDone ? null : result.continueCursor,
       localDate,

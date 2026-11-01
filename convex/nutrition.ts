@@ -299,6 +299,7 @@ export function normalizeNutritionProvenance(
 ) {
   if (!value) return undefined
   return {
+    ...(value.kind ? { kind: value.kind } : {}),
     source: normalizeRequiredText(
       value.source,
       'Estimate source',
@@ -312,6 +313,47 @@ export function normalizeNutritionProvenance(
   }
 }
 
+export function combineNutritionProvenance(
+  source: NutritionProvenance | undefined,
+  supplied: NutritionProvenance | undefined,
+): NutritionProvenance | undefined {
+  const original = normalizeNutritionProvenance(source)
+  const addition = normalizeNutritionProvenance(supplied)
+  if (!original) return addition
+  if (
+    !addition ||
+    (original.source === addition.source &&
+      original.assumptions === addition.assumptions &&
+      original.kind === addition.kind)
+  )
+    return original
+  const kind =
+    original.kind === 'provided' && addition.kind === 'provided'
+      ? 'provided'
+      : 'estimate'
+  // UI edits send the saved aggregate back. Keep its existing components instead
+  // of nesting the same source/portion again on every save.
+  if (
+    addition.source === 'Food and portion provenance' &&
+    addition.assumptions.startsWith(
+      `${original.source}: ${original.assumptions}; `,
+    )
+  )
+    return { ...addition, kind }
+  if (
+    original.source === 'Food and portion provenance' &&
+    original.assumptions.endsWith(
+      `; ${addition.source}: ${addition.assumptions}`,
+    )
+  )
+    return { ...original, kind }
+  return normalizeNutritionProvenance({
+    kind,
+    source: 'Food and portion provenance',
+    assumptions: `${original.source}: ${original.assumptions}; ${addition.source}: ${addition.assumptions}`,
+  })
+}
+
 export function summarizeEstimates(
   values: Array<{ nutritionProvenance?: NutritionProvenance }>,
 ) {
@@ -319,8 +361,12 @@ export function summarizeEstimates(
     value.nutritionProvenance ? [value.nutritionProvenance] : [],
   )
   if (estimates.length === 0) return undefined
+  const allProvided = estimates.every((value) => value.kind === 'provided')
   return {
-    source: 'Estimated ingredients',
+    ...(allProvided ? { kind: 'provided' as const } : {}),
+    source: allProvided
+      ? 'Ingredient nutrition sources'
+      : 'Estimated ingredients',
     assumptions: estimates
       .map((estimate) => `${estimate.source}: ${estimate.assumptions}`)
       .join('; ')
@@ -1507,9 +1553,14 @@ export async function buildMealItemSnapshots(
     return {
       ...snapshot,
       nutritionProvenance:
-        normalizeNutritionProvenance(item.nutritionProvenance) ??
-        existing?.nutritionProvenance ??
-        snapshot.nutritionProvenance,
+        item.sourceType === 'cookedFood'
+          ? combineNutritionProvenance(
+              existing?.nutritionProvenance ?? snapshot.nutritionProvenance,
+              item.nutritionProvenance,
+            )
+          : (normalizeNutritionProvenance(item.nutritionProvenance) ??
+            existing?.nutritionProvenance ??
+            snapshot.nutritionProvenance),
     }
   })
 }
@@ -1575,6 +1626,27 @@ export function sumMealItemCalories(snapshots: MealItemSnapshot[]) {
   )
 }
 
+export function calculateDailySummaryChange(
+  current: { consumedCalories: number; mealCount: number },
+  delta: { consumedCalories: number; mealCount: number },
+) {
+  const consumedCalories = assertFiniteDerived(
+    current.consumedCalories + delta.consumedCalories,
+    'Daily summary calories',
+  )
+  const mealCount = assertSafeDerivedInteger(
+    current.mealCount + delta.mealCount,
+    'Daily summary meal count',
+  )
+  if (mealCount < 0 || consumedCalories < -0.000_001) {
+    throw new Error('Daily summary would become inconsistent.')
+  }
+  return {
+    consumedCalories: mealCount === 0 ? 0 : Math.max(0, consumedCalories),
+    mealCount,
+  }
+}
+
 async function adjustDailySummary(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
@@ -1596,17 +1668,10 @@ async function adjustDailySummary(
         .eq('eatenOn', key.eatenOn),
     )
     .unique()
-  const consumedCalories = assertFiniteDerived(
-    (current?.consumedCalories ?? 0) + delta.consumedCalories,
-    'Daily summary calories',
+  const { consumedCalories, mealCount } = calculateDailySummaryChange(
+    current ?? { consumedCalories: 0, mealCount: 0 },
+    delta,
   )
-  const mealCount = assertSafeDerivedInteger(
-    (current?.mealCount ?? 0) + delta.mealCount,
-    'Daily summary meal count',
-  )
-  if (mealCount < 0 || consumedCalories < -0.000_001) {
-    throw new Error('Daily summary would become inconsistent.')
-  }
   if (mealCount === 0) {
     if (current) {
       await db.delete(current._id)
@@ -2822,9 +2887,10 @@ export async function createCookedFoodForOwner(
     totalRawWeightGrams: nutrition.totalRawWeightGrams,
     totalCalories: nutrition.totalCalories,
     kcalPer100: nutrition.kcalPer100,
-    nutritionProvenance:
-      normalizeNutritionProvenance(args.nutritionProvenance) ??
+    nutritionProvenance: combineNutritionProvenance(
       summarizeEstimates(nutrition.ingredientSnapshots),
+      args.nutritionProvenance,
+    ),
     editRevision: 0,
     notes: normalizeOptionalText(
       args.notes,
@@ -2962,9 +3028,10 @@ export const updateCookedFood = mutation({
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
       nutritionProvenance:
-        normalizeNutritionProvenance(args.nutritionProvenance) ??
-        summarizeEstimates(nutrition.ingredientSnapshots) ??
-        cookedFood.nutritionProvenance,
+        combineNutritionProvenance(
+          summarizeEstimates(nutrition.ingredientSnapshots),
+          args.nutritionProvenance,
+        ) ?? cookedFood.nutritionProvenance,
       editRevision,
       notes: normalizeOptionalText(
         args.notes,

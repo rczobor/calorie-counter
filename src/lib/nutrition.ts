@@ -1,3 +1,9 @@
+import type { Doc } from '../../convex/_generated/dataModel'
+
+export type NutritionProvenance = NonNullable<
+  Doc<'mealItems'>['nutritionProvenance']
+>
+
 export type NutritionUnit =
   'pinch' | 'teaspoon' | 'tablespoon' | 'piece' | 'g' | 'ml'
 
