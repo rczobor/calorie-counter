@@ -1731,6 +1731,41 @@ describe('MCP conversation regressions', () => {
       }),
       cookingResult,
     )
+    const readBatch = () =>
+      asTestUser(t).query(api.cooking.getCookedFoodDetail, {
+        cookedFoodId: batch.foods[0].id,
+      })
+    const originalProvenance = (await readBatch())!.cookedFood
+      .nutritionProvenance
+    for (let edit = 0; edit < 20; edit++) {
+      const current = (await readBatch())!
+      await asTestUser(t).mutation(api.nutrition.updateCookedFood, {
+        cookedFoodId: current.cookedFood._id,
+        expectedEditRevision: current.cookedFood.editRevision,
+        expectedCookedFoodIngredientIds: current.ingredients.map(
+          (line) => line._id,
+        ),
+        cookSessionId: current.cookedFood.cookSessionId,
+        name: current.cookedFood.name,
+        finishedWeightGrams: current.cookedFood.finishedWeightGrams,
+        nutritionProvenance: current.cookedFood.nutritionProvenance,
+        ingredients: current.ingredients.map((line) => ({
+          sourceType: 'custom' as const,
+          existingCookedFoodIngredientId: line._id,
+          name: line.ingredientNameSnapshot,
+          referenceAmount: line.referenceAmount,
+          referenceUnit: line.referenceUnit,
+          countedAmount: line.countedAmount ?? undefined,
+          kcalPer100: line.ingredientKcalPer100Snapshot,
+          kcalBasisUnit: line.ingredientKcalBasisUnitSnapshot,
+          ignoreCalories: line.ignoreCaloriesSnapshot,
+          nutritionProvenance: line.nutritionProvenance,
+        })),
+      })
+      expect((await readBatch())!.cookedFood.nutritionProvenance).toEqual(
+        originalProvenance,
+      )
+    }
     const portion = await output(
       await call(t, own.token, 'preview_meal', {
         input: {

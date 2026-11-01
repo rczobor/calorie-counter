@@ -327,11 +327,28 @@ export function combineNutritionProvenance(
       original.kind === addition.kind)
   )
     return original
+  const kind =
+    original.kind === 'provided' && addition.kind === 'provided'
+      ? 'provided'
+      : 'estimate'
+  // UI edits send the saved aggregate back. Keep its existing components instead
+  // of nesting the same source/portion again on every save.
+  if (
+    addition.source === 'Food and portion provenance' &&
+    addition.assumptions.startsWith(
+      `${original.source}: ${original.assumptions}; `,
+    )
+  )
+    return { ...addition, kind }
+  if (
+    original.source === 'Food and portion provenance' &&
+    original.assumptions.endsWith(
+      `; ${addition.source}: ${addition.assumptions}`,
+    )
+  )
+    return { ...original, kind }
   return normalizeNutritionProvenance({
-    kind:
-      original.kind === 'provided' && addition.kind === 'provided'
-        ? 'provided'
-        : 'estimate',
+    kind,
     source: 'Food and portion provenance',
     assumptions: `${original.source}: ${original.assumptions}; ${addition.source}: ${addition.assumptions}`,
   })
