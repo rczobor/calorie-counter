@@ -1679,6 +1679,81 @@ describe('MCP conversation regressions', () => {
     expect(logged.dailySummary?.consumedCalories).toBe(14)
   })
 
+  it('keeps estimated batch nutrition marked estimated when a portion or output has supplied measurements', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const estimate = {
+      source: 'Recipe estimate',
+      assumptions: 'Rice pudding nutrition estimated at 130 kcal/100 g.',
+    }
+    const provided = {
+      kind: 'provided' as const,
+      source: 'Kitchen scale',
+      assumptions: 'Finished batch and portion weights were measured.',
+    }
+    const preview = await output(
+      await call(t, own.token, 'preview_cooking', {
+        input: {
+          session: { cookedAt: 1, cookedOn: '2026-11-01' },
+          outputs: [
+            {
+              name: 'Rice pudding',
+              finishedWeightGrams: 1000,
+              nutritionProvenance: provided,
+              ingredients: [
+                {
+                  sourceType: 'custom',
+                  name: 'Estimated rice pudding',
+                  kcalPer100: 130,
+                  kcalBasisUnit: 'g',
+                  ignoreCalories: false,
+                  referenceAmount: 1000,
+                  referenceUnit: 'g',
+                  countedAmount: 1000,
+                  nutritionProvenance: estimate,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      cookingPreview,
+    )
+    expect(preview.outputs[0].nutritionProvenance?.kind).toBe('estimate')
+    expect(preview.outputs[0].nutritionProvenance?.assumptions).toContain(
+      estimate.assumptions,
+    )
+    const batch = await output(
+      await call(t, own.token, 'log_cooking', {
+        input: preview.input,
+        operationKey: 'estimated-pudding',
+      }),
+      cookingResult,
+    )
+    const portion = await output(
+      await call(t, own.token, 'preview_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-01',
+          items: [
+            {
+              sourceType: 'cookedFood',
+              cookedFoodId: batch.foods[0].id,
+              consumedWeightGrams: 205,
+              nutritionProvenance: provided,
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    expect(portion.items[0].nutritionProvenance?.kind).toBe('estimate')
+    expect(portion.items[0].nutritionProvenance?.assumptions).toContain(
+      estimate.assumptions,
+    )
+  })
+
   it('uses cooked pumpkin nutrition in cookies and rejects a source changed since preview', async () => {
     const t = setup()
     const own = await credential(t)

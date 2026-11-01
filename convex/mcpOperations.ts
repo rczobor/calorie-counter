@@ -34,7 +34,7 @@ import {
   createCookedFoodForOwner,
   resolveRecipeLink,
   summarizeEstimates,
-  normalizeNutritionProvenance,
+  combineNutritionProvenance,
 } from './nutrition'
 import {
   loggingContextResult,
@@ -495,9 +495,10 @@ async function prepareCooking(
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
       finishedWeightGrams: output.finishedWeightGrams,
-      nutritionProvenance:
-        normalizeNutritionProvenance(output.nutritionProvenance) ??
+      nutritionProvenance: combineNutritionProvenance(
         summarizeEstimates(nutrition.ingredientSnapshots),
+        output.nutritionProvenance,
+      ),
     })
   }
   return {

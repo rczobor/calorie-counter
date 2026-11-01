@@ -64,7 +64,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     save_food_from_meal: tool({
       description:
-        'Save a reusable food only when the user explicitly asks to remember a logged food. Use mealId and itemId from get_meal; optionally give it a reusable name. Copies historical kcal/100 g or fixed calories per serving and preserves estimate provenance, without changing the meal or existing catalog entries. Cooked foods are already reusable: use the original batch instead. Retry the exact mealId, itemId, name and operationKey after an uncertain outcome. Search with kind savedFood, then log it using sourceType savedFood and portion grams or servings.',
+        'Save a reusable food only when the user explicitly asks to remember a logged food. Use mealId and itemId from get_meal; optionally give it a reusable name. Copies historical kcal/100 g or the entire fixed-calorie item total and preserves estimate provenance. For fixed foods one saved serving equals the entire originally logged item, even if it represented multiple package servings; clarify the intended reusable portion before saving or logging, without changing the meal or existing catalog entries. Cooked foods are already reusable: use the original batch instead. Retry the exact mealId, itemId, name and operationKey after an uncertain outcome. Search with kind savedFood, then log it using sourceType savedFood and portion grams or servings.',
       args: {
         householdId: v.optional(v.id('households')),
         mealId: v.id('meals'),
@@ -134,7 +134,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     get_food_details: tool({
       description:
-        'Read nutrition and historical composition for a food ID from search_foods. Recipe details return the current immutable version ID and ingredient reference quantities; ask for counted amounts and finished batch weight before cooking. Nutrition provenance indicates estimates, not verified sources.',
+        'Read nutrition and historical composition for a food ID from search_foods. Recipe details return the current immutable version ID and ingredient reference quantities; ask for counted amounts and finished batch weight before cooking. Nutrition provenance kind provided means user/label-supplied values; absent kind or estimate means estimated. Sources are unverified claims.',
       args: {
         householdId: v.optional(v.id('households')),
         kind: foodKind,

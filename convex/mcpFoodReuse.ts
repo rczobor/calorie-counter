@@ -25,9 +25,8 @@ import {
 import {
   assertExpectedEditRevision,
   getEditRevision,
-  normalizeNutritionProvenance,
+  combineNutritionProvenance,
 } from './nutrition'
-import { type nutritionProvenanceValidator } from './validators'
 
 type SavedMealItem = Extract<
   Infer<typeof mcpMealItem>,
@@ -37,25 +36,6 @@ type CookedIngredient = Extract<
   Infer<typeof mcpCookingIngredient>,
   { sourceType: 'cookedFood' }
 >
-type Provenance = Infer<typeof nutritionProvenanceValidator>
-
-function preserveProvenance(
-  source: Provenance | undefined,
-  portion: Provenance | undefined,
-): Provenance | undefined {
-  const original = normalizeNutritionProvenance(source)
-  const supplied = normalizeNutritionProvenance(portion)
-  if (!original) return supplied
-  if (!supplied || canonical(original) === canonical(supplied)) return original
-  return normalizeNutritionProvenance({
-    kind:
-      original.kind === 'provided' && supplied.kind === 'provided'
-        ? 'provided'
-        : 'estimate',
-    source: 'Food and portion provenance',
-    assumptions: `${original.source}: ${original.assumptions}; ${supplied.source}: ${supplied.assumptions}`,
-  })
-}
 
 export async function resolveSavedMealItem(
   ctx: Pick<MutationCtx, 'db'>,
@@ -88,7 +68,7 @@ export async function resolveSavedMealItem(
   const common = {
     name: food.name,
     notes: item.notes,
-    nutritionProvenance: preserveProvenance(
+    nutritionProvenance: combineNutritionProvenance(
       food.nutritionProvenance,
       item.nutritionProvenance,
     ),
@@ -205,7 +185,7 @@ export async function resolveCookedIngredient(
       referenceUnit: 'g',
       countedAmount: item.consumedWeightGrams,
       notes,
-      nutritionProvenance: preserveProvenance(
+      nutritionProvenance: combineNutritionProvenance(
         food.nutritionProvenance,
         item.nutritionProvenance,
       ),

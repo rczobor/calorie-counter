@@ -313,6 +313,30 @@ export function normalizeNutritionProvenance(
   }
 }
 
+export function combineNutritionProvenance(
+  source: NutritionProvenance | undefined,
+  supplied: NutritionProvenance | undefined,
+): NutritionProvenance | undefined {
+  const original = normalizeNutritionProvenance(source)
+  const addition = normalizeNutritionProvenance(supplied)
+  if (!original) return addition
+  if (
+    !addition ||
+    (original.source === addition.source &&
+      original.assumptions === addition.assumptions &&
+      original.kind === addition.kind)
+  )
+    return original
+  return normalizeNutritionProvenance({
+    kind:
+      original.kind === 'provided' && addition.kind === 'provided'
+        ? 'provided'
+        : 'estimate',
+    source: 'Food and portion provenance',
+    assumptions: `${original.source}: ${original.assumptions}; ${addition.source}: ${addition.assumptions}`,
+  })
+}
+
 export function summarizeEstimates(
   values: Array<{ nutritionProvenance?: NutritionProvenance }>,
 ) {
@@ -1512,9 +1536,14 @@ export async function buildMealItemSnapshots(
     return {
       ...snapshot,
       nutritionProvenance:
-        normalizeNutritionProvenance(item.nutritionProvenance) ??
-        existing?.nutritionProvenance ??
-        snapshot.nutritionProvenance,
+        item.sourceType === 'cookedFood'
+          ? combineNutritionProvenance(
+              existing?.nutritionProvenance ?? snapshot.nutritionProvenance,
+              item.nutritionProvenance,
+            )
+          : (normalizeNutritionProvenance(item.nutritionProvenance) ??
+            existing?.nutritionProvenance ??
+            snapshot.nutritionProvenance),
     }
   })
 }
@@ -2841,9 +2870,10 @@ export async function createCookedFoodForOwner(
     totalRawWeightGrams: nutrition.totalRawWeightGrams,
     totalCalories: nutrition.totalCalories,
     kcalPer100: nutrition.kcalPer100,
-    nutritionProvenance:
-      normalizeNutritionProvenance(args.nutritionProvenance) ??
+    nutritionProvenance: combineNutritionProvenance(
       summarizeEstimates(nutrition.ingredientSnapshots),
+      args.nutritionProvenance,
+    ),
     editRevision: 0,
     notes: normalizeOptionalText(
       args.notes,
@@ -2981,9 +3011,10 @@ export const updateCookedFood = mutation({
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
       nutritionProvenance:
-        normalizeNutritionProvenance(args.nutritionProvenance) ??
-        summarizeEstimates(nutrition.ingredientSnapshots) ??
-        cookedFood.nutritionProvenance,
+        combineNutritionProvenance(
+          summarizeEstimates(nutrition.ingredientSnapshots),
+          args.nutritionProvenance,
+        ) ?? cookedFood.nutritionProvenance,
       editRevision,
       notes: normalizeOptionalText(
         args.notes,

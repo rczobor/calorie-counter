@@ -72,7 +72,10 @@ creation or device-code flow is exposed in this release.
 - Save a logged food for reuse with `save_food_from_meal`, using IDs from
   `get_meal`. This copies historical nutrition into a household-scoped MCP saved
   food; it does not edit the meal or add an ingredient to the app catalog. Fixed
-  foods use `portion: { servings: 1 }`; weighted foods use `{ grams: 100 }`.
+  foods use `portion: { servings: 1 }`, where one saved serving is the entire
+  originally logged item (which may span multiple package servings); clarify the
+  intended reusable portion before saving or reusing it. Weighted foods use
+  `{ grams: 100 }`.
   Search with `kind: "savedFood"` and log with `sourceType: "savedFood"`. Cooked
   foods are already reusable and should keep their original batch IDs.
 - Reuse a cooked batch as a cooking ingredient with `sourceType: "cookedFood"`,
