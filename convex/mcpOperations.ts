@@ -12,6 +12,7 @@ import {
 } from './mcpContext'
 export { requireMcpOwner } from './mcpContext'
 import { resolveCookedIngredient, resolveSavedMealItem } from './mcpFoodReuse'
+import { savedFoodQuery } from './savedFoods'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
 import {
@@ -651,18 +652,9 @@ export const searchFoods = internalMutation({
         maximumRowsRead: 100,
       }
       if (args.kind === 'savedFood') {
-        const rows = search
-          ? ctx.db
-              .query('mcpSavedFoods')
-              .withSearchIndex('search_name', (q) =>
-                q.search('name', search).eq('householdId', owner.householdId),
-              )
-          : ctx.db
-              .query('mcpSavedFoods')
-              .withIndex('by_householdId_and_name', (q) =>
-                q.eq('householdId', owner.householdId),
-              )
-        const page = await rows.paginate(pagination)
+        const page = await savedFoodQuery(ctx, owner, search, false).paginate(
+          pagination,
+        )
         return {
           context,
           foods: page.page.map((food) => ({
@@ -819,6 +811,10 @@ export const getFoodDetails = internalMutation({
           owner,
           'Saved food not found.',
         )
+        if (food.archived)
+          throw new ConvexError(
+            'Saved food is archived. Choose an active food.',
+          )
         return {
           context,
           food: {

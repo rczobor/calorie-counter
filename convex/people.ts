@@ -7,6 +7,7 @@ import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { query } from './_generated/server'
 import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
+import { readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
   MAX_SEARCH_RESULTS,
@@ -31,6 +32,12 @@ function personWithoutOwner(person: Doc<'people'>) {
 
 const personWithTodayDto = personDto.extend({
   consumedCalories: v.number(),
+})
+
+const personWithDayDto = personWithTodayDto.extend({
+  goalKcal: v.number(),
+  remainingCalories: v.number(),
+  mealCount: v.number(),
 })
 
 const goalDto = v.object({
@@ -111,6 +118,40 @@ export const listWithToday = query({
         return {
           ...personWithoutOwner(person),
           consumedCalories: summary?.consumedCalories ?? 0,
+        }
+      }),
+    )
+    return { ...result, page }
+  },
+})
+
+export const listForDay = query({
+  args: {
+    householdId: v.optional(v.id('households')),
+    archived: v.boolean(),
+    eatenOn: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(personWithDayDto),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
+    assertPageSize(args.paginationOpts.numItems)
+    const result = await ctx.db
+      .query('people')
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', args.archived),
+      )
+      .paginate(args.paginationOpts)
+    const page = await Promise.all(
+      result.page.map(async (person) => {
+        const summary = await readDayNutrition(ctx, owner, person._id, eatenOn)
+        return {
+          ...personWithoutOwner(person),
+          consumedCalories: summary.consumedCalories,
+          goalKcal: summary.goalKcal,
+          remainingCalories: summary.remainingCalories,
+          mealCount: summary.mealCount,
         }
       }),
     )

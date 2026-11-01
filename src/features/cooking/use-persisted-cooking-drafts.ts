@@ -1,14 +1,4 @@
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-
 import type { CookingDraft } from './draft-helpers'
-import { useDraftPersistenceIdentity } from './draft-persistence-identity'
 
 const STORAGE_VERSION = 2
 const LEGACY_STORAGE_VERSION = 1
@@ -29,11 +19,6 @@ type PersistedDraftState = {
 }
 
 type DraftState = Omit<PersistedDraftState, 'version'>
-
-type DraftStore = DraftState & {
-  storageKey: string | null
-  persistenceEnabled: boolean
-}
 
 function getStorageKey(userId: string) {
   return `calorie-counter:cooking-drafts:${userId}`
@@ -236,30 +221,6 @@ function mergeDraftStates(first: DraftState, second: DraftState): DraftState {
   }
 }
 
-function draftStatesEqual(first: DraftState, second: DraftState) {
-  return JSON.stringify(first) === JSON.stringify(second)
-}
-
-function draftContentsEqual(first: CookingDraft, second: CookingDraft) {
-  return (
-    JSON.stringify({ ...first, updatedAt: 0 }) ===
-    JSON.stringify({ ...second, updatedAt: 0 })
-  )
-}
-
-function nextObservedTimestamp(...states: DraftState[]) {
-  let latest = Date.now()
-  for (const state of states) {
-    for (const draft of state.drafts) {
-      latest = Math.max(latest, draft.updatedAt + 1)
-    }
-    for (const tombstone of state.tombstones) {
-      latest = Math.max(latest, tombstone.deletedAt + 1)
-    }
-  }
-  return latest
-}
-
 function parsePersistedDraftState(serialized: string | null): DraftState {
   const empty: DraftState = {
     activeDraftId: null,
@@ -304,222 +265,80 @@ export function parsePersistedCookingDrafts(
   return { activeDraftId, drafts }
 }
 
-export function usePersistedCookingDrafts(): {
-  activeDraftId: string | null
-  setActiveDraftId: Dispatch<SetStateAction<string | null>>
-  drafts: CookingDraft[]
-  setDrafts: Dispatch<SetStateAction<CookingDraft[]>>
-} {
-  const { isLoaded, userId } = useDraftPersistenceIdentity()
-  const storageKey = isLoaded && userId ? getStorageKey(userId) : null
-  const createStore = (key: string | null): DraftStore => {
-    if (!key) {
-      return {
-        storageKey: null,
-        persistenceEnabled: false,
-        activeDraftId: null,
-        drafts: [],
-        tombstones: [],
-      }
+// Kept only for recovery of drafts written by the retired cooking workspace.
+export function readLegacyCookingDrafts(userId: string | null) {
+  if (!userId) return { drafts: [], serialized: null, unavailable: false }
+  try {
+    const serialized = window.localStorage.getItem(getStorageKey(userId))
+    return {
+      ...parsePersistedCookingDrafts(serialized),
+      serialized,
+      unavailable: false,
     }
-    try {
-      return {
-        storageKey: key,
-        persistenceEnabled: true,
-        ...parsePersistedDraftState(window.localStorage.getItem(key)),
-      }
-    } catch {
-      return {
-        storageKey: key,
-        persistenceEnabled: false,
-        activeDraftId: null,
-        drafts: [],
-        tombstones: [],
-      }
-    }
+  } catch {
+    return { drafts: [], serialized: null, unavailable: true }
   }
-  const [store, setStore] = useState<DraftStore>(() => createStore(storageKey))
-  const activeSelectionDirtyRef = useRef(false)
-  if (store.storageKey !== storageKey) {
-    setStore(createStore(storageKey))
+}
+
+export function removeLegacyCookingDraft(userId: string, draft: CookingDraft) {
+  const key = getStorageKey(userId)
+  const serialized = window.localStorage.getItem(key)
+  const current = parsePersistedDraftState(serialized)
+  const saved = current.drafts.find((item) => item.draftId === draft.draftId)
+  if (!saved || JSON.stringify(saved) !== JSON.stringify(draft)) {
+    throw new Error(
+      'This recovered draft changed in another tab. Reload its latest copy before removing it.',
+    )
   }
-  useEffect(() => {
-    activeSelectionDirtyRef.current = false
-  }, [storageKey])
+  const drafts = current.drafts.filter((item) => item.draftId !== draft.draftId)
+  // A tombstone prevents an old workspace tab from bringing back the removed draft.
+  const state: PersistedDraftState = {
+    version: STORAGE_VERSION,
+    activeDraftId:
+      current.activeDraftId === draft.draftId ? null : current.activeDraftId,
+    drafts,
+    tombstones: pruneTombstones([
+      ...current.tombstones,
+      {
+        draftId: draft.draftId,
+        deletedAt: Math.max(Date.now(), draft.updatedAt + 1),
+      },
+    ]),
+  }
+  window.localStorage.setItem(key, JSON.stringify(state))
+}
 
-  const setActiveDraftId: Dispatch<SetStateAction<string | null>> = useCallback(
-    (nextValue) => {
-      activeSelectionDirtyRef.current = true
-      setStore((current) => ({
-        ...current,
-        activeDraftId:
-          typeof nextValue === 'function'
-            ? nextValue(current.activeDraftId)
-            : nextValue,
-      }))
-    },
-    [],
-  )
-  const setDrafts: Dispatch<SetStateAction<CookingDraft[]>> = useCallback(
-    (nextValue) => {
-      setStore((current) => {
-        const requestedDrafts =
-          typeof nextValue === 'function'
-            ? nextValue(current.drafts)
-            : nextValue
-        let persisted: DraftState = {
-          activeDraftId: null,
-          drafts: [],
-          tombstones: [],
-        }
-        if (current.storageKey && current.persistenceEnabled) {
-          try {
-            persisted = parsePersistedDraftState(
-              window.localStorage.getItem(current.storageKey),
-            )
-          } catch {
-            // Continue with the in-memory logical clock.
-          }
-        }
-        const currentState: DraftState = {
-          activeDraftId: current.activeDraftId,
-          drafts: current.drafts,
-          tombstones: current.tombstones,
-        }
-        const currentDraftById = new Map(
-          current.drafts.map((draft) => [draft.draftId, draft]),
-        )
-        let logicalTimestamp = nextObservedTimestamp(currentState, persisted)
-        const drafts = requestedDrafts.map((draft) => {
-          const currentDraft = currentDraftById.get(draft.draftId)
-          if (currentDraft && draftContentsEqual(currentDraft, draft)) {
-            return draft.updatedAt === currentDraft.updatedAt
-              ? draft
-              : { ...draft, updatedAt: currentDraft.updatedAt }
-          }
-          const updatedAt = Math.max(logicalTimestamp, draft.updatedAt)
-          logicalTimestamp = updatedAt + 1
-          return { ...draft, updatedAt }
-        })
-        const nextDraftIds = new Set(drafts.map((draft) => draft.draftId))
-        const tombstones = pruneTombstones([
-          ...current.tombstones,
-          ...current.drafts
-            .filter((draft) => !nextDraftIds.has(draft.draftId))
-            .map((draft) => ({
-              draftId: draft.draftId,
-              deletedAt: logicalTimestamp++,
-            })),
-        ])
-        const activeDraftId =
-          current.activeDraftId && nextDraftIds.has(current.activeDraftId)
-            ? current.activeDraftId
-            : null
-        const local = { activeDraftId, drafts, tombstones }
-        if (!current.storageKey || !current.persistenceEnabled) {
-          return { ...current, ...local }
-        }
-        try {
-          return {
-            ...current,
-            ...mergeDraftStates(persisted, local),
-          }
-        } catch {
-          return { ...current, ...local }
-        }
-      })
-    },
-    [],
-  )
+export function readCookingEdit(userId: string | null) {
+  if (!userId) return null
+  try {
+    const serialized = window.sessionStorage.getItem(
+      `calorie-counter:cooking-edit:${userId}`,
+    )
+    return parsePersistedCookingDrafts(serialized).drafts[0] ?? null
+  } catch {
+    return null
+  }
+}
 
-  useEffect(() => {
-    const currentStorageKey = store.storageKey
-    if (!currentStorageKey || !store.persistenceEnabled) {
-      return
-    }
-    const handleStorage = (event: StorageEvent) => {
-      if (
-        event.storageArea !== window.localStorage ||
-        event.key !== currentStorageKey
-      ) {
-        return
-      }
-      const incoming = parsePersistedDraftState(event.newValue)
-      setStore((current) => {
-        if (current.storageKey !== currentStorageKey) {
-          return current
-        }
-        const merged = mergeDraftStates(
-          {
-            activeDraftId: current.activeDraftId,
-            drafts: current.drafts,
-            tombstones: current.tombstones,
-          },
-          {
-            ...incoming,
-            activeDraftId:
-              current.activeDraftId &&
-              incoming.drafts.some(
-                (draft) => draft.draftId === current.activeDraftId,
-              )
-                ? current.activeDraftId
-                : incoming.activeDraftId,
-          },
-        )
-        const currentState: DraftState = {
-          activeDraftId: current.activeDraftId,
-          drafts: current.drafts,
-          tombstones: current.tombstones,
-        }
-        return draftStatesEqual(currentState, merged)
-          ? current
-          : { ...current, ...merged }
-      })
-    }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
-  }, [store.persistenceEnabled, store.storageKey])
-
-  useEffect(() => {
-    if (!store.storageKey || !store.persistenceEnabled) {
-      return
-    }
-    try {
-      const local: DraftState = {
-        activeDraftId: store.activeDraftId,
-        drafts: store.drafts,
-        tombstones: store.tombstones,
-      }
-      const storedSerialized = window.localStorage.getItem(store.storageKey)
-      const stored = parsePersistedDraftState(storedSerialized)
-      const merged = mergeDraftStates(stored, local)
-      const mergedDraftIds = new Set(
-        merged.drafts.map((draft) => draft.draftId),
+export function writeCookingEdit(
+  userId: string | null,
+  draft: CookingDraft | null,
+) {
+  if (!userId) return true
+  try {
+    const key = `calorie-counter:cooking-edit:${userId}`
+    if (!draft) window.sessionStorage.removeItem(key)
+    else
+      window.sessionStorage.setItem(
+        key,
+        JSON.stringify({
+          version: LEGACY_STORAGE_VERSION,
+          activeDraftId: draft.draftId,
+          drafts: [draft],
+        }),
       )
-      const activeDraftId = activeSelectionDirtyRef.current
-        ? merged.activeDraftId
-        : stored.activeDraftId && mergedDraftIds.has(stored.activeDraftId)
-          ? stored.activeDraftId
-          : merged.activeDraftId
-      const state: PersistedDraftState = {
-        version: STORAGE_VERSION,
-        ...merged,
-        activeDraftId,
-      }
-      const serialized = JSON.stringify(state)
-      if (storedSerialized !== serialized) {
-        window.localStorage.setItem(store.storageKey, serialized)
-      }
-      activeSelectionDirtyRef.current = false
-    } catch {
-      // Draft persistence is best-effort; in-memory editing still works.
-    }
-  }, [store])
-
-  return {
-    activeDraftId: store.activeDraftId,
-    setActiveDraftId,
-    drafts: store.drafts,
-    setDrafts,
+    return true
+  } catch {
+    return false
   }
 }

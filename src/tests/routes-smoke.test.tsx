@@ -1,119 +1,73 @@
-// @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-let confirmOpen = false
-
-vi.mock('@/integrations/convex/config', () => ({
-  isConvexConfigured: true,
-}))
-
+vi.mock('@/integrations/convex/config', () => ({ isConvexConfigured: true }))
 vi.mock('@clerk/react', () => ({
   useAuth: () => ({ isLoaded: true, userId: 'test-user' }),
 }))
-
-vi.mock('@/hooks/use-confirmable-action', () => ({
-  useConfirmableAction: () => ({
-    pendingConfirmation: {
-      message: 'Delete?',
-      successText: 'Deleted.',
-      action: async () => undefined,
-    },
-    isConfirmDialogOpen: confirmOpen,
-    isRunning: false,
-    runAction: async (_successText: string, action: () => Promise<unknown>) =>
-      action(),
-    confirmAndRunAction: vi.fn(),
-    handleConfirmDialogOpenChange: vi.fn(),
-    confirmPendingAction: vi.fn(),
-  }),
+vi.mock('@tanstack/react-router', async (original) => ({
+  ...(await original<typeof import('@tanstack/react-router')>()),
+  useRouterState: () => window.location.search,
+  Link: ({ to, children }: { to: string; children: ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
 }))
-
 vi.mock('convex/react', () => ({
-  useConvex: () => ({ query: vi.fn(async () => null) }),
-  useMutation: () => vi.fn(async () => undefined),
+  useMutation: () => vi.fn(),
   usePaginatedQuery: () => ({
     results: [],
     status: 'Exhausted',
-    isLoading: false,
     loadMore: vi.fn(),
   }),
   useQuery: () => undefined,
 }))
-
-import { Route as MealsRoute } from '@/routes/index'
-import { Route as PeopleRoute } from '@/routes/people'
-import { Route as ManageRoute } from '@/routes/catalog'
-import { Route as CookingRoute } from '@/routes/cooking'
-
-function renderRoute(Component: ComponentType) {
-  return render(<Component />)
-}
-
-afterEach(() => {
-  confirmOpen = false
-  cleanup()
-})
-
-describe('route smoke', () => {
-  it('renders meals route shell', () => {
-    const Component = MealsRoute.options.component as ComponentType
-    renderRoute(Component)
-
-    expect(screen.getByRole('heading', { name: /^meals$/i })).toBeTruthy()
+import { Route as Today } from '@/routes/index'
+import { Route as People } from '@/routes/people'
+import { Route as Catalog } from '@/routes/catalog'
+import { Route as Cooking } from '@/routes/cooking'
+afterEach(cleanup)
+describe('browse-first route shells', () => {
+  it('opens intake without a manual meal form', () => {
+    const Page = Today.options.component as ComponentType
+    render(<Page />)
     expect(
-      screen.getByRole('checkbox', { name: /show archived meals/i }),
+      screen.getByRole('heading', { name: 'Today', level: 1 }),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: /create meal/i })).toBeTruthy()
-    expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/No active people/)).toBeTruthy()
+    expect(screen.queryByLabelText('Meal name')).toBeNull()
   })
-
-  it('renders people route shell', () => {
-    const Component = PeopleRoute.options.component as ComponentType
-    renderRoute(Component)
-
+  it('opens people settings without a creation form', () => {
+    const Page = People.options.component as ComponentType
+    render(<Page />)
     expect(
-      screen.getByRole('heading', { name: /^people$/i, level: 1 }),
+      screen.getByRole('heading', { name: 'People & goals', level: 1 }),
     ).toBeTruthy()
-    expect(
-      screen.getByRole('checkbox', { name: /show archived records/i }),
-    ).toBeTruthy()
-    expect(screen.getByRole('button', { name: /create person/i })).toBeTruthy()
-    expect(screen.getAllByLabelText(/table search/i)).toHaveLength(1)
-    expect(screen.getByText(/select history on a person/i)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add person' })).toBeTruthy()
+    expect(screen.queryByLabelText('Person name')).toBeNull()
   })
-
-  it('renders manage route shell', () => {
-    const Component = ManageRoute.options.component as ComponentType
-    renderRoute(Component)
-
-    expect(screen.getByRole('heading', { name: /^catalog$/i })).toBeTruthy()
+  it('opens the food library on reusable foods', () => {
+    const Page = Catalog.options.component as ComponentType
+    render(<Page />)
     expect(
-      screen.getByRole('checkbox', { name: /show archived records/i }),
+      screen.getByRole('heading', { name: 'Food library', level: 1 }),
     ).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /ingredients/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /add ingredient/i })).toBeTruthy()
-    expect(screen.getByLabelText(/search ingredients/i)).toBeTruthy()
-  })
-
-  it('renders cooking route shell', () => {
-    const Component = CookingRoute.options.component as ComponentType
-    renderRoute(Component)
-
-    expect(screen.getByRole('heading', { name: /^cooking$/i })).toBeTruthy()
     expect(
-      screen.getByRole('checkbox', { name: /show archived records/i }),
-    ).toBeTruthy()
-    expect(screen.getByRole('button', { name: /new batch/i })).toBeTruthy()
-    expect(screen.getAllByLabelText(/table search/i).length).toBeGreaterThan(0)
+      screen
+        .getByRole('tab', { name: 'Reusable foods' })
+        .getAttribute('aria-selected'),
+    ).toBe('true')
+    expect(screen.queryByLabelText('Ingredient name')).toBeNull()
   })
-
-  it('renders destructive confirmation dialog when open', () => {
-    confirmOpen = true
-    const Component = MealsRoute.options.component as ComponentType
-    renderRoute(Component)
-
-    expect(screen.getByText(/confirm deletion/i)).toBeTruthy()
+  it('opens cooked batches without the retired workspace', () => {
+    const Page = Cooking.options.component as ComponentType
+    render(<Page />)
+    expect(
+      screen.getByRole('heading', { name: 'Cooked batches', level: 1 }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Start cooking' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Duplicate current' }),
+    ).toBeNull()
   })
 })

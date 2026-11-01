@@ -161,7 +161,7 @@ describe('History route', () => {
     expect(rows[1]?.textContent).toContain('777 kcal')
     expect(rows[2]?.textContent).toContain('Fri, Apr 3, 2026')
     expect(rows[2]?.textContent).toContain('333 kcal')
-    expect(screen.getByText('159 kcal')).toBeTruthy()
+    expect(screen.getByText('555 kcal')).toBeTruthy()
     expect(lastPeopleArgs).toEqual({ archived: false })
     expect(lastHistoryArgs).toEqual({
       personId: 'person-1',
@@ -206,7 +206,60 @@ describe('History route', () => {
     expect(aprilFourthRow?.textContent).toContain('1700 kcal')
     expect(aprilSecondRow?.textContent).toContain('2000 kcal')
     expect(aprilSecondRow?.textContent).toContain('1500 kcal')
-    expect(screen.getByText('Current daily goal')).toBeTruthy()
+    expect(screen.queryByText('Current daily goal')).toBeNull()
+  })
+
+  it('distinguishes a logged zero-calorie meal from a day without meals', () => {
+    mockSummaries = [
+      createDailySummary('zero', 'person-1', '2026-04-04', 0),
+      createDailySummary('logged', 'person-1', '2026-04-03', 100),
+    ]
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+    expect(screen.getByText('50 kcal')).toBeTruthy()
+    expect(
+      screen.getByText('Days with meals').parentElement?.textContent,
+    ).toContain('2')
+    const rows = screen.getAllByRole('row')
+    expect(
+      rows.find((row) => row.textContent?.includes('Sat, Apr 4'))?.textContent,
+    ).toContain('0 kcal')
+    expect(
+      rows.find((row) => row.textContent?.includes('Thu, Apr 2'))?.textContent,
+    ).toContain('No meals logged')
+    fireEvent.click(
+      screen.getByRole('button', { name: '2026-04-02: No meals logged' }),
+    )
+    expect(
+      screen.getByRole('link', { name: 'View day →' }).getAttribute('href'),
+    ).toContain('date=2026-04-02&personId=person-1')
+  })
+
+  it('uses Convex creation ordering for goals on the same effective date', () => {
+    mockGoals = [
+      createPersonGoalHistoryDoc('new-goal', 'person-1', {
+        _creationTime: 20,
+        createdAt: 1,
+        effectiveDate: '2026-04-01',
+        goalKcal: 2200,
+      }),
+      createPersonGoalHistoryDoc('old-goal', 'person-1', {
+        _creationTime: 10,
+        createdAt: 100,
+        effectiveDate: '2026-04-01',
+        goalKcal: 2000,
+      }),
+    ]
+    mockSummaries = [
+      createDailySummary('summary', 'person-1', '2026-04-04', 500),
+    ]
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+    const row = screen
+      .getAllByRole('row')
+      .find((row) => row.textContent?.includes('Sat, Apr 4'))
+    expect(row?.textContent).toContain('2200 kcal')
+    expect(row?.textContent).toContain('1700 kcal')
   })
 
   it('keeps the initial person selected when the active page changes', () => {
@@ -276,7 +329,7 @@ describe('History route', () => {
     expect(screen.queryByText('No data for the selected range.')).toBeNull()
   })
 
-  it('offers a load-more path while history pages remain', () => {
+  it('automatically loads remaining pages before showing aggregate values', () => {
     mockHistoryStatus = 'CanLoadMore'
     mockSummaries = [
       createDailySummary('summary-1', 'person-1', '2026-04-04', 500),
@@ -286,12 +339,15 @@ describe('History route', () => {
     render(<Component />)
 
     expect(screen.getByRole('status').textContent).toContain(
-      'More saved days exist',
+      'Loading the complete date range',
     )
     expect(
-      screen.getByText('Avg. Consumed / Day').parentElement?.textContent,
+      screen.getByText('Average on days with meals logged').parentElement
+        ?.textContent,
     ).toContain('--')
-    fireEvent.click(screen.getByRole('button', { name: 'Load more history' }))
+    expect(
+      screen.queryByRole('button', { name: 'Load more history' }),
+    ).toBeNull()
     expect(loadMoreHistory).toHaveBeenCalledWith(50)
   })
 
