@@ -39,11 +39,18 @@ export default defineSchema({
     sourceMealId: v.id('meals'),
     sourceItemId: v.id('mealItems'),
     createdAt: v.number(),
+    archived: v.optional(v.literal(true)),
+    archivedAt: v.optional(v.number()),
   })
     .index('by_householdId_and_name', ['householdId', 'name'])
+    .index('by_householdId_and_archived_and_name', [
+      'householdId',
+      'archived',
+      'name',
+    ])
     .searchIndex('search_name', {
       searchField: 'name',
-      filterFields: ['householdId'],
+      filterFields: ['householdId', 'archived'],
     }),
   households: defineTable({
     name: v.string(),

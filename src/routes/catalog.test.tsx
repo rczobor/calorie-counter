@@ -141,6 +141,29 @@ const recipeDetail = {
 
 let recipeDetailResult: typeof recipeDetail | undefined = recipeDetail
 
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...original,
+    Link: ({
+      to,
+      children,
+      className,
+    }: {
+      to: string
+      children: import('react').ReactNode
+      className?: string
+    }) => (
+      <a href={to} className={className}>
+        {children}
+      </a>
+    ),
+  }
+})
+vi.mock('@/features/manage/saved-foods', () => ({
+  SavedFoods: () => <p>Saved foods</p>,
+}))
 vi.mock('@/integrations/convex/config', () => ({
   isConvexConfigured: true,
 }))
@@ -241,6 +264,7 @@ describe('Catalog route', () => {
       screen.getByRole('button', { name: 'Load more ingredients' }),
     )
     expect(ingredientLoadMore).toHaveBeenCalledWith(20)
+    fireEvent.click(screen.getByText('Add ingredient', { selector: 'summary' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Load more ingredient groups' }),
     )
@@ -435,6 +459,7 @@ describe('Catalog route', () => {
   it('retains a server-search ingredient after the search changes', async () => {
     renderCatalogRoute()
     fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
+    fireEvent.click(screen.getByText('Create recipe', { selector: 'summary' }))
     fireEvent.change(screen.getByLabelText('Search recipe ingredients'), {
       target: { value: 'quinoa' },
     })
@@ -580,7 +605,9 @@ function paginated(
 
 function renderCatalogRoute() {
   const Component = CatalogRoute.options.component as ComponentType
-  return render(<Component />)
+  const view = render(<Component />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Ingredients' }))
+  return view
 }
 
 type PaginationStatus =

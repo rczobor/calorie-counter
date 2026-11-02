@@ -1,4 +1,10 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { LoadingRows } from '@/components/page/loading-content'
+import {
+  HeadContent,
+  Scripts,
+  createRootRoute,
+  useRouterState,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Analytics } from '@vercel/analytics/react'
@@ -83,6 +89,12 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const accountPage = useRouterState({
+    select: (state) =>
+      ['/settings', '/settings/integrations', '/connect'].includes(
+        state.location.pathname,
+      ),
+  })
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -115,7 +127,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <div className="flex min-h-dvh flex-col">
                   <Header />
                   <AuthGate>
-                    <HouseholdProvider>{children}</HouseholdProvider>
+                    <HouseholdProvider accountPage={accountPage}>
+                      {children}
+                    </HouseholdProvider>
                   </AuthGate>
                 </div>
                 <Toaster richColors />
@@ -191,10 +205,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ClerkLoading>
-        <AuthStatusCard
-          title="Loading session"
-          description="Checking your authentication status..."
-        />
+        <SessionLoading />
       </ClerkLoading>
       <ClerkLoaded>
         <Show when="signed-in">
@@ -220,12 +231,7 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth()
 
   if (isLoading) {
-    return (
-      <AuthStatusCard
-        title="Preparing secure session"
-        description="Connecting your sign-in session to data access..."
-      />
-    )
+    return <SessionLoading />
   }
 
   if (!isAuthenticated) {
@@ -238,6 +244,14 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>
+}
+
+function SessionLoading() {
+  return (
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      <LoadingRows label="Preparing your session" />
+    </main>
+  )
 }
 
 function AuthStatusCard({

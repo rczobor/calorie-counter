@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useAction, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { api } from '../../../convex/_generated/api'
@@ -56,7 +57,7 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
               Integrations settings.
             </p>
           ) : request === undefined ? (
-            <p role="status">Loading connection request…</p>
+            <LoadingRows label="Loading connection request" rows={2} />
           ) : !request || request.status !== 'pending' ? (
             <p>
               This request has expired or was already handled. Start again from

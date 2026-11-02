@@ -46,6 +46,9 @@ type MealDashboardDomainDataArgs = {
   mealDate: string
   showArchivedMeals: boolean
   editingMealId: Id<'meals'> | null
+  loadIngredients?: boolean
+  loadCooking?: boolean
+  loadMeals?: boolean
 }
 
 function pageState(
@@ -72,6 +75,9 @@ export function useMealDashboardDomainData({
   mealDate,
   showArchivedMeals,
   editingMealId,
+  loadIngredients = true,
+  loadCooking = true,
+  loadMeals = true,
 }: MealDashboardDomainDataArgs) {
   const peopleQuery = usePaginatedQuery(
     api.people.list,
@@ -80,12 +86,12 @@ export function useMealDashboardDomainData({
   )
   const ingredientsQuery = usePaginatedQuery(
     api.catalog.listIngredients,
-    { archived: false, kcalBasisUnit: 'g' },
+    loadIngredients ? { archived: false, kcalBasisUnit: 'g' } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const cookSessionsQuery = usePaginatedQuery(
     api.cooking.listSessions,
-    { archived: false },
+    loadCooking ? { archived: false } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
 
@@ -103,7 +109,7 @@ export function useMealDashboardDomainData({
   )
   const selectedCookSession = useQuery(
     api.cooking.getSession,
-    selectedCookSessionId && !selectedCookSessionIsLoaded
+    loadCooking && selectedCookSessionId && !selectedCookSessionIsLoaded
       ? { sessionId: selectedCookSessionId }
       : 'skip',
   )
@@ -161,14 +167,14 @@ export function useMealDashboardDomainData({
 
   const cookedFoodsQuery = usePaginatedQuery(
     api.cooking.listCookedFoodsForSession,
-    effectiveCookSessionId
+    loadCooking && effectiveCookSessionId
       ? { cookSessionId: effectiveCookSessionId, archived: false }
       : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const mealsQuery = usePaginatedQuery(
     api.meals.listForDay,
-    effectiveSelectedPersonId
+    loadMeals && effectiveSelectedPersonId
       ? {
           personId: effectiveSelectedPersonId,
           eatenOn: mealDate,
@@ -179,7 +185,7 @@ export function useMealDashboardDomainData({
   )
   const daySummary = useQuery(
     api.meals.getDaySummary,
-    effectiveSelectedPersonId
+    loadMeals && effectiveSelectedPersonId
       ? { personId: effectiveSelectedPersonId, eatenOn: mealDate }
       : 'skip',
   )
@@ -192,10 +198,16 @@ export function useMealDashboardDomainData({
   const meals: MealDashboardMeal[] = mealsQuery.results
   const paging = {
     people: pageState(peopleQuery),
-    ingredients: pageState(ingredientsQuery),
-    cookSessions: pageState(cookSessionsQuery),
-    cookedFoods: pageState(cookedFoodsQuery, Boolean(effectiveCookSessionId)),
-    meals: pageState(mealsQuery, Boolean(effectiveSelectedPersonId)),
+    ingredients: pageState(ingredientsQuery, loadIngredients),
+    cookSessions: pageState(cookSessionsQuery, loadCooking),
+    cookedFoods: pageState(
+      cookedFoodsQuery,
+      loadCooking && Boolean(effectiveCookSessionId),
+    ),
+    meals: pageState(
+      mealsQuery,
+      loadMeals && Boolean(effectiveSelectedPersonId),
+    ),
   }
   const isLoading =
     paging.people.isLoadingFirstPage ||
@@ -203,7 +215,9 @@ export function useMealDashboardDomainData({
     paging.cookSessions.isLoadingFirstPage ||
     paging.cookedFoods.isLoadingFirstPage ||
     paging.meals.isLoadingFirstPage ||
-    (Boolean(effectiveSelectedPersonId) && daySummary === undefined)
+    (loadMeals &&
+      Boolean(effectiveSelectedPersonId) &&
+      daySummary === undefined)
 
   return {
     people,

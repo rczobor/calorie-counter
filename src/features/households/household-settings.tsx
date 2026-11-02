@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useState } from 'react'
 import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -75,7 +76,7 @@ export function HouseholdSettings() {
       ) : null}
       <HouseholdInvitation onJoined={selectHousehold} />
       {!households || !household || !householdId || members === undefined ? (
-        <p role="status">Loading household…</p>
+        <LoadingRows label="Loading household" />
       ) : (
         <>
           <Card>
@@ -274,18 +275,17 @@ export function HouseholdSettings() {
                     </div>
                   ))}
                 {invitations.status === 'LoadingFirstPage' ? (
-                  <p role="status">Loading invitations…</p>
+                  <LoadingRows label="Loading invitations" rows={1} />
                 ) : null}
                 {invitations.status === 'CanLoadMore' ||
                 invitations.status === 'LoadingMore' ? (
                   <Button
                     variant="outline"
                     disabled={pending || invitations.status === 'LoadingMore'}
+                    aria-busy={pending || invitations.status === 'LoadingMore'}
                     onClick={() => invitations.loadMore(20)}
                   >
-                    {invitations.status === 'LoadingMore'
-                      ? 'Loading more invitations…'
-                      : 'Load more invitations'}
+                    Load more invitations
                   </Button>
                 ) : null}
               </CardContent>

@@ -16,6 +16,8 @@ import { Route as CookingRouteImport } from './routes/cooking'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as PeopleRouteImport } from './routes/people'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SettingsArchivedMealsRouteImport } from './routes/settings.archived-meals'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,10 +55,20 @@ const PeopleRoute = PeopleRouteImport.update({
   path: '/people',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
-  id: '/settings/integrations',
-  path: '/settings/integrations',
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsArchivedMealsRoute = SettingsArchivedMealsRouteImport.update({
+  id: '/archived-meals',
+  path: '/archived-meals',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => SettingsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -67,6 +79,8 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +91,8 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
 export interface FileRoutesById {
@@ -88,6 +104,8 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +118,8 @@ export interface FileRouteTypes {
     | '/history'
     | '/household'
     | '/people'
+    | '/settings'
+    | '/settings/archived-meals'
     | '/settings/integrations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +130,8 @@ export interface FileRouteTypes {
     | '/history'
     | '/household'
     | '/people'
+    | '/settings'
+    | '/settings/archived-meals'
     | '/settings/integrations'
   id:
     | '__root__'
@@ -120,6 +142,8 @@ export interface FileRouteTypes {
     | '/history'
     | '/household'
     | '/people'
+    | '/settings'
+    | '/settings/archived-meals'
     | '/settings/integrations'
   fileRoutesById: FileRoutesById
 }
@@ -131,7 +155,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   HouseholdRoute: typeof HouseholdRoute
   PeopleRoute: typeof PeopleRoute
-  SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -185,15 +209,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeopleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/archived-meals': {
+      id: '/settings/archived-meals'
+      path: '/archived-meals'
+      fullPath: '/settings/archived-meals'
+      preLoaderRoute: typeof SettingsArchivedMealsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/integrations': {
       id: '/settings/integrations'
-      path: '/settings/integrations'
+      path: '/integrations'
       fullPath: '/settings/integrations'
       preLoaderRoute: typeof SettingsIntegrationsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof SettingsRoute
     }
   }
 }
+
+interface SettingsRouteChildren {
+  SettingsArchivedMealsRoute: typeof SettingsArchivedMealsRoute
+  SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsArchivedMealsRoute: SettingsArchivedMealsRoute,
+  SettingsIntegrationsRoute: SettingsIntegrationsRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -203,7 +255,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   HouseholdRoute: HouseholdRoute,
   PeopleRoute: PeopleRoute,
-  SettingsIntegrationsRoute: SettingsIntegrationsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

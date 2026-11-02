@@ -42,6 +42,8 @@ type CatalogDomainDataArgs = {
   ingredientSearch: string
   recipeIngredientSearch: string
   recipeSearch: string
+  activeTab?: 'ingredients' | 'recipes' | 'groups' | 'saved'
+  editorOpen?: boolean
 }
 
 type CatalogDomainData = {
@@ -103,35 +105,46 @@ export function useCatalogDomainData({
   ingredientSearch,
   recipeIngredientSearch,
   recipeSearch,
+  activeTab,
+  editorOpen = false,
 }: CatalogDomainDataArgs): CatalogDomainData {
+  const groupsEnabled =
+    !activeTab ||
+    activeTab === 'groups' ||
+    (activeTab === 'ingredients' && editorOpen)
+  const ingredientsEnabled =
+    !activeTab ||
+    activeTab === 'ingredients' ||
+    (activeTab === 'recipes' && editorOpen)
+  const recipesEnabled = !activeTab || activeTab === 'recipes'
   const activeFoodGroups = usePaginatedQuery(
     api.catalog.listFoodGroups,
-    { archived: false },
+    groupsEnabled ? { archived: false } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const archivedFoodGroups = usePaginatedQuery(
     api.catalog.listFoodGroups,
-    showArchived ? { archived: true } : 'skip',
+    groupsEnabled && showArchived ? { archived: true } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const activeIngredients = usePaginatedQuery(
     api.catalog.listIngredients,
-    { archived: false },
+    ingredientsEnabled ? { archived: false } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const archivedIngredients = usePaginatedQuery(
     api.catalog.listIngredients,
-    showArchived ? { archived: true } : 'skip',
+    ingredientsEnabled && showArchived ? { archived: true } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const activeRecipes = usePaginatedQuery(
     api.catalog.listRecipes,
-    { archived: false },
+    recipesEnabled ? { archived: false } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const archivedRecipes = usePaginatedQuery(
     api.catalog.listRecipes,
-    showArchived ? { archived: true } : 'skip',
+    recipesEnabled && showArchived ? { archived: true } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
 
@@ -141,10 +154,13 @@ export function useCatalogDomainData({
     .trim()
     .slice(0, SEARCH_MAX_LENGTH)
   const recipeTerm = recipeSearch.trim().slice(0, SEARCH_MAX_LENGTH)
-  const foodGroupSearchActive = foodGroupTerm.length > 0
-  const ingredientSearchActive = ingredientTerm.length > 0
-  const recipeIngredientSearchActive = recipeIngredientTerm.length > 0
-  const recipeSearchActive = recipeTerm.length > 0
+  const foodGroupSearchActive = groupsEnabled && foodGroupTerm.length > 0
+  const ingredientSearchActive =
+    (activeTab === undefined || activeTab === 'ingredients') &&
+    ingredientTerm.length > 0
+  const recipeIngredientSearchActive =
+    ingredientsEnabled && recipeIngredientTerm.length > 0
+  const recipeSearchActive = recipesEnabled && recipeTerm.length > 0
 
   const activeIngredientGroupSearch = useQuery(
     api.catalog.searchFoodGroups,
@@ -310,9 +326,9 @@ export function useCatalogDomainData({
     recipeIngredients,
     recipes,
     isLoading:
-      activeFoodGroups.status === 'LoadingFirstPage' ||
-      activeIngredients.status === 'LoadingFirstPage' ||
-      activeRecipes.status === 'LoadingFirstPage',
+      (groupsEnabled && activeFoodGroups.status === 'LoadingFirstPage') ||
+      (ingredientsEnabled && activeIngredients.status === 'LoadingFirstPage') ||
+      (recipesEnabled && activeRecipes.status === 'LoadingFirstPage'),
     paging: {
       foodGroups: pagingState(
         activeFoodGroups,

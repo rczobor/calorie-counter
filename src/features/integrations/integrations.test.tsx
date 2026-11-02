@@ -16,6 +16,27 @@ const { query, authorize, revoke } = vi.hoisted(() => ({
   authorize: vi.fn(),
   revoke: vi.fn(),
 }))
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...original,
+    Link: ({
+      to,
+      children,
+      className,
+    }: {
+      to: string
+      children: import('react').ReactNode
+      className?: string
+    }) => (
+      <a href={to} className={className}>
+        {children}
+      </a>
+    ),
+  }
+})
+vi.mock('./logging-preferences', () => ({ LoggingPreferences: () => null }))
 vi.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => query(...args),
   useAction: () => authorize,

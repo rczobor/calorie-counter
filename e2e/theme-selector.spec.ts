@@ -12,7 +12,7 @@ for (const viewport of [
     }) => {
       await page.goto('/')
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Meals' }),
+        page.getByRole('heading', { level: 1, name: 'Today' }),
       ).toBeVisible()
 
       const trigger = page.getByRole('combobox', { name: 'Theme: System' })

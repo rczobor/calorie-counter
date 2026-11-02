@@ -17,6 +17,7 @@ import {
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -52,6 +53,7 @@ interface DataTableProps<TData extends RowData> {
   searchPlaceholder?: string
   toolbarActions?: ReactNode
   emptyText?: ReactNode
+  loading?: boolean
   className?: string
 }
 
@@ -62,6 +64,7 @@ export function DataTable<TData extends RowData>({
   searchPlaceholder,
   toolbarActions,
   emptyText = 'No results.',
+  loading = false,
   className,
 }: DataTableProps<TData>) {
   'use no memo'
@@ -101,7 +104,12 @@ export function DataTable<TData extends RowData>({
       ) : null}
 
       <div className="w-full max-w-full overflow-x-auto rounded-md border">
-        <Table>
+        {loading ? (
+          <span role="status" className="sr-only">
+            Loading table
+          </span>
+        ) : null}
+        <Table aria-busy={loading}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -154,7 +162,17 @@ export function DataTable<TData extends RowData>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {loading ? (
+              Array.from({ length: 3 }, (_, index) => (
+                <TableRow key={index} aria-hidden="true">
+                  {columns.map((_, column) => (
+                    <TableCell key={column} className="h-14">
+                      <Skeleton className="h-4 w-3/4" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getAllCells().map((cell) => (

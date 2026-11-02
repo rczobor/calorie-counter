@@ -1,5 +1,8 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { LoggingPreferences } from './logging-preferences'
 import { api } from '../../../convex/_generated/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,62 +37,18 @@ export function ConnectedAgents() {
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-semibold">Integrations</h1>
+        <Link
+          to="/settings"
+          className="mb-4 inline-block text-sm text-muted-foreground hover:text-foreground"
+        >
+          ‹ Settings
+        </Link>
+        <h1 className="text-2xl font-semibold">ChatGPT</h1>
         <p className="text-sm text-muted-foreground">
-          Connect ChatGPT to your meals and cooking.
+          Connections, permissions, and remembered logging defaults.
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>ChatGPT connection</CardTitle>
-          <CardDescription>
-            ChatGPT uses its own model to work with the tools you authorize.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {configuration === undefined ? (
-            <p role="status">Loading integration settings…</p>
-          ) : !configuration.enabled ? (
-            <p>
-              The ChatGPT integration has not been enabled for this deployment.
-            </p>
-          ) : (
-            <>
-              <p
-                className="break-all rounded-md border bg-muted p-3 font-mono text-sm"
-                aria-label="MCP server URL"
-              >
-                {configuration.url}
-              </p>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>In ChatGPT Plugins, choose Add custom MCP server.</li>
-                <li>Paste this URL and select OAuth authentication.</li>
-                <li>
-                  Choose permissions, sign in to Calorie Counter, and review the
-                  connection request.
-                </li>
-                <li>
-                  Enable the integration in a conversation and describe your
-                  meal or cooking.
-                </li>
-              </ol>
-              <p className="text-sm text-muted-foreground">
-                Availability depends on your ChatGPT account and workspace
-                settings. To connect with read-only access, request only
-                nutrition:read. Recording meals or cooking also requires its
-                write permission.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Food names, portions, and nutrition data returned by the tools
-                are shared with ChatGPT. Review estimates and portions before
-                saving or correcting a meal. Use Calorie Counter to replace or
-                remove foods.
-              </p>
-            </>
-          )}
-        </CardContent>
-      </Card>
-      {configuration?.enabled ? (
+      {configuration === undefined || configuration.enabled ? (
         <Card>
           <CardHeader>
             <CardTitle>Connected agents</CardTitle>
@@ -100,7 +59,7 @@ export function ConnectedAgents() {
           </CardHeader>
           <CardContent className="space-y-3">
             {connections === undefined ? (
-              <p role="status">Loading connected agents…</p>
+              <LoadingRows label="Loading connected agents" rows={1} />
             ) : connections.length === 0 ? (
               <p>No agents connected.</p>
             ) : (
@@ -135,6 +94,66 @@ export function ConnectedAgents() {
           </CardContent>
         </Card>
       ) : null}
+      <LoggingPreferences />
+      <details
+        open={configuration?.enabled === false || connections?.length === 0}
+        className="rounded-lg border border-border/60 p-4"
+      >
+        <summary className="cursor-pointer text-sm font-medium">
+          Connection setup & permissions
+        </summary>
+        <Card>
+          <CardHeader>
+            <CardTitle>ChatGPT connection</CardTitle>
+            <CardDescription>
+              ChatGPT uses its own model to work with the tools you authorize.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {configuration === undefined ? (
+              <LoadingRows label="Loading integration settings" rows={2} />
+            ) : !configuration.enabled ? (
+              <p>
+                The ChatGPT integration has not been enabled for this
+                deployment.
+              </p>
+            ) : (
+              <>
+                <p
+                  className="break-all rounded-md border bg-muted p-3 font-mono text-sm"
+                  aria-label="MCP server URL"
+                >
+                  {configuration.url}
+                </p>
+                <ol className="list-decimal space-y-2 pl-5">
+                  <li>In ChatGPT Plugins, choose Add custom MCP server.</li>
+                  <li>Paste this URL and select OAuth authentication.</li>
+                  <li>
+                    Choose permissions, sign in to Calorie Counter, and review
+                    the connection request.
+                  </li>
+                  <li>
+                    Enable the integration in a conversation and describe your
+                    meal or cooking.
+                  </li>
+                </ol>
+                <p className="text-sm text-muted-foreground">
+                  Availability depends on your ChatGPT account and workspace
+                  settings. To connect with read-only access, request only
+                  nutrition:read. Recording meals or cooking also requires its
+                  write permission.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Food names, portions, and nutrition data returned by the tools
+                  are shared with ChatGPT. Review estimates and portions before
+                  saving or correcting a meal. Use Calorie Counter to replace or
+                  remove foods.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </details>
     </main>
   )
 }

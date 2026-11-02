@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -28,12 +29,19 @@ function readSelection(key: string) {
   }
 }
 
-export function HouseholdProvider({ children }: { children: React.ReactNode }) {
+export function HouseholdProvider({
+  children,
+  accountPage = false,
+}: {
+  children: React.ReactNode
+  accountPage?: boolean
+}) {
   const identity = useDraftPersistenceIdentity()
   return (
     <HouseholdSession
       key={identity.userId ?? 'loading'}
       userId={identity.userId}
+      accountPage={accountPage}
     >
       {children}
     </HouseholdSession>
@@ -43,9 +51,11 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 function HouseholdSession({
   children,
   userId,
+  accountPage,
 }: {
   children: React.ReactNode
   userId: string | null
+  accountPage: boolean
 }) {
   const storageKey = `calorie-counter:household:${userId}`
   const [selected, setSelected] = useState(() => {
@@ -109,10 +119,11 @@ function HouseholdSession({
     )
   if (!ready || households === undefined)
     return (
-      <p className="p-6" role="status">
-        Preparing your household…
-      </p>
+      <div className="mx-auto w-full max-w-3xl p-6">
+        <LoadingRows label="Preparing your household" />
+      </div>
     )
+  if (!household && accountPage) return <>{children}</>
   if (!household)
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6">

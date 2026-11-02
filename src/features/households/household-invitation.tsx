@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -64,7 +65,7 @@ export function HouseholdInvitation({
           </p>
         ) : null}
         {invitation === undefined ? (
-          <p role="status">Loading invitation…</p>
+          <LoadingRows label="Loading invitation" rows={1} />
         ) : !invitation ? (
           <p>This invitation has expired, was revoked, or was already used.</p>
         ) : (

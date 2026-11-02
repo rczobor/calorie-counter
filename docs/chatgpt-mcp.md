@@ -69,6 +69,9 @@ creation or device-code flow is exposed in this release.
   output, then log portions using the returned cooked-food IDs.
 - Remember logging defaults with `set_logging_preferences`: household, person,
   IANA timezone, and confirmation policy. Pass `preferences: null` to clear them.
+  **Settings → ChatGPT** can inspect, change, or reset the same account defaults,
+  even when the browser's selected household is unavailable. Browser household
+  and person selection remain independent.
 - Save a logged food for reuse with `save_food_from_meal`, using IDs from
   `get_meal`. This copies historical nutrition into a household-scoped MCP saved
   food; it does not edit the meal or add an ingredient to the app catalog. Fixed
@@ -125,6 +128,18 @@ MCP cannot add, remove, or replace foods within an existing meal, archive/delete
 meals, change goals, alter recipes, or save new catalog entries. Use the app for
 those changes and catalog management. Nutrition
 sources stated by an assistant are claims, not verified database lookups.
+
+The app's primary navigation is **Today**, **History**, and **Settings**. Open
+meal details on Today before editing. Settings links to people/goals, household
+access, the food library, and cooked batches. Cooking inspection and corrections
+remain in the app; ordinary new cooking is recorded through MCP.
+
+Reusable foods have a separate list in **Settings → Food library**. Archive an
+incorrect entry and explicitly save a corrected replacement through MCP.
+Archiving removes it from tool discovery and rejects fresh preview/save attempts;
+restoring makes it reusable again. Past meal snapshots remain unchanged, and an
+already completed operation still replays its original receipt. Existing saved
+foods remain active without a backfill; the archive fields are additive.
 
 ## Reliability and data handling
 
