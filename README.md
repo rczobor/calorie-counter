@@ -102,6 +102,12 @@ manual data migration for the current small datasets.
 pnpm run setup:worktree
 ```
 
+`pnpm-workspace.yaml` disables Node's experimental Web Storage for pnpm-launched
+scripts and commands, preserving caller-supplied `NODE_OPTIONS`. This prevents
+Vitest's edge-runtime global copying from invoking Node's `localStorage` getter
+without a storage file. Browser and jsdom storage are unaffected, and other Node
+warnings remain enabled. Direct `node` invocations bypass this pnpm setting.
+
 For browser tests and visual iteration without account credentials, see
 [the synthetic browser workflow](e2e/README.md). Normal development below uses
 your selected Clerk and Convex development environment.

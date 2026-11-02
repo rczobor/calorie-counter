@@ -1,4 +1,5 @@
 autoInstallPeers: false
+nodeOptions: '${NODE_OPTIONS:-} --no-experimental-webstorage'
 minimumReleaseAge: 1440
 overrides:
   esbuild: 0.28.2
