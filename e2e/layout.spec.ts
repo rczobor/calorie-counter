@@ -14,10 +14,10 @@ test('fitting content stays compact while a short viewport keeps all controls re
     await page.evaluate(() => document.documentElement.scrollHeight),
   ).toBeGreaterThan(400)
   await page
-    .getByRole('button', { name: 'Archived meals' })
+    .getByText('Open a meal to see portions and nutrition sources.')
     .scrollIntoViewIfNeeded()
   await expect(
-    page.getByRole('button', { name: 'Archived meals' }),
+    page.getByText('Open a meal to see portions and nutrition sources.'),
   ).toBeInViewport()
 })
 
@@ -32,6 +32,7 @@ for (const width of [1440, 390]) {
         '/',
         '/history',
         '/settings',
+        '/settings/archived-meals',
         '/catalog',
         '/cooking',
       ]) {

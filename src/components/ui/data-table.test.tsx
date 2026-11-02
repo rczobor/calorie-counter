@@ -25,6 +25,27 @@ afterEach(() => {
 })
 
 describe('DataTable', () => {
+  it('keeps search and headers mounted while results load', () => {
+    const view = render(
+      <DataTable columns={columns} data={[]} searchColumnId="name" loading />,
+    )
+    const search = screen.getByLabelText('Table search')
+    fireEvent.change(search, { target: { value: 'yogurt' } })
+    expect(screen.getByRole('status').textContent).toBe('Loading table')
+    expect(screen.getByRole('table').getAttribute('aria-busy')).toBe('true')
+    expect(screen.queryByText('No results.')).toBeNull()
+    view.rerender(
+      <DataTable
+        columns={columns}
+        data={[{ name: 'Greek yogurt', status: 'Active' }]}
+        searchColumnId="name"
+      />,
+    )
+    expect(screen.getByLabelText('Table search')).toBe(search)
+    expect(screen.getByDisplayValue('yogurt')).toBeTruthy()
+    expect(screen.getByText('Greek yogurt')).toBeTruthy()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
   it('filters rows by the configured search column', () => {
     render(
       <DataTable

@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
@@ -10,10 +11,7 @@ import {
   useQuery,
 } from '@/features/households/convex-hooks'
 import { PageShell } from '@/components/page/page-shell'
-import {
-  ConfigMissingState,
-  LoadingSkeletonState,
-} from '@/components/page/page-states'
+import { ConfigMissingState } from '@/components/page/page-states'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,13 +112,6 @@ function PeopleContent() {
     else setEditing(undefined)
   }
 
-  if (active.status === 'LoadingFirstPage')
-    return (
-      <LoadingSkeletonState
-        title="People & goals"
-        icon={<UserRound className="size-4" />}
-      />
-    )
   return (
     <>
       <PageShell
@@ -245,7 +236,9 @@ function PeopleContent() {
             </section>
           ) : null}
           <div className="divide-y border-y border-border/60">
-            {people.length === 0 ? (
+            {active.status === 'LoadingFirstPage' ? (
+              <LoadingRows label="Loading people" />
+            ) : people.length === 0 ? (
               <p className="py-6 text-sm text-muted-foreground">
                 No people found.
               </p>
@@ -333,9 +326,7 @@ function PeopleContent() {
                           Goal history
                         </h3>
                         {history.status === 'LoadingFirstPage' ? (
-                          <p role="status" className="mt-2 text-sm">
-                            Loading goal history…
-                          </p>
+                          <LoadingRows label="Loading goal history" rows={2} />
                         ) : history.results.length === 0 ? (
                           <p className="mt-2 text-sm text-muted-foreground">
                             No goal history found.
@@ -367,11 +358,10 @@ function PeopleContent() {
                             size="sm"
                             variant="outline"
                             disabled={history.status === 'LoadingMore'}
+                            aria-busy={history.status === 'LoadingMore'}
                             onClick={() => history.loadMore(PAGE_SIZE)}
                           >
-                            {history.status === 'LoadingMore'
-                              ? 'Loading history…'
-                              : 'Load more goal history'}
+                            Load more goal history
                           </Button>
                         ) : null}
                       </section>
@@ -386,11 +376,10 @@ function PeopleContent() {
             <Button
               variant="outline"
               disabled={active.status === 'LoadingMore'}
+              aria-busy={active.status === 'LoadingMore'}
               onClick={() => active.loadMore(PAGE_SIZE)}
             >
-              {active.status === 'LoadingMore'
-                ? 'Loading people…'
-                : 'Load more people'}
+              Load more people
             </Button>
           ) : null}
           {showArchived &&
@@ -399,11 +388,10 @@ function PeopleContent() {
             <Button
               variant="outline"
               disabled={archived.status === 'LoadingMore'}
+              aria-busy={archived.status === 'LoadingMore'}
               onClick={() => archived.loadMore(PAGE_SIZE)}
             >
-              {archived.status === 'LoadingMore'
-                ? 'Loading archived people…'
-                : 'Load more archived people'}
+              Load more archived people
             </Button>
           ) : null}
         </div>

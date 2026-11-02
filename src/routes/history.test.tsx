@@ -338,13 +338,13 @@ describe('History route', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
 
-    expect(screen.getByRole('status').textContent).toContain(
-      'Loading the complete date range',
-    )
     expect(
-      screen.getByText('Average on days with meals logged').parentElement
-        ?.textContent,
-    ).toContain('--')
+      screen
+        .getByRole('status', { name: 'Loading the complete date range' })
+        .getAttribute('aria-label'),
+    ).toContain('Loading the complete date range')
+    expect(screen.queryByText('Average on days with meals logged')).toBeNull()
+    expect(screen.getByRole('button', { name: '7 days' })).toBeTruthy()
     expect(
       screen.queryByRole('button', { name: 'Load more history' }),
     ).toBeNull()

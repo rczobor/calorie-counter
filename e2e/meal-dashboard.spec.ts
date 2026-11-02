@@ -164,3 +164,96 @@ test('reusable foods can be inspected, archived, and restored without editing pa
   await page.goto('/')
   await expect(page.getByText('250 / 2100 kcal logged')).toBeVisible()
 })
+
+test('Today focuses on a remembered person and reveals household intake on request', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await expect(
+    page.getByRole('region', { name: 'Alex’s intake' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Viki/ })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'View history' })).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Archived meals' }),
+  ).toHaveCount(0)
+  await page.getByRole('button', { name: 'Household intake' }).click()
+  await page.getByRole('button', { name: /^Viki/ }).click()
+  await expect(
+    page.getByRole('region', { name: 'Viki’s intake' }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Household intake' }),
+  ).toHaveCount(0)
+  await page.reload()
+  await expect(
+    page.getByRole('region', { name: 'Viki’s intake' }),
+  ).toBeVisible()
+})
+
+test('archived meals are recoverable from Settings without cluttering Today', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /Seeded breakfast/ }).click()
+  await page.getByRole('button', { name: 'Archive', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: /Seeded breakfast/ }),
+  ).toHaveCount(0)
+  await page
+    .getByRole('navigation', { name: 'Primary navigation' })
+    .getByRole('link', { name: 'Settings', exact: true })
+    .click()
+  await page.getByRole('link', { name: /Archived meals/ }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Archived meals', level: 1 }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: /Seeded breakfast/ }).click()
+  await page.getByRole('button', { name: 'Restore', exact: true }).click()
+  await page
+    .getByRole('navigation', { name: 'Primary navigation' })
+    .getByRole('link', { name: 'Today', exact: true })
+    .click()
+  await expect(
+    page.getByRole('button', { name: /Seeded breakfast/ }),
+  ).toBeVisible()
+})
+
+test('opening a deferred editor shows a skeleton without replacing the intake page', async ({
+  page,
+}) => {
+  let releaseEditor = () => {}
+  const editorReady = new Promise<void>((resolve) => {
+    releaseEditor = resolve
+  })
+  await page.route(
+    /\/src\/features\/meals\/meal-editor\.tsx/,
+    async (route) => {
+      await editorReady
+      await route.continue()
+    },
+  )
+  try {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(
+      dialog.getByRole('status', { name: 'Loading editor', exact: true }),
+    ).toBeVisible()
+    await expect(dialog.getByText('Loading editor…')).toHaveCount(0)
+    await expect(
+      page.getByRole('heading', {
+        name: 'Today',
+        level: 1,
+        includeHidden: true,
+      }),
+    ).toBeVisible()
+    releaseEditor()
+    await expect(dialog.getByLabel('Quick add name')).toBeVisible()
+    await expect(
+      dialog.getByRole('status', { name: 'Loading editor', exact: true }),
+    ).toHaveCount(0)
+  } finally {
+    releaseEditor()
+  }
+})

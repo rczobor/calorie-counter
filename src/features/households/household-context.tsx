@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -118,9 +119,9 @@ function HouseholdSession({
     )
   if (!ready || households === undefined)
     return (
-      <p className="p-6" role="status">
-        Preparing your household…
-      </p>
+      <div className="mx-auto w-full max-w-3xl p-6">
+        <LoadingRows label="Preparing your household" />
+      </div>
     )
   if (!household && accountPage) return <>{children}</>
   if (!household)

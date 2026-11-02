@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import {
   HeadContent,
   Scripts,
@@ -204,10 +205,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ClerkLoading>
-        <AuthStatusCard
-          title="Loading session"
-          description="Checking your authentication status..."
-        />
+        <SessionLoading />
       </ClerkLoading>
       <ClerkLoaded>
         <Show when="signed-in">
@@ -233,12 +231,7 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth()
 
   if (isLoading) {
-    return (
-      <AuthStatusCard
-        title="Preparing secure session"
-        description="Connecting your sign-in session to data access..."
-      />
-    )
+    return <SessionLoading />
   }
 
   if (!isAuthenticated) {
@@ -251,6 +244,14 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>
+}
+
+function SessionLoading() {
+  return (
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      <LoadingRows label="Preparing your session" />
+    </main>
+  )
 }
 
 function AuthStatusCard({

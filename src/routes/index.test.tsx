@@ -52,6 +52,7 @@ vi.mock('convex/react', () => ({
   useMutation: () => mocks.mutate,
 }))
 import { Route } from './index'
+import { DayDashboard } from '@/features/meals/day-dashboard'
 const alex = createPersonDoc('abcdefghijklmnopqrst', 'Alex')
 const sam = createPersonDoc('uvwxyzabcdefghijklmn', 'Sam')
 const meal = createMealDoc('meal-lunch', alex._id, {
@@ -67,6 +68,8 @@ const item = createMealItemDoc('item-chili', meal._id, {
   nutritionProvenance: { source: 'Recipe estimate', assumptions: 'One bowl' },
 })
 let loaded = [alex, sam]
+let peopleLoading = false
+let mealsLoading = false
 const nameOf = (ref: FunctionReference<'query'>) => getFunctionName(ref)
 function show() {
   const Page = Route.options.component as ComponentType
@@ -78,6 +81,8 @@ beforeEach(() => {
   window.sessionStorage.clear()
   window.history.replaceState(null, '', '/')
   loaded = [alex, sam]
+  peopleLoading = false
+  mealsLoading = false
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-11-02T12:00:00'))
   mocks.page.mockImplementation(
@@ -89,7 +94,7 @@ beforeEach(() => {
         args === 'skip'
           ? []
           : nameOf(ref) === 'people:listForDay'
-            ? loaded.map((p) => ({
+            ? (peopleLoading ? [] : loaded).map((p) => ({
                 ...p,
                 consumedCalories: 1250,
                 goalKcal: 2200,
@@ -99,7 +104,11 @@ beforeEach(() => {
             : args.personId === alex._id && !args.archived
               ? [meal]
               : [],
-      status: 'Exhausted',
+      status: (
+        nameOf(ref) === 'people:listForDay' ? peopleLoading : mealsLoading
+      )
+        ? 'LoadingFirstPage'
+        : 'Exhausted',
       loadMore: vi.fn(),
     }),
   )
@@ -135,8 +144,11 @@ afterEach(() => {
 describe('Today intake dashboard', () => {
   it('shows server totals independently of loaded meals without mounting entry dependencies', () => {
     show()
-    expect(screen.getAllByText('950')).toHaveLength(2)
-    expect(screen.getAllByText('1250 / 2200 kcal logged')).toHaveLength(2)
+    expect(screen.getAllByText('950')).toHaveLength(1)
+    expect(screen.getAllByText('1250 / 2200 kcal logged')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /^Sam/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'View history' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Archived meals' })).toBeNull()
     expect(screen.queryByLabelText('Meal name')).toBeNull()
     expect(screen.queryByText(/Editor/)).toBeNull()
     expect(mocks.page.mock.calls.map(([ref]) => nameOf(ref))).not.toContain(
@@ -160,10 +172,17 @@ describe('Today intake dashboard', () => {
   it('keeps device person selection and makes another person selectable', () => {
     window.localStorage.setItem('calorie-counter:person:account:home', sam._id)
     show()
+    expect(screen.getByRole('region', { name: 'Sam’s intake' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Alex/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Household intake' }))
     expect(
       screen.getByRole('button', { name: /^Sam/ }).getAttribute('aria-pressed'),
     ).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: /^Alex/ }))
+    expect(screen.getByRole('region', { name: 'Alex’s intake' })).toBeTruthy()
+    expect(
+      screen.queryByRole('region', { name: 'Household intake' }),
+    ).toBeNull()
     expect(
       window.localStorage.getItem('calorie-counter:person:account:home'),
     ).toBe(alex._id)
@@ -207,7 +226,7 @@ describe('Today intake dashboard', () => {
       window.localStorage.getItem('calorie-counter:person:account:home'),
     ).toBe('removed-person')
   })
-  it('changes the date for both summaries and meals and keeps archive inspection secondary', () => {
+  it('changes the date for both summaries and active meals', () => {
     show()
     fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
     expect(
@@ -216,13 +235,43 @@ describe('Today intake dashboard', () => {
           nameOf(ref) === 'people:listForDay' && args.eatenOn === '2026-11-01',
       ),
     ).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Archived meals' }))
+    expect(
+      mocks.page.mock.calls.some(
+        ([ref, args]) =>
+          nameOf(ref) === 'meals:listForDay' && args.archived === true,
+      ),
+    ).toBe(false)
+  })
+  it('keeps archived meal recovery available on its settings page', () => {
+    render(<DayDashboard archived />)
+    expect(
+      screen.getByRole('heading', { name: 'Archived meals', level: 1 }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add meal' })).toBeNull()
     expect(
       mocks.page.mock.calls.some(
         ([ref, args]) =>
           nameOf(ref) === 'meals:listForDay' && args.archived === true,
       ),
     ).toBe(true)
+  })
+  it('keeps date controls mounted while initial intake and meals load', () => {
+    peopleLoading = true
+    const view = show()
+    const previous = screen.getByRole('button', { name: 'Previous day' })
+    expect(
+      screen.getByRole('status', { name: 'Loading daily intake' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('status', { name: 'Loading meals' })).toBeTruthy()
+    expect(screen.queryByText(/Loading/)).toBeNull()
+    peopleLoading = false
+    const Page = Route.options.component as ComponentType
+    view.rerender(<Page />)
+    expect(screen.getByRole('region', { name: 'Alex’s intake' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Previous day' })).toBe(previous)
+    expect(
+      screen.queryByRole('status', { name: 'Loading daily intake' }),
+    ).toBeNull()
   })
   it('protects an existing draft and offers explicit continuation or discard', async () => {
     const draft: MealDraft = {

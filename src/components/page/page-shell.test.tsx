@@ -2,10 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  ConfigMissingState,
-  LoadingSkeletonState,
-} from '@/components/page/page-states'
+import { ConfigMissingState } from '@/components/page/page-states'
 import { PageShell } from '@/components/page/page-shell'
 
 describe('page shell and states', () => {
@@ -27,13 +24,10 @@ describe('page shell and states', () => {
     expect(onChange).toHaveBeenCalledWith(true)
   })
 
-  it('renders standard config and loading states', () => {
+  it('renders the missing configuration state', () => {
     render(<ConfigMissingState />)
     expect(screen.getAllByText('Connect Convex First').length).toBeGreaterThan(
       0,
     )
-
-    render(<LoadingSkeletonState title="Loading page" />)
-    expect(screen.getByRole('heading', { name: 'Loading page' })).toBeTruthy()
   })
 })

@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import {
@@ -47,9 +48,7 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
         className="sm:max-w-xs"
       />
       {loading ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading reusable foods…
-        </p>
+        <LoadingRows label="Loading reusable foods" />
       ) : foods.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
           No reusable foods found. Ask ChatGPT to remember a logged food to save
@@ -107,11 +106,10 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
         <Button
           variant="outline"
           disabled={active.status === 'LoadingMore'}
+          aria-busy={active.status === 'LoadingMore'}
           onClick={() => active.loadMore(PAGE_SIZE)}
         >
-          {active.status === 'LoadingMore'
-            ? 'Loading…'
-            : 'Load more reusable foods'}
+          Load more reusable foods
         </Button>
       ) : null}
       {showArchived &&
@@ -120,11 +118,10 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
         <Button
           variant="outline"
           disabled={archived.status === 'LoadingMore'}
+          aria-busy={archived.status === 'LoadingMore'}
           onClick={() => archived.loadMore(PAGE_SIZE)}
         >
-          {archived.status === 'LoadingMore'
-            ? 'Loading…'
-            : 'Load more archived foods'}
+          Load more archived foods
         </Button>
       ) : null}
     </section>

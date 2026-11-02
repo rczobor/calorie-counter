@@ -42,6 +42,11 @@ function SettingsPage() {
       <h2 className="mt-8 text-sm font-semibold">Data maintenance</h2>
       <div className="mt-3 divide-y border-y border-border/60">
         <SettingsLink
+          to="/settings/archived-meals"
+          title="Archived meals"
+          description="Inspect and restore meals removed from daily intake."
+        />
+        <SettingsLink
           to="/catalog"
           title="Food library"
           description="Reusable foods, ingredients, recipes, and optional groups."
@@ -71,6 +76,7 @@ function SettingsLink({
     | '/household'
     | '/catalog'
     | '/cooking'
+    | '/settings/archived-meals'
   title: string
   description: string
 }) {

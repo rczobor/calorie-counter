@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
@@ -47,7 +48,7 @@ export function ConnectedAgents() {
           Connections, permissions, and remembered logging defaults.
         </p>
       </div>
-      {configuration?.enabled ? (
+      {configuration === undefined || configuration.enabled ? (
         <Card>
           <CardHeader>
             <CardTitle>Connected agents</CardTitle>
@@ -58,7 +59,7 @@ export function ConnectedAgents() {
           </CardHeader>
           <CardContent className="space-y-3">
             {connections === undefined ? (
-              <p role="status">Loading connected agents…</p>
+              <LoadingRows label="Loading connected agents" rows={1} />
             ) : connections.length === 0 ? (
               <p>No agents connected.</p>
             ) : (
@@ -95,7 +96,7 @@ export function ConnectedAgents() {
       ) : null}
       <LoggingPreferences />
       <details
-        open={!configuration?.enabled || connections?.length === 0}
+        open={configuration?.enabled === false || connections?.length === 0}
         className="rounded-lg border border-border/60 p-4"
       >
         <summary className="cursor-pointer text-sm font-medium">
@@ -110,7 +111,7 @@ export function ConnectedAgents() {
           </CardHeader>
           <CardContent className="space-y-3">
             {configuration === undefined ? (
-              <p role="status">Loading integration settings…</p>
+              <LoadingRows label="Loading integration settings" rows={2} />
             ) : !configuration.enabled ? (
               <p>
                 The ChatGPT integration has not been enabled for this

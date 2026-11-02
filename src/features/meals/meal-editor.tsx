@@ -1,3 +1,4 @@
+import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
@@ -214,7 +215,6 @@ function MealEditorContent({
     effectiveCookSessionId,
     editingMealDetail,
     paging,
-    isLoading,
   } = useMealDashboardDomainData({
     selectedPersonId,
     selectedCookSessionId,
@@ -814,12 +814,7 @@ function MealEditorContent({
     }
   }, [userId, serializedDraft, canPersistDraft])
 
-  if (isLoading)
-    return (
-      <p role="status" className="py-6 text-sm text-muted-foreground">
-        Loading meal editor…
-      </p>
-    )
+  if (paging.people.isLoadingFirstPage) return <EditorSkeleton />
 
   return (
     <>
@@ -861,7 +856,7 @@ function MealEditorContent({
                   />
                   {selectedPersonId &&
                   !effectiveSelectedPersonId &&
-                  !isLoading ? (
+                  !paging.people.isLoadingFirstPage ? (
                     <p role="status" className="text-sm text-muted-foreground">
                       The selected person is unavailable. Choose an active
                       person to log a meal.
@@ -872,11 +867,10 @@ function MealEditorContent({
                       size="xs"
                       variant="ghost"
                       disabled={paging.people.isLoadingMore}
+                      aria-busy={paging.people.isLoadingMore}
                       onClick={paging.people.loadMore}
                     >
-                      {paging.people.isLoadingMore
-                        ? 'Loading more people...'
-                        : 'Load more people'}
+                      Load more people
                     </Button>
                   ) : null}
                 </div>
@@ -906,9 +900,7 @@ function MealEditorContent({
             />
           </div>
           {editingMealId && !isEditingMealHydrated ? (
-            <p className="text-sm text-muted-foreground" role="status">
-              Loading meal items...
-            </p>
+            <LoadingRows label="Loading meal items" rows={1} />
           ) : null}
           <fieldset className="min-w-0" disabled={!isEditingMealHydrated}>
             <div className="mt-1 border-t border-border/40 pt-4">
@@ -1024,6 +1016,7 @@ function MealEditorContent({
                     <>
                       <DataTable
                         columns={ingredientSelectionColumns}
+                        loading={paging.ingredients.isLoadingFirstPage}
                         data={ingredientSelectionRows}
                         searchColumnId="name"
                         searchPlaceholder="Filter loaded ingredients"
@@ -1035,11 +1028,10 @@ function MealEditorContent({
                               size="sm"
                               variant="outline"
                               disabled={paging.ingredients.isLoadingMore}
+                              aria-busy={paging.ingredients.isLoadingMore}
                               onClick={paging.ingredients.loadMore}
                             >
-                              {paging.ingredients.isLoadingMore
-                                ? 'Loading more ingredients...'
-                                : 'Load more ingredients'}
+                              Load more ingredients
                             </Button>
                           ) : null
                         }
@@ -1142,6 +1134,8 @@ function MealEditorContent({
                         onSaveToCatalogChange={setItemCustomSaveToCatalog}
                       />
                     </div>
+                  ) : paging.cookSessions.isLoadingFirstPage ? (
+                    <LoadingRows label="Loading cooking sessions" rows={1} />
                   ) : (
                     <>
                       <Select
@@ -1165,11 +1159,10 @@ function MealEditorContent({
                           size="sm"
                           variant="outline"
                           disabled={paging.cookSessions.isLoadingMore}
+                          aria-busy={paging.cookSessions.isLoadingMore}
                           onClick={paging.cookSessions.loadMore}
                         >
-                          {paging.cookSessions.isLoadingMore
-                            ? 'Loading more cooking sessions...'
-                            : 'Load more cooking sessions'}
+                          Load more cooking sessions
                         </Button>
                       ) : null}
                       <SearchablePicker
@@ -1198,11 +1191,10 @@ function MealEditorContent({
                           size="sm"
                           variant="outline"
                           disabled={paging.cookedFoods.isLoadingMore}
+                          aria-busy={paging.cookedFoods.isLoadingMore}
                           onClick={paging.cookedFoods.loadMore}
                         >
-                          {paging.cookedFoods.isLoadingMore
-                            ? 'Loading more cooked foods...'
-                            : 'Load more cooked foods'}
+                          Load more cooked foods
                         </Button>
                       ) : null}
                       {paging.cookedFoods.canLoadMore ? (

@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton'
 import { useHousehold } from '@/features/households/household-context'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
@@ -17,10 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { PageShell } from '@/components/page/page-shell'
-import {
-  ConfigMissingState,
-  LoadingSkeletonState,
-} from '@/components/page/page-states'
+import { ConfigMissingState } from '@/components/page/page-states'
 import { Button } from '@/components/ui/button'
 import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -195,7 +193,7 @@ function HistoryPageContent() {
     initialNumItems: HISTORY_PAGE_SIZE,
   })
   const goals = useQuery(api.history.goalsForRange, historyArgs)
-  const isHistoryComplete = historyStatus === 'Exhausted'
+  const isHistoryComplete = historyStatus === 'Exhausted' && goals !== undefined
   useEffect(() => {
     if (historyStatus === 'CanLoadMore') loadMoreHistory(HISTORY_PAGE_SIZE)
   }, [historyStatus, loadMoreHistory])
@@ -277,15 +275,6 @@ function HistoryPageContent() {
       isDateRangeValid &&
       (historyStatus === 'LoadingFirstPage' || goals === undefined))
 
-  if (isInitialLoading) {
-    return (
-      <LoadingSkeletonState
-        title="History"
-        icon={<History className="h-5 w-5" />}
-      />
-    )
-  }
-
   return (
     <PageShell title="History" icon={<History className="h-4 w-4" />}>
       <div className="mt-4 space-y-4">
@@ -294,7 +283,13 @@ function HistoryPageContent() {
             <p className="mb-1 text-xs font-medium text-muted-foreground">
               Person
             </p>
-            {people.length === 0 ? (
+            {peopleStatus === 'LoadingFirstPage' ? (
+              <Skeleton
+                className="h-9 w-40"
+                role="status"
+                aria-label="Loading people"
+              />
+            ) : people.length === 0 ? (
               <p className="text-sm text-muted-foreground">No active people.</p>
             ) : (
               <Select
@@ -317,11 +312,10 @@ function HistoryPageContent() {
                 size="sm"
                 variant="ghost"
                 disabled={peopleStatus === 'LoadingMore'}
+                aria-busy={peopleStatus === 'LoadingMore'}
                 onClick={() => loadMorePeople(PEOPLE_PAGE_SIZE)}
               >
-                {peopleStatus === 'LoadingMore'
-                  ? 'Loading people...'
-                  : 'Load more people'}
+                Load more people
               </Button>
             ) : null}
           </div>
@@ -370,6 +364,20 @@ function HistoryPageContent() {
             {isDateRangeOrdered
               ? `History ranges can include at most ${MAX_HISTORY_DAYS} days.`
               : 'The start date must be on or before the end date.'}
+          </div>
+        ) : isInitialLoading ||
+          (Boolean(effectiveSelectedPersonId) && !isHistoryComplete) ? (
+          <div
+            role="status"
+            aria-label="Loading the complete date range"
+            className="min-h-96 space-y-5"
+          >
+            <div className="flex h-10 gap-6 border-b pb-4">
+              <Skeleton className="h-5 w-56" />
+              <Skeleton className="h-5 w-28" />
+            </div>
+            <Skeleton className="h-56 w-full" />
+            <Skeleton className="h-20 w-full" />
           </div>
         ) : (
           <>
@@ -437,13 +445,6 @@ function HistoryPageContent() {
                   />
                 </details>
               </>
-            ) : null}
-
-            {historyStatus === 'CanLoadMore' ||
-            historyStatus === 'LoadingMore' ? (
-              <p role="status" className="text-sm text-muted-foreground">
-                Loading the complete date range…
-              </p>
             ) : null}
           </>
         )}

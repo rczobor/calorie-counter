@@ -32,6 +32,7 @@ test('device selections and unsaved meals stay with their household after switch
     exact: true,
   })
   await expect(household).toHaveCount(0)
+  await page.getByRole('button', { name: 'Household intake' }).click()
   await page.getByRole('button', { name: /^Viki/ }).click()
   await page.getByRole('button', { name: 'Add meal', exact: true }).click()
   await page.getByLabel('Meal name').fill('Home draft')

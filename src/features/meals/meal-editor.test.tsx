@@ -773,9 +773,11 @@ describe('Meal editor', () => {
     const view = renderMealsRoute()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit saved meal' }))
-    expect(screen.getByRole('status').textContent).toContain(
-      'Loading meal items',
-    )
+    expect(
+      screen
+        .getByRole('status', { name: 'Loading meal items' })
+        .getAttribute('aria-label'),
+    ).toContain('Loading meal items')
     expect(
       (screen.getByLabelText(/quick add name/i) as HTMLInputElement).closest(
         'fieldset',

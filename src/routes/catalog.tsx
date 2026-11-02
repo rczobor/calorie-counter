@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -7,17 +8,13 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { PageShell } from '@/components/page/page-shell'
-import {
-  ConfigMissingState,
-  LoadingSkeletonState,
-} from '@/components/page/page-states'
+import { ConfigMissingState } from '@/components/page/page-states'
 import { StatusBadge } from '@/components/page/status-badge'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { Button } from '@/components/ui/button'
 import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -763,11 +760,7 @@ function ManagePageContent() {
                 setRecipeIngredientLines([])
               }}
             >
-              {editingRecipeId === recipe._id
-                ? recipeDetail === undefined
-                  ? 'Loading...'
-                  : 'Editing'
-                : 'Edit'}
+              {editingRecipeId === recipe._id ? 'Editing' : 'Edit'}
             </Button>
             <Button
               size="sm"
@@ -1253,36 +1246,6 @@ function ManagePageContent() {
     },
   ]
 
-  if (catalogData.isLoading) {
-    return (
-      <LoadingSkeletonState
-        title="Food library"
-        icon={<BookOpenText className="h-4 w-4" />}
-      >
-        <div className="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div>
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="mt-1 h-3 w-48" />
-            <div className="mt-3 space-y-2">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          </div>
-          <div>
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="mt-1 h-3 w-48" />
-            <div className="mt-3 space-y-2">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          </div>
-        </div>
-      </LoadingSkeletonState>
-    )
-  }
-
   return (
     <>
       <PageShell
@@ -1401,11 +1364,12 @@ function ManagePageContent() {
                             disabled={
                               catalogData.paging.foodGroups.isLoadingMore
                             }
+                            aria-busy={
+                              catalogData.paging.foodGroups.isLoadingMore
+                            }
                             onClick={catalogData.paging.foodGroups.loadMore}
                           >
-                            {catalogData.paging.foodGroups.isLoadingMore
-                              ? 'Loading groups...'
-                              : 'Load more ingredient groups'}
+                            Load more ingredient groups
                           </Button>
                         ) : null}
                       </div>
@@ -1483,12 +1447,12 @@ function ManagePageContent() {
                 />
                 <DataTable
                   columns={ingredientColumns}
-                  data={ingredientRows}
-                  emptyText={
+                  loading={
+                    catalogData.isLoading ||
                     catalogData.search.ingredients.isLoading
-                      ? 'Searching ingredients...'
-                      : 'No ingredients found.'
                   }
+                  data={ingredientRows}
+                  emptyText={'No ingredients found.'}
                 />
                 {!catalogData.search.ingredients.active &&
                 catalogData.paging.ingredients.canLoadMore ? (
@@ -1496,11 +1460,10 @@ function ManagePageContent() {
                     type="button"
                     variant="outline"
                     disabled={catalogData.paging.ingredients.isLoadingMore}
+                    aria-busy={catalogData.paging.ingredients.isLoadingMore}
                     onClick={catalogData.paging.ingredients.loadMore}
                   >
-                    {catalogData.paging.ingredients.isLoadingMore
-                      ? 'Loading ingredients...'
-                      : 'Load more ingredients'}
+                    Load more ingredients
                   </Button>
                 ) : null}
               </IngredientsSection>
@@ -1527,9 +1490,7 @@ function ManagePageContent() {
                     {editingRecipeId ? 'Edit recipe' : 'Create recipe'}
                   </summary>
                   {editingRecipeId && !isEditingRecipeHydrated ? (
-                    <p className="text-sm text-muted-foreground" role="status">
-                      Loading recipe details...
-                    </p>
+                    <LoadingRows label="Loading recipe details" rows={2} />
                   ) : null}
                   {editingRecipeId && recipeVersionConflict ? (
                     <p className="text-sm text-destructive" role="alert">
@@ -1597,13 +1558,14 @@ function ManagePageContent() {
                             disabled={
                               catalogData.paging.recipeIngredients.isLoadingMore
                             }
+                            aria-busy={
+                              catalogData.paging.recipeIngredients.isLoadingMore
+                            }
                             onClick={
                               catalogData.paging.recipeIngredients.loadMore
                             }
                           >
-                            {catalogData.paging.recipeIngredients.isLoadingMore
-                              ? 'Loading ingredients...'
-                              : 'Load more recipe ingredients'}
+                            Load more recipe ingredients
                           </Button>
                         ) : null}
                         <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr_1fr_auto]">
@@ -1857,12 +1819,12 @@ function ManagePageContent() {
                 />
                 <DataTable
                   columns={recipeColumns}
-                  data={recipeRows}
-                  emptyText={
+                  loading={
+                    catalogData.isLoading ||
                     catalogData.search.recipes.isLoading
-                      ? 'Searching recipes...'
-                      : 'No recipes found.'
                   }
+                  data={recipeRows}
+                  emptyText={'No recipes found.'}
                 />
                 {!catalogData.search.recipes.active &&
                 catalogData.paging.recipes.canLoadMore ? (
@@ -1870,11 +1832,10 @@ function ManagePageContent() {
                     type="button"
                     variant="outline"
                     disabled={catalogData.paging.recipes.isLoadingMore}
+                    aria-busy={catalogData.paging.recipes.isLoadingMore}
                     onClick={catalogData.paging.recipes.loadMore}
                   >
-                    {catalogData.paging.recipes.isLoadingMore
-                      ? 'Loading recipes...'
-                      : 'Load more recipes'}
+                    Load more recipes
                   </Button>
                 ) : null}
               </RecipesSection>
@@ -1964,21 +1925,21 @@ function ManagePageContent() {
                 />
                 <DataTable
                   columns={foodGroupColumns}
+                  loading={
+                    catalogData.isLoading ||
+                    catalogData.search.foodGroups.isLoading
+                  }
                   data={foodGroupRows}
                   emptyText={
-                    catalogData.search.foodGroups.isLoading ? (
-                      'Searching food groups...'
-                    ) : (
-                      <div className="space-y-1">
-                        <p className="font-medium text-foreground">
-                          No food groups yet.
-                        </p>
-                        <p className="text-sm">
-                          Groups are optional; add them when filtering becomes
-                          useful.
-                        </p>
-                      </div>
-                    )
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">
+                        No food groups yet.
+                      </p>
+                      <p className="text-sm">
+                        Groups are optional; add them when filtering becomes
+                        useful.
+                      </p>
+                    </div>
                   }
                 />
                 {!catalogData.search.foodGroups.active &&
@@ -1987,11 +1948,10 @@ function ManagePageContent() {
                     type="button"
                     variant="outline"
                     disabled={catalogData.paging.foodGroups.isLoadingMore}
+                    aria-busy={catalogData.paging.foodGroups.isLoadingMore}
                     onClick={catalogData.paging.foodGroups.loadMore}
                   >
-                    {catalogData.paging.foodGroups.isLoadingMore
-                      ? 'Loading food groups...'
-                      : 'Load more food groups'}
+                    Load more food groups
                   </Button>
                 ) : null}
               </FoodGroupsSection>

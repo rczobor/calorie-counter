@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { useState } from 'react'
 import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -104,9 +105,7 @@ export function LoggingPreferences() {
         ) : null}
       </div>
       {preferences === undefined ? (
-        <p role="status" className="mt-3 text-sm text-muted-foreground">
-          Loading logging defaults…
-        </p>
+        <LoadingRows label="Loading logging defaults" rows={1} />
       ) : editing ? (
         <form
           onSubmit={(event) => {
@@ -153,6 +152,7 @@ export function LoggingPreferences() {
                   size="sm"
                   variant="ghost"
                   disabled={people.status === 'LoadingMore'}
+                  aria-busy={people.status === 'LoadingMore'}
                   onClick={() => people.loadMore(50)}
                 >
                   Load more people

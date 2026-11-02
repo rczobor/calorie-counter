@@ -17,8 +17,9 @@ Clerk authentication.
 
 ## App Routes
 
-- `/`: Today: per-person intake, date-aware goals, recorded meal details, and optional meal entry/correction.
+- `/`: Today: focused intake for the person remembered on this device, date-aware goals, recorded meal details, and optional meal entry/correction. Reveal household intake to check or select someone else.
 - `/history`: Person-scoped history with complete-range loading and links back to a day's meals.
+- `/settings/archived-meals`: Inspect and restore archived meals by person and day.
 - `/settings`: People, household, ChatGPT, and data-maintenance links.
 - `/people`: Browse-first people and goal settings, with goal history inside each person.
 - `/catalog`: Food library for MCP reusable foods, ingredients, recipes, and optional groups.

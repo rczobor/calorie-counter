@@ -1,3 +1,4 @@
+import { LoadingRows } from '@/components/page/loading-content'
 import { createFileRoute, Link, useBlocker } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
@@ -300,7 +301,7 @@ function CookingContent({ userId }: { userId: string | null }) {
               />
             ) : selectedSessionId ? (
               selectedSession === undefined ? (
-                <p role="status">Loading batch…</p>
+                <LoadingRows label="Loading batch" rows={1} />
               ) : selectedSession === null ? (
                 <div className="space-y-3">
                   <p role="alert">
@@ -460,7 +461,7 @@ function CookedFoodList({
         onChange={(e) => setSearch(e.target.value)}
       />
       {loading ? (
-        <p role="status">Loading cooked foods…</p>
+        <LoadingRows label="Loading cooked foods" />
       ) : !foods.length ? (
         <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
           No cooked foods found.
@@ -485,6 +486,9 @@ function CookedFoodList({
             <Button
               variant="outline"
               disabled={[page, archivePage].some(
+                (p) => p.status === 'LoadingMore',
+              )}
+              aria-busy={[page, archivePage].some(
                 (p) => p.status === 'LoadingMore',
               )}
               onClick={() => {
@@ -555,11 +559,7 @@ function CookedFoodDetail({
   const action = useConfirmableAction()
   const [recipe, setRecipe] = useState(false)
   if (detail === undefined)
-    return (
-      <p role="status" className="mt-4 text-sm">
-        Loading composition…
-      </p>
-    )
+    return <LoadingRows label="Loading composition" rows={2} className="mt-4" />
   if (detail === null)
     return (
       <p role="status" className="mt-4 text-sm">
@@ -849,7 +849,7 @@ function SessionList({
         />
       ) : null}
       {loading ? (
-        <p role="status">Loading batches…</p>
+        <LoadingRows label="Loading batches" />
       ) : !rows.length ? (
         <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
           No batches found.
@@ -947,6 +947,7 @@ function SessionList({
           className="mt-4"
           variant="outline"
           disabled={[active, archived].some((p) => p.status === 'LoadingMore')}
+          aria-busy={[active, archived].some((p) => p.status === 'LoadingMore')}
           onClick={() => {
             if (active.status === 'CanLoadMore') active.loadMore(PAGE_SIZE)
             if (showArchived && archived.status === 'CanLoadMore')
