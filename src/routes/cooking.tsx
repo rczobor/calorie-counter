@@ -1023,9 +1023,7 @@ function SessionEditor({
               date === toLocalDateString(session.cookedAt)
                 ? session.cookedAt
                 : toTimestampFromDate(date),
-            ...(date === toLocalDateString(session.cookedAt)
-              ? {}
-              : { cookedOn: date }),
+            cookedOn: date,
             cookedByPersonId: personId || undefined,
             notes,
           })

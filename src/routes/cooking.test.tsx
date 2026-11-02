@@ -16,6 +16,7 @@ import {
   createPersonDoc,
 } from '@/tests/factories'
 import { createCookingDraft } from '@/features/cooking/draft-helpers'
+import { toLocalDateString } from '@/lib/nutrition'
 
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
@@ -100,7 +101,7 @@ const lines = [
   }),
 ]
 const session = createCookSessionDoc('session-1', 'Weekend cooking', {
-  cookedAt: new Date('2026-10-31T08:42:16Z').getTime(),
+  cookedAt: new Date('2026-11-01T00:42:16+01:00').getTime(),
   editRevision: 2,
 })
 const detail = {
@@ -297,7 +298,7 @@ describe('cooked batches', () => {
     )
     expect(mocks.save.mock.calls[0][0].ingredients).toHaveLength(1)
   })
-  it('preserves the exact original timestamp on a label-only batch edit', async () => {
+  it('preserves the original timestamp and local search date on a label-only batch edit', async () => {
     render(<Page />)
     fireEvent.click(screen.getByRole('button', { name: 'Batches' }))
     fireEvent.click(screen.getByText('Manage'))
@@ -310,10 +311,10 @@ describe('cooked batches', () => {
     expect(mocks.sessionSave.mock.calls[0][0]).toMatchObject({
       label: 'Updated label',
       cookedAt: session.cookedAt,
+      cookedOn: toLocalDateString(session.cookedAt),
       expectedEditRevision: 2,
       cookedByPersonId: session.cookedByPersonId,
     })
-    expect(mocks.sessionSave.mock.calls[0][0]).not.toHaveProperty('cookedOn')
   })
   it('preserves old drafts until explicit recovery or confirmed discard', () => {
     const draft = createCookingDraft(asId<'cookSessions'>('session-1'), {
