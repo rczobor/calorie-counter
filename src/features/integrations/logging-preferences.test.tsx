@@ -92,15 +92,21 @@ describe('Logging preferences', () => {
     render(<LoggingPreferences />)
     expect(screen.getByText('Europe/Budapest')).toBeTruthy()
     expect(screen.getByText('Ask before saving')).toBeTruthy()
-    expect(
-      screen.getByText(
-        /Browsing another person or household here does not change them/,
-      ),
-    ).toBeTruthy()
+    const guidance = screen.getByText(
+      /Browsing another person or household here does not change them/,
+    )
+    expect(guidance.closest('details')?.open).toBe(false)
+    fireEvent.click(screen.getByText('About these defaults'))
+    expect(guidance.closest('details')?.open).toBe(true)
   })
   it('reviews reset before clearing defaults and keeps nutrition records untouched', async () => {
     render(<LoggingPreferences />)
-    fireEvent.click(screen.getByRole('button', { name: 'Reset defaults' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Logging default actions' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Reset defaults' }),
+    )
     expect(update).not.toHaveBeenCalled()
     expect(confirm).toHaveBeenCalledWith(
       expect.stringContaining('Recorded meals and connections remain'),
@@ -113,9 +119,15 @@ describe('Logging preferences', () => {
   it('requires explicit review before enabling direct exact-meal logging', async () => {
     render(<LoggingPreferences />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit defaults' }))
+    expect(
+      screen.queryByText(/Only complete, non-estimated new meals/),
+    ).toBeNull()
     fireEvent.change(screen.getByLabelText('Logging save policy'), {
       target: { value: 'explicitOnly' },
     })
+    expect(
+      screen.getByText(/Only complete, non-estimated new meals/),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Save defaults' }))
     expect(update).not.toHaveBeenCalled()
     expect(confirm).toHaveBeenCalledWith(

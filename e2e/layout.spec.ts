@@ -96,6 +96,9 @@ for (const width of [1440, 390]) {
         '/settings/archived-meals',
         '/catalog',
         '/cooking',
+        '/people',
+        '/household',
+        '/settings/integrations',
       ]) {
         await page.goto(route)
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible()

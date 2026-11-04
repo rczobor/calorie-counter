@@ -19,11 +19,13 @@ import {
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { readMealDraft, writeMealDraft } from '@/features/meals/meal-draft'
+import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { EditorDialog } from '@/components/page/editor-dialog'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -146,14 +148,23 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   return (
     <>
       <PageShell
+        breadcrumbs={
+          archived ? (
+            <SettingsBreadcrumbs current="Archived meals" />
+          ) : undefined
+        }
         title={
           archived ? 'Archived meals' : date === today ? 'Today' : 'Day summary'
         }
-        subtitle={new Date(toTimestampFromDate(date)).toLocaleDateString(
-          undefined,
-          { weekday: 'long', month: 'long', day: 'numeric' },
-        )}
-        icon={<Flame className="h-4 w-4" />}
+        subtitle={
+          archived
+            ? undefined
+            : new Date(toTimestampFromDate(date)).toLocaleDateString(
+                undefined,
+                { weekday: 'long', month: 'long', day: 'numeric' },
+              )
+        }
+        icon={archived ? undefined : <Flame className="h-4 w-4" />}
         contentClassName="max-w-3xl"
       >
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -184,94 +195,128 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </Button>
             ) : null}
           </div>
-        </div>
-        {archived ? (
-          <Link
-            to="/settings"
-            className="mt-4 inline-block text-sm text-muted-foreground underline underline-offset-4"
-          >
-            ‹ Settings
-          </Link>
-        ) : null}
-        <section
-          className="mt-5 rounded-xl border bg-card p-5 sm:p-6"
-          aria-label={focused ? `${focused.name}’s intake` : 'Daily intake'}
-          aria-busy={loadingPerson}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-semibold">
-              {selected?.name ??
-                (loadingPerson ? (
-                  <Skeleton className="h-5 w-28" />
-                ) : (
-                  'Choose a person'
-                ))}
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              ref={householdButton}
-              aria-expanded={showHousehold}
-              aria-controls="household-intake"
-              onClick={() => setShowHousehold(!showHousehold)}
-            >
-              Household intake{' '}
-              <ChevronDown
-                className={cn(
-                  'size-4 transition-transform motion-reduce:transition-none',
-                  showHousehold && 'rotate-180',
-                )}
+          {archived ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                ariaLabel="Person"
+                placeholder={
+                  loadingPerson ? 'Loading people' : 'Choose a person'
+                }
+                disabled={people.status === 'LoadingFirstPage'}
+                options={visiblePeople.map((person) => ({
+                  value: person._id,
+                  label: person.name,
+                }))}
+                value={selected?._id ?? null}
+                onValueChange={(value) => {
+                  if (value) {
+                    setSelectedPersonId(value)
+                    setOpenMealId(null)
+                  }
+                }}
               />
-            </Button>
-          </div>
-          {focused ? (
-            <>
-              <p className="mt-4 text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
-                {Math.abs(focused.remainingCalories).toFixed(0)}{' '}
-                <span className="text-base font-normal tracking-normal text-muted-foreground">
-                  kcal {focused.remainingCalories < 0 ? 'over' : 'left'}
-                </span>
-              </p>
-              <p className="mt-3 text-sm text-muted-foreground tabular-nums">
-                {focused.consumedCalories.toFixed(0)} /{' '}
-                {focused.goalKcal.toFixed(0)} kcal logged
-              </p>
-              <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{
-                    width: `${Math.min(100, focused.goalKcal > 0 ? (focused.consumedCalories / focused.goalKcal) * 100 : 0)}%`,
-                  }}
-                />
-              </div>
-            </>
-          ) : loadingPerson ? (
-            <div
-              role="status"
-              aria-label="Loading daily intake"
-              className="mt-4"
-            >
-              <Skeleton className="h-12 w-56 sm:h-15" />
-              <Skeleton className="mt-3 h-5 w-44" />
-              <Skeleton className="mt-5 h-2 w-full" />
+              {people.status === 'CanLoadMore' ||
+              people.status === 'LoadingMore' ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={people.status === 'LoadingMore'}
+                  onClick={() => people.loadMore(PAGE_SIZE)}
+                >
+                  Load more people
+                </Button>
+              ) : null}
             </div>
-          ) : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              {selectedPersonId ? (
-                'The selected person is unavailable. Choose another person in Household intake.'
-              ) : (
-                <>
-                  No active people.{' '}
-                  <Link to="/people" className="underline">
-                    Add a person and goal
-                  </Link>{' '}
-                  to start tracking.
-                </>
-              )}
-            </p>
-          )}
-        </section>
-        {showHousehold ? (
+          ) : null}
+        </div>
+        {archived && !loadingPerson && !selected ? (
+          <p role="status" className="mt-4 text-sm text-muted-foreground">
+            {selectedPersonId
+              ? 'This person is unavailable. Choose another person.'
+              : 'No active people.'}
+          </p>
+        ) : null}
+        {!archived ? (
+          <section
+            className="mt-5 rounded-xl border bg-card p-5 sm:p-6"
+            aria-label={focused ? `${focused.name}’s intake` : 'Daily intake'}
+            aria-busy={loadingPerson}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-semibold">
+                {selected?.name ??
+                  (loadingPerson ? (
+                    <Skeleton className="h-5 w-28" />
+                  ) : (
+                    'Choose a person'
+                  ))}
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                ref={householdButton}
+                aria-expanded={showHousehold}
+                aria-controls="household-intake"
+                onClick={() => setShowHousehold(!showHousehold)}
+              >
+                Household intake{' '}
+                <ChevronDown
+                  className={cn(
+                    'size-4 transition-transform motion-reduce:transition-none',
+                    showHousehold && 'rotate-180',
+                  )}
+                />
+              </Button>
+            </div>
+            {focused ? (
+              <>
+                <p className="mt-4 text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
+                  {Math.abs(focused.remainingCalories).toFixed(0)}{' '}
+                  <span className="text-base font-normal tracking-normal text-muted-foreground">
+                    kcal {focused.remainingCalories < 0 ? 'over' : 'left'}
+                  </span>
+                </p>
+                <p className="mt-3 text-sm text-muted-foreground tabular-nums">
+                  {focused.consumedCalories.toFixed(0)} /{' '}
+                  {focused.goalKcal.toFixed(0)} kcal logged
+                </p>
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{
+                      width: `${Math.min(100, focused.goalKcal > 0 ? (focused.consumedCalories / focused.goalKcal) * 100 : 0)}%`,
+                    }}
+                  />
+                </div>
+              </>
+            ) : loadingPerson ? (
+              <div
+                role="status"
+                aria-label="Loading daily intake"
+                className="mt-4"
+              >
+                <Skeleton className="h-12 w-56 sm:h-15" />
+                <Skeleton className="mt-3 h-5 w-44" />
+                <Skeleton className="mt-5 h-2 w-full" />
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">
+                {selectedPersonId ? (
+                  'The selected person is unavailable. Choose another person in Household intake.'
+                ) : (
+                  <>
+                    No active people.{' '}
+                    <Link to="/people" className="underline">
+                      Add a person and goal
+                    </Link>{' '}
+                    to start tracking.
+                  </>
+                )}
+              </p>
+            )}
+          </section>
+        ) : null}
+        {!archived && showHousehold ? (
           <section
             id="household-intake"
             aria-label="Household intake"
@@ -328,7 +373,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             ) : null}
           </section>
         ) : null}
-        {draft && !editor ? (
+        {!archived && draft && !editor ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
             <p className="text-sm" role="status">
               {draftConflict

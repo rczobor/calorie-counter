@@ -1,8 +1,16 @@
 import { LoadingRows } from '@/components/page/loading-content'
-import { createFileRoute, Link, useBlocker } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { createFileRoute, useBlocker } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
-import { ChefHat } from 'lucide-react'
+import { ChevronRight, MoreHorizontal } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
@@ -67,6 +75,10 @@ function CookingPage() {
 }
 
 function CookingContent({ userId }: { userId: string | null }) {
+  const [selectedFood, setSelectedFood] = useState<Pick<
+    CookedFood,
+    '_id' | 'name'
+  > | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [view, setView] = useState<'foods' | 'sessions'>('foods')
   const [sessionEditing, setSessionEditing] = useState(false)
@@ -111,6 +123,7 @@ function CookingContent({ userId }: { userId: string | null }) {
     if (!savedRecovery) writeCookingEdit(userId, null)
     setRecoverableEdit(savedRecovery ? progress : null)
     setDraft(null)
+    setSelectedFood(null)
     setLegacySource(null)
   }
 
@@ -156,19 +169,20 @@ function CookingContent({ userId }: { userId: string | null }) {
     <>
       <PageShell
         title="Cooked batches"
-        icon={<ChefHat className="h-4 w-4" />}
-        subtitle="Inspect cooking, correct nutrition, and keep historical records intact."
+        breadcrumbs={
+          <SettingsBreadcrumbs
+            current="Cooked batches"
+            onCurrentClick={
+              selectedFood ? () => setSelectedFood(null) : undefined
+            }
+          />
+        }
+        headerClassName={selectedFood && !draft ? 'hidden lg:flex' : undefined}
         showArchived={showArchived}
         onShowArchivedChange={(value) => {
           if (!sessionEditing) setShowArchived(value)
         }}
       >
-        <Link
-          to="/settings"
-          className="mt-4 inline-block text-sm text-muted-foreground underline underline-offset-4"
-        >
-          Back to settings
-        </Link>
         {draft ? (
           <CookedFoodEditor
             key={draft.draftId}
@@ -274,7 +288,12 @@ function CookingContent({ userId }: { userId: string | null }) {
                 work was removed.
               </p>
             ) : null}
-            <div className="my-5 flex flex-wrap gap-2">
+            <div
+              className={cn(
+                'my-5 flex flex-wrap gap-2',
+                selectedFood && 'hidden lg:flex',
+              )}
+            >
               <Button
                 variant={view === 'foods' ? 'secondary' : 'ghost'}
                 disabled={sessionEditing}
@@ -285,7 +304,10 @@ function CookingContent({ userId }: { userId: string | null }) {
               <Button
                 variant={view === 'sessions' ? 'secondary' : 'ghost'}
                 disabled={sessionEditing}
-                onClick={() => setView('sessions')}
+                onClick={() => {
+                  setSelectedFood(null)
+                  setView('sessions')
+                }}
               >
                 Batches
               </Button>
@@ -339,6 +361,9 @@ function CookingContent({ userId }: { userId: string | null }) {
                     key={`${selectedSessionId}:${showArchived}`}
                     sessionId={selectedSessionId}
                     showArchived={showArchived || selectedSession.archived}
+                    selectedFood={selectedFood}
+                    onSelect={setSelectedFood}
+                    onClose={() => setSelectedFood(null)}
                     onEdit={beginFoodEdit}
                   />
                 </>
@@ -347,13 +372,12 @@ function CookingContent({ userId }: { userId: string | null }) {
               <CookedFoodList
                 key={`all:${showArchived}`}
                 showArchived={showArchived}
+                selectedFood={selectedFood}
+                onSelect={setSelectedFood}
+                onClose={() => setSelectedFood(null)}
                 onEdit={beginFoodEdit}
               />
             )}
-            <p className="mt-6 text-sm text-muted-foreground">
-              Record new cooking through ChatGPT. Open a cooked food here to
-              inspect its portions, composition, and nutrition.
-            </p>
           </>
         )}
       </PageShell>
@@ -384,10 +408,16 @@ function CookedFoodList({
   sessionId,
   showArchived,
   onEdit,
+  selectedFood,
+  onSelect,
+  onClose,
 }: {
   sessionId?: Id<'cookSessions'>
   showArchived: boolean
   onEdit: (draft: CookingDraft) => void
+  selectedFood: Pick<CookedFood, '_id' | 'name'> | null
+  onSelect: (food: CookedFood) => void
+  onClose: () => void
 }) {
   const [search, setSearch] = useState('')
   const term = search.trim().slice(0, SEARCH_MAX_LENGTH)
@@ -450,106 +480,137 @@ function CookedFoodList({
       (showArchived && archivedSearchRows === undefined)
     : page.status === 'LoadingFirstPage' ||
       (showArchived && archivePage.status === 'LoadingFirstPage')
-  return (
-    <section aria-label="Cooked foods">
-      <Input
-        aria-label="Search cooked foods"
-        className="mb-4 max-w-sm"
-        placeholder="Search cooked foods"
-        maxLength={SEARCH_MAX_LENGTH}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      {loading ? (
-        <LoadingRows label="Loading cooked foods" />
-      ) : !foods.length ? (
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No cooked foods found.
-        </p>
-      ) : (
-        <div className="divide-y border-y">
-          {foods.map((food) => (
-            <CookedFoodRow key={food._id} food={food} onEdit={onEdit} />
-          ))}
-        </div>
-      )}
-      {term ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Search shows up to 20 matches per active or archived view. Refine your
-          search to find another food.
-        </p>
-      ) : (
-        <div className="mt-4 flex gap-2">
-          {[page, ...(showArchived ? [archivePage] : [])].some(
-            (p) => p.status === 'CanLoadMore' || p.status === 'LoadingMore',
-          ) ? (
-            <Button
-              variant="outline"
-              disabled={[page, archivePage].some(
-                (p) => p.status === 'LoadingMore',
-              )}
-              aria-busy={[page, archivePage].some(
-                (p) => p.status === 'LoadingMore',
-              )}
-              onClick={() => {
-                if (page.status === 'CanLoadMore') page.loadMore(PAGE_SIZE)
-                if (showArchived && archivePage.status === 'CanLoadMore')
-                  archivePage.loadMore(PAGE_SIZE)
-              }}
-            >
-              Load more cooked foods
-            </Button>
-          ) : null}
-        </div>
-      )}
-    </section>
-  )
-}
 
-function CookedFoodRow({
-  food,
-  onEdit,
-}: {
-  food: CookedFood
-  onEdit: (draft: CookingDraft) => void
-}) {
-  const [open, setOpen] = useState(false)
+  const detailRef = useRef<HTMLElement>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const selectedId = selectedFood?._id
+  useEffect(() => {
+    if (selectedId) detailRef.current?.focus()
+    else triggerRef.current?.focus()
+  }, [selectedId])
   return (
-    <details
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="py-4"
+    <section
+      aria-label="Cooked foods"
+      className={cn(
+        selectedFood &&
+          'lg:grid lg:grid-cols-[minmax(16rem,1fr)_minmax(0,1.4fr)] lg:gap-8',
+      )}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-        <div>
-          <p className="font-medium">
-            {food.name}
-            {food.archived ? (
-              <span className="ml-2 text-xs text-muted-foreground">
-                Archived
-              </span>
-            ) : null}
+      <div className={cn('min-w-0', selectedFood && 'hidden lg:block')}>
+        <Input
+          aria-label="Search cooked foods"
+          className="mb-4 max-w-sm"
+          placeholder="Search cooked foods"
+          maxLength={SEARCH_MAX_LENGTH}
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value)
+            onClose()
+          }}
+        />
+        {loading ? (
+          <LoadingRows label="Loading cooked foods" />
+        ) : !foods.length ? (
+          <p className="py-6 text-sm text-muted-foreground">
+            No cooked foods found.
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {food.finishedWeightGrams.toFixed(0)} g finished ·{' '}
-            {formatKcalPer100(food.kcalPer100)} kcal / 100 g
+        ) : (
+          <div className="divide-y border-y">
+            {foods.map((food) => (
+              <button
+                key={food._id}
+                type="button"
+                aria-expanded={selectedId === food._id}
+                className="flex min-h-16 w-full items-center justify-between gap-3 py-4 text-left focus-visible:outline-2 focus-visible:outline-ring"
+                onClick={(event) => {
+                  triggerRef.current = event.currentTarget
+                  onSelect(food)
+                }}
+              >
+                <span className="min-w-0 text-sm font-medium">
+                  {food.name}
+                  {food.archived ? (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      Archived
+                    </span>
+                  ) : null}
+                </span>
+                <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                  <span className="text-right tabular-nums">
+                    <span className="block">
+                      {food.finishedWeightGrams.toFixed(0)} g
+                    </span>
+                    <span>
+                      {formatKcalPer100(food.kcalPer100)} kcal / 100 g
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        {term && foods.length >= 20 ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            First 20 matches. Refine your search for more.
           </p>
-        </div>
-        <span aria-hidden="true" className="text-muted-foreground">
-          {open ? '⌄' : '›'}
-        </span>
-      </summary>
-      {open ? <CookedFoodDetail foodId={food._id} onEdit={onEdit} /> : null}
-    </details>
+        ) : null}
+        {!term &&
+        [page, ...(showArchived ? [archivePage] : [])].some(
+          (p) => p.status === 'CanLoadMore' || p.status === 'LoadingMore',
+        ) ? (
+          <Button
+            className="mt-4"
+            variant="outline"
+            disabled={[page, archivePage].some(
+              (p) => p.status === 'LoadingMore',
+            )}
+            aria-busy={[page, archivePage].some(
+              (p) => p.status === 'LoadingMore',
+            )}
+            onClick={() => {
+              if (page.status === 'CanLoadMore') page.loadMore(PAGE_SIZE)
+              if (showArchived && archivePage.status === 'CanLoadMore')
+                archivePage.loadMore(PAGE_SIZE)
+            }}
+          >
+            Load more cooked foods
+          </Button>
+        ) : null}
+      </div>
+      {selectedFood ? (
+        <section
+          ref={detailRef}
+          tabIndex={-1}
+          aria-label={selectedFood.name}
+          className="min-w-0 outline-none lg:border-l lg:pl-8"
+        >
+          <h1 className="text-xl font-semibold tracking-tight lg:hidden">
+            {selectedFood.name}
+          </h1>
+          <h2 className="hidden text-lg font-semibold lg:block">
+            {selectedFood.name}
+          </h2>
+          <CookedFoodDetail
+            key={selectedFood._id}
+            foodId={selectedFood._id}
+            onEdit={onEdit}
+            onClose={onClose}
+          />
+        </section>
+      ) : null}
+    </section>
   )
 }
 
 function CookedFoodDetail({
   foodId,
   onEdit,
+  onClose,
 }: {
   foodId: Id<'cookedFoods'>
   onEdit: (draft: CookingDraft) => void
+  onClose: () => void
 }) {
   const detail = useQuery(api.cooking.getCookedFoodDetail, {
     cookedFoodId: foodId,
@@ -567,143 +628,200 @@ function CookedFoodDetail({
       </p>
     )
   const food = detail.cookedFood
+  const sourceLines = detail.ingredients.filter(
+    (line) =>
+      line.notes ||
+      line.nutritionProvenance ||
+      (!line.ignoreCaloriesSnapshot &&
+        (line.countedAmount !== line.referenceAmount ||
+          line.ingredientKcalBasisUnitSnapshot !== line.referenceUnit)),
+  )
   return (
-    <div className="mt-4 space-y-4">
-      <div className="grid grid-cols-2 gap-3 rounded-lg border bg-card p-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Total batch</p>
-          <p className="mt-1 text-xl font-semibold">
-            {food.totalCalories.toFixed(0)} kcal
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Finished weight</p>
-          <p className="mt-1 text-xl font-semibold">
-            {food.finishedWeightGrams.toFixed(0)} g
-          </p>
-        </div>
-      </div>
-      {detail.cookSession ? (
-        <p className="text-sm text-muted-foreground">
-          Cooked {formatCookSessionLabel(detail.cookSession)}
-          {detail.cookSession.cookedByPersonName
+    <div className="mt-4 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {detail.cookSession
+            ? new Date(detail.cookSession.cookedAt).toLocaleDateString(
+                undefined,
+                { day: 'numeric', month: 'short', year: 'numeric' },
+              )
+            : null}
+          {detail.cookSession?.cookedByPersonName
             ? ` · ${detail.cookSession.cookedByPersonName}`
-            : ''}
+            : null}
         </p>
-      ) : null}
-      {detail.linkedRecipe ? (
-        <p className="text-sm text-muted-foreground">
-          Recipe: {detail.linkedRecipe.name}
-          {detail.linkedRecipe.versionNumber
-            ? ` · version ${detail.linkedRecipe.versionNumber}`
-            : ''}
-        </p>
-      ) : null}
-      <EstimateNotice provenance={food.nutritionProvenance} />
-      <div>
-        <h3 className="mb-2 text-sm font-medium">Composition</h3>
-        <div className="divide-y rounded-lg border bg-card">
-          {detail.ingredients.map((line) => (
-            <div key={line._id} className="p-3">
-              <div className="flex justify-between gap-3">
-                <div>
-                  <p className="text-sm">{line.ingredientNameSnapshot}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {line.referenceAmount}{' '}
-                    {getNutritionUnitLabel(line.referenceUnit)} ·{' '}
-                    {line.ignoreCaloriesSnapshot
-                      ? 'Calories ignored'
-                      : `Counted ${line.countedAmount ?? 0} ${line.ingredientKcalBasisUnitSnapshot}`}
-                  </p>
-                </div>
-                <p className="text-sm">
-                  {line.ingredientCaloriesSnapshot.toFixed(0)} kcal
-                </p>
-              </div>
-              <EstimateNotice provenance={line.nutritionProvenance} />
-              {line.notes ? (
-                <details className="mt-2 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer">
-                    Notes & source composition
-                  </summary>
-                  <p className="mt-1 whitespace-pre-wrap">{line.notes}</p>
-                </details>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-      {food.notes ? (
-        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-          {food.notes}
-        </p>
-      ) : null}
-      <p className="text-xs text-muted-foreground">
-        Previously logged meals keep their recorded nutrition when this batch
-        changes.
-      </p>
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={action.isRunning}
-          onClick={() =>
-            onEdit(createDraftFromCookedFood(food, detail.ingredients))
-          }
-        >
-          Edit cooked food
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={action.isRunning}
-          onClick={() =>
-            void action.runAction(
-              food.archived ? 'Cooked food restored.' : 'Cooked food archived.',
-              () =>
-                archive({
-                  cookedFoodId: food._id,
-                  expectedEditRevision: food.editRevision,
-                  archived: !food.archived,
-                }),
-            )
-          }
-        >
-          {food.archived ? 'Restore' : 'Archive'}
-        </Button>
-        <details className="relative">
-          <summary className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-muted-foreground">
-            More
-          </summary>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setRecipe(!recipe)}
-            >
-              Save as recipe
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={action.isRunning}
-              onClick={() =>
-                action.confirmAndRunAction(
-                  'Delete this cooked food permanently? Foods used by historical records must be archived instead.',
-                  'Cooked food deleted.',
-                  () =>
-                    remove({
-                      cookedFoodId: food._id,
-                      expectedEditRevision: food.editRevision,
-                    }),
-                )
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Edit cooked food"
+            disabled={action.isRunning}
+            onClick={() =>
+              onEdit(createDraftFromCookedFood(food, detail.ingredients))
+            }
+          >
+            Edit
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Cooked food actions"
+                  disabled={action.isRunning}
+                />
               }
             >
-              Delete permanently
-            </Button>
-          </div>
-        </details>
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-44">
+              <DropdownMenuItem
+                onClick={() =>
+                  void action.runAction(
+                    food.archived
+                      ? 'Cooked food restored.'
+                      : 'Cooked food archived.',
+                    async () => {
+                      await archive({
+                        cookedFoodId: food._id,
+                        expectedEditRevision: food.editRevision,
+                        archived: !food.archived,
+                      })
+                      onClose()
+                    },
+                  )
+                }
+              >
+                {food.archived ? 'Restore' : 'Archive'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRecipe(!recipe)}>
+                Save as recipe
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() =>
+                  action.confirmAndRunAction(
+                    'Delete this cooked food permanently? Foods used by historical records must be archived instead.',
+                    'Cooked food deleted.',
+                    async () => {
+                      await remove({
+                        cookedFoodId: food._id,
+                        expectedEditRevision: food.editRevision,
+                      })
+                      onClose()
+                    },
+                  )
+                }
+              >
+                Delete permanently
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+      <dl className="grid grid-cols-3 gap-3 border-y py-4">
+        <div>
+          <dd className="text-lg font-semibold tabular-nums">
+            {food.totalCalories.toFixed(0)}{' '}
+            <span className="text-xs font-normal text-muted-foreground">
+              kcal
+            </span>
+          </dd>
+          <dt className="text-xs text-muted-foreground">Total</dt>
+        </div>
+        <div>
+          <dd className="text-lg font-semibold tabular-nums">
+            {food.finishedWeightGrams.toFixed(0)}{' '}
+            <span className="text-xs font-normal text-muted-foreground">g</span>
+          </dd>
+          <dt className="text-xs text-muted-foreground">Finished weight</dt>
+        </div>
+        <div>
+          <dd className="text-lg font-semibold tabular-nums">
+            {formatKcalPer100(food.kcalPer100)}
+          </dd>
+          <dt className="text-xs text-muted-foreground">kcal / 100 g</dt>
+        </div>
+      </dl>
+      <div>
+        <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 pb-2 text-xs text-muted-foreground">
+          <h3 className="font-medium text-foreground">Ingredients</h3>
+          <span className="text-right">Amount</span>
+          <span className="text-right">kcal</span>
+        </div>
+        {detail.ingredients.map((line) => (
+          <div key={line._id} className="border-t py-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 text-sm">
+              <span>
+                {line.ingredientNameSnapshot}
+                {line.ignoreCaloriesSnapshot ? (
+                  <span className="block text-xs text-muted-foreground">
+                    Calories ignored
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-right text-xs text-muted-foreground tabular-nums">
+                {line.referenceAmount}{' '}
+                {line.referenceUnit === 'g'
+                  ? 'g'
+                  : getNutritionUnitLabel(line.referenceUnit)}
+              </span>
+              <span className="text-right tabular-nums">
+                {line.ingredientCaloriesSnapshot.toFixed(0)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <EstimateNotice provenance={food.nutritionProvenance} />
+      {food.notes || detail.linkedRecipe || sourceLines.length > 0 ? (
+        <details className="border-t pt-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer">
+            Notes & sources
+            {!food.nutritionProvenance &&
+            sourceLines.some(
+              (line) =>
+                line.nutritionProvenance &&
+                line.nutritionProvenance.kind !== 'provided',
+            ) ? (
+              <span className="ml-2 text-amber-700 dark:text-amber-400">
+                Includes estimates
+              </span>
+            ) : null}
+          </summary>
+          {detail.linkedRecipe ? (
+            <p className="mt-3">
+              Recipe: {detail.linkedRecipe.name}
+              {detail.linkedRecipe.versionNumber
+                ? ` · version ${detail.linkedRecipe.versionNumber}`
+                : ''}
+            </p>
+          ) : null}
+          {food.notes ? (
+            <p className="mt-3 whitespace-pre-wrap">{food.notes}</p>
+          ) : null}
+          {sourceLines.map((line) => (
+            <div key={line._id} className="mt-3">
+              <p className="font-medium text-foreground">
+                {line.ingredientNameSnapshot}
+              </p>
+              {!line.ignoreCaloriesSnapshot &&
+              (line.countedAmount !== line.referenceAmount ||
+                line.ingredientKcalBasisUnitSnapshot !== line.referenceUnit) ? (
+                <p>
+                  Counted {line.countedAmount ?? 0}{' '}
+                  {line.ingredientKcalBasisUnitSnapshot}
+                </p>
+              ) : null}
+              {line.notes ? (
+                <p className="whitespace-pre-wrap">{line.notes}</p>
+              ) : null}
+              <EstimateNotice provenance={line.nutritionProvenance} />
+            </div>
+          ))}
+        </details>
+      ) : null}
       {recipe ? (
         <RecipeFromCookedFood
           detail={detail}
@@ -957,9 +1075,9 @@ function SessionList({
           Load more batches
         </Button>
       ) : null}
-      {term ? (
+      {term && rows.length >= 20 ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          Search shows up to 20 matches per active or archived view.
+          First 20 matches. Refine your search for more.
         </p>
       ) : null}
       <ConfirmDestructiveDialog

@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { MoreHorizontal } from 'lucide-react'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { toErrorMessage } from '@/lib/nutrition'
 
@@ -47,6 +48,7 @@ export function HouseholdSettings() {
   } | null>(null)
   const household = households?.find((row) => row._id === householdId)
   const isAdmin = household?.role === 'admin'
+  const self = members?.find((member) => member.isYou)
 
   async function run(action: () => Promise<unknown>) {
     setPending(true)
@@ -61,13 +63,10 @@ export function HouseholdSettings() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+    <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-6 sm:px-6">
       <div>
-        <h1 className="text-2xl font-semibold">Household</h1>
-        <p className="text-sm text-muted-foreground">
-          Everyone in a household can view and manage its people, goals, meals,
-          history, catalog, and cooking.
-        </p>
+        <SettingsBreadcrumbs current="Household" />
+        <h1 className="mt-5 text-xl font-semibold tracking-tight">Household</h1>
       </div>
       {error ? (
         <p role="alert" className="text-destructive">
@@ -79,141 +78,145 @@ export function HouseholdSettings() {
         <LoadingRows label="Loading household" />
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{household.name}</CardTitle>
-              <CardDescription>
-                Admins manage invitations and membership. All members can manage
-                nutrition data.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Switch household</p>
-                <Select
-                  ariaLabel="Switch household"
-                  value={householdId}
-                  options={households.map((row) => ({
-                    value: row._id,
-                    label: row.name,
-                  }))}
-                  onValueChange={(id) => {
-                    if (id) selectHousehold?.(id)
-                  }}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Your choice is remembered on this device.
-                </p>
-              </div>
-              {isAdmin ? (
-                <form
-                  className="flex flex-wrap items-end gap-3"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    void run(async () => {
-                      await rename({
-                        householdId,
-                        name: name ?? household.name,
-                      })
-                      setName(null)
+          <section aria-label="Household details" className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Current household</p>
+              <Select
+                ariaLabel="Switch household"
+                value={householdId}
+                options={households.map((row) => ({
+                  value: row._id,
+                  label: row.name,
+                }))}
+                onValueChange={(id) => {
+                  if (id) selectHousehold?.(id)
+                }}
+              />
+            </div>
+            {isAdmin ? (
+              <form
+                className="flex flex-wrap items-end gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void run(async () => {
+                    await rename({
+                      householdId,
+                      name: name ?? household.name,
                     })
-                  }}
+                    setName(null)
+                  })
+                }}
+              >
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Label htmlFor="household-name">Household name</Label>
+                  <Input
+                    id="household-name"
+                    value={name ?? household.name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                    maxLength={120}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={pending || !(name ?? household.name).trim()}
                 >
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="household-name">Household name</Label>
-                    <Input
-                      id="household-name"
-                      value={name ?? household.name}
-                      onChange={(event) => setName(event.target.value)}
-                      required
-                      maxLength={120}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={pending || !(name ?? household.name).trim()}
-                  >
-                    Save name
-                  </Button>
-                </form>
-              ) : (
-                <p>
-                  Ask a household admin to rename the household or invite
-                  someone.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Members</CardTitle>
-              <CardDescription>
-                Removing an account ends its access. People and their nutrition
-                history remain in the household.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+                  Save name
+                </Button>
+              </form>
+            ) : (
+              <p>
+                Ask a household admin to rename the household or invite someone.
+              </p>
+            )}
+          </section>
+          <section aria-labelledby="members-title">
+            <h2 id="members-title" className="mb-3 text-sm font-semibold">
+              Members
+            </h2>
+            <div className="divide-y border-y border-border/60">
               {members.map((member) => (
                 <div
                   key={member._id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+                  className="flex items-center justify-between gap-3 py-4"
                 >
-                  <div>
-                    <p className="font-medium">
-                      {member.name}
-                      {member.isYou ? ' (you)' : ''}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
+                  <p className="min-w-0 break-words text-sm font-medium">
+                    {member.name}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
                       {member.role === 'admin' ? 'Admin' : 'Member'}
+                      {member.isYou ? ' · You' : ''}
                     </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
                     {isAdmin ? (
-                      <Button
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() =>
-                          setConfirmation({
-                            memberId: member._id,
-                            name: member.name,
-                            role: member.role === 'admin' ? 'member' : 'admin',
-                          })
-                        }
-                      >
-                        {member.role === 'admin' ? 'Make member' : 'Make admin'}
-                      </Button>
-                    ) : null}
-                    {isAdmin || member.isYou ? (
-                      <Button
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() =>
-                          setConfirmation({
-                            memberId: member._id,
-                            name: member.name,
-                            role: 'remove',
-                          })
-                        }
-                      >
-                        {member.isYou ? 'Leave household' : 'Remove'}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Manage ${member.name}`}
+                              disabled={pending}
+                            />
+                          }
+                        >
+                          <MoreHorizontal />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            className="min-h-9"
+                            disabled={pending}
+                            onClick={() =>
+                              setConfirmation({
+                                memberId: member._id,
+                                name: member.name,
+                                role:
+                                  member.role === 'admin' ? 'member' : 'admin',
+                              })
+                            }
+                          >
+                            {member.role === 'admin'
+                              ? 'Make member'
+                              : 'Make admin'}
+                          </DropdownMenuItem>
+                          {!member.isYou ? (
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="min-h-9"
+                              disabled={pending}
+                              onClick={() =>
+                                setConfirmation({
+                                  memberId: member._id,
+                                  name: member.name,
+                                  role: 'remove',
+                                })
+                              }
+                            >
+                              Remove
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : null}
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+            <details className="mt-3 text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Household access</summary>
+              <p className="mt-3">
+                Everyone in a household can view and manage its people, goals,
+                meals, history, catalog, and cooking. Admins also manage
+                invitations and membership.
+              </p>
+            </details>
+          </section>
           {isAdmin ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Invite someone</CardTitle>
-                <CardDescription>
-                  Anyone with the link can accept it once within seven days.
-                  Share it only with someone you want to access the whole
-                  household.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <section aria-labelledby="invite-title" className="space-y-4">
+              <h2 id="invite-title" className="text-sm font-semibold">
+                Invite someone
+              </h2>
+              <div className="space-y-2">
                 <Button
                   disabled={pending}
                   onClick={() =>
@@ -227,69 +230,88 @@ export function HouseholdSettings() {
                 >
                   Create invitation link
                 </Button>
-                {link ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="invitation-link">Invitation link</Label>
-                    <Input
-                      id="invitation-link"
-                      value={link}
-                      readOnly
-                      onFocus={(event) => event.target.select()}
-                    />
+                <p className="text-xs text-muted-foreground">
+                  One use. Expires in 7 days. Full household access.
+                </p>
+              </div>
+              {link ? (
+                <div className="space-y-2">
+                  <Label htmlFor="invitation-link">Invitation link</Label>
+                  <Input
+                    id="invitation-link"
+                    value={link}
+                    readOnly
+                    onFocus={(event) => event.target.select()}
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      void run(() => navigator.clipboard.writeText(link))
+                    }
+                  >
+                    Copy link
+                  </Button>
+                </div>
+              ) : null}
+              {invitations.results
+                .filter(
+                  (row) =>
+                    !row.acceptedAt && !row.revokedAt && row.expiresAt > now,
+                )
+                .map((row) => (
+                  <div
+                    key={row._id}
+                    className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 py-3"
+                  >
+                    <p className="text-sm">
+                      Expires {new Date(row.expiresAt).toLocaleDateString()}
+                    </p>
                     <Button
                       variant="outline"
                       disabled={pending}
                       onClick={() =>
-                        void run(() => navigator.clipboard.writeText(link))
+                        void run(async () => {
+                          await revoke({ householdId, invitationId: row._id })
+                          setLink('')
+                        })
                       }
                     >
-                      Copy link
+                      Revoke invitation
                     </Button>
                   </div>
-                ) : null}
-                {invitations.results
-                  .filter(
-                    (row) =>
-                      !row.acceptedAt && !row.revokedAt && row.expiresAt > now,
-                  )
-                  .map((row) => (
-                    <div
-                      key={row._id}
-                      className="flex items-center justify-between gap-3 rounded-md border p-3"
-                    >
-                      <p className="text-sm">
-                        Expires {new Date(row.expiresAt).toLocaleDateString()}
-                      </p>
-                      <Button
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() =>
-                          void run(async () => {
-                            await revoke({ householdId, invitationId: row._id })
-                            setLink('')
-                          })
-                        }
-                      >
-                        Revoke invitation
-                      </Button>
-                    </div>
-                  ))}
-                {invitations.status === 'LoadingFirstPage' ? (
-                  <LoadingRows label="Loading invitations" rows={1} />
-                ) : null}
-                {invitations.status === 'CanLoadMore' ||
-                invitations.status === 'LoadingMore' ? (
-                  <Button
-                    variant="outline"
-                    disabled={pending || invitations.status === 'LoadingMore'}
-                    aria-busy={pending || invitations.status === 'LoadingMore'}
-                    onClick={() => invitations.loadMore(20)}
-                  >
-                    Load more invitations
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
+                ))}
+              {invitations.status === 'LoadingFirstPage' ? (
+                <LoadingRows label="Loading invitations" rows={1} />
+              ) : null}
+              {invitations.status === 'CanLoadMore' ||
+              invitations.status === 'LoadingMore' ? (
+                <Button
+                  variant="outline"
+                  disabled={pending || invitations.status === 'LoadingMore'}
+                  aria-busy={pending || invitations.status === 'LoadingMore'}
+                  onClick={() => invitations.loadMore(20)}
+                >
+                  Load more invitations
+                </Button>
+              ) : null}
+            </section>
+          ) : null}
+          {self ? (
+            <Button
+              variant="ghost"
+              className="text-destructive"
+              disabled={pending}
+              onClick={() =>
+                setConfirmation({
+                  memberId: self._id,
+                  name: self.name,
+                  role: 'remove',
+                })
+              }
+            >
+              Leave household
+            </Button>
           ) : null}
         </>
       )}

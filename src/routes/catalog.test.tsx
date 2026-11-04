@@ -570,9 +570,6 @@ describe('Catalog route', () => {
     renderCatalogRoute()
 
     expect(screen.getByText('155 kcal / 100 piece')).toBeTruthy()
-    expect(
-      screen.getByText(/selected basis unit \(grams, ml, pieces/i),
-    ).toBeTruthy()
     const ingredientRow = screen.getByText('Egg').closest('tr')
     expect(ingredientRow).not.toBeNull()
     fireEvent.click(

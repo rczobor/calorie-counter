@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 
@@ -87,21 +94,51 @@ export function LoggingPreferences() {
     else void runAction('Logging defaults updated.', action)
   }
   return (
-    <section
-      className="rounded-lg border border-border/60 bg-card p-4"
-      aria-label="Logging defaults"
-    >
+    <section className="space-y-3" aria-label="Logging defaults">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">Logging defaults</h2>
         {!editing ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={isRunning || preferences === undefined}
-            onClick={beginEdit}
-          >
-            {preferences ? 'Edit defaults' : 'Set defaults'}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isRunning || preferences === undefined}
+              onClick={beginEdit}
+            >
+              {preferences ? 'Edit defaults' : 'Set defaults'}
+            </Button>
+            {preferences ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Logging default actions"
+                      disabled={isRunning}
+                    />
+                  }
+                >
+                  <MoreHorizontal />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem
+                    className="min-h-9"
+                    disabled={isRunning}
+                    onClick={() =>
+                      confirmAndRunAction(
+                        'Reset logging defaults? Your assistant will ask for a household and person again. Recorded meals and connections remain.',
+                        'Logging defaults reset.',
+                        () => update({ preferences: null }),
+                      )
+                    }
+                  >
+                    Reset defaults
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
         ) : null}
       </div>
       {preferences === undefined ? (
@@ -188,12 +225,13 @@ export function LoggingPreferences() {
                 }
               />
             </div>
-            <p className="text-xs text-muted-foreground sm:col-span-2">
-              Direct logging applies only to complete, non-estimated new meals
-              you ask to log. Estimates, cooking, corrections, and transfers
-              still need review and approval. ChatGPT’s own confirmation
-              settings are separate.
-            </p>
+            {confirmationMode === 'explicitOnly' ? (
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Only complete, non-estimated new meals can save directly.
+                Estimates, cooking, corrections, and transfers still need
+                approval. ChatGPT’s own confirmation settings are separate.
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2 sm:col-span-2">
               <Button
                 type="submit"
@@ -243,26 +281,13 @@ export function LoggingPreferences() {
               another household.
             </p>
           ) : null}
-          <p className="mt-3 text-xs text-muted-foreground">
-            These defaults apply across your ChatGPT conversations and
-            connections. Browsing another person or household here does not
-            change them.
-          </p>
-          <Button
-            className="mt-3"
-            variant="ghost"
-            size="sm"
-            disabled={isRunning}
-            onClick={() =>
-              confirmAndRunAction(
-                'Reset logging defaults? Your assistant will ask for a household and person again. Recorded meals and connections remain.',
-                'Logging defaults reset.',
-                () => update({ preferences: null }),
-              )
-            }
-          >
-            Reset defaults
-          </Button>
+          <details className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
+            <summary className="cursor-pointer">About these defaults</summary>
+            <p className="mt-3">
+              Applies across your ChatGPT conversations and connections.
+              Browsing another person or household here does not change them.
+            </p>
+          </details>
         </>
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">

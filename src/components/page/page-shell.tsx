@@ -11,6 +11,7 @@ const WIDTH_CLASS_MAP = {
 
 type PageShellProps = {
   title: string
+  breadcrumbs?: ReactNode
   subtitle?: string
   eyebrow?: string
   icon?: ReactNode
@@ -20,18 +21,21 @@ type PageShellProps = {
   showArchivedLabel?: string
   children: ReactNode
   contentClassName?: string
+  headerClassName?: string
 }
 
 export function PageShell({
   title,
+  breadcrumbs,
   subtitle,
   icon,
   maxWidth = '7xl',
   showArchived,
   onShowArchivedChange,
-  showArchivedLabel = 'Show archived records',
+  showArchivedLabel = 'Show archived',
   children,
   contentClassName,
+  headerClassName,
 }: PageShellProps) {
   return (
     <main className={SHELL_BACKGROUND_CLASS}>
@@ -42,7 +46,13 @@ export function PageShell({
           contentClassName,
         )}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {breadcrumbs}
+        <div
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-3',
+            headerClassName,
+          )}
+        >
           <div className="flex items-center gap-3">
             {icon ? (
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">

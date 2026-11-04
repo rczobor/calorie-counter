@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getFunctionName } from 'convex/server'
@@ -124,6 +125,12 @@ describe('MCP connection UI', () => {
     revoke.mockRejectedValue(new Error('Try again later.'))
     render(<ConnectedAgents />)
     fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
+    expect(revoke).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('alertdialog')
+    expect(
+      within(dialog).getByText(/Recorded meals and cooking will remain/),
+    ).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Disconnect' }))
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
       'Try again later.',
@@ -133,5 +140,26 @@ describe('MCP connection UI', () => {
       (screen.getByRole('button', { name: 'Disconnect' }) as HTMLButtonElement)
         .disabled,
     ).toBe(false)
+  })
+
+  it('discloses readable permissions and their exact scope names on demand', () => {
+    query.mockImplementation((reference) =>
+      getFunctionName(reference) === 'mcp:getConfiguration'
+        ? { enabled: true, url: 'https://example.convex.site/mcp' }
+        : [
+            {
+              id: 'connection-1',
+              name: 'ChatGPT',
+              scopes: ['nutrition:read', 'meals:write'],
+            },
+          ],
+    )
+    render(<ConnectedAgents />)
+    const permission = screen.getByText('nutrition:read')
+    expect(permission.closest('details')?.open).toBe(false)
+    fireEvent.click(screen.getByText('Permissions'))
+    expect(permission.closest('details')?.open).toBe(true)
+    expect(screen.getByText('Read nutrition')).toBeTruthy()
+    expect(screen.getByText('Log meals')).toBeTruthy()
   })
 })

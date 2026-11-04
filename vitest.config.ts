@@ -44,9 +44,11 @@ export default defineConfig({
         // Bespoke primitives (data-table and searchable-picker) stay in scope.
         'src/components/ui/alert-dialog.tsx',
         'src/components/ui/button.tsx',
+        'src/components/ui/breadcrumb.tsx',
         'src/components/ui/calendar.tsx',
         'src/components/ui/card.tsx',
         'src/components/ui/date-picker.tsx',
+        'src/components/ui/dropdown-menu.tsx',
         'src/components/ui/input.tsx',
         'src/components/ui/label.tsx',
         'src/components/ui/popover.tsx',
