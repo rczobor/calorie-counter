@@ -89,8 +89,10 @@ async function loadMeal(
 
 function itemInput(
   item: Doc<'mealItems'>,
-): Infer<typeof mealItemInputValidator> {
+): Exclude<Infer<typeof mealItemInputValidator>, { sourceType: 'historical' }> {
   const common = {
+    foodIdentity: item.foodIdentity,
+    servingCount: item.servingCount,
     existingMealItemId: item._id,
     nutritionProvenance: item.nutritionProvenance,
   }
@@ -130,6 +132,8 @@ function describeItem(
 ) {
   return {
     id,
+    foodIdentity: item.foodIdentity,
+    servingCount: item.servingCount,
     name: item.nameSnapshot,
     sourceType: item.sourceType,
     calories: item.caloriesSnapshot,

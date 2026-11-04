@@ -42,7 +42,7 @@ type CatalogDomainDataArgs = {
   ingredientSearch: string
   recipeIngredientSearch: string
   recipeSearch: string
-  activeTab?: 'ingredients' | 'recipes' | 'groups' | 'saved'
+  activeTab?: 'ingredients' | 'recipes' | 'groups' | 'saved' | 'templates'
   editorOpen?: boolean
 }
 

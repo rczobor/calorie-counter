@@ -10,10 +10,20 @@ import {
   type AuthenticatedOwner,
 } from './lib/auth'
 import { assertPageSize, normalizeSearch } from './lib/validation'
-import { savedFoodNutrition } from './mcpValidators'
-import { nutritionProvenanceValidator } from './validators'
+import {
+  savedFoodNutrition,
+  templateDto,
+  templateChange,
+  templateResult,
+} from './mcpValidators'
+import {
+  foodIdentityValidator,
+  nutritionProvenanceValidator,
+} from './validators'
+import { changeTemplate } from './mcpFoodReuse'
 
 const savedFoodDto = v.object({
+  foodIdentity: v.optional(foodIdentityValidator),
   _id: v.id('mcpSavedFoods'),
   _creationTime: v.number(),
   name: v.string(),
@@ -70,6 +80,7 @@ export const list = query({
         _id: food._id,
         _creationTime: food._creationTime,
         name: food.name,
+        foodIdentity: food.foodIdentity,
         nutrition: food.nutrition,
         nutritionProvenance: food.nutritionProvenance,
         archivedAt: food.archivedAt,
@@ -77,6 +88,52 @@ export const list = query({
       })),
     }
   },
+})
+
+export const listTemplates = query({
+  args: {
+    householdId: v.optional(v.id('households')),
+    search: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(templateDto),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    assertPageSize(args.paginationOpts.numItems)
+    const search = normalizeSearch(args.search ?? '')
+    const rows = search
+      ? ctx.db
+          .query('mealTemplates')
+          .withSearchIndex('search_name', (q) =>
+            q.search('name', search).eq('householdId', owner.householdId),
+          )
+      : ctx.db
+          .query('mealTemplates')
+          .withIndex('by_householdId_and_name', (q) =>
+            q.eq('householdId', owner.householdId),
+          )
+    const page = await rows.paginate(args.paginationOpts)
+    return {
+      ...page,
+      page: page.page.map(
+        ({ ownerTokenIdentifier, householdId, ...template }) => {
+          void [ownerTokenIdentifier, householdId]
+          return template
+        },
+      ),
+    }
+  },
+})
+
+export const updateTemplate = mutation({
+  args: { householdId: v.optional(v.id('households')), input: templateChange },
+  returns: templateResult,
+  handler: async (ctx, args) =>
+    changeTemplate(
+      ctx,
+      await requireAuthenticatedHousehold(ctx, args.householdId),
+      args.input,
+    ),
 })
 
 export const setArchived = mutation({

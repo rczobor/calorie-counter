@@ -3,14 +3,23 @@ import {
   expectedNutritionSnapshotValidator,
   nutritionProvenanceValidator,
   nutritionUnitValidator,
+  mealEvidenceFields,
+  foodIdentityValidator,
+  historicalMealItemInput,
 } from './validators'
 
 const notes = {
+  ...mealEvidenceFields,
   notes: v.optional(v.string()),
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
 }
 const weighted = { consumedWeightGrams: v.number(), ...notes }
 export const savedFoodNutrition = v.union(
+  v.object({
+    kind: v.literal('byVolume'),
+    kcalPer100: v.number(),
+    ignoreCalories: v.boolean(),
+  }),
   v.object({
     kind: v.literal('byWeight'),
     kcalPer100: v.number(),
@@ -19,6 +28,7 @@ export const savedFoodNutrition = v.union(
   v.object({ kind: v.literal('fixedCalories'), calories: v.number() }),
 )
 export const savedFoodSnapshot = v.object({
+  foodIdentity: v.optional(foodIdentityValidator),
   name: v.string(),
   nutrition: savedFoodNutrition,
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
@@ -54,11 +64,13 @@ export const dailySummary = v.object({
   capturedAt: v.number(),
 })
 export const mcpMealItem = v.union(
+  historicalMealItemInput,
   v.object({
     sourceType: v.literal('savedFood'),
     savedFoodId: v.id('mcpSavedFoods'),
     portion: v.union(
       v.object({ grams: v.number() }),
+      v.object({ ml: v.number() }),
       v.object({ servings: v.number() }),
     ),
     expectedSnapshot: v.optional(savedFoodSnapshot),
@@ -67,12 +79,14 @@ export const mcpMealItem = v.union(
   v.object({
     sourceType: v.literal('ingredient'),
     ingredientId: v.id('ingredients'),
+    expectedEditRevision: v.optional(v.number()),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     ...weighted,
   }),
   v.object({
     sourceType: v.literal('cookedFood'),
     cookedFoodId: v.id('cookedFoods'),
+    expectedEditRevision: v.optional(v.number()),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     ...weighted,
   }),
@@ -240,6 +254,7 @@ export const mealCorrectionInput = v.object({
 })
 
 export const mealCorrectionItem = v.object({
+  ...mealEvidenceFields,
   id: v.id('mealItems'),
   name: v.string(),
   sourceType: v.union(
@@ -284,6 +299,7 @@ export const foodKind = v.union(
   v.literal('savedFood'),
 )
 export const foodCandidate = v.object({
+  foodIdentity: v.optional(foodIdentityValidator),
   brand: v.optional(v.string()),
   kind: foodKind,
   id: v.string(),
@@ -346,4 +362,99 @@ export const dayResult = v.object({
     }),
   ),
   cursor: v.union(v.string(), v.null()),
+})
+
+export const repeatMealInput = v.object({
+  mealId: v.id('meals'),
+  personId: v.id('people'),
+  eatenOn: v.string(),
+  name: v.optional(v.string()),
+  // Omit selections to repeat all items; supply only selected IDs to remove others.
+  selections: v.optional(
+    v.array(v.object({ itemId: v.id('mealItems'), multiplier: v.number() })),
+  ),
+  additions: v.optional(v.array(mcpMealItem)),
+})
+
+export const mealHistoryEntry = v.object({
+  kind: v.union(v.literal('meal'), v.literal('mealItem')),
+  mealId: v.id('meals'),
+  personId: v.id('people'),
+  eatenOn: v.string(),
+  name: v.optional(v.string()),
+  totalCalories: v.number(),
+  items: v.array(mealCorrectionItem),
+})
+export const mealHistoryResult = v.object({
+  matches: v.array(mealHistoryEntry),
+  cursor: v.union(v.string(), v.null()),
+})
+
+export const templateDto = v.object({
+  _id: v.id('mealTemplates'),
+  _creationTime: v.number(),
+  name: v.string(),
+  sourceMealId: v.id('meals'),
+  sourceItemIds: v.array(v.id('mealItems')),
+  ingredientIds: v.array(v.id('ingredients')),
+  cookedFoodIds: v.array(v.id('cookedFoods')),
+  savedFoodIds: v.array(v.id('mcpSavedFoods')),
+  items: v.array(mcpMealItem),
+  editRevision: v.number(),
+  createdAt: v.number(),
+})
+export const templateResult = v.object({
+  templateId: v.id('mealTemplates'),
+  name: v.string(),
+  deleted: v.boolean(),
+})
+export const templateSearchResult = v.object({
+  templates: v.array(templateDto),
+  cursor: v.union(v.string(), v.null()),
+})
+export const templateChange = v.union(
+  v.object({
+    action: v.literal('save'),
+    mealId: v.id('meals'),
+    name: v.string(),
+  }),
+  v.object({
+    action: v.literal('edit'),
+    templateId: v.id('mealTemplates'),
+    expectedEditRevision: v.number(),
+    name: v.optional(v.string()),
+    items: v.optional(v.array(mcpMealItem)),
+  }),
+  v.object({
+    action: v.literal('delete'),
+    templateId: v.id('mealTemplates'),
+    expectedEditRevision: v.number(),
+  }),
+)
+
+export const discoveryResult = v.object({
+  householdId: v.id('households'),
+  foods: v.array(foodCandidate),
+  templates: v.array(templateDto),
+  history: v.array(mealHistoryEntry),
+  cursors: v.object({
+    ingredient: v.union(v.string(), v.null()),
+    cookedFood: v.union(v.string(), v.null()),
+    recipe: v.union(v.string(), v.null()),
+    savedFood: v.union(v.string(), v.null()),
+    templates: v.union(v.string(), v.null()),
+    history: v.union(v.string(), v.null()),
+  }),
+})
+
+export const reuseSuggestions = v.object({
+  suggestions: v.array(
+    v.object({
+      mealId: v.id('meals'),
+      itemId: v.id('mealItems'),
+      name: v.string(),
+      occurrences: v.number(),
+      foodIdentity: v.optional(foodIdentityValidator),
+    }),
+  ),
 })

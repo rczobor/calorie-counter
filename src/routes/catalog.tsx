@@ -27,6 +27,7 @@ import { FoodGroupsSection } from '@/features/manage/food-groups'
 import { IngredientsSection } from '@/features/manage/ingredients'
 import { RecipesSection } from '@/features/manage/recipes'
 import { SavedFoods } from '@/features/manage/saved-foods'
+import { MealTemplates } from '@/features/manage/meal-templates'
 import {
   type CatalogFoodGroup,
   type CatalogIngredient,
@@ -127,7 +128,7 @@ function ManagePage() {
 
 function ManagePageContent() {
   const [activeTab, setActiveTab] = useState<
-    'saved' | 'ingredients' | 'recipes' | 'groups'
+    'saved' | 'ingredients' | 'recipes' | 'groups' | 'templates'
   >('saved')
   const [ingredientEditorOpen, setIngredientEditorOpen] = useState(false)
   const [recipeEditorOpen, setRecipeEditorOpen] = useState(false)
@@ -1261,6 +1262,7 @@ function ManagePageContent() {
           onValueChange={(value) => {
             if (
               value === 'saved' ||
+              value === 'templates' ||
               value === 'ingredients' ||
               value === 'recipes' ||
               value === 'groups'
@@ -1271,6 +1273,7 @@ function ManagePageContent() {
         >
           <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden sm:w-fit">
             <TabsTrigger value="saved">Reusable foods</TabsTrigger>
+            <TabsTrigger value="templates">Meal templates</TabsTrigger>
             <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
             <TabsTrigger value="recipes">Recipes</TabsTrigger>
             <TabsTrigger value="groups">Groups</TabsTrigger>
@@ -1835,6 +1838,10 @@ function ManagePageContent() {
                 ) : null}
               </RecipesSection>
             </div>
+          </TabsContent>
+
+          <TabsContent value="templates" className="mt-4">
+            <MealTemplates />
           </TabsContent>
 
           <TabsContent value="groups" className="mt-4">

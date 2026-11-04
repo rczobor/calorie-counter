@@ -7,6 +7,9 @@ import type { Doc, Id } from './_generated/dataModel'
 import { v, type Infer } from 'convex/values'
 import {
   groupScopeValidator,
+  mealEvidenceFields,
+  foodIdentityValidator,
+  historicalMealItemInput,
   nutritionUnitValidator,
   nutritionProvenanceValidator,
   expectedNutritionSnapshotValidator,
@@ -230,9 +233,11 @@ const cookedFoodRecipeDraftValidator = v.object({
 })
 
 export const mealItemInputValidator = v.union(
+  historicalMealItemInput,
   v.object({
     sourceType: v.literal('ingredient'),
     existingMealItemId: v.optional(v.id('mealItems')),
+    ...mealEvidenceFields,
     ingredientId: v.id('ingredients'),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     consumedWeightGrams: v.number(),
@@ -242,6 +247,7 @@ export const mealItemInputValidator = v.union(
   v.object({
     sourceType: v.literal('customByWeight'),
     existingMealItemId: v.optional(v.id('mealItems')),
+    ...mealEvidenceFields,
     ingredientId: v.optional(v.id('ingredients')),
     name: v.string(),
     kcalPer100: v.number(),
@@ -255,6 +261,7 @@ export const mealItemInputValidator = v.union(
   v.object({
     sourceType: v.literal('cookedFood'),
     existingMealItemId: v.optional(v.id('mealItems')),
+    ...mealEvidenceFields,
     cookedFoodId: v.id('cookedFoods'),
     expectedSnapshot: v.optional(expectedNutritionSnapshotValidator),
     consumedWeightGrams: v.number(),
@@ -264,6 +271,7 @@ export const mealItemInputValidator = v.union(
   v.object({
     sourceType: v.literal('fixedCalories'),
     existingMealItemId: v.optional(v.id('mealItems')),
+    ...mealEvidenceFields,
     name: v.string(),
     calories: v.number(),
     nutritionProvenance: v.optional(nutritionProvenanceValidator),
@@ -300,6 +308,15 @@ export function normalizeNutritionProvenance(
   if (!value) return undefined
   return {
     ...(value.kind ? { kind: value.kind } : {}),
+    ...(value.origin ? { origin: value.origin } : {}),
+    ...(value.verifiedOn
+      ? {
+          verifiedOn: normalizeRequiredDate(
+            value.verifiedOn,
+            'Source verification date',
+          ),
+        }
+      : {}),
     source: normalizeRequiredText(
       value.source,
       'Estimate source',
@@ -399,6 +416,8 @@ type CookedIngredientSnapshot =
     })
 
 type WeightedMealItemSnapshot = {
+  foodIdentity?: Infer<typeof foodIdentityValidator>
+  servingCount?: number
   nutritionProvenance?: NutritionProvenance
   nameSnapshot: string
   consumedWeightGrams: number
@@ -425,6 +444,8 @@ type MealItemSnapshot =
     })
   | {
       sourceType: 'fixedCalories'
+      foodIdentity?: Infer<typeof foodIdentityValidator>
+      servingCount?: number
       nutritionProvenance?: NutritionProvenance
       nameSnapshot: string
       caloriesSnapshot: number
@@ -433,6 +454,7 @@ type MealItemSnapshot =
 
 function getIngredientKcalPer100(ingredient: { kcalPer100: number }) {
   return normalizeKcalPer100(ingredient.kcalPer100, {
+    preservePrecision: true,
     allowZero: true,
     fieldName: 'Ingredient kcal/100',
   })
@@ -562,6 +584,7 @@ async function saveCustomIngredientToCatalog(
   const normalizedKcalPer100 = normalizeKcalPer100(
     customIngredient.kcalPer100,
     {
+      preservePrecision: true,
       allowZero: customIngredient.ignoreCalories,
       fieldName: 'Custom ingredient kcal/100',
     },
@@ -1278,6 +1301,61 @@ async function reconcileCookedIngredientSnapshots(
   )
 }
 
+export async function loadHistoricalItem(
+  db: DatabaseWriter,
+  owner: AuthenticatedOwner,
+  itemId: Id<'mealItems'>,
+) {
+  const item = assertOwnedOrThrow(
+    await db.get(itemId),
+    owner,
+    'Meal item not found.',
+  )
+  const meal = assertOwnedOrThrow(
+    await db.get(item.mealId),
+    owner,
+    'Meal not found.',
+  )
+  if (meal.archived)
+    throw new Error('Meal is archived. Restore it before reuse.')
+  assertOwnedOrThrow(await db.get(meal.personId), owner, 'Person not found.')
+  if ('ingredientId' in item && item.ingredientId)
+    assertOwnedOrThrow(
+      await db.get(item.ingredientId),
+      owner,
+      'Meal ingredient not found.',
+    )
+  if (item.sourceType === 'cookedFood')
+    assertOwnedOrThrow(
+      await db.get(item.cookedFoodId),
+      owner,
+      'Cooked food not found.',
+    )
+  return item
+}
+
+export function normalizeFoodIdentity(
+  value: Infer<typeof foodIdentityValidator> | undefined,
+) {
+  if (!value) return undefined
+  if (value.servingSize !== undefined)
+    assertPositive(value.servingSize, 'Serving size')
+  return {
+    ...value,
+    brand: normalizeOptionalText(value.brand, 'Brand', MAX_NAME_LENGTH),
+    variant: normalizeOptionalText(
+      value.variant,
+      'Product variant',
+      MAX_NAME_LENGTH,
+    ),
+    servingLabel: normalizeOptionalText(
+      value.servingLabel,
+      'Serving label',
+      MAX_NAME_LENGTH,
+    ),
+  }
+}
+
 export async function buildMealItemSnapshots(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
@@ -1291,7 +1369,9 @@ export async function buildMealItemSnapshots(
   }
   assertArrayLimit(items, MAX_INGREDIENT_LINES, 'Meal items')
   const requestedExistingIds = items.flatMap((item) =>
-    item.existingMealItemId ? [item.existingMealItemId] : [],
+    'existingMealItemId' in item && item.existingMealItemId
+      ? [item.existingMealItemId]
+      : [],
   )
   if (new Set(requestedExistingIds).size !== requestedExistingIds.length) {
     throw new Error('Meal item references must be unique.')
@@ -1306,6 +1386,49 @@ export async function buildMealItemSnapshots(
 
   const snapshots = await Promise.all(
     items.map(async (item): Promise<MealItemSnapshot> => {
+      if (item.sourceType === 'historical') {
+        assertPositive(item.multiplier, 'Historical portion multiplier')
+        const original = await loadHistoricalItem(db, owner, item.itemId)
+        const {
+          _id,
+          _creationTime,
+          ownerTokenIdentifier,
+          householdId,
+          mealId,
+          notes,
+          ...snapshot
+        } = original
+        void [
+          _id,
+          _creationTime,
+          ownerTokenIdentifier,
+          householdId,
+          mealId,
+          notes,
+        ]
+        const caloriesSnapshot = assertFiniteDerived(
+          original.caloriesSnapshot * item.multiplier,
+          'Meal item calories',
+        )
+        const servingCount =
+          original.servingCount === undefined
+            ? undefined
+            : assertFiniteDerived(
+                original.servingCount * item.multiplier,
+                'Consumed servings',
+              )
+        if (snapshot.sourceType === 'fixedCalories')
+          return { ...snapshot, caloriesSnapshot, servingCount }
+        return {
+          ...snapshot,
+          caloriesSnapshot,
+          servingCount,
+          consumedWeightGrams: assertFiniteDerived(
+            snapshot.consumedWeightGrams * item.multiplier,
+            'Consumed weight',
+          ),
+        }
+      }
       if (item.sourceType === 'ingredient') {
         const existing = item.existingMealItemId
           ? options?.existingItemsById?.get(item.existingMealItemId)
@@ -1369,6 +1492,12 @@ export async function buildMealItemSnapshots(
           sourceType: 'ingredient' as const,
           ingredientId: ingredient._id,
           nameSnapshot: ingredient.name,
+          foodIdentity: {
+            basis: 'g',
+            brand: ingredient.brand,
+            variant: ingredient.variant,
+          },
+          nutritionProvenance: ingredient.nutritionProvenance,
           consumedWeightGrams,
           kcalPer100Snapshot: ingredientKcalPer100,
           kcalBasisUnitSnapshot: kcalBasisUnit,
@@ -1397,6 +1526,7 @@ export async function buildMealItemSnapshots(
           'Custom ingredient name',
         )
         const normalizedKcalPer100 = normalizeKcalPer100(item.kcalPer100, {
+          preservePrecision: true,
           allowZero: item.ignoreCalories,
           fieldName: 'Custom ingredient kcal/100',
         })
@@ -1547,11 +1677,30 @@ export async function buildMealItemSnapshots(
   )
   return snapshots.map((snapshot, index) => {
     const item = items[index]
+    if (item.sourceType === 'historical') return snapshot
     const existing = item.existingMealItemId
       ? options?.existingItemsById?.get(item.existingMealItemId)
       : undefined
+    const foodIdentity = normalizeFoodIdentity(
+      item.sourceType === 'ingredient'
+        ? (existing?.foodIdentity ?? snapshot.foodIdentity)
+        : (item.foodIdentity ??
+            existing?.foodIdentity ??
+            snapshot.foodIdentity),
+    )
+    if (snapshot.sourceType !== 'fixedCalories' && foodIdentity?.basis === 'ml')
+      throw new Error('Meal weight cannot be interpreted as millilitres.')
+    const servingCount = item.servingCount ?? existing?.servingCount
+    if (servingCount !== undefined)
+      assertPositive(servingCount, 'Consumed servings')
+    if (foodIdentity?.basis === 'ml' && servingCount === undefined)
+      throw new Error(
+        'Consumed millilitres must be recorded as servingCount for a fixed total.',
+      )
     return {
       ...snapshot,
+      foodIdentity,
+      servingCount,
       nutritionProvenance:
         item.sourceType === 'cookedFood'
           ? combineNutritionProvenance(
@@ -1577,6 +1726,8 @@ async function insertMealItemSnapshots(
         ...ownerFields(owner),
         mealId,
         nameSnapshot: snapshot.nameSnapshot,
+        foodIdentity: snapshot.foodIdentity,
+        servingCount: snapshot.servingCount,
         caloriesSnapshot: snapshot.caloriesSnapshot,
         nutritionProvenance: snapshot.nutritionProvenance,
         notes: snapshot.notes,
@@ -2105,6 +2256,8 @@ export const createIngredient = mutation({
     householdId: v.optional(v.id('households')),
     name: v.string(),
     brand: v.optional(v.string()),
+    variant: v.optional(v.string()),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     kcalPer100: v.number(),
     kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
@@ -2116,6 +2269,7 @@ export const createIngredient = mutation({
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Ingredient name')
     const normalizedKcalPer100 = normalizeKcalPer100(args.kcalPer100, {
+      preservePrecision: true,
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
@@ -2126,6 +2280,14 @@ export const createIngredient = mutation({
       ...ownerFields(owner),
       name: args.name.trim(),
       brand: normalizeOptionalText(args.brand, 'Brand', MAX_NAME_LENGTH),
+      variant: normalizeOptionalText(
+        args.variant,
+        'Product variant',
+        MAX_NAME_LENGTH,
+      ),
+      nutritionProvenance: normalizeNutritionProvenance(
+        args.nutritionProvenance,
+      ),
       kcalPer100: normalizedKcalPer100,
       kcalBasisUnit: args.kcalBasisUnit ?? 'g',
       ignoreCalories: args.ignoreCalories,
@@ -2149,6 +2311,8 @@ export const updateIngredient = mutation({
     expectedEditRevision: v.number(),
     name: v.string(),
     brand: v.optional(v.string()),
+    variant: v.optional(v.string()),
+    nutritionProvenance: v.optional(nutritionProvenanceValidator),
     kcalPer100: v.number(),
     kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
@@ -2170,6 +2334,7 @@ export const updateIngredient = mutation({
     )
     assertNonEmpty(args.name, 'Ingredient name')
     const normalizedKcalPer100 = normalizeKcalPer100(args.kcalPer100, {
+      preservePrecision: true,
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
@@ -2183,6 +2348,17 @@ export const updateIngredient = mutation({
     await ctx.db.patch(args.ingredientId, {
       name: args.name.trim(),
       brand: normalizeOptionalText(args.brand, 'Brand', MAX_NAME_LENGTH),
+      variant:
+        args.variant === undefined
+          ? ingredient.variant
+          : normalizeOptionalText(
+              args.variant,
+              'Product variant',
+              MAX_NAME_LENGTH,
+            ),
+      nutritionProvenance:
+        normalizeNutritionProvenance(args.nutritionProvenance) ??
+        ingredient.nutritionProvenance,
       kcalPer100: normalizedKcalPer100,
       kcalBasisUnit: args.kcalBasisUnit ?? ingredient.kcalBasisUnit,
       ignoreCalories: args.ignoreCalories,

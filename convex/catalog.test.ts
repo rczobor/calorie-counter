@@ -33,7 +33,7 @@ describe('nutrition catalog mutations', () => {
     vi.useRealTimers()
   })
 
-  it('normalizes ingredient kcal values to integers', async () => {
+  it('preserves precise ingredient label values while normalizing text', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
 
@@ -52,7 +52,7 @@ describe('nutrition catalog mutations', () => {
     expect(ingredient).toMatchObject({
       name: 'Greek yogurt',
       brand: 'Farm',
-      kcalPer100: 102,
+      kcalPer100: 101.6,
       notes: 'Breakfast',
     })
   })
