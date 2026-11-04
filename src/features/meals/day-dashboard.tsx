@@ -379,7 +379,13 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           ) : null}
         </div>
         <div
-          className="mt-3 min-h-24 divide-y border-y"
+          className={cn(
+            'mt-3 divide-y',
+            (meals.results.length > 0 ||
+              loadingPerson ||
+              (selected && meals.status === 'LoadingFirstPage')) &&
+              'min-h-24 border-y',
+          )}
           aria-busy={
             loadingPerson ||
             Boolean(selected && meals.status === 'LoadingFirstPage')
@@ -437,12 +443,6 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               rows={focused ? Math.min(3, Math.max(1, focused.mealCount)) : 1}
             />
           ) : null}
-          {selected && meals.status === 'Exhausted' && !meals.results.length ? (
-            <p className="py-8 text-sm text-muted-foreground">
-              No {archived ? 'archived ' : ''}meals logged for this person and
-              day.
-            </p>
-          ) : null}
         </div>
         {meals.status === 'CanLoadMore' || meals.status === 'LoadingMore' ? (
           <Button
@@ -455,9 +455,6 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             Load more meals
           </Button>
         ) : null}
-        <div className="mt-4 flex flex-wrap justify-between gap-3 text-xs text-muted-foreground">
-          <p>Open a meal to see portions and nutrition sources.</p>
-        </div>
       </PageShell>
       {editor ? (
         <EditorDialog
