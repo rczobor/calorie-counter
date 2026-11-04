@@ -1,8 +1,9 @@
 import { LoadingRows } from '@/components/page/loading-content'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
-import { UserRound } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import {
@@ -115,22 +116,14 @@ function PeopleContent() {
   return (
     <>
       <PageShell
+        contentClassName="max-w-3xl"
         title="People & goals"
-        icon={<UserRound className="size-4" />}
+        breadcrumbs={<SettingsBreadcrumbs current="People & goals" />}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
         <div className="mx-auto mt-4 max-w-3xl space-y-5">
-          <Link
-            to="/settings"
-            className="inline-block text-sm text-muted-foreground hover:text-foreground"
-          >
-            ‹ Settings
-          </Link>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Goal changes take effect today. Earlier goals remain in history.
-            </p>
             <Button
               variant="outline"
               disabled={isRunning}
@@ -189,6 +182,9 @@ function PeopleContent() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Applies from today. Earlier goals stay in history.
+                    </p>
                     <Label htmlFor="person-goal">Daily calorie goal</Label>
                     <Input
                       id="person-goal"
@@ -244,130 +240,142 @@ function PeopleContent() {
               </p>
             ) : (
               people.map((person) => (
-                <details
-                  key={person._id}
-                  className="py-4"
-                  open={selectedPersonId === person._id && selected !== null}
-                  onToggle={(event) => {
-                    const open = event.currentTarget.open
-                    setSelectedPersonId((current) =>
-                      open
-                        ? person._id
-                        : current === person._id
-                          ? null
-                          : current,
-                    )
-                  }}
-                >
-                  <summary className="cursor-pointer text-sm font-medium">
-                    {person.name}
-                    {person.archived ? ' · Archived' : ''}
-                    <span className="mt-1 block font-normal text-muted-foreground">
-                      {person.currentDailyGoalKcal.toFixed(0)} kcal daily goal
-                    </span>
-                  </summary>
-                  <div className="mt-4 space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRunning}
-                        onClick={() => beginEdit(person)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRunning}
-                        onClick={() =>
-                          void runAction(
-                            person.archived
-                              ? 'Person restored.'
-                              : 'Person archived.',
-                            () =>
-                              setArchived({
-                                personId: person._id,
-                                expectedEditRevision: person.editRevision,
-                                archived: !person.archived,
-                              }),
-                          )
-                        }
-                      >
-                        {person.archived ? 'Restore' : 'Archive'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={isRunning}
-                        onClick={() =>
-                          confirmAndRunAction(
-                            'Delete this person permanently?',
-                            'Person deleted.',
-                            async () => {
-                              await deletePerson({
-                                personId: person._id,
-                                expectedEditRevision: person.editRevision,
-                              })
-                              if (editing?._id === person._id)
-                                setEditing(undefined)
-                              if (selectedPersonId === person._id)
-                                setSelectedPersonId(null)
-                            },
-                          )
-                        }
-                      >
-                        Delete person
-                      </Button>
+                <div key={person._id} className="relative">
+                  <details
+                    className="group py-4"
+                    open={selectedPersonId === person._id && selected !== null}
+                    onToggle={(event) => {
+                      const open = event.currentTarget.open
+                      setSelectedPersonId((current) =>
+                        open
+                          ? person._id
+                          : current === person._id
+                            ? null
+                            : current,
+                      )
+                    }}
+                  >
+                    <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 pr-16 text-sm">
+                      <span className="min-w-0 break-words font-medium">
+                        {person.name}
+                        {person.archived ? ' · Archived' : ''}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                        {person.currentDailyGoalKcal.toFixed(0)} kcal / day
+                        <ChevronRight
+                          className="size-3.5 group-open:rotate-90"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </summary>
+                    <div className="mt-4 space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunning}
+                          onClick={() =>
+                            void runAction(
+                              person.archived
+                                ? 'Person restored.'
+                                : 'Person archived.',
+                              () =>
+                                setArchived({
+                                  personId: person._id,
+                                  expectedEditRevision: person.editRevision,
+                                  archived: !person.archived,
+                                }),
+                            )
+                          }
+                        >
+                          {person.archived ? 'Restore' : 'Archive'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={isRunning}
+                          onClick={() =>
+                            confirmAndRunAction(
+                              'Delete this person permanently?',
+                              'Person deleted.',
+                              async () => {
+                                await deletePerson({
+                                  personId: person._id,
+                                  expectedEditRevision: person.editRevision,
+                                })
+                                if (editing?._id === person._id)
+                                  setEditing(undefined)
+                                if (selectedPersonId === person._id)
+                                  setSelectedPersonId(null)
+                              },
+                            )
+                          }
+                        >
+                          Delete person
+                        </Button>
+                      </div>
+                      {selectedPersonId === person._id && selected !== null ? (
+                        <section aria-label={`Goal history for ${person.name}`}>
+                          <h3 className="text-xs font-medium text-muted-foreground">
+                            Goal history
+                          </h3>
+                          {history.status === 'LoadingFirstPage' ? (
+                            <LoadingRows
+                              label="Loading goal history"
+                              rows={2}
+                            />
+                          ) : history.results.length === 0 ? (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              No goal history found.
+                            </p>
+                          ) : (
+                            <ul className="mt-2 space-y-2">
+                              {history.results.map((entry) => (
+                                <li
+                                  key={entry._id}
+                                  className="flex flex-wrap justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 text-sm"
+                                >
+                                  <span>
+                                    {entry.effectiveDate}
+                                    {entry.reason ? (
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        {entry.reason}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <span>{entry.goalKcal.toFixed(0)} kcal</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {history.status === 'CanLoadMore' ||
+                          history.status === 'LoadingMore' ? (
+                            <Button
+                              className="mt-3"
+                              size="sm"
+                              variant="outline"
+                              disabled={history.status === 'LoadingMore'}
+                              aria-busy={history.status === 'LoadingMore'}
+                              onClick={() => history.loadMore(PAGE_SIZE)}
+                            >
+                              Load more goal history
+                            </Button>
+                          ) : null}
+                        </section>
+                      ) : null}
                     </div>
-                    {selectedPersonId === person._id && selected !== null ? (
-                      <section aria-label={`Goal history for ${person.name}`}>
-                        <h3 className="text-xs font-medium text-muted-foreground">
-                          Goal history
-                        </h3>
-                        {history.status === 'LoadingFirstPage' ? (
-                          <LoadingRows label="Loading goal history" rows={2} />
-                        ) : history.results.length === 0 ? (
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            No goal history found.
-                          </p>
-                        ) : (
-                          <ul className="mt-2 space-y-2">
-                            {history.results.map((entry) => (
-                              <li
-                                key={entry._id}
-                                className="flex flex-wrap justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 text-sm"
-                              >
-                                <span>
-                                  {entry.effectiveDate}
-                                  {entry.reason ? (
-                                    <span className="ml-2 text-xs text-muted-foreground">
-                                      {entry.reason}
-                                    </span>
-                                  ) : null}
-                                </span>
-                                <span>{entry.goalKcal.toFixed(0)} kcal</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {history.status === 'CanLoadMore' ||
-                        history.status === 'LoadingMore' ? (
-                          <Button
-                            className="mt-3"
-                            size="sm"
-                            variant="outline"
-                            disabled={history.status === 'LoadingMore'}
-                            aria-busy={history.status === 'LoadingMore'}
-                            onClick={() => history.loadMore(PAGE_SIZE)}
-                          >
-                            Load more goal history
-                          </Button>
-                        ) : null}
-                      </section>
-                    ) : null}
-                  </div>
-                </details>
+                  </details>
+                  <Button
+                    className="absolute top-4 right-0"
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Edit ${person.name}`}
+                    disabled={isRunning}
+                    onClick={() => beginEdit(person)}
+                  >
+                    Edit
+                  </Button>
+                </div>
               ))
             )}
           </div>

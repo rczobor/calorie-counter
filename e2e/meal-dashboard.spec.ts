@@ -6,7 +6,7 @@ test('settings, integration defaults, and expired consent remain reachable', asy
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/settings')
-  await page.getByRole('link', { name: /ChatGPT Connections/ }).click()
+  await page.getByRole('link', { name: 'ChatGPT', exact: true }).click()
   await expect(
     page.getByRole('heading', { name: 'ChatGPT', exact: true }),
   ).toBeVisible()
@@ -85,12 +85,12 @@ test('cooked batches open for inspection and finished-weight correction', async 
   )
   await page.getByText('Homemade chili', { exact: true }).click()
   await expect(
-    page.getByRole('heading', { name: 'Composition', exact: true }),
+    page.getByRole('heading', { name: 'Ingredients', exact: true }),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Edit cooked food' }).click()
   await page.getByLabel('Finished weight (g)').fill('1200')
   await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText(/1200 g finished/)).toBeVisible()
+  await expect(page.getByText(/1200 g/)).toBeVisible()
   await expect(page.getByText(/100 kcal \/ 100 g/)).toBeVisible()
 })
 
@@ -152,12 +152,13 @@ test('reusable foods can be inspected, archived, and restored without editing pa
 }) => {
   await page.goto('/catalog')
   await page.getByText('Vitamins', { exact: false }).first().click()
+  await page.getByText('Portion & nutrition', { exact: true }).click()
   await expect(
     page.getByText(/One saved portion is the entire originally logged item/),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Archive', exact: true }).click()
   await expect(page.getByText('14 kcal / saved portion')).toHaveCount(0)
-  await page.getByLabel('Show archived records').check()
+  await page.getByLabel('Show archived', { exact: true }).check()
   await page.getByText('Vitamins · Archived', { exact: false }).click()
   await page.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect(page.getByText('Vitamins · Archived')).toHaveCount(0)

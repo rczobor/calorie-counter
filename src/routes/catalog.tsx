@@ -1,12 +1,13 @@
 import { LoadingRows } from '@/components/page/loading-content'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpenText, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfigMissingState } from '@/components/page/page-states'
 import { StatusBadge } from '@/components/page/status-badge'
@@ -1250,17 +1251,11 @@ function ManagePageContent() {
     <>
       <PageShell
         title="Food library"
-        icon={<BookOpenText className="h-4 w-4" />}
+        breadcrumbs={<SettingsBreadcrumbs current="Food library" />}
         maxWidth="7xl"
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
       >
-        <Link
-          to="/settings"
-          className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground"
-        >
-          ‹ Settings
-        </Link>
         <Tabs
           value={activeTab}
           onValueChange={(value) => {
@@ -1278,7 +1273,7 @@ function ManagePageContent() {
             <TabsTrigger value="saved">Reusable foods</TabsTrigger>
             <TabsTrigger value="ingredients">Ingredients</TabsTrigger>
             <TabsTrigger value="recipes">Recipes</TabsTrigger>
-            <TabsTrigger value="groups">Manage groups</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
           </TabsList>
 
           <TabsContent value="saved" className="mt-4">

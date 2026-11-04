@@ -34,6 +34,9 @@ const {
 vi.mock('./household-context', () => ({
   useHousehold: () => ({ householdId: 'home', selectHousehold }),
 }))
+vi.mock('@/components/page/settings-breadcrumbs', () => ({
+  SettingsBreadcrumbs: () => null,
+}))
 vi.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => query(...args),
   usePaginatedQuery: (...args: unknown[]) => paginated(...args),
@@ -118,7 +121,9 @@ describe('household settings', () => {
       'value',
       `${window.location.origin}/household#invite=secret-token`,
     )
-    expect(screen.getByText(/Anyone with the link/)).toBeTruthy()
+    expect(
+      screen.getByText('One use. Expires in 7 days. Full household access.'),
+    ).toBeTruthy()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
@@ -179,7 +184,10 @@ describe('household settings', () => {
   it('shows actionable membership errors without deleting history', async () => {
     updateMember.mockRejectedValue(new Error('Promote another admin first.'))
     render(<HouseholdSettings />)
-    fireEvent.click(screen.getByRole('button', { name: 'Make member' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Robi' }))
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Make member' }),
+    )
     fireEvent.click(
       await screen.findByRole('button', { name: 'Confirm change' }),
     )
@@ -245,6 +253,19 @@ describe('household settings', () => {
         householdId: 'home',
         invitationId: 'invite',
       }),
+    )
+  })
+
+  it('keeps sharing information available behind a closed disclosure', () => {
+    render(<HouseholdSettings />)
+    const guidance = screen.getByText(
+      /Everyone in a household can view and manage/,
+    )
+    expect(guidance.closest('details')?.open).toBe(false)
+    fireEvent.click(screen.getByText('Household access'))
+    expect(guidance.closest('details')?.open).toBe(true)
+    expect(guidance.textContent).toContain(
+      'Admins also manage invitations and membership',
     )
   })
 })

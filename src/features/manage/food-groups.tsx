@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { FolderTree } from 'lucide-react'
 
 type FoodGroupsSectionProps = {
   children: ReactNode
@@ -8,14 +7,8 @@ type FoodGroupsSectionProps = {
 export function FoodGroupsSection({ children }: FoodGroupsSectionProps) {
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <FolderTree className="h-3.5 w-3.5 text-primary" />
-          Food Groups
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Used to classify ingredients and cooked foods.
-        </p>
+      <div className="sr-only">
+        <h2>Food Groups</h2>
       </div>
       <div className="space-y-3">{children}</div>
     </section>

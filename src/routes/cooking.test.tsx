@@ -210,7 +210,7 @@ describe('cooked batches', () => {
     render(<Page />)
     fireEvent.click(screen.getByText('Chili'))
     await waitFor(() =>
-      expect(screen.getByText('Historical beans')).toBeTruthy(),
+      expect(screen.getAllByText('Historical beans').length).toBeGreaterThan(0),
     )
     expect(
       screen.getByText('Recipe estimate: Ingredient nutrition estimated.'),
@@ -252,6 +252,24 @@ describe('cooked batches', () => {
         'calorie-counter:cooking-edit:test-user:household',
       ),
     ).toBeNull()
+  })
+  it('keeps differing counted amounts and ingredient sources behind the notes disclosure', async () => {
+    currentDetail = {
+      ...detail,
+      ingredients: lines.map((line) =>
+        line._id === 'line-2' ? { ...line, countedAmount: 10 } : line,
+      ),
+    }
+    render(<Page />)
+    fireEvent.click(screen.getByText('Chili'))
+    const counted = await screen.findByText('Counted 10 ml')
+    const disclosure = counted.closest('details')
+    expect(disclosure?.open).toBe(false)
+    expect(screen.getByText('15 ml')).toBeTruthy()
+    expect(screen.queryByText('Counted 500 g')).toBeNull()
+    expect(screen.getByText(/800 kcal\/100ml/)).toBeTruthy()
+    fireEvent.click(screen.getByText('Notes & sources'))
+    expect(disclosure?.open).toBe(true)
   })
   it('keeps failed edits recoverable and does not adopt a newer remote revision', async () => {
     mocks.save.mockRejectedValue(

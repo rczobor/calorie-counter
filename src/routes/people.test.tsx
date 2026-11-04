@@ -112,7 +112,7 @@ describe('People settings', () => {
   it('starts with a person list and opens goal history without a creation form', async () => {
     show()
     expect(screen.queryByLabelText('Person name')).toBeNull()
-    expect(screen.getByText('2001 kcal daily goal')).toBeTruthy()
+    expect(screen.getByText('2001 kcal / day')).toBeTruthy()
     expect(screen.queryByText('Consumed')).toBeNull()
     openAlex()
     expect(await screen.findByText('Initial goal')).toBeTruthy()
@@ -120,7 +120,7 @@ describe('People settings', () => {
   it('opens creation explicitly and preserves fractional goals on a name-only edit', async () => {
     show()
     openAlex()
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Alex' }))
     expect(
       (screen.getByLabelText('Daily calorie goal') as HTMLInputElement).value,
     ).toBe('2000.5')
@@ -189,7 +189,7 @@ describe('People settings', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Load more people' }))
     expect(loadMore).toHaveBeenCalledWith(20)
-    fireEvent.click(screen.getByLabelText('Show archived records'))
+    fireEvent.click(screen.getByLabelText('Show archived'))
     expect(screen.getByText('Sam · Archived')).toBeTruthy()
   })
   it('locks form controls while saving', () => {

@@ -9,6 +9,7 @@ test('household settings disclose sharing and protect consequential membership c
   await expect(
     page.getByRole('heading', { name: 'Household', exact: true }),
   ).toBeVisible()
+  await page.getByText('Household access', { exact: true }).click()
   await expect(
     page.getByText(/Everyone in a household can view and manage/),
   ).toBeVisible()

@@ -248,6 +248,10 @@ describe('Today intake dashboard', () => {
       screen.getByRole('heading', { name: 'Archived meals', level: 1 }),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Add meal' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Alex’s intake' })).toBeNull()
+    expect(
+      screen.getByRole('combobox', { name: 'Person' }).textContent,
+    ).toContain('Alex')
     expect(
       mocks.page.mock.calls.some(
         ([ref, args]) =>

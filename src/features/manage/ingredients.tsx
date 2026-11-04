@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Wheat } from 'lucide-react'
 
 type IngredientsSectionProps = {
   children: ReactNode
@@ -8,15 +7,8 @@ type IngredientsSectionProps = {
 export function IngredientsSection({ children }: IngredientsSectionProps) {
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Wheat className="h-3.5 w-3.5 text-primary" />
-          Ingredients
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Store kcal per 100 of the selected basis unit (grams, ml, pieces, or
-          another portion unit) and whether calories are ignored.
-        </p>
+      <div className="sr-only">
+        <h2>Ingredients</h2>
       </div>
       <div className="space-y-3">{children}</div>
     </section>

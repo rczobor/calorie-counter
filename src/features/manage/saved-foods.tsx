@@ -35,10 +35,6 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
 
   return (
     <section className="space-y-4" aria-label="Reusable foods">
-      <p className="text-sm text-muted-foreground">
-        Foods explicitly remembered through ChatGPT. Past meals keep their
-        recorded nutrition.
-      </p>
       <Input
         aria-label="Search reusable foods"
         placeholder="Search reusable foods"
@@ -68,16 +64,18 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
                 </span>
               </summary>
               <div className="mt-4 space-y-3 text-sm">
-                <p className="text-muted-foreground">
-                  {food.nutrition.kind === 'fixedCalories'
-                    ? 'One saved portion is the entire originally logged item. It may include several package servings.'
-                    : 'Reuse this food with a measured portion in grams.'}
-                </p>
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer text-xs">
+                    Portion & nutrition
+                  </summary>
+                  <p className="mt-2">
+                    {food.nutrition.kind === 'fixedCalories'
+                      ? 'One saved portion is the entire originally logged item. It may include several package servings.'
+                      : 'Reuse this food with a measured portion in grams.'}
+                  </p>
+                </details>
                 <EstimateNotice provenance={food.nutritionProvenance} />
-                <p className="text-xs text-muted-foreground">
-                  To correct its nutrition, archive this entry and ask ChatGPT
-                  to remember a corrected food.
-                </p>
+
                 <Button
                   variant="outline"
                   size="sm"

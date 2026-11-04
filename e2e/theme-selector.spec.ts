@@ -43,7 +43,13 @@ for (const viewport of [
       await darkTrigger.focus()
       await darkTrigger.press('ArrowDown')
       await expect(page.getByRole('listbox')).toBeVisible()
+      await expect(
+        page.getByRole('option', { name: 'Dark', exact: true }),
+      ).toBeFocused()
       await page.keyboard.press('End')
+      await expect(
+        page.getByRole('option', { name: 'System', exact: true }),
+      ).toBeFocused()
       await page.keyboard.press('Enter')
       await expect(trigger).toBeFocused()
       await expect(page.getByRole('listbox')).toHaveCount(0)
