@@ -248,6 +248,7 @@ async function prepareCorrection(
         ...provenance,
         name: change.name ?? existing.name,
         calories: change.calories,
+        servingCount: change.servingCount ?? existing.servingCount,
       }
     }
     if (existing.sourceType !== 'customByWeight')

@@ -239,6 +239,7 @@ export const mealCorrectionInput = v.object({
         itemId: v.id('mealItems'),
         name: v.optional(v.string()),
         calories: v.number(),
+        servingCount: v.optional(v.number()),
         ...correctionProvenance,
       }),
       v.object({

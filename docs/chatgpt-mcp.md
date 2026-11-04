@@ -151,6 +151,9 @@ to an existing environment is part of this implementation.
 - Correct an existing meal's portions, custom calorie estimates, name, person,
   or date after reviewing before/after values. Unmentioned items and private
   notes are preserved, and moved meals update both affected daily summaries.
+  Fixed-calorie corrections may include an explicit positive `servingCount`
+  when correcting quantity. Calorie-only corrections keep the existing count;
+  the server never infers servings from calories.
 
 Try: “Use Calorie Counter. Show my people, then log 250 g of the chili I cooked
 yesterday for Alex's lunch. Preview it before saving.”

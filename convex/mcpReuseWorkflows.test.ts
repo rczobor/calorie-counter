@@ -104,6 +104,196 @@ async function fixture() {
   }
 }
 
+describe('review regressions', () => {
+  it('corrects a fixed portion count explicitly and keeps reusable per-serving calories accurate', async () => {
+    const { t, user, personId, mealId, items } = await fixture()
+    const calorieOnly = await t.mutation(
+      internal.mcpMealCorrections.previewMealCorrection,
+      {
+        user,
+        input: {
+          mealId,
+          expectedEditRevision: 0,
+          itemChanges: [
+            { kind: 'fixedCalories', itemId: items[2]._id, calories: 180 },
+          ],
+        },
+      },
+    )
+    expect(calorieOnly.after.items[2].servingCount).toBe(2)
+    const input = {
+      mealId,
+      expectedEditRevision: 0,
+      itemChanges: [
+        {
+          kind: 'fixedCalories' as const,
+          itemId: items[2]._id,
+          calories: 100,
+          servingCount: 1,
+        },
+      ],
+    }
+    const preview = await t.mutation(
+      internal.mcpMealCorrections.previewMealCorrection,
+      { user, input },
+    )
+    expect(preview.after.items[2]).toMatchObject({
+      calories: 100,
+      servingCount: 1,
+    })
+    await expect(
+      t.mutation(internal.mcpMealCorrections.previewMealCorrection, {
+        user,
+        input: {
+          ...input,
+          itemChanges: [{ ...input.itemChanges[0], servingCount: 0 }],
+        },
+      }),
+    ).rejects.toThrow('greater than 0')
+    const corrected = await t.mutation(
+      internal.mcpMealCorrections.correctMeal,
+      { user, input: preview.input, operationKey: 'one-cookie-correction' },
+    )
+    expect(corrected.dailySummary?.consumedCalories).toBeCloseTo(289.28)
+    const detail = await t.mutation(internal.mcpMealCorrections.getMeal, {
+      user,
+      mealId,
+    })
+    const cookie = detail.items[2]
+    expect(cookie).toMatchObject({ calories: 100, servingCount: 1 })
+    const saved = await t.mutation(internal.mcpFoodReuse.saveFoodFromMeal, {
+      user,
+      mealId,
+      itemId: cookie.id,
+      operationKey: 'corrected-cookie',
+    })
+    expect((await t.run((ctx) => ctx.db.get(saved.foodId)))?.nutrition).toEqual(
+      { kind: 'fixedCalories', calories: 100 },
+    )
+    const repeated = await t.mutation(internal.mcpFoodReuse.previewRepeatMeal, {
+      user,
+      input: {
+        mealId,
+        personId,
+        eatenOn: '2026-11-02',
+        selections: [{ itemId: cookie.id, multiplier: 2 }],
+      },
+    })
+    expect(repeated.totalCalories).toBe(200)
+    const reused = await t.mutation(internal.mcpOperations.previewMeal, {
+      user,
+      input: {
+        personId,
+        eatenOn: '2026-11-02',
+        items: [
+          {
+            sourceType: 'savedFood',
+            savedFoodId: saved.foodId,
+            portion: { servings: 2 },
+          },
+        ],
+      },
+    })
+    expect(reused.totalCalories).toBe(200)
+  })
+
+  it('keeps estimated ingredient nutrition when the consumed portion is measured', async () => {
+    const { t, account, user, personId } = await fixture()
+    const ingredientId = await account.mutation(
+      api.nutrition.createIngredient,
+      {
+        name: 'Estimated rice',
+        kcalPer100: 130,
+        ignoreCalories: false,
+        nutritionProvenance: {
+          kind: 'estimate',
+          source: 'Generic rice nutrition',
+          assumptions: 'Estimated cooked rice calories.',
+        },
+      },
+    )
+    const preview = await t.mutation(internal.mcpOperations.previewMeal, {
+      user,
+      input: {
+        personId,
+        eatenOn: '2026-11-02',
+        items: [
+          {
+            sourceType: 'ingredient',
+            ingredientId,
+            consumedWeightGrams: 100,
+            nutritionProvenance: {
+              kind: 'provided',
+              source: 'Kitchen scale',
+              assumptions: 'Measured 100 g portion.',
+            },
+          },
+        ],
+      },
+    })
+    const evidence = preview.items[0].nutritionProvenance
+    expect(evidence?.kind).toBe('estimate')
+    expect(evidence?.assumptions).toContain('Estimated cooked rice calories.')
+    expect(evidence?.assumptions).toContain('Measured 100 g portion.')
+    const saved = await t.mutation(internal.mcpOperations.logMeal, {
+      user,
+      input: preview.input,
+      operationKey: 'measured-estimate',
+    })
+    const meal = await t.mutation(internal.mcpMealCorrections.getMeal, {
+      user,
+      mealId: saved.mealId,
+    })
+    expect(meal.items[0].nutritionProvenance).toEqual(evidence)
+    const repeat = await t.mutation(internal.mcpFoodReuse.previewRepeatMeal, {
+      user,
+      input: { mealId: saved.mealId, personId, eatenOn: '2026-11-03' },
+    })
+    expect(repeat.items[0].nutritionProvenance).toEqual(evidence)
+    const template = await t.mutation(
+      internal.mcpFoodReuse.manageMealTemplate,
+      {
+        user,
+        input: { action: 'save', mealId: saved.mealId, name: 'Measured rice' },
+        operationKey: 'measured-template',
+      },
+    )
+    const templatePreview = await t.mutation(
+      internal.mcpFoodReuse.previewMealTemplate,
+      {
+        user,
+        templateId: template.templateId,
+        personId,
+        eatenOn: '2026-11-03',
+      },
+    )
+    expect(templatePreview.items[0].nutritionProvenance).toEqual(evidence)
+  })
+
+  it('browses a known date directly despite multiple pages of newer meals', async () => {
+    const { t, account, user, personId, mealId } = await fixture()
+    for (let day = 2; day <= 7; day++)
+      await account.mutation(api.nutrition.createMeal, {
+        personId,
+        eatenOn: `2026-11-0${day}`,
+        items: [
+          { sourceType: 'fixedCalories', name: 'Newer meal', calories: 1 },
+        ],
+      })
+    for (const person of [undefined, personId]) {
+      const result = await t.mutation(internal.mcpFoodReuse.searchMealHistory, {
+        user,
+        search: '',
+        eatenOn: '2026-11-01',
+        personId: person,
+        limit: 2,
+      })
+      expect(result.matches.map((match) => match.mealId)).toEqual([mealId])
+      expect(result.cursor).toBeNull()
+    }
+  })
+})
+
 describe('historical meal discovery and repeats', () => {
   it('finds individual food names within differently named meals and paginates meal-name hits', async () => {
     const { t, user, mealId, personId } = await fixture()

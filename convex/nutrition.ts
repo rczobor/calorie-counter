@@ -1702,7 +1702,7 @@ export async function buildMealItemSnapshots(
       foodIdentity,
       servingCount,
       nutritionProvenance:
-        item.sourceType === 'cookedFood'
+        item.sourceType === 'cookedFood' || item.sourceType === 'ingredient'
           ? combineNutritionProvenance(
               existing?.nutritionProvenance ?? snapshot.nutritionProvenance,
               item.nutritionProvenance,

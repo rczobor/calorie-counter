@@ -324,17 +324,19 @@ export const searchMealHistory = internalMutation({
           : args.personId
             ? ctx.db
                 .query('meals')
-                .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
-                  q
+                .withIndex('by_householdId_and_personId_and_eatenOn', (q) => {
+                  const scoped = q
                     .eq('householdId', owner.householdId)
-                    .eq('personId', args.personId!),
-                )
+                    .eq('personId', args.personId!)
+                  return eatenOn ? scoped.eq('eatenOn', eatenOn) : scoped
+                })
                 .order('desc')
             : ctx.db
                 .query('meals')
-                .withIndex('by_householdId_and_eatenOn', (q) =>
-                  q.eq('householdId', owner.householdId),
-                )
+                .withIndex('by_householdId_and_eatenOn', (q) => {
+                  const scoped = q.eq('householdId', owner.householdId)
+                  return eatenOn ? scoped.eq('eatenOn', eatenOn) : scoped
+                })
                 .order('desc')
         const page = await rows.paginate(pagination)
         for (const meal of page.page) {

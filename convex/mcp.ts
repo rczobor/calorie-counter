@@ -446,7 +446,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_meal_correction: tool({
       description:
-        'Preview changes to an existing meal without saving. Use mealId, editRevision as expectedEditRevision, and item IDs from a fresh get_meal. itemChanges patches only specified items: portion changes grams on weighted items; fixedCalories changes a fixed total; customNutrition changes kcal/100 and optionally grams on customByWeight items. Label new estimates with nutritionProvenance. Optional personId, eatenOn (YYYY-MM-DD), and name change the meal; an empty name clears it. Unmentioned items, notes, and historical catalog snapshots stay intact. Cannot add, remove, or replace foods. Show before/after person, date, portions, calories, and assumptions, then ask for approval.',
+        'Preview changes to an existing meal without saving. Use mealId, editRevision as expectedEditRevision, and item IDs from a fresh get_meal. itemChanges patches only specified items: portion changes grams on weighted items; fixedCalories changes a fixed total and optionally its explicit positive servingCount (never inferred from calories); customNutrition changes kcal/100 and optionally grams on customByWeight items. Label new estimates with nutritionProvenance. Optional personId, eatenOn (YYYY-MM-DD), and name change the meal; an empty name clears it. Unmentioned items, notes, and historical catalog snapshots stay intact. Cannot add, remove, or replace foods. Show before/after person, date, portions, calories, and assumptions, then ask for approval.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealCorrectionInput,
