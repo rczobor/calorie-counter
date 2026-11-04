@@ -1,5 +1,27 @@
 import { expect, test } from '@playwright/test'
 
+test('desktop search keeps focus when typing closes cooked-food details', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/cooking')
+  await page.getByRole('button', { name: /Homemade chili/ }).click()
+  const details = page.getByRole('region', {
+    name: 'Homemade chili',
+    exact: true,
+  })
+  await expect(details).toBeFocused()
+  const search = page.getByRole('textbox', { name: 'Search cooked foods' })
+  await search.focus()
+  // Whitespace keeps the same results and leaves the previous food button mounted.
+  await search.pressSequentially(' ')
+  await expect(search).toBeFocused()
+  await expect(details).toHaveCount(0)
+  await search.pressSequentially(' chili')
+  await expect(search).toHaveValue('  chili')
+  await expect(search).toBeFocused()
+})
+
 for (const width of [390, 1440]) {
   for (const colorScheme of ['light', 'dark'] as const) {
     test(`${width}px ${colorScheme}: cooking details adapt and return focus to the list`, async ({

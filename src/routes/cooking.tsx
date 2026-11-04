@@ -486,7 +486,9 @@ function CookedFoodList({
   const selectedId = selectedFood?._id
   useEffect(() => {
     if (selectedId) detailRef.current?.focus()
-    else triggerRef.current?.focus()
+    // Closing details while typing must preserve focus in the search field.
+    else if (document.activeElement === document.body)
+      triggerRef.current?.focus()
   }, [selectedId])
   return (
     <section
