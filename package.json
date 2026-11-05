@@ -23,6 +23,7 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:per-file": "vitest run --config vitest.per-file.config.ts --coverage",
     "test:e2e": "playwright test",
+    "plugin:check": "vitest run scripts/plugin-publication.test.ts",
     "test:mcp:https": "node e2e/mcp-https.ts",
     "deploy:mcp:test": "node scripts/deploy-mcp-test.ts",
     "setup:worktree": "pnpm install --frozen-lockfile",
