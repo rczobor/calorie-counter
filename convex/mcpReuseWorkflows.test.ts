@@ -105,6 +105,96 @@ async function fixture() {
 }
 
 describe('review regressions', () => {
+  it.each(['portion', 'customNutrition', 'calorieOnly', 'app'] as const)(
+    'keeps weighted serving evidence consistent through %s corrections',
+    async (mode) => {
+      const { t, account, user, personId } = await fixture()
+      const original = {
+        sourceType: 'customByWeight' as const,
+        name: 'Protein powder',
+        kcalPer100: 380,
+        ignoreCalories: false,
+        consumedWeightGrams: 30,
+      }
+      const mealId = await account.mutation(api.nutrition.createMeal, {
+        personId,
+        eatenOn: '2026-11-02',
+        items: [{ ...original, servingCount: 1 }, original],
+      })
+      const before = await t.mutation(internal.mcpMealCorrections.getMeal, {
+        user,
+        mealId,
+      })
+      const grams = mode === 'calorieOnly' ? 30 : 60
+      const kcalPer100 =
+        mode === 'customNutrition' || mode === 'calorieOnly' ? 400 : 380
+      const calories = (grams * kcalPer100) / 100
+      if (mode === 'app') {
+        await account.mutation(api.nutrition.updateMeal, {
+          mealId,
+          expectedEditRevision: before.editRevision,
+          expectedMealItemIds: before.items.map((item) => item.id),
+          personId,
+          eatenOn: '2026-11-02',
+          items: before.items.map((item) => ({
+            ...original,
+            existingMealItemId: item.id,
+            consumedWeightGrams: grams,
+          })),
+        })
+      } else {
+        const preview = await t.mutation(
+          internal.mcpMealCorrections.previewMealCorrection,
+          {
+            user,
+            input: {
+              mealId,
+              expectedEditRevision: before.editRevision,
+              itemChanges: before.items.map((item) =>
+                mode === 'portion'
+                  ? {
+                      kind: 'portion' as const,
+                      itemId: item.id,
+                      consumedWeightGrams: grams,
+                    }
+                  : {
+                      kind: 'customNutrition' as const,
+                      itemId: item.id,
+                      kcalPer100,
+                      ...(mode === 'customNutrition'
+                        ? { consumedWeightGrams: grams }
+                        : {}),
+                    },
+              ),
+            },
+          },
+        )
+        expect(preview.after.items[0].servingCount).toBe(grams / 30)
+        expect(preview.after.items[1].servingCount).toBeUndefined()
+        await t.mutation(internal.mcpMealCorrections.correctMeal, {
+          user,
+          input: preview.input,
+          operationKey: `weighted-correction-${mode}`,
+        })
+      }
+      const after = await t.mutation(internal.mcpMealCorrections.getMeal, {
+        user,
+        mealId,
+      })
+      expect(after.items[0]).toMatchObject({
+        consumedWeightGrams: grams,
+        servingCount: grams / 30,
+        calories,
+      })
+      expect(after.items[1].servingCount).toBeUndefined()
+      const day = await account.query(api.meals.getDaySummary, {
+        personId,
+        eatenOn: '2026-11-02',
+      })
+      expect(day?.consumedCalories).toBe(calories * 2)
+    },
+  )
+
   it('scales weighted template serving counts together with grams and calories', async () => {
     const { t, account, user, personId } = await fixture()
     const mealId = await account.mutation(api.nutrition.createMeal, {

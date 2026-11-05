@@ -92,7 +92,6 @@ function itemInput(
 ): Exclude<Infer<typeof mealItemInputValidator>, { sourceType: 'historical' }> {
   const common = {
     foodIdentity: item.foodIdentity,
-    servingCount: item.servingCount,
     existingMealItemId: item._id,
     nutritionProvenance: item.nutritionProvenance,
   }
@@ -100,6 +99,7 @@ function itemInput(
     return {
       ...common,
       sourceType: item.sourceType,
+      servingCount: item.servingCount,
       name: item.nameSnapshot,
       calories: item.caloriesSnapshot,
     }

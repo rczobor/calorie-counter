@@ -1690,7 +1690,14 @@ export async function buildMealItemSnapshots(
     )
     if (snapshot.sourceType !== 'fixedCalories' && foodIdentity?.basis === 'ml')
       throw new Error('Meal weight cannot be interpreted as millilitres.')
-    const servingCount = item.servingCount ?? existing?.servingCount
+    const servingCount =
+      item.servingCount ??
+      (existing?.servingCount !== undefined &&
+      existing.sourceType !== 'fixedCalories' &&
+      snapshot.sourceType !== 'fixedCalories'
+        ? existing.servingCount *
+          (snapshot.consumedWeightGrams / existing.consumedWeightGrams)
+        : existing?.servingCount)
     if (servingCount !== undefined)
       assertPositive(servingCount, 'Consumed servings')
     if (foodIdentity?.basis === 'ml' && servingCount === undefined)
