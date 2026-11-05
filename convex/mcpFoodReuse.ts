@@ -626,6 +626,10 @@ export const previewMealTemplate = internalMutation({
             return {
               ...item,
               consumedWeightGrams: item.consumedWeightGrams * multiplier,
+              servingCount:
+                item.servingCount === undefined
+                  ? undefined
+                  : item.servingCount * multiplier,
             }
           if (item.sourceType === 'fixedCalories')
             return {

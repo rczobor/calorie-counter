@@ -105,6 +105,60 @@ async function fixture() {
 }
 
 describe('review regressions', () => {
+  it('scales weighted template serving counts together with grams and calories', async () => {
+    const { t, account, user, personId } = await fixture()
+    const mealId = await account.mutation(api.nutrition.createMeal, {
+      personId,
+      eatenOn: '2026-11-01',
+      items: [
+        {
+          sourceType: 'customByWeight',
+          name: 'Protein powder',
+          kcalPer100: 380,
+          ignoreCalories: false,
+          consumedWeightGrams: 30,
+          servingCount: 1,
+        },
+      ],
+    })
+    const template = await t.mutation(
+      internal.mcpFoodReuse.manageMealTemplate,
+      {
+        user,
+        input: { action: 'save', mealId, name: 'Protein shake' },
+        operationKey: 'weighted-template',
+      },
+    )
+    const preview = await t.mutation(
+      internal.mcpFoodReuse.previewMealTemplate,
+      {
+        user,
+        templateId: template.templateId,
+        personId,
+        eatenOn: '2026-11-02',
+        multiplier: 2,
+      },
+    )
+    expect(preview.input.items[0]).toMatchObject({
+      consumedWeightGrams: 60,
+      servingCount: 2,
+    })
+    expect(preview.totalCalories).toBe(228)
+    const saved = await t.mutation(internal.mcpOperations.logMeal, {
+      user,
+      input: preview.input,
+      operationKey: 'approved-weighted-template',
+    })
+    const meal = await account.query(api.meals.getDetail, {
+      mealId: saved.mealId,
+    })
+    expect(meal?.items[0]).toMatchObject({
+      consumedWeightGrams: 60,
+      servingCount: 2,
+      caloriesSnapshot: 228,
+    })
+  })
+
   it('corrects a fixed portion count explicitly and keeps reusable per-serving calories accurate', async () => {
     const { t, user, personId, mealId, items } = await fixture()
     const calorieOnly = await t.mutation(
