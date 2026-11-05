@@ -51,7 +51,7 @@ when it exists. Do not upload the current draft: its `.invalid` URLs deliberatel
 do not connect to any service. No marketplace or plugin is auto-installed by
 adding this folder to the repository.
 
-Package version 0.1.0 is separate from MCP server version 1.2.0. Before uploading,
+Package version 0.1.0 is separate from MCP server version 1.3.0. Before uploading,
 choose a stable package identifier; preserve any identity assigned by the portal.
 The MCP server key `nutrition` is a package-local connection name, not branding.
 

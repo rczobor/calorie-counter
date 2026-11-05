@@ -12,7 +12,9 @@ Calorie Counter connects your signed-in account to nutrition data in households
 you belong to. We process account identifiers and membership information;
 tracked people's names and calorie goals; foods, recipes and immutable recipe
 versions; cooking dates, quantities, batch composition and weights; meals,
-portions, dates, calorie totals, notes, and nutrition-source assumptions.
+portions, dates, calorie totals, notes, and nutrition-source assumptions. Reusable
+meal templates preserve historical composition and default quantities. Food
+identity can include a supplied brand, variant, and serving basis/count.
 
 Assistant logging preferences include your selected household, tracked person,
 timezone, and confirmation policy. Operation receipts retain bounded write

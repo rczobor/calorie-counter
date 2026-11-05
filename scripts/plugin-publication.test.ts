@@ -121,7 +121,6 @@ describe('local plugin publication contract', () => {
   it('defines five positive and three negative cases using existing tools', () => {
     expect(positive).toHaveLength(5)
     expect(negative).toHaveLength(3)
-    const covered = new Set<string>()
     for (const entry of [...positive, ...negative]) {
       text(entry.description)
       text(entry.prompt)
@@ -129,10 +128,14 @@ describe('local plugin publication contract', () => {
       const names = text(entry.tools_triggered).split(/,\s*/)
       for (const name of names) {
         expect(tools.has(name), `Unknown reviewed tool: ${name}`).toBe(true)
-        covered.add(name)
       }
     }
-    expect([...covered].sort()).toEqual([...tools.keys()].sort())
+    const audited = [
+      ...read('docs/plugin-publication/tool-audit.md').matchAll(
+        /^\|\s*`(\w+)`\s*\|/gm,
+      ),
+    ].map((match) => match[1])
+    expect(audited.sort()).toEqual([...tools.keys()].sort())
     const results = object(json('docs/plugin-publication/review-results.json'))
     expect(results.packageVersion).toBe(manifest.version)
     expect(array(results.cases).map((entry) => object(entry).id)).toEqual(

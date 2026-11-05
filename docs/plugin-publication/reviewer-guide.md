@@ -74,6 +74,32 @@ result. Transport retries, concurrency, membership removal, and revocation are
 separate checks in `convex/mcp.test.ts`, `convex/mcpFoodReuse.test.ts`, and
 `convex/households.test.ts`.
 
+## Supplementary reuse checks for server 1.3.0
+
+Status: **not run**. These checks supplement the eight submission cases; they do
+not add entries to the required five-positive/three-negative package lists.
+
+After P2, ask to find the chili lunch using `discover_foods` and
+`search_meal_history`, then repeat half of it using `preview_repeat_meal` and
+`log_meal` after approval. Expect 217 kcal in the new meal and an unchanged
+434 kcal original. Follow non-null pagination cursors even after empty filtered
+pages.
+
+Explicitly request saving the original lunch as a meal template with
+`save_meal_template`. Find it with `search_meal_templates`, preview half with
+`preview_meal_template`, and approve a new meal through `log_meal`. Expect
+217 kcal from the frozen composition. Separately approve an edit and deletion
+of the template using its current revision; existing meals must remain unchanged.
+Reject edits with stale revisions and verify exact-key retries separately in
+`convex/mcpReuseWorkflows.test.ts`.
+
+For `suggest_reusable_foods`, first log two identical synthetic label-supplied
+fixed foods with an explicit serving count and product identity, without saving
+a product. Ask for suggestions; no write should occur. Save a suggested product
+only after an explicit request. Check per-serving normalization, brand/variant
+ambiguity, and millilitre-based serving counts before declaring reuse verified.
+Record these runs separately with their revision and evidence before release.
+
 ## Walkthrough recording script
 
 1. Show installation and OAuth consent using only the reviewer account. Skip
