@@ -4,6 +4,17 @@ These screenshots use the real app components in `dev:e2e`, with synthetic
 records and the mocked authenticated transport. They do not show live household
 information or prove the deployed Clerk/Convex integration.
 
+Meal-template management adds explicit portions, product replacement, removal,
+renaming, conflict protection and confirmed deletion. Templates retain recorded
+nutrition until a product is explicitly replaced. The associated Playwright flow
+checks all four layouts and verifies that deletion cancellation preserves the
+template.
+
+- [Meal templates, desktop/light](templates-1440-light.png)
+- [Meal templates, desktop/dark](templates-1440-dark.png)
+- [Meal templates, mobile/light](templates-390-light.png)
+- [Meal templates, mobile/dark](templates-390-dark.png)
+
 The redesigned app uses Today, History, and Settings as primary destinations.
 Today focuses on the person remembered on this device; household intake is
 revealed on request. Archived meals live under Settings → Data maintenance.

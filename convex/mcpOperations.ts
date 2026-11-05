@@ -36,6 +36,8 @@ import {
   resolveRecipeLink,
   summarizeEstimates,
   combineNutritionProvenance,
+  assertExpectedEditRevision,
+  getEditRevision,
 } from './nutrition'
 import {
   loggingContextResult,
@@ -76,7 +78,7 @@ export async function findReceipt(
   ctx: MutationCtx,
   user: McpUser,
   owner: AuthenticatedOwner,
-  operation: 'meal' | 'cooking' | 'mealCorrection' | 'savedFood',
+  operation: 'meal' | 'cooking' | 'mealCorrection' | 'savedFood' | 'template',
   operationKey: string,
   input: unknown,
 ) {
@@ -147,22 +149,15 @@ function requireSnapshots(
     )
 }
 
-async function prepareMeal(
+export async function resolveMealItems(
   ctx: MutationCtx,
   owner: AuthenticatedOwner,
-  input: Infer<typeof mealInput>,
+  input: Pick<Infer<typeof mealInput>, 'items'>,
 ) {
   if (canonical(input).length > 64_000)
     throw new ConvexError(
       'Meal request is too large. Split it into smaller requests.',
     )
-  const person = assertOwnedOrThrow(
-    await ctx.db.get(input.personId),
-    owner,
-    'Person not found.',
-  )
-  if (person.archived)
-    throw new ConvexError('Person is archived. Choose an active person.')
   assertArrayLimit(input.items, 30, 'Meal items')
   const savedItems = await Promise.all(
     input.items.map(async (item) =>
@@ -178,15 +173,22 @@ async function prepareMeal(
         if (!saved) throw new ConvexError('Saved food not found.')
         return saved.input
       }
-      if (item.sourceType === 'ingredient' && !item.expectedSnapshot) {
+      if (item.sourceType === 'ingredient') {
         const ingredient = assertOwnedOrThrow(
           await ctx.db.get(item.ingredientId),
           owner,
           'Meal ingredient not found.',
         )
+        if (item.expectedEditRevision !== undefined)
+          assertExpectedEditRevision(
+            ingredient,
+            item.expectedEditRevision,
+            'Ingredient',
+          )
         return {
           ...item,
-          expectedSnapshot: {
+          expectedEditRevision: getEditRevision(ingredient, 'Ingredient'),
+          expectedSnapshot: item.expectedSnapshot ?? {
             name: ingredient.name,
             kcalPer100: ingredient.kcalPer100,
             kcalBasisUnit: ingredient.kcalBasisUnit,
@@ -194,15 +196,22 @@ async function prepareMeal(
           },
         }
       }
-      if (item.sourceType === 'cookedFood' && !item.expectedSnapshot) {
+      if (item.sourceType === 'cookedFood') {
         const food = assertOwnedOrThrow(
           await ctx.db.get(item.cookedFoodId),
           owner,
           'Cooked food not found.',
         )
+        if (item.expectedEditRevision !== undefined)
+          assertExpectedEditRevision(
+            food,
+            item.expectedEditRevision,
+            'Cooked food',
+          )
         return {
           ...item,
-          expectedSnapshot: {
+          expectedEditRevision: getEditRevision(food, 'Cooked food'),
+          expectedSnapshot: item.expectedSnapshot ?? {
             name: food.name,
             kcalPer100: food.kcalPer100,
             kcalBasisUnit: 'g' as const,
@@ -212,6 +221,30 @@ async function prepareMeal(
       }
       return item
     }),
+  )
+  return { savedItems, resolvedItems }
+}
+
+export async function prepareMeal(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  input: Infer<typeof mealInput>,
+) {
+  if (canonical(input).length > 64_000)
+    throw new ConvexError(
+      'Meal request is too large. Split it into smaller requests.',
+    )
+  const person = assertOwnedOrThrow(
+    await ctx.db.get(input.personId),
+    owner,
+    'Person not found.',
+  )
+  if (person.archived)
+    throw new ConvexError('Person is archived. Choose an active person.')
+  const { savedItems, resolvedItems } = await resolveMealItems(
+    ctx,
+    owner,
+    input,
   )
   const normalized = {
     ...input,
@@ -631,6 +664,7 @@ export const searchFoods = internalMutation({
     householdId: v.optional(v.id('households')),
     user: vMcpUser(),
     kind: foodKind,
+    limit: v.optional(v.number()),
     search: v.string(),
     cursor: v.optional(v.string()),
     sessionId: v.optional(v.id('cookSessions')),
@@ -646,8 +680,13 @@ export const searchFoods = internalMutation({
       )
       const context = await describeContext(ctx, owner)
       const search = normalizeSearch(args.search)
+      if (
+        args.limit !== undefined &&
+        (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 20)
+      )
+        throw new ConvexError('Search limit must be between 1 and 20.')
       const pagination = {
-        numItems: 20,
+        numItems: args.limit ?? 20,
         cursor: args.cursor ?? null,
         maximumRowsRead: 100,
       }
@@ -661,6 +700,7 @@ export const searchFoods = internalMutation({
             kind: 'savedFood' as const,
             id: food._id,
             name: food.name,
+            foodIdentity: food.foodIdentity,
             nutrition: food.nutrition,
             nutritionProvenance: food.nutritionProvenance,
             ...(food.nutrition.kind === 'byWeight'
@@ -694,6 +734,15 @@ export const searchFoods = internalMutation({
           foods: page.page.map((food) => ({
             kind: 'ingredient' as const,
             brand: food.brand,
+            foodIdentity:
+              food.kcalBasisUnit === 'ml' || food.kcalBasisUnit === 'g'
+                ? {
+                    basis: food.kcalBasisUnit,
+                    brand: food.brand,
+                    variant: food.variant,
+                  }
+                : undefined,
+            nutritionProvenance: food.nutritionProvenance,
             id: food._id,
             name: food.name,
             kcalPer100: food.kcalPer100,
@@ -774,6 +823,7 @@ export const searchFoods = internalMutation({
             name: food.name,
             kcalPer100: food.kcalPer100,
             kcalBasisUnit: 'g' as const,
+            nutritionProvenance: food.nutritionProvenance,
             sessionId: session._id,
             cookedAt: session.cookedAt,
           }
@@ -821,6 +871,7 @@ export const getFoodDetails = internalMutation({
             kind: 'savedFood' as const,
             id: food._id,
             name: food.name,
+            foodIdentity: food.foodIdentity,
             nutrition: food.nutrition,
             nutritionProvenance: food.nutritionProvenance,
           },
@@ -841,6 +892,15 @@ export const getFoodDetails = internalMutation({
           food: {
             kind: 'ingredient' as const,
             brand: food.brand,
+            foodIdentity:
+              food.kcalBasisUnit === 'ml' || food.kcalBasisUnit === 'g'
+                ? {
+                    basis: food.kcalBasisUnit,
+                    brand: food.brand,
+                    variant: food.variant,
+                  }
+                : undefined,
+            nutritionProvenance: food.nutritionProvenance,
             id: food._id,
             name: food.name,
             kcalPer100: food.kcalPer100,

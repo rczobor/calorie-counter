@@ -93,14 +93,18 @@ export function assertArrayLimit(
 
 export function normalizeKcalPer100(
   value: number,
-  options: { allowZero: boolean; fieldName: string },
+  options: {
+    allowZero: boolean
+    fieldName: string
+    preservePrecision?: boolean
+  },
 ) {
   if (options.allowZero) {
     assertNonNegative(value, options.fieldName)
   } else {
     assertPositive(value, options.fieldName)
   }
-  const normalized = Math.round(value)
+  const normalized = options.preservePrecision ? value : Math.round(value)
   if (options.allowZero) {
     assertNonNegative(normalized, options.fieldName)
   } else {

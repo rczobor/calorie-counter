@@ -60,6 +60,59 @@ creation or device-code flow is exposed in this release.
 
 ## What users can do
 
+- Find usual foods in one call with `discover_foods`: saved products, ingredients,
+  cooked batches, recipes, templates and meal/item history. Use the product name
+  as `search` and pass known `brand` and `variant` separately. Known identity
+  mismatches are excluded; unidentified products still need clarification.
+- Search old meals without remembering their dates using `search_meal_history`.
+  Both meal names and individual food names support indexed token/prefix search.
+  Optional `personId` and `eatenOn` narrow results. Item and meal-name hits use
+  separate cursor phases; follow non-null cursors even after an empty filtered
+  page. Relevance and recency ranking apply within each page, not globally over
+  the entire history. A meal can appear as both a meal and an item match.
+- Use `preview_repeat_meal` for the entire original meal or selected item IDs.
+  Each selection has a `multiplier`: 1 preserves its recorded portion, 0.5
+  halves it. Omitted items are removed; `additions` supplies extra foods or an
+  explicit product replacement. Historical nutrition, identity and provenance
+  are reused, including archived catalog references, without changing the meal.
+  Save the returned ordinary meal input through `log_meal` after the existing
+  approval policy is satisfied. A source edit that replaces item IDs requires
+  finding and previewing the source again; retries of successful saves retain
+  their original receipt even if the source subsequently changes.
+- Save a named combination with `save_meal_template` (`action: save`). Templates
+  freeze nutritional snapshots and default quantities and retain source IDs.
+  Current product edits do not update templates. Search with
+  `search_meal_templates`, preview with `preview_meal_template`, and use the
+  same approved `log_meal` save path. Optional full `items` replaces defaults;
+  referenced replacement products resolve to new snapshots. Rename, edit or
+  delete using `save_meal_template` with `action: edit|delete`, the current
+  `expectedEditRevision`, and a new operation key. Catalog's **Meal templates**
+  tab also manages names, quantities, product replacements and deletion.
+- Read `suggest_reusable_foods` for a logged meal. It offers at most five
+  identifiable repeats supported by up to 50 matching item records per food,
+  considering the first ten foods and the same person. It never saves anything;
+  saving a product or template still needs explicit user approval. This bounded
+  evidence can omit older occurrences and is not a complete usage counter.
+
+Product `foodIdentity` records brand, variant, nutrition basis, serving label
+and optional serving size. Names alone do not identify products. Saved-food
+deduplication compares identity, nutrition and provenance, with a bounded legacy
+fallback; operation receipts separately prevent retry duplication. One-off
+custom nutrition leaves saved products and previous meals unchanged. Supplied
+ingredient and meal values retain fractional kcal precision; existing cooked
+batch rounding behavior is unchanged.
+
+Provenance retains `kind: provided|estimate` and adds optional
+`origin: label|database|generic` and `verifiedOn` (YYYY-MM-DD). Database sources
+and dates are caller claims, not independent server verification. Missing kinds
+remain unknown/estimated; reuse never upgrades their confidence.
+
+These schema additions are optional on existing tables, plus the new
+`mealTemplates` table and search indexes over existing meal/item names. No data
+backfill or historical rewrite is required. Indexes must finish building after
+the normal backend deployment before these tools are available. No deployment
+to an existing environment is part of this implementation.
+
 - Find ingredients, recipes, cooked batches, and explicitly saved reusable foods
   by name and inspect nutrition and composition.
 - Read a person's meals, daily calorie total, and goal for an explicit date.
@@ -75,10 +128,12 @@ creation or device-code flow is exposed in this release.
 - Save a logged food for reuse with `save_food_from_meal`, using IDs from
   `get_meal`. This copies historical nutrition into a household-scoped MCP saved
   food; it does not edit the meal or add an ingredient to the app catalog. Fixed
-  foods use `portion: { servings: 1 }`, where one saved serving is the entire
-  originally logged item (which may span multiple package servings); clarify the
-  intended reusable portion before saving or reusing it. Weighted foods use
-  `{ grams: 100 }`.
+  foods use `portion: { servings: 1 }`. New fixed items record `servingCount`:
+  a 200 kcal item representing two cookies becomes 100 kcal per saved serving.
+  `sourceServings` can explicitly establish a legacy item's original count.
+  Without either count, one serving remains the entire original portion; never
+  guess that it meant one cookie. Weighted foods use `{ grams: 100 }`; volume
+  products use `{ ml: 100 }` and retain their per-100-ml basis.
   Search with `kind: "savedFood"` and log with `sourceType: "savedFood"`. Cooked
   foods are already reusable and should keep their original batch IDs.
 - Reuse a cooked batch as a cooking ingredient with `sourceType: "cookedFood"`,
@@ -96,6 +151,9 @@ creation or device-code flow is exposed in this release.
 - Correct an existing meal's portions, custom calorie estimates, name, person,
   or date after reviewing before/after values. Unmentioned items and private
   notes are preserved, and moved meals update both affected daily summaries.
+  Fixed-calorie corrections may include an explicit positive `servingCount`
+  when correcting quantity. Calorie-only corrections keep the existing count;
+  the server never infers servings from calories.
 
 Try: “Use Calorie Counter. Show my people, then log 250 g of the chili I cooked
 yesterday for Alex's lunch. Preview it before saving.”

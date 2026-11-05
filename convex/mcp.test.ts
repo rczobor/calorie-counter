@@ -21,6 +21,11 @@ import {
   searchResult,
   foodDetails,
   dayResult,
+  discoveryResult,
+  mealHistoryResult,
+  templateResult,
+  templateSearchResult,
+  reuseSuggestions,
 } from './mcpValidators'
 import {
   createConvexTest,
@@ -128,7 +133,7 @@ async function makeReceiptLegacy(t: Test, connectionId: string, key: string) {
       .unique()
     if (!receipt?.householdId)
       throw new Error('Expected a scoped operation receipt.')
-    if ('foodId' in receipt.result)
+    if ('foodId' in receipt.result || 'templateId' in receipt.result)
       throw new Error('Expected a meal or cooking receipt.')
     const path =
       'mealId' in receipt.result
@@ -1929,5 +1934,185 @@ describe('MCP conversation regressions', () => {
       dayResult,
     )
     expect(day).toMatchObject({ mealCount: 3, consumedCalories: 1200 })
+  })
+})
+
+describe('MCP reuse tool protocol', () => {
+  it('discovers products/templates/history together, previews without writes, and saves an approved repeat idempotently', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const initial = await output(
+      await call(t, own.token, 'log_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-01',
+          name: 'Afternoon snack',
+          items: [
+            {
+              sourceType: 'fixedCalories',
+              name: 'Cookie',
+              calories: 200,
+              servingCount: 2,
+              foodIdentity: {
+                basis: 'serving',
+                brand: 'Brand A',
+                variant: 'Original',
+                servingLabel: 'cookie',
+              },
+              nutritionProvenance: {
+                kind: 'provided',
+                origin: 'label',
+                source: 'Packaging',
+                assumptions: '100 kcal per cookie.',
+              },
+            },
+          ],
+        },
+        operationKey: 'source-cookies',
+      }),
+      mealResult,
+    )
+    const history = await output(
+      await call(t, own.token, 'search_meal_history', {
+        search: 'Cookie',
+        personId,
+      }),
+      mealHistoryResult,
+    )
+    expect(history.matches[0].mealId).toBe(initial.mealId)
+    const itemId = history.matches[0].items[0].id
+    await output(
+      await call(t, own.token, 'save_food_from_meal', {
+        mealId: initial.mealId,
+        itemId,
+        operationKey: 'remember-cookie',
+      }),
+      savedFoodResult,
+    )
+    await output(
+      await call(t, own.token, 'save_meal_template', {
+        input: { action: 'save', mealId: initial.mealId, name: 'Cookie snack' },
+        operationKey: 'remember-template',
+      }),
+      templateResult,
+    )
+    const discovered = await output(
+      await call(t, own.token, 'discover_foods', {
+        search: 'Cookie',
+        personId,
+        brand: 'Brand A',
+      }),
+      discoveryResult,
+    )
+    expect(discovered.foods[0]).toMatchObject({
+      kind: 'savedFood',
+      nutrition: { kind: 'fixedCalories', calories: 100 },
+      foodIdentity: { brand: 'Brand A' },
+    })
+    expect(discovered.templates).toHaveLength(1)
+    expect(discovered.history).toHaveLength(1)
+    const mismatch = await output(
+      await call(t, own.token, 'discover_foods', {
+        search: 'Cookie',
+        brand: 'Brand B',
+      }),
+      discoveryResult,
+    )
+    expect(mismatch.foods).toEqual([])
+    expect(mismatch.templates).toEqual([])
+    expect(mismatch.history).toEqual([])
+    const variantMismatch = await output(
+      await call(t, own.token, 'discover_foods', {
+        search: 'Cookie',
+        brand: 'Brand A',
+        variant: 'Other product',
+      }),
+      discoveryResult,
+    )
+    expect(variantMismatch.foods).toEqual([])
+    expect(variantMismatch.templates).toEqual([])
+    expect(variantMismatch.history).toEqual([])
+    const next = await output(
+      await call(t, own.token, 'discover_foods', {
+        search: 'Cookie',
+        personId,
+        cursors: discovered.cursors,
+      }),
+      discoveryResult,
+    )
+    expect(next.foods).toEqual([])
+    const preview = await output(
+      await call(t, own.token, 'preview_repeat_meal', {
+        input: {
+          mealId: initial.mealId,
+          personId,
+          eatenOn: '2026-11-02',
+          selections: [{ itemId, multiplier: 0.5 }],
+        },
+      }),
+      mealPreview,
+    )
+    expect(preview.totalCalories).toBe(100)
+    expect((await t.run((ctx) => ctx.db.query('meals').take(10))).length).toBe(
+      1,
+    )
+    const save = {
+      input: preview.input,
+      operationKey: 'approved-single-cookie',
+    }
+    const result = await output(
+      await call(t, own.token, 'log_meal', save),
+      mealResult,
+    )
+    expect(
+      await output(await call(t, own.token, 'log_meal', save), mealResult),
+    ).toEqual(result)
+    expect(result.dailySummary).toMatchObject({
+      mealCount: 1,
+      consumedCalories: 100,
+    })
+    const templates = await output(
+      await call(t, own.token, 'search_meal_templates', { search: 'Cookie' }),
+      templateSearchResult,
+    )
+    expect(
+      (
+        await output(
+          await call(t, own.token, 'preview_meal_template', {
+            templateId: templates.templates[0]._id,
+            personId,
+            eatenOn: '2026-11-03',
+          }),
+          mealPreview,
+        )
+      ).totalCalories,
+    ).toBe(200)
+    expect(
+      (
+        await output(
+          await call(t, own.token, 'suggest_reusable_foods', {
+            mealId: initial.mealId,
+          }),
+          reuseSuggestions,
+        )
+      ).suggestions,
+    ).toEqual([])
+    const reader = await credential(t, TEST_TOKEN_IDENTIFIER, [
+      'nutrition:read',
+    ])
+    expect(
+      (
+        await call(t, reader.token, 'save_meal_template', {
+          input: {
+            action: 'save',
+            mealId: initial.mealId,
+            name: 'No permission',
+          },
+          operationKey: 'forbidden',
+        })
+      ).status,
+    ).toBe(403)
+    expect(mcp.lint()).toEqual([])
   })
 })

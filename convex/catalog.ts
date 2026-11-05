@@ -12,7 +12,11 @@ import {
   MAX_SEARCH_RESULTS,
   normalizeSearch,
 } from './lib/validation'
-import { groupScopeValidator, nutritionUnitValidator } from './validators'
+import {
+  groupScopeValidator,
+  nutritionUnitValidator,
+  nutritionProvenanceValidator,
+} from './validators'
 
 const foodGroupDto = v.object({
   _id: v.id('foodGroups'),
@@ -33,6 +37,8 @@ const ingredientDto = v.object({
   _creationTime: v.number(),
   name: v.string(),
   brand: v.optional(v.string()),
+  variant: v.optional(v.string()),
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   kcalPer100: v.number(),
   kcalBasisUnit: nutritionUnitValidator,
   ignoreCalories: v.boolean(),

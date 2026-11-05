@@ -58,9 +58,15 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
                 {food.name}
                 {food.archivedAt !== undefined ? ' · Archived' : ''}
                 <span className="mt-1 block font-normal text-muted-foreground">
+                  {[food.foodIdentity?.brand, food.foodIdentity?.variant]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {food.foodIdentity?.brand || food.foodIdentity?.variant
+                    ? ' · '
+                    : ''}
                   {food.nutrition.kind === 'fixedCalories'
-                    ? `${food.nutrition.calories.toFixed(0)} kcal / saved portion`
-                    : `${food.nutrition.kcalPer100.toFixed(0)} kcal / 100 g`}
+                    ? `${food.nutrition.calories} kcal / ${food.foodIdentity?.servingLabel ?? 'saved portion'}`
+                    : `${food.nutrition.kcalPer100} kcal / 100 ${food.nutrition.kind === 'byVolume' ? 'ml' : 'g'}`}
                 </span>
               </summary>
               <div className="mt-4 space-y-3 text-sm">
@@ -70,8 +76,10 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
                   </summary>
                   <p className="mt-2">
                     {food.nutrition.kind === 'fixedCalories'
-                      ? 'One saved portion is the entire originally logged item. It may include several package servings.'
-                      : 'Reuse this food with a measured portion in grams.'}
+                      ? food.foodIdentity?.servingLabel
+                        ? `One serving means one ${food.foodIdentity.servingLabel}.`
+                        : 'One saved portion is the entire originally logged item. It may include several package servings.'
+                      : `Reuse this food with a measured portion in ${food.nutrition.kind === 'byVolume' ? 'millilitres' : 'grams'}.`}
                   </p>
                 </details>
                 <EstimateNotice provenance={food.nutritionProvenance} />

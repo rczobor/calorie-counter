@@ -6,6 +6,8 @@ import {
   savedFoodResult,
   savedFoodNutrition,
   loggingPreferences,
+  mealInput,
+  templateResult,
 } from './mcpValidators'
 
 import {
@@ -23,6 +25,7 @@ import {
   recipeVersionIngredientRecordValidator,
   recipeVersionsFields,
   nutritionProvenanceValidator,
+  foodIdentityValidator,
 } from './validators'
 
 export default defineSchema({
@@ -31,6 +34,8 @@ export default defineSchema({
     ...loggingPreferences.fields,
   }).index('by_tokenIdentifier', ['tokenIdentifier']),
   mcpSavedFoods: defineTable({
+    foodIdentity: v.optional(foodIdentityValidator),
+    identityKey: v.optional(v.string()),
     ownerTokenIdentifier: v.string(),
     householdId: v.id('households'),
     name: v.string(),
@@ -42,6 +47,11 @@ export default defineSchema({
     archived: v.optional(v.literal(true)),
     archivedAt: v.optional(v.number()),
   })
+    .index('by_householdId_and_identityKey_and_archived', [
+      'householdId',
+      'identityKey',
+      'archived',
+    ])
     .index('by_householdId_and_name', ['householdId', 'name'])
     .index('by_householdId_and_archived_and_name', [
       'householdId',
@@ -51,6 +61,24 @@ export default defineSchema({
     .searchIndex('search_name', {
       searchField: 'name',
       filterFields: ['householdId', 'archived'],
+    }),
+  mealTemplates: defineTable({
+    householdId: v.id('households'),
+    ownerTokenIdentifier: v.string(),
+    name: v.string(),
+    sourceMealId: v.id('meals'),
+    items: mealInput.fields.items,
+    sourceItemIds: v.array(v.id('mealItems')),
+    ingredientIds: v.array(v.id('ingredients')),
+    cookedFoodIds: v.array(v.id('cookedFoods')),
+    savedFoodIds: v.array(v.id('mcpSavedFoods')),
+    editRevision: v.number(),
+    createdAt: v.number(),
+  })
+    .index('by_householdId_and_name', ['householdId', 'name'])
+    .searchIndex('search_name', {
+      searchField: 'name',
+      filterFields: ['householdId'],
     }),
   households: defineTable({
     name: v.string(),
@@ -88,10 +116,11 @@ export default defineSchema({
       v.literal('cooking'),
       v.literal('mealCorrection'),
       v.literal('savedFood'),
+      v.literal('template'),
     ),
     key: v.string(),
     input: v.string(),
-    result: v.union(mealResult, cookingResult, savedFoodResult),
+    result: v.union(mealResult, cookingResult, savedFoodResult, templateResult),
   }).index('by_ownerTokenIdentifier_and_connectionId_and_key', [
     'ownerTokenIdentifier',
     'connectionId',
@@ -267,6 +296,10 @@ export default defineSchema({
     .index('by_householdId_and_cookedFoodId', ['householdId', 'cookedFoodId'])
     .index('by_householdId_and_ingredientId', ['householdId', 'ingredientId']),
   meals: defineTable(mealsFields)
+    .searchIndex('search_name', {
+      searchField: 'name',
+      filterFields: ['householdId', 'personId', 'archived'],
+    })
     .index('by_ownerTokenIdentifier_and_householdId', [
       'ownerTokenIdentifier',
       'householdId',
@@ -291,6 +324,10 @@ export default defineSchema({
       'archived',
     ]),
   mealItems: defineTable(mealItemRecordValidator)
+    .searchIndex('search_name', {
+      searchField: 'nameSnapshot',
+      filterFields: ['householdId'],
+    })
     .index('by_ownerTokenIdentifier_and_householdId', [
       'ownerTokenIdentifier',
       'householdId',

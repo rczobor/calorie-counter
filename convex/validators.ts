@@ -2,8 +2,31 @@ import { v } from 'convex/values'
 
 export const nutritionProvenanceValidator = v.object({
   kind: v.optional(v.union(v.literal('estimate'), v.literal('provided'))),
+  origin: v.optional(
+    v.union(v.literal('label'), v.literal('database'), v.literal('generic')),
+  ),
+  verifiedOn: v.optional(v.string()),
   source: v.string(),
   assumptions: v.string(),
+})
+
+export const foodIdentityValidator = v.object({
+  brand: v.optional(v.string()),
+  variant: v.optional(v.string()),
+  basis: v.union(v.literal('g'), v.literal('ml'), v.literal('serving')),
+  servingSize: v.optional(v.number()),
+  servingLabel: v.optional(v.string()),
+})
+
+export const mealEvidenceFields = {
+  foodIdentity: v.optional(foodIdentityValidator),
+  servingCount: v.optional(v.number()),
+}
+
+export const historicalMealItemInput = v.object({
+  sourceType: v.literal('historical'),
+  itemId: v.id('mealItems'),
+  multiplier: v.number(),
 })
 
 export const nutritionUnitValidator = v.union(
@@ -65,6 +88,8 @@ export const ingredientsFields = {
   ...ownerFields,
   name: v.string(),
   brand: v.optional(v.string()),
+  variant: v.optional(v.string()),
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
   kcalPer100: v.number(),
   kcalBasisUnit: nutritionUnitValidator,
   ignoreCalories: v.boolean(),
@@ -202,6 +227,7 @@ export const mealsFields = {
 }
 
 const mealItemCommonFields = {
+  ...mealEvidenceFields,
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
   ...ownerFields,
   mealId: v.id('meals'),

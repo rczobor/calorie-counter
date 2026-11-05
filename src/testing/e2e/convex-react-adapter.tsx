@@ -66,6 +66,7 @@ type MockMealDetail = {
 }
 
 type MockState = {
+  templates: FunctionReturnType<typeof api.savedFoods.listTemplates>['page']
   dashboard: DashboardData
   mealDetails: Record<string, MockMealDetail>
   nextId: number
@@ -174,6 +175,47 @@ function createInitialState(): MockState {
       [mealId]: { meal, items: [mealItem] },
     },
     nextId: 1,
+    templates: [
+      {
+        _id: 'e2e-template' as Id<'mealTemplates'>,
+        _creationTime: 1,
+        name: 'Regular breakfast',
+        sourceMealId: mealId,
+        sourceItemIds: [mealItemId],
+        ingredientIds: [],
+        cookedFoodIds: [],
+        savedFoodIds: [],
+        editRevision: 0,
+        createdAt: 1,
+        items: [
+          {
+            sourceType: 'customByWeight',
+            name: 'Oats',
+            kcalPer100: 350,
+            ignoreCalories: false,
+            consumedWeightGrams: 50,
+            foodIdentity: { basis: 'g', brand: 'Oat Brand' },
+            nutritionProvenance: {
+              kind: 'provided',
+              origin: 'label',
+              source: 'Packaging',
+              assumptions: '350 kcal / 100 g.',
+            },
+          },
+          {
+            sourceType: 'fixedCalories',
+            name: 'Cookies',
+            calories: 200,
+            servingCount: 2,
+            foodIdentity: {
+              basis: 'serving',
+              servingLabel: 'cookies',
+              brand: 'Cookie Brand',
+            },
+          },
+        ],
+      },
+    ],
     savedFoodArchived: false,
     preferences: initialPreferences,
     connected: true,
@@ -402,6 +444,13 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
         ...withoutOwner(p),
         ...dayNutrition(snapshot, p._id, input.eatenOn),
       }))
+  } else if (functionName === 'savedFoods:listTemplates') {
+    const input = args as { search?: string }
+    results = snapshot.templates.filter(
+      (template) =>
+        !input.search ||
+        template.name.toLowerCase().includes(input.search.toLowerCase()),
+    )
   } else if (functionName === 'savedFoods:list') {
     const input = args as { archived: boolean; search?: string }
     results =
@@ -692,6 +741,64 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
         publish({ ...state, savedFoodArchived })
         return null as FunctionReturnType<Mutation>
       }
+      if (functionName === 'savedFoods:updateTemplate') {
+        const { input } = args as FunctionArgs<
+          typeof api.savedFoods.updateTemplate
+        >
+        if (input.action === 'save')
+          throw new Error('Create templates from MCP meal history.')
+        const template = state.templates.find(
+          (template) => template._id === input.templateId,
+        )
+        if (!template || template.editRevision !== input.expectedEditRevision)
+          throw new Error('Template changed since editing began.')
+        if (input.action === 'delete')
+          publish({
+            ...state,
+            templates: state.templates.filter(
+              (template) => template._id !== input.templateId,
+            ),
+          })
+        else {
+          const items =
+            input.items?.map((item) => {
+              if (item.sourceType === 'savedFood')
+                return {
+                  sourceType: 'fixedCalories' as const,
+                  name: 'Vitamins',
+                  calories:
+                    14 *
+                    ('servings' in item.portion ? item.portion.servings : 1),
+                  servingCount:
+                    'servings' in item.portion ? item.portion.servings : 1,
+                }
+              if (
+                item.sourceType !== 'customByWeight' &&
+                item.sourceType !== 'fixedCalories'
+              )
+                throw new Error('Choose a frozen or saved food.')
+              return item
+            }) ?? template.items
+          publish({
+            ...state,
+            templates: state.templates.map((current) =>
+              current._id === template._id
+                ? {
+                    ...current,
+                    name: input.name ?? current.name,
+                    items,
+                    editRevision: current.editRevision + 1,
+                  }
+                : current,
+            ),
+          })
+        }
+        return {
+          templateId: template._id,
+          name: template.name,
+          deleted: input.action === 'delete',
+        } as FunctionReturnType<Mutation>
+      }
       if (functionName === 'mcpPreferences:update') {
         const input = (args as FunctionArgs<typeof api.mcpPreferences.update>)
           .preferences
@@ -743,9 +850,11 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
           (m) => m._id === input.mealId,
         )
         if (!current) throw new Error('Meal not found.')
-        const items = input.items.map((item, i) =>
-          createMealItemDocument(item, i, input.mealId, Date.now()),
-        )
+        const items = input.items.map((item, i) => {
+          if (item.sourceType === 'historical')
+            throw new Error('Historical repeats use MCP previews.')
+          return createMealItemDocument(item, i, input.mealId, Date.now())
+        })
         const meal = {
           ...current,
           name: input.name,

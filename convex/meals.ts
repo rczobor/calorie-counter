@@ -15,6 +15,7 @@ import {
 } from './lib/validation'
 import {
   nutritionUnitValidator,
+  mealEvidenceFields,
   nutritionProvenanceValidator,
 } from './validators'
 
@@ -37,6 +38,7 @@ function mealWithoutOwner(meal: Doc<'meals'>) {
 }
 
 const mealItemCommon = {
+  ...mealEvidenceFields,
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
   _id: v.id('mealItems'),
   _creationTime: v.number(),

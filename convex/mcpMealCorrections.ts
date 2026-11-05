@@ -89,8 +89,9 @@ async function loadMeal(
 
 function itemInput(
   item: Doc<'mealItems'>,
-): Infer<typeof mealItemInputValidator> {
+): Exclude<Infer<typeof mealItemInputValidator>, { sourceType: 'historical' }> {
   const common = {
+    foodIdentity: item.foodIdentity,
     existingMealItemId: item._id,
     nutritionProvenance: item.nutritionProvenance,
   }
@@ -98,6 +99,7 @@ function itemInput(
     return {
       ...common,
       sourceType: item.sourceType,
+      servingCount: item.servingCount,
       name: item.nameSnapshot,
       calories: item.caloriesSnapshot,
     }
@@ -130,6 +132,8 @@ function describeItem(
 ) {
   return {
     id,
+    foodIdentity: item.foodIdentity,
+    servingCount: item.servingCount,
     name: item.nameSnapshot,
     sourceType: item.sourceType,
     calories: item.caloriesSnapshot,
@@ -244,6 +248,7 @@ async function prepareCorrection(
         ...provenance,
         name: change.name ?? existing.name,
         calories: change.calories,
+        servingCount: change.servingCount ?? existing.servingCount,
       }
     }
     if (existing.sourceType !== 'customByWeight')
