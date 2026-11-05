@@ -1,5 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -139,6 +142,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
     visiblePeople.push({ ...selected, ...summary, _id: selected._id })
 
   const focused = visiblePeople.find((p) => p._id === selectedPersonId)
+  const overGoal = focused !== undefined && focused.remainingCalories < 0
+  const atGoal = focused?.remainingCalories === 0
   const loadingPerson =
     people.status === 'LoadingFirstPage' ||
     (Boolean(selectedPersonId) &&
@@ -270,10 +275,41 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             </div>
             {focused ? (
               <>
-                <p className="mt-4 text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">
-                  {Math.abs(focused.remainingCalories).toFixed(0)}{' '}
-                  <span className="text-base font-normal tracking-normal text-muted-foreground">
-                    kcal {focused.remainingCalories < 0 ? 'over' : 'left'}
+                <p
+                  className={cn(
+                    'mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 tabular-nums',
+                    overGoal
+                      ? 'text-[#a0445a] dark:text-[#e4a5b4]'
+                      : 'text-teal-700 dark:text-teal-300',
+                  )}
+                >
+                  <span className="text-5xl font-semibold tracking-tight sm:text-6xl">
+                    {overGoal ? '+' : ''}
+                    {Math.abs(focused.remainingCalories).toFixed(0)}
+                    {atGoal ? (
+                      <span className="ml-2 text-base font-normal tracking-normal">
+                        kcal
+                      </span>
+                    ) : null}
+                  </span>{' '}
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium',
+                      overGoal
+                        ? 'bg-[#a0445a]/10 dark:bg-[#e4a5b4]/10'
+                        : 'bg-teal-600/10 dark:bg-teal-400/10',
+                    )}
+                  >
+                    {overGoal ? (
+                      <ArrowUpRight aria-hidden="true" className="size-4" />
+                    ) : atGoal ? (
+                      <Check aria-hidden="true" className="size-4" />
+                    ) : (
+                      <ArrowDownRight aria-hidden="true" className="size-4" />
+                    )}
+                    {atGoal
+                      ? 'Goal reached'
+                      : `kcal ${overGoal ? 'over' : 'left'}`}
                   </span>
                 </p>
                 <p className="mt-3 text-sm text-muted-foreground tabular-nums">
@@ -282,7 +318,12 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 </p>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-primary"
+                    className={cn(
+                      'h-full rounded-full',
+                      overGoal
+                        ? 'bg-[#b96d81] dark:bg-[#bd7488]'
+                        : 'bg-teal-600 dark:bg-teal-400',
+                    )}
                     style={{
                       width: `${Math.min(100, focused.goalKcal > 0 ? (focused.consumedCalories / focused.goalKcal) * 100 : 0)}%`,
                     }}
@@ -334,7 +375,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                     key={p._id}
                     type="button"
                     aria-pressed={p._id === selectedPersonId}
-                    aria-label={`${p.name}: ${p.consumedCalories.toFixed(0)} of ${p.goalKcal.toFixed(0)} kcal logged, ${Math.abs(p.remainingCalories).toFixed(0)} kcal ${p.remainingCalories < 0 ? 'over' : 'left'}`}
+                    aria-label={`${p.name}: ${p.consumedCalories.toFixed(0)} of ${p.goalKcal.toFixed(0)} kcal logged, ${p.remainingCalories === 0 ? 'goal reached' : `${Math.abs(p.remainingCalories).toFixed(0)} kcal ${p.remainingCalories < 0 ? 'over' : 'left'}`}`}
                     onClick={() => {
                       setSelectedPersonId(p._id)
                       setOpenMealId(null)
@@ -346,10 +387,42 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                       p._id === selectedPersonId && 'border-primary',
                     )}
                   >
-                    <span className="font-medium">{p.name}</span>
+                    <span className="flex min-w-0 items-center gap-2 font-medium">
+                      {p.name}
+                      {p._id === selectedPersonId ? (
+                        <Check aria-hidden="true" className="size-4 shrink-0" />
+                      ) : null}
+                    </span>
                     <span className="text-right text-xs text-muted-foreground tabular-nums">
-                      {Math.abs(p.remainingCalories).toFixed(0)} kcal{' '}
-                      {p.remainingCalories < 0 ? 'over' : 'left'}
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 font-medium',
+                          p.remainingCalories < 0
+                            ? 'text-[#a0445a] dark:text-[#e4a5b4]'
+                            : 'text-teal-700 dark:text-teal-300',
+                        )}
+                      >
+                        {p.remainingCalories < 0 ? (
+                          <ArrowUpRight
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
+                        ) : p.remainingCalories === 0 ? (
+                          <Check aria-hidden="true" className="size-3.5" />
+                        ) : (
+                          <ArrowDownRight
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
+                        )}
+                        {p.remainingCalories < 0 ? '+' : ''}
+                        {Math.abs(p.remainingCalories).toFixed(0)} kcal{' '}
+                        {p.remainingCalories < 0
+                          ? 'over'
+                          : p.remainingCalories === 0
+                            ? '· Goal reached'
+                            : 'left'}
+                      </span>
                       <span className="mt-1 block">
                         {p.consumedCalories.toFixed(0)} /{' '}
                         {p.goalKcal.toFixed(0)} logged

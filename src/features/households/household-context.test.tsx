@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -233,7 +234,10 @@ describe('device household selection', () => {
       }
       return Promise.resolve(first)
     })
-    mount()
+    // Flush invitation effects before dispatching the hash change below.
+    await act(async () => {
+      mount()
+    })
     expect(
       await screen.findByText(/no longer belong to any households/),
     ).toBeTruthy()

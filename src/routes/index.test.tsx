@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from '@testing-library/react'
 import type { ComponentType, ReactNode } from 'react'
@@ -70,6 +71,7 @@ const item = createMealItemDoc('item-chili', meal._id, {
 let loaded = [alex, sam]
 let peopleLoading = false
 let mealsLoading = false
+let consumedCalories = 1250
 const nameOf = (ref: FunctionReference<'query'>) => getFunctionName(ref)
 function show() {
   const Page = Route.options.component as ComponentType
@@ -83,6 +85,7 @@ beforeEach(() => {
   loaded = [alex, sam]
   peopleLoading = false
   mealsLoading = false
+  consumedCalories = 1250
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-11-02T12:00:00'))
   mocks.page.mockImplementation(
@@ -96,9 +99,9 @@ beforeEach(() => {
           : nameOf(ref) === 'people:listForDay'
             ? (peopleLoading ? [] : loaded).map((p) => ({
                 ...p,
-                consumedCalories: 1250,
+                consumedCalories,
                 goalKcal: 2200,
-                remainingCalories: 950,
+                remainingCalories: 2200 - consumedCalories,
                 mealCount: 4,
               }))
             : args.personId === alex._id && !args.archived
@@ -126,9 +129,9 @@ beforeEach(() => {
           personId: args.personId,
           person: 'Alex',
           eatenOn: '2026-11-02',
-          consumedCalories: 1250,
+          consumedCalories,
           goalKcal: 2200,
-          remainingCalories: 950,
+          remainingCalories: 2200 - consumedCalories,
           mealCount: 4,
         }
       if (nameOf(ref) === 'meals:getDetail') return { meal, items: [item] }
@@ -142,6 +145,43 @@ afterEach(() => {
 })
 
 describe('Today intake dashboard', () => {
+  it.each([
+    {
+      logged: 1250,
+      number: '950',
+      label: 'kcal left',
+      accessible: '950 kcal left',
+    },
+    {
+      logged: 2200,
+      number: '0',
+      label: 'Goal reached',
+      accessible: 'goal reached',
+    },
+    {
+      logged: 2368,
+      number: '+168',
+      label: 'kcal over',
+      accessible: '168 kcal over',
+    },
+  ])(
+    'distinguishes the balance when $logged kcal are logged',
+    ({ logged, number, label, accessible }) => {
+      consumedCalories = logged
+      show()
+      const intake = within(
+        screen.getByRole('region', { name: 'Alex’s intake' }),
+      )
+      expect(intake.getByText(number)).toBeTruthy()
+      expect(intake.getByText(label)).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Household intake' }))
+      expect(
+        screen.getByRole('button', {
+          name: `Alex: ${logged} of 2200 kcal logged, ${accessible}`,
+        }),
+      ).toBeTruthy()
+    },
+  )
   it('shows server totals independently of loaded meals without mounting entry dependencies', () => {
     show()
     expect(screen.getAllByText('950')).toHaveLength(1)
