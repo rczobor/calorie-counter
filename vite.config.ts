@@ -32,7 +32,13 @@ export default defineConfig(({ command, mode }) => {
               // Keep startup dependencies together instead of requiring dozens
               // of tiny shared chunks before authentication can begin.
               codeSplitting: {
-                groups: [{ name: 'startup', tags: ['$initial'] }],
+                groups: [
+                  { name: 'startup', tags: ['$initial'] },
+                  {
+                    name: 'dashboard',
+                    test: /[\\/]src[\\/]features[\\/]meals[\\/]day-dashboard\.tsx$/,
+                  },
+                ],
               },
             },
           },

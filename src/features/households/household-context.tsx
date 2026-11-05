@@ -81,7 +81,9 @@ function HouseholdSession({
   const [error, setError] = useState('')
   const ensurePersonal = useMutation(api.households.ensurePersonal)
   const households = useQuery(api.households.list, {})
+  const householdsLoaded = households !== undefined
   useEffect(() => {
+    if (!householdsLoaded) return
     let current = true
     void ensurePersonal({})
       .then((personalHouseholdId) => {
@@ -96,7 +98,7 @@ function HouseholdSession({
     return () => {
       current = false
     }
-  }, [ensurePersonal])
+  }, [ensurePersonal, householdsLoaded])
 
   const household = households?.find((row) => row._id === selected)
   function selectHousehold(id: Id<'households'>) {
@@ -122,7 +124,7 @@ function HouseholdSession({
     }
   }, [household, storageKey])
 
-  if (error)
+  if (error && !household)
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6" role="alert">
         <p>{error}</p>
@@ -178,6 +180,15 @@ function HouseholdSession({
           userId: userId ? `${userId}:${household._id}` : null,
         }}
       >
+        {error ? (
+          <p
+            role="alert"
+            className="mx-auto w-full max-w-3xl px-6 py-3 text-sm"
+          >
+            Household setup could not finish: {error} Your current household is
+            still available. Save your changes before refreshing to retry.
+          </p>
+        ) : null}
         {children}
       </DraftPersistenceIdentityProvider>
     </HouseholdContext.Provider>

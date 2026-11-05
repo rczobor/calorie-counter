@@ -128,6 +128,24 @@ describe('device household selection', () => {
     })
   })
 
+  it('preserves unsaved edits when background bootstrap fails in a verified household', async () => {
+    window.localStorage.setItem('calorie-counter:household:robi', second)
+    let rejectBootstrap: (error: Error) => void = () => {}
+    mutation.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectBootstrap = reject
+      }),
+    )
+    mount()
+    const draft = screen.getByLabelText('Draft')
+    fireEvent.change(draft, { target: { value: 'Unsaved household edits' } })
+    await act(async () => rejectBootstrap(new Error('Setup unavailable')))
+    expect(screen.getByRole('alert').textContent).toContain('Setup unavailable')
+    expect(screen.getByLabelText('Draft')).toBe(draft)
+    expect(draft).toHaveProperty('value', 'Unsaved household edits')
+    expect(screen.getByText('robi:household-b')).toBeTruthy()
+  })
+
   it('hydrates a returning household without replacing the server loading state', async () => {
     window.localStorage.setItem('calorie-counter:household:robi', second)
     mutation.mockReturnValue(new Promise(() => {}))
@@ -159,6 +177,7 @@ describe('device household selection', () => {
       screen.getByRole('status', { name: 'Preparing your household' }),
     ).toBeTruthy()
     expect(screen.queryByLabelText('Draft')).toBeNull()
+    expect(mutation).not.toHaveBeenCalled()
   })
 
   it('does not open a stale saved household while bootstrap is pending', () => {

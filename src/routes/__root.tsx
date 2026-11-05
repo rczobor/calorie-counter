@@ -12,7 +12,9 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import { ClerkLoaded, ClerkLoading, Show, SignInButton } from '@clerk/react'
 import {
   buildClerkJsScriptAttributes,
+  buildClerkUIScriptAttributes,
   clerkJsScriptUrl,
+  clerkUIScriptUrl,
 } from '@clerk/react/internal'
 import { useConvexAuth } from 'convex/react'
 
@@ -118,6 +120,13 @@ export const Route = createRootRoute({
             ...buildClerkJsScriptAttributes(clerkScriptOptions),
             'data-clerk-js-script': true,
             src: clerkJsScriptUrl(clerkScriptOptions),
+            async: true,
+            crossOrigin: 'anonymous',
+          },
+          {
+            ...buildClerkUIScriptAttributes(clerkScriptOptions),
+            'data-clerk-ui-script': true,
+            src: clerkUIScriptUrl(clerkScriptOptions),
             async: true,
             crossOrigin: 'anonymous',
           },

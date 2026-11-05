@@ -8,6 +8,10 @@ test('the calendar loads on demand and remains keyboard accessible', async ({
     if (request.url().includes('/src/components/ui/calendar.tsx'))
       calendarRequests.push(request.url())
   })
+  await page.route('**/src/components/ui/calendar.tsx', async (route) => {
+    await expect(page.getByText('Loading calendar…')).toBeVisible()
+    await route.continue()
+  })
   await page.goto('/')
   const day = page.getByRole('button', { name: 'Day', exact: true })
   await expect(day).toBeVisible()
@@ -18,7 +22,9 @@ test('the calendar loads on demand and remains keyboard accessible', async ({
   const calendar = page.getByRole('grid')
   await expect(calendar).toBeVisible()
   expect(calendarRequests).toHaveLength(1)
-  await calendar.locator('button[data-selected-single="true"]').focus()
+  await expect(
+    calendar.locator('button[data-selected-single="true"]'),
+  ).toBeFocused()
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('Enter')
   await expect(day).not.toHaveText(previous)

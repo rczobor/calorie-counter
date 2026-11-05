@@ -35,11 +35,7 @@ export default function AppClerkProvider({
   }
 
   return (
-    <ClerkProvider
-      publishableKey={clerkPublishableKey!}
-      afterSignOutUrl="/"
-      prefetchUI={false}
-    >
+    <ClerkProvider publishableKey={clerkPublishableKey!} afterSignOutUrl="/">
       <ClerkDraftPersistenceIdentity>{children}</ClerkDraftPersistenceIdentity>
     </ClerkProvider>
   )

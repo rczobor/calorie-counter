@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 
@@ -87,7 +86,11 @@ export function DatePicker({
             disabled={disabled}
           >
             <CalendarIcon />
-            {date ? format(date, 'PPP') : <span>{placeholder}</span>}
+            {date ? (
+              date.toLocaleDateString('en-US', { dateStyle: 'long' })
+            ) : (
+              <span>{placeholder}</span>
+            )}
           </Button>
         }
       />
@@ -100,6 +103,7 @@ export function DatePicker({
           }
         >
           <Calendar
+            autoFocus
             mode="single"
             selected={date}
             onSelect={(selectedDate) => {
