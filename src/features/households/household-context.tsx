@@ -1,5 +1,11 @@
 import { LoadingRows } from '@/components/page/loading-content'
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
@@ -17,6 +23,7 @@ export type HouseholdContextValue = {
   selectHousehold?: (id: Id<'households'>) => void
 }
 const HouseholdContext = createContext<HouseholdContextValue>({})
+const subscribeNoop = () => () => {}
 export function useHousehold() {
   return useContext(HouseholdContext)
 }
@@ -66,6 +73,11 @@ function HouseholdSession({
     return linked ?? readSelection(storageKey)
   })
   const [ready, setReady] = useState(false)
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  )
   const [error, setError] = useState('')
   const ensurePersonal = useMutation(api.households.ensurePersonal)
   const households = useQuery(api.households.list, {})
@@ -117,7 +129,9 @@ function HouseholdSession({
         <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     )
-  if (!ready || households === undefined)
+  // A saved selection is usable once current membership is verified. The
+  // personal-household bootstrap can finish without delaying returning users.
+  if ((!ready && (!hydrated || !household)) || households === undefined)
     return (
       <div className="mx-auto w-full max-w-3xl p-6">
         <LoadingRows label="Preparing your household" />

@@ -18,6 +18,11 @@ routes remain explicitly configured with `ssr: false`; Clerk and Convex
 providers initialize in the browser, and Convex remains the only application
 data access layer.
 
+Prerender the public shell for each static route at build time so hosting can
+serve HTML without a server cold start. These files contain only the shell and
+loading states. Account identity, membership checks, and household data still
+load in the browser; authenticated content is never embedded in static HTML.
+
 Do not add server loaders merely to justify the framework choice. TanStack
 Start is retained for its file-based routing, build integration, and a clear
 path to public or server-rendered routes if the product later needs them.

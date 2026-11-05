@@ -24,6 +24,21 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    environments: {
+      client: {
+        build: {
+          rolldownOptions: {
+            output: {
+              // Keep startup dependencies together instead of requiring dozens
+              // of tiny shared chunks before authentication can begin.
+              codeSplitting: {
+                groups: [{ name: 'startup', tags: ['$initial'] }],
+              },
+            },
+          },
+        },
+      },
+    },
     resolve: {
       tsconfigPaths: true,
       alias: useE2eMocks
@@ -46,6 +61,9 @@ export default defineConfig(({ command, mode }) => {
         router: {
           routeFileIgnorePattern: '\\.(test|spec)\\.[jt]sx?$',
         },
+        // The shell contains no account data. Serve it without a server cold start;
+        // protected routes still authenticate and subscribe in the browser.
+        prerender: { enabled: true, crawlLinks: false },
       }),
       nitro(),
       viteReact(),

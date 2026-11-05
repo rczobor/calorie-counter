@@ -1,14 +1,18 @@
 import { format } from 'date-fns'
 import { Calendar as CalendarIcon } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+
+const Calendar = lazy(async () => ({
+  default: (await import('./calendar')).Calendar,
+}))
 
 type DatePickerProps = {
   value: string
@@ -88,15 +92,23 @@ export function DatePicker({
         }
       />
       <PopoverContent className="w-auto p-0">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={(selectedDate) => {
-            if (selectedDate) {
-              onChange(toLocalDateKey(selectedDate))
-            }
-          }}
-        />
+        <Suspense
+          fallback={
+            <div role="status" className="h-80 w-64 p-3">
+              Loading calendar…
+            </div>
+          }
+        >
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={(selectedDate) => {
+              if (selectedDate) {
+                onChange(toLocalDateKey(selectedDate))
+              }
+            }}
+          />
+        </Suspense>
       </PopoverContent>
     </Popover>
   )

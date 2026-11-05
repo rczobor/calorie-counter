@@ -1,5 +1,32 @@
 import { expect, test } from '@playwright/test'
 
+test('the calendar loads on demand and remains keyboard accessible', async ({
+  page,
+}) => {
+  const calendarRequests: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('/src/components/ui/calendar.tsx'))
+      calendarRequests.push(request.url())
+  })
+  await page.goto('/')
+  const day = page.getByRole('button', { name: 'Day', exact: true })
+  await expect(day).toBeVisible()
+  expect(calendarRequests).toEqual([])
+  const previous = await day.innerText()
+  await day.focus()
+  await page.keyboard.press('Enter')
+  const calendar = page.getByRole('grid')
+  await expect(calendar).toBeVisible()
+  expect(calendarRequests).toHaveLength(1)
+  await calendar.locator('button[data-selected-single="true"]').focus()
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('Enter')
+  await expect(day).not.toHaveText(previous)
+  await page.keyboard.press('Escape')
+  await expect(calendar).toBeHidden()
+  await expect(day).toBeFocused()
+})
+
 test('settings, integration defaults, and expired consent remain reachable', async ({
   page,
 }) => {

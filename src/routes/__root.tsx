@@ -10,16 +10,23 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { ClerkLoaded, ClerkLoading, Show, SignInButton } from '@clerk/react'
+import {
+  buildClerkJsScriptAttributes,
+  clerkJsScriptUrl,
+} from '@clerk/react/internal'
 import { useConvexAuth } from 'convex/react'
 
 import Header from '../components/Header'
 import { HouseholdProvider } from '@/features/households/household-context'
 
 import ClerkProvider from '../integrations/clerk/provider'
-import { isClerkConfigured } from '../integrations/clerk/config'
+import {
+  clerkPublishableKey,
+  isClerkConfigured,
+} from '../integrations/clerk/config'
 
 import ConvexProvider from '../integrations/convex/provider'
-import { isConvexConfigured } from '../integrations/convex/config'
+import { convexUrl, isConvexConfigured } from '../integrations/convex/config'
 import { ThemeProvider } from '../components/theme-provider'
 import { Toaster } from '../components/ui/sonner'
 import { Button } from '../components/ui/button'
@@ -32,6 +39,7 @@ import {
 } from '../components/ui/card'
 
 import appCss from '../styles.css?url'
+import interFont from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
 
 const APP_DESCRIPTION =
   'Track meals, calories, people, goals, recipes, and cooking sessions.'
@@ -39,6 +47,10 @@ const LIGHT_THEME_COLOR = '#fdfdfb'
 const DARK_THEME_COLOR = '#110c09'
 const IS_MAINTENANCE_MODE =
   import.meta.env.VITE_MAINTENANCE_MODE?.toLowerCase() === 'true'
+const clerkScriptOptions =
+  clerkPublishableKey && !isE2eMockMode && !IS_MAINTENANCE_MODE
+    ? { publishableKey: clerkPublishableKey }
+    : null
 
 export const Route = createRootRoute({
   head: () => ({
@@ -59,6 +71,22 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      {
+        rel: 'preload',
+        href: interFont,
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
+      ...(convexUrl && !IS_MAINTENANCE_MODE
+        ? [
+            {
+              rel: 'preconnect',
+              href: convexUrl,
+              crossOrigin: 'anonymous' as const,
+            },
+          ]
+        : []),
       {
         rel: 'stylesheet',
         href: appCss,
@@ -84,6 +112,17 @@ export const Route = createRootRoute({
         sizes: '180x180',
       },
     ],
+    scripts: clerkScriptOptions
+      ? [
+          {
+            ...buildClerkJsScriptAttributes(clerkScriptOptions),
+            'data-clerk-js-script': true,
+            src: clerkJsScriptUrl(clerkScriptOptions),
+            async: true,
+            crossOrigin: 'anonymous',
+          },
+        ]
+      : [],
   }),
   shellComponent: RootDocument,
 })
