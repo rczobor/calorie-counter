@@ -23,6 +23,7 @@ const template = {
       name: 'Oats',
       kcalPer100: 350,
       consumedWeightGrams: 50,
+      servingCount: 2,
       ignoreCalories: false,
       foodIdentity: { basis: 'g', brand: 'Oat Brand' },
     },
@@ -144,7 +145,13 @@ describe('meal template management', () => {
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith({
         input: expect.objectContaining({
-          items: [{ ...template.items[0], consumedWeightGrams: 75 }],
+          items: [
+            {
+              ...template.items[0],
+              consumedWeightGrams: 75,
+              servingCount: 3,
+            },
+          ],
         }),
       }),
     )

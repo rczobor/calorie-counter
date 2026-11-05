@@ -236,7 +236,17 @@ function TemplateEditor({ template }: { template: Template }) {
                             },
                           ]
                         if (item.sourceType === 'customByWeight')
-                          return [{ ...item, consumedWeightGrams: quantity }]
+                          return [
+                            {
+                              ...item,
+                              consumedWeightGrams: quantity,
+                              servingCount:
+                                item.servingCount === undefined
+                                  ? undefined
+                                  : (item.servingCount * quantity) /
+                                    item.consumedWeightGrams,
+                            },
+                          ]
                         return [
                           {
                             ...item,
