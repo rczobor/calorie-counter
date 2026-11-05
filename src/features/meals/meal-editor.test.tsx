@@ -199,7 +199,7 @@ describe('Meal editor', () => {
       'Lunch draft',
     )
     expect(screen.getByLabelText('Meal date').textContent).toContain(
-      'April 4th',
+      'April 4, 2026',
     )
     expect(screen.getByText(/Banana.*105 kcal/)).toBeTruthy()
     expect(screen.getByLabelText('Custom ingredient name')).toHaveProperty(

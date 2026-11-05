@@ -22,6 +22,7 @@ vi.mock('convex/react', () => ({
 
 vi.mock('../integrations/clerk/config', () => ({
   isClerkConfigured: true,
+  clerkPublishableKey: '',
 }))
 
 vi.mock('../integrations/convex/config', () => ({

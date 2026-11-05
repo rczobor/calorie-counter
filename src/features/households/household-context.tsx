@@ -1,5 +1,11 @@
 import { LoadingRows } from '@/components/page/loading-content'
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
@@ -17,6 +23,7 @@ export type HouseholdContextValue = {
   selectHousehold?: (id: Id<'households'>) => void
 }
 const HouseholdContext = createContext<HouseholdContextValue>({})
+const subscribeNoop = () => () => {}
 export function useHousehold() {
   return useContext(HouseholdContext)
 }
@@ -66,10 +73,17 @@ function HouseholdSession({
     return linked ?? readSelection(storageKey)
   })
   const [ready, setReady] = useState(false)
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  )
   const [error, setError] = useState('')
   const ensurePersonal = useMutation(api.households.ensurePersonal)
   const households = useQuery(api.households.list, {})
+  const householdsLoaded = households !== undefined
   useEffect(() => {
+    if (!householdsLoaded) return
     let current = true
     void ensurePersonal({})
       .then((personalHouseholdId) => {
@@ -84,7 +98,7 @@ function HouseholdSession({
     return () => {
       current = false
     }
-  }, [ensurePersonal])
+  }, [ensurePersonal, householdsLoaded])
 
   const household = households?.find((row) => row._id === selected)
   function selectHousehold(id: Id<'households'>) {
@@ -110,14 +124,16 @@ function HouseholdSession({
     }
   }, [household, storageKey])
 
-  if (error)
+  if (error && !household)
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6" role="alert">
         <p>{error}</p>
         <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     )
-  if (!ready || households === undefined)
+  // A saved selection is usable once current membership is verified. The
+  // personal-household bootstrap can finish without delaying returning users.
+  if ((!ready && (!hydrated || !household)) || households === undefined)
     return (
       <div className="mx-auto w-full max-w-3xl p-6">
         <LoadingRows label="Preparing your household" />
@@ -164,6 +180,15 @@ function HouseholdSession({
           userId: userId ? `${userId}:${household._id}` : null,
         }}
       >
+        {error ? (
+          <p
+            role="alert"
+            className="mx-auto w-full max-w-3xl px-6 py-3 text-sm"
+          >
+            Household setup could not finish: {error} Your current household is
+            still available. Save your changes before refreshing to retry.
+          </p>
+        ) : null}
         {children}
       </DraftPersistenceIdentityProvider>
     </HouseholdContext.Provider>

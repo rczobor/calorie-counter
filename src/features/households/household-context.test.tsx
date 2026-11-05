@@ -116,6 +116,80 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('device household selection', () => {
+  it('opens a saved household after membership loads without waiting for personal bootstrap', () => {
+    window.localStorage.setItem('calorie-counter:household:robi', second)
+    mutation.mockReturnValue(new Promise(() => {}))
+    mount()
+    expect(screen.getByText('robi:household-b')).toBeTruthy()
+    expect(query).toHaveBeenCalledWith(api.people.search, {
+      householdId: second,
+      archived: false,
+      search: '',
+    })
+  })
+
+  it('preserves unsaved edits when background bootstrap fails in a verified household', async () => {
+    window.localStorage.setItem('calorie-counter:household:robi', second)
+    let rejectBootstrap: (error: Error) => void = () => {}
+    mutation.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectBootstrap = reject
+      }),
+    )
+    mount()
+    const draft = screen.getByLabelText('Draft')
+    fireEvent.change(draft, { target: { value: 'Unsaved household edits' } })
+    await act(async () => rejectBootstrap(new Error('Setup unavailable')))
+    expect(screen.getByRole('alert').textContent).toContain('Setup unavailable')
+    expect(screen.getByLabelText('Draft')).toBe(draft)
+    expect(draft).toHaveProperty('value', 'Unsaved household edits')
+    expect(screen.getByText('robi:household-b')).toBeTruthy()
+  })
+
+  it('hydrates a returning household without replacing the server loading state', async () => {
+    window.localStorage.setItem('calorie-counter:household:robi', second)
+    mutation.mockReturnValue(new Promise(() => {}))
+    const app = (
+      <DraftPersistenceIdentityProvider
+        value={{ isLoaded: true, userId: 'robi' }}
+      >
+        <HouseholdProvider>
+          <Probe />
+        </HouseholdProvider>
+      </DraftPersistenceIdentityProvider>
+    )
+    const container = document.createElement('div')
+    container.innerHTML = renderToString(app)
+    const onRecoverableError = vi.fn()
+    render(app, { container, hydrate: true, onRecoverableError })
+    await waitFor(() =>
+      expect(container.textContent).toContain('robi:household-b'),
+    )
+    expect(onRecoverableError).not.toHaveBeenCalled()
+  })
+
+  it('waits for current membership before opening a saved household', () => {
+    window.localStorage.setItem('calorie-counter:household:robi', second)
+    mutation.mockReturnValue(new Promise(() => {}))
+    query.mockReturnValue(undefined)
+    mount()
+    expect(
+      screen.getByRole('status', { name: 'Preparing your household' }),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText('Draft')).toBeNull()
+    expect(mutation).not.toHaveBeenCalled()
+  })
+
+  it('does not open a stale saved household while bootstrap is pending', () => {
+    window.localStorage.setItem(
+      'calorie-counter:household:robi',
+      'removed-household',
+    )
+    mutation.mockReturnValue(new Promise(() => {}))
+    mount()
+    expect(screen.queryByLabelText('Draft')).toBeNull()
+  })
+
   it('keeps account settings accessible without an available selected household', async () => {
     households = []
     render(
