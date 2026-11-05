@@ -1,5 +1,10 @@
-import { ClerkProvider, useAuth } from '@clerk/react'
-import { clerkPublishableKey, isClerkConfigured } from './config'
+import { useAuth } from '@clerk/react'
+import { InternalClerkProvider as ClerkProvider } from '@clerk/react/internal'
+import {
+  clerkPublishableKey,
+  isClerkConfigured,
+  sharedClerkUiUrl,
+} from './config'
 import { DraftPersistenceIdentityProvider } from '@/features/cooking/draft-persistence-identity'
 import { isE2eMockMode } from '@/testing/e2e/config'
 
@@ -35,7 +40,11 @@ export default function AppClerkProvider({
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey!} afterSignOutUrl="/">
+    <ClerkProvider
+      publishableKey={clerkPublishableKey!}
+      afterSignOutUrl="/"
+      __internal_clerkUIUrl={sharedClerkUiUrl}
+    >
       <ClerkDraftPersistenceIdentity>{children}</ClerkDraftPersistenceIdentity>
     </ClerkProvider>
   )

@@ -1,10 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { Show } from '@clerk/react'
 import { Clock, Flame, Settings, UtensilsCrossed } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
-import ThemeSelector from './theme-selector'
 import { isClerkConfigured } from '@/integrations/clerk/config'
 import { isE2eMockMode } from '@/testing/e2e/config'
+
+const ThemeSelector = lazy(() => import('./theme-selector'))
 
 const NAV_ITEMS = [
   { to: '/', label: 'Today', icon: UtensilsCrossed },
@@ -70,7 +72,9 @@ export default function Header() {
             <HeaderNavigation />
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <ThemeSelector />
+            <Suspense fallback={<div aria-hidden className="size-9" />}>
+              <ThemeSelector />
+            </Suspense>
             <ClerkHeader />
           </div>
         </div>

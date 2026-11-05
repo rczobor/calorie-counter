@@ -1,6 +1,8 @@
 import { LoadingRows } from '@/components/page/loading-content'
 import {
   createContext,
+  lazy,
+  Suspense,
   useContext,
   useEffect,
   useState,
@@ -14,9 +16,12 @@ import {
   useDraftPersistenceIdentity,
 } from '../cooking/draft-persistence-identity'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
 import { toErrorMessage } from '@/lib/nutrition'
 import { HouseholdInvitation } from './household-invitation'
+
+const Select = lazy(async () => ({
+  default: (await import('@/components/ui/select')).Select,
+}))
 
 export type HouseholdContextValue = {
   householdId?: Id<'households'>
@@ -154,16 +159,23 @@ function HouseholdSession({
               Your selected household is no longer available. Choose a household
               to continue.
             </p>
-            <Select
-              ariaLabel="Household"
-              options={households.map((row) => ({
-                value: row._id,
-                label: row.name,
-              }))}
-              onValueChange={(id) => {
-                if (id) selectHousehold(id)
-              }}
-            />
+            <Suspense
+              fallback={
+                <LoadingRows label="Loading household choices" rows={1} />
+              }
+            >
+              <Select
+                ariaLabel="Household"
+                options={households.map((row) => ({
+                  value: row._id,
+                  label: row.name,
+                }))}
+                onValueChange={(id) => {
+                  const choice = households.find((row) => row._id === id)
+                  if (choice) selectHousehold(choice._id)
+                }}
+              />
+            </Suspense>
           </>
         )}
         <HouseholdInvitation onJoined={selectHousehold} />
