@@ -3,6 +3,10 @@
 The optional [ChatGPT MCP integration](docs/chatgpt-mcp.md) supports natural-language
 meal logging and cooking through scoped, authenticated tools.
 
+The local [plugin publication kit](docs/plugin-publication/README.md) contains the
+draft directory package, reviewer scenarios, policies, and production transition
+checklist. Run `pnpm run plugin:check` for its offline consistency checks.
+
 A multi-person calorie tracking app built with TanStack Start, Convex, and
 Clerk authentication.
 

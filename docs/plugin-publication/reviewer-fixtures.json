@@ -1,0 +1,78 @@
+{
+  "timeZone": "Europe/Budapest",
+  "eatenOn": "2030-04-10",
+  "accounts": {
+    "reviewer": {
+      "households": [
+        {
+          "name": "Publication Home",
+          "people": [
+            { "name": "Alex", "dailyGoal": 2000 },
+            { "name": "Jamie", "dailyGoal": 2400 }
+          ]
+        },
+        {
+          "name": "Publication Other Home",
+          "people": [{ "name": "Alex", "dailyGoal": 2100 }]
+        }
+      ]
+    },
+    "unrelated": {
+      "households": [
+        {
+          "name": "Restricted Review Home",
+          "people": [{ "name": "Restricted Alex", "dailyGoal": 1900 }]
+        }
+      ]
+    }
+  },
+  "ingredients": [
+    { "name": "Review Bread", "kcalPer100Grams": 268 },
+    { "name": "Review Raw Pumpkin", "kcalPer100Grams": 45 }
+  ],
+  "cookedFoods": [
+    {
+      "name": "Review Chili",
+      "finishedWeightGrams": 1000,
+      "ingredients": [
+        {
+          "name": "Review Chili Base",
+          "grams": 1000,
+          "kcalPer100Grams": 100
+        }
+      ],
+      "expectedTotalCalories": 1000,
+      "expectedKcalPer100Grams": 100
+    }
+  ],
+  "cookingCase": {
+    "name": "Review Baked Pumpkin",
+    "ingredient": "Review Raw Pumpkin",
+    "rawWeightGrams": 2000,
+    "finishedWeightGrams": 1200,
+    "expectedTotalCalories": 900,
+    "expectedKcalPer100Grams": 75,
+    "portions": [
+      { "person": "Alex", "grams": 300, "expectedCalories": 225 },
+      { "person": "Jamie", "grams": 200, "expectedCalories": 150 }
+    ]
+  },
+  "correctionMeal": {
+    "name": "Review Correction Lunch",
+    "person": "Alex",
+    "items": [
+      { "food": "Review Chili", "grams": 300 },
+      { "food": "Review Bread", "grams": 50 }
+    ],
+    "privateNote": "Synthetic review note: preserve this without exposing it to the assistant.",
+    "expectedCalories": 434,
+    "uneatenBreadGrams": 25,
+    "expectedCorrectedCalories": 367
+  },
+  "fixedFood": {
+    "name": "Review Vitamins",
+    "caloriesPerServing": 14,
+    "source": "Synthetic review label: 14 kcal per serving",
+    "expectedCaloriesAfterTwoServings": 28
+  }
+}
