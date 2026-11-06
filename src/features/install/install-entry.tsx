@@ -46,12 +46,7 @@ export function InstallEntry({
             onClick={() => void activate()}
             disabled={install.pending}
           >
-            <span>
-              <span className="block font-medium">Add to your device</span>
-              <span className="mt-1 block text-xs text-muted-foreground">
-                Open Calorie Counter from your home screen or desktop.
-              </span>
-            </span>
+            <span className="font-medium">Add to your device</span>
             <ChevronRight
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
