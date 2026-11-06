@@ -942,13 +942,7 @@ export async function buildCookedFoodNutrition(
   return {
     totalRawWeightGrams,
     totalCalories,
-    kcalPer100: normalizeKcalPer100(
-      assertFiniteDerived(
-        (totalCalories / finishedWeightGrams) * 100,
-        'Cooked food kcal/100',
-      ),
-      { allowZero: true, fieldName: 'Cooked food kcal/100' },
-    ),
+    kcalPer100: cookedFoodCalorieDensity(totalCalories, finishedWeightGrams),
     ingredientSnapshots,
   }
 }
@@ -3114,6 +3108,71 @@ export const createCookedFood = mutation({
       args,
     ),
 })
+
+function cookedFoodCalorieDensity(
+  totalCalories: number,
+  finishedWeightGrams: number,
+) {
+  assertPositive(finishedWeightGrams, 'Finished weight')
+  return normalizeKcalPer100(
+    assertFiniteDerived(
+      (totalCalories / finishedWeightGrams) * 100,
+      'Cooked food kcal/100',
+    ),
+    { allowZero: true, fieldName: 'Cooked food kcal/100' },
+  )
+}
+
+export async function prepareCookedFoodWeightCorrection(
+  ctx: Pick<MutationCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  input: {
+    cookedFoodId: Id<'cookedFoods'>
+    expectedEditRevision: number
+    finishedWeightGrams: number
+  },
+) {
+  const food = assertOwnedOrThrow(
+    await ctx.db.get(input.cookedFoodId),
+    owner,
+    'Cooked food not found.',
+  )
+  if (food.archived)
+    throw new Error(
+      'Cooked food is archived. Restore it in the app before correcting it.',
+    )
+  assertExpectedEditRevision(food, input.expectedEditRevision, 'Cooked food')
+  assertOwnedOrThrow(
+    await ctx.db.get(food.cookSessionId),
+    owner,
+    'Cook session not found.',
+  )
+  return {
+    food,
+    finishedWeightGrams: input.finishedWeightGrams,
+    kcalPer100: cookedFoodCalorieDensity(
+      food.totalCalories,
+      input.finishedWeightGrams,
+    ),
+  }
+}
+
+export async function correctCookedFoodWeightForOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  input: Parameters<typeof prepareCookedFoodWeightCorrection>[2],
+) {
+  const correction = await prepareCookedFoodWeightCorrection(ctx, owner, input)
+  const { food, finishedWeightGrams, kcalPer100 } = correction
+  // Only the yield changes. Ingredient evidence and existing meal snapshots stay intact.
+  await ctx.db.patch(food._id, {
+    finishedWeightGrams,
+    kcalPer100,
+    editRevision: nextEditRevision(food, 'Cooked food'),
+  })
+  await touchCookSession(ctx, owner, food.cookSessionId)
+  return correction
+}
 
 export const updateCookedFood = mutation({
   args: {

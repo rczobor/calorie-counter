@@ -30,6 +30,8 @@ import {
   buildMealItemSnapshots,
   sumMealItemCalories,
   buildCookedFoodNutrition,
+  prepareCookedFoodWeightCorrection,
+  correctCookedFoodWeightForOwner,
   createMealForOwner,
   createCookSessionForOwner,
   createCookedFoodForOwner,
@@ -49,6 +51,8 @@ import {
   cookingInput,
   cookingPreview,
   cookingResult,
+  cookedFoodWeightCorrectionInput,
+  cookedFoodWeightCorrectionPreview,
   foodKind,
   foodDetails,
 } from './mcpValidators'
@@ -78,7 +82,13 @@ export async function findReceipt(
   ctx: MutationCtx,
   user: McpUser,
   owner: AuthenticatedOwner,
-  operation: 'meal' | 'cooking' | 'mealCorrection' | 'savedFood' | 'template',
+  operation:
+    | 'meal'
+    | 'cooking'
+    | 'mealCorrection'
+    | 'cookedFoodWeightCorrection'
+    | 'savedFood'
+    | 'template',
   operationKey: string,
   input: unknown,
 ) {
@@ -570,6 +580,102 @@ export const previewCooking = internalMutation({
     ),
 })
 
+export const previewCookedFoodWeightCorrection = internalMutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: cookedFoodWeightCorrectionInput,
+  },
+  returns: cookedFoodWeightCorrectionPreview,
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
+      const { food, finishedWeightGrams, kcalPer100 } =
+        await prepareCookedFoodWeightCorrection(ctx, owner, args.input)
+      const before = {
+        name: food.name,
+        finishedWeightGrams: food.finishedWeightGrams,
+        totalCalories: food.totalCalories,
+        kcalPer100: food.kcalPer100,
+      }
+      return {
+        context: await describeContext(ctx, owner),
+        input: args.input,
+        before,
+        after: { ...before, finishedWeightGrams, kcalPer100 },
+      }
+    }),
+})
+
+export const correctCookedFoodWeight = internalMutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: cookedFoodWeightCorrectionInput,
+    operationKey: v.string(),
+  },
+  returns: cookingResult,
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'cooking:write',
+        args.householdId,
+      )
+      const receipt = await findReceipt(
+        ctx,
+        args.user,
+        owner,
+        'cookedFoodWeightCorrection',
+        args.operationKey,
+        args.input,
+      )
+      if (receipt) {
+        if ('sessionId' in receipt.result) return receipt.result
+        throw new ConvexError('Operation result is unavailable.')
+      }
+      await limiter.limit(ctx, 'writes', {
+        key: owner.ownerTokenIdentifier,
+        throws: true,
+      })
+      const { food, kcalPer100 } = await correctCookedFoodWeightForOwner(
+        ctx,
+        owner,
+        args.input,
+      )
+      const path = `/cooking?householdId=${owner.householdId}&sessionId=${food.cookSessionId}`
+      const result = {
+        context: await describeContext(ctx, owner),
+        sessionId: food.cookSessionId,
+        foods: [
+          {
+            id: food._id,
+            name: food.name,
+            totalCalories: food.totalCalories,
+            kcalPer100,
+          },
+        ],
+        path,
+        url: appUrl(path),
+      }
+      await ctx.db.insert('mcpOperations', {
+        ...owner,
+        connectionId: args.user.connectionId,
+        operation: 'cookedFoodWeightCorrection',
+        key: `cookedFoodWeightCorrection:${args.operationKey}`,
+        input: canonical(args.input),
+        result,
+      })
+      return result
+    }),
+})
+
 export const logCooking = internalMutation({
   args: {
     householdId: v.optional(v.id('households')),
@@ -947,6 +1053,7 @@ export const getFoodDetails = internalMutation({
             sessionId: session._id,
             cookedAt: session.cookedAt,
           },
+          editRevision: getEditRevision(food, 'Cooked food'),
           finishedWeightGrams: food.finishedWeightGrams,
           totalCalories: food.totalCalories,
           nutritionProvenance: food.nutritionProvenance,

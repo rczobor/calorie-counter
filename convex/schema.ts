@@ -115,6 +115,7 @@ export default defineSchema({
       v.literal('meal'),
       v.literal('cooking'),
       v.literal('mealCorrection'),
+      v.literal('cookedFoodWeightCorrection'),
       v.literal('savedFood'),
       v.literal('template'),
     ),
