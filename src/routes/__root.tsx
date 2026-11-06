@@ -1,4 +1,5 @@
 import { LoadingRows } from '@/components/page/loading-content'
+import { lazy, Suspense } from 'react'
 import {
   HeadContent,
   Scripts,
@@ -25,12 +26,12 @@ import ClerkProvider from '../integrations/clerk/provider'
 import {
   clerkPublishableKey,
   isClerkConfigured,
+  sharedClerkUiUrl,
 } from '../integrations/clerk/config'
 
 import ConvexProvider from '../integrations/convex/provider'
 import { convexUrl, isConvexConfigured } from '../integrations/convex/config'
 import { ThemeProvider } from '../components/theme-provider'
-import { Toaster } from '../components/ui/sonner'
 import { Button } from '../components/ui/button'
 import { isE2eMockMode } from '../testing/e2e/config'
 import {
@@ -49,6 +50,9 @@ const LIGHT_THEME_COLOR = '#fdfdfb'
 const DARK_THEME_COLOR = '#110c09'
 const IS_MAINTENANCE_MODE =
   import.meta.env.VITE_MAINTENANCE_MODE?.toLowerCase() === 'true'
+const Toaster = lazy(async () => ({
+  default: (await import('../components/ui/sonner')).Toaster,
+}))
 const clerkScriptOptions =
   clerkPublishableKey && !isE2eMockMode && !IS_MAINTENANCE_MODE
     ? { publishableKey: clerkPublishableKey }
@@ -73,6 +77,17 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      // Fetch the shared UI early, but let Clerk execute it after React registers.
+      ...(clerkScriptOptions && sharedClerkUiUrl
+        ? [
+            {
+              rel: 'preload',
+              as: 'script',
+              href: sharedClerkUiUrl,
+              crossOrigin: 'anonymous' as const,
+            },
+          ]
+        : []),
       {
         rel: 'preload',
         href: interFont,
@@ -123,13 +138,17 @@ export const Route = createRootRoute({
             async: true,
             crossOrigin: 'anonymous',
           },
-          {
-            ...buildClerkUIScriptAttributes(clerkScriptOptions),
-            'data-clerk-ui-script': true,
-            src: clerkUIScriptUrl(clerkScriptOptions),
-            async: true,
-            crossOrigin: 'anonymous',
-          },
+          ...(!sharedClerkUiUrl
+            ? [
+                {
+                  ...buildClerkUIScriptAttributes(clerkScriptOptions),
+                  'data-clerk-ui-script': true,
+                  src: clerkUIScriptUrl(clerkScriptOptions),
+                  async: true,
+                  crossOrigin: 'anonymous' as const,
+                },
+              ]
+            : []),
         ]
       : [],
   }),
@@ -180,7 +199,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                     </HouseholdProvider>
                   </AuthGate>
                 </div>
-                <Toaster richColors />
+                <Suspense fallback={null}>
+                  <Toaster richColors />
+                </Suspense>
                 {import.meta.env.DEV ? (
                   <TanStackDevtools
                     config={{
