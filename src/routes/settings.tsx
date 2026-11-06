@@ -5,6 +5,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
+import { InstallEntry } from '@/features/install/install-entry'
 
 export const Route = createFileRoute('/settings')({
   ssr: false,
@@ -23,6 +24,7 @@ function SettingsPage() {
         <SettingsLink to="/people" title="People & goals" />
         <SettingsLink to="/settings/integrations" title="ChatGPT" />
         <SettingsLink to="/household" title="Household" />
+        <InstallEntry variant="settings" />
       </div>
       <h2 className="mt-8 text-sm font-semibold">Data maintenance</h2>
       <div className="mt-3 divide-y border-y border-border/60">

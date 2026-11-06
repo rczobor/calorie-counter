@@ -20,6 +20,7 @@ import {
 import { useConvexAuth } from 'convex/react'
 
 import Header from '../components/Header'
+import { InstallProvider } from '@/features/install/install-provider'
 import { HouseholdProvider } from '@/features/households/household-context'
 
 import ClerkProvider from '../integrations/clerk/provider'
@@ -191,14 +192,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           ) : (
             <ClerkProvider>
               <ConvexProvider>
-                <div className="flex min-h-dvh flex-col">
-                  <Header />
-                  <AuthGate>
-                    <HouseholdProvider accountPage={accountPage}>
-                      {children}
-                    </HouseholdProvider>
-                  </AuthGate>
-                </div>
+                <InstallProvider>
+                  <div className="flex min-h-dvh flex-col">
+                    <Header />
+                    <AuthGate>
+                      <HouseholdProvider accountPage={accountPage}>
+                        {children}
+                      </HouseholdProvider>
+                    </AuthGate>
+                  </div>
+                </InstallProvider>
                 <Suspense fallback={null}>
                   <Toaster richColors />
                 </Suspense>
