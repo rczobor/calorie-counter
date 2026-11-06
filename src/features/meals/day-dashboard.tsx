@@ -22,6 +22,8 @@ import {
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { readMealDraft, writeMealDraft } from '@/features/meals/meal-draft'
+import { InstallEntry } from '@/features/install/install-entry'
+import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
@@ -142,6 +144,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
     visiblePeople.push({ ...selected, ...summary, _id: selected._id })
 
   const focused = visiblePeople.find((p) => p._id === selectedPersonId)
+  const hasLoggedMeal = focused !== undefined && focused.mealCount > 0
+  useEffect(() => {
+    if (!archived && hasLoggedMeal) rememberLoggedMeal()
+  }, [archived, hasLoggedMeal])
   const overGoal = focused !== undefined && focused.remainingCalories < 0
   const atGoal = focused?.remainingCalories === 0
   const loadingPerson =
@@ -477,6 +483,20 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             </div>
           </div>
         ) : null}
+        <InstallEntry
+          variant="suggestion"
+          eligible={
+            !archived &&
+            date === today &&
+            !loadingPerson &&
+            meals.status !== 'LoadingFirstPage' &&
+            Boolean(selected) &&
+            !editor &&
+            !draft &&
+            !discardDraft &&
+            !openMealId
+          }
+        />
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">
             {selected
