@@ -12,6 +12,7 @@ import {
   cookingResult,
   cookingPreview,
   cookingInput,
+  cookedFoodWeightCorrectionPreview,
   mealDetails,
   mealCorrectionPreview,
   type mealCorrectionInput,
@@ -180,6 +181,375 @@ async function correctionFixture() {
   )
   return { t, personId, own, user, mealId, detail, provenance }
 }
+
+async function cookedWeightFixture() {
+  const t = setup()
+  const personId = await insertPerson(t)
+  const ingredientId = await insertIngredient(t, { kcalPer100: 200 })
+  const own = await credential(t)
+  const user = { userId: TEST_TOKEN_IDENTIFIER, scopes, connectionId: own.id }
+  const preview = await output(
+    await call(t, own.token, 'preview_cooking', {
+      input: {
+        session: {
+          label: 'Lasagna',
+          cookedAt: Date.now(),
+          cookedOn: '2026-11-06',
+        },
+        outputs: [
+          {
+            name: 'Lasagna',
+            finishedWeightGrams: 400,
+            notes: 'Keep this batch note',
+            ingredients: [
+              {
+                sourceType: 'ingredient',
+                ingredientId,
+                referenceAmount: 200,
+                referenceUnit: 'g',
+                countedAmount: 200,
+              },
+              {
+                sourceType: 'custom',
+                name: 'Sauce',
+                kcalPer100: 100,
+                kcalBasisUnit: 'g',
+                ignoreCalories: false,
+                referenceAmount: 200,
+                referenceUnit: 'g',
+                countedAmount: 200,
+                nutritionProvenance: {
+                  source: 'Label',
+                  kind: 'provided',
+                  assumptions: 'Per 100 g on package.',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    }),
+    cookingPreview,
+  )
+  const saved = await output(
+    await call(t, own.token, 'log_cooking', {
+      input: preview.input,
+      operationKey: 'lasagna',
+    }),
+    cookingResult,
+  )
+  const cookedFoodId = saved.foods[0].id
+  const detail = await output(
+    await call(t, own.token, 'get_food_details', {
+      kind: 'cookedFood',
+      id: cookedFoodId,
+    }),
+    foodDetails,
+  )
+  const input = {
+    cookedFoodId,
+    expectedEditRevision: detail.editRevision!,
+    finishedWeightGrams: 600,
+  }
+  return { t, personId, ingredientId, own, user, saved, input }
+}
+
+describe('MCP cooked-food finished-weight corrections', () => {
+  it('previews and corrects the same batch exactly once, preserving composition and history', async () => {
+    const { t, personId, ingredientId, own, input } =
+      await cookedWeightFixture()
+    const user = asTestUser(t)
+    const originalMeal = await output(
+      await call(t, own.token, 'preview_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-06',
+          items: [
+            {
+              sourceType: 'cookedFood',
+              cookedFoodId: input.cookedFoodId,
+              consumedWeightGrams: 100,
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    const { mealId } = await output(
+      await call(t, own.token, 'log_meal', {
+        input: originalMeal.input,
+        operationKey: 'original-portion',
+      }),
+      mealResult,
+    )
+    const reused = await output(
+      await call(t, own.token, 'preview_cooking', {
+        input: {
+          session: {
+            label: 'Leftovers',
+            cookedAt: Date.now(),
+            cookedOn: '2026-11-06',
+          },
+          outputs: [
+            {
+              name: 'Leftover portion',
+              finishedWeightGrams: 100,
+              ingredients: [
+                {
+                  sourceType: 'cookedFood',
+                  cookedFoodId: input.cookedFoodId,
+                  consumedWeightGrams: 100,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      cookingPreview,
+    )
+    await output(
+      await call(t, own.token, 'log_cooking', {
+        input: reused.input,
+        operationKey: 'leftovers',
+      }),
+      cookingResult,
+    )
+    const read = () =>
+      t.run(async (ctx) => ({
+        foods: await ctx.db.query('cookedFoods').collect(),
+        ingredients: await ctx.db.query('cookedFoodIngredients').collect(),
+        items: await ctx.db.query('mealItems').collect(),
+        meals: await ctx.db.query('meals').collect(),
+        summaries: await ctx.db.query('dailySummaries').collect(),
+      }))
+    // A catalog edit must not leak into a finished-weight correction.
+    await t.run((ctx) =>
+      ctx.db.patch(ingredientId, { kcalPer100: 999, archived: true }),
+    )
+    const before = await read()
+    const preview = await output(
+      await call(t, own.token, 'preview_cooked_food_weight_correction', {
+        input,
+      }),
+      cookedFoodWeightCorrectionPreview,
+    )
+    expect(preview.before).toMatchObject({
+      finishedWeightGrams: 400,
+      totalCalories: 600,
+      kcalPer100: 150,
+    })
+    expect(preview.after).toMatchObject({
+      finishedWeightGrams: 600,
+      totalCalories: 600,
+      kcalPer100: 100,
+    })
+    expect(await read()).toEqual(before)
+    const args = { input: preview.input, operationKey: 'correct-weight' }
+    const [saved, replay] = await Promise.all(
+      [1, 2].map(async () =>
+        output(
+          await call(t, own.token, 'correct_cooked_food_weight', args),
+          cookingResult,
+        ),
+      ),
+    )
+    expect(replay).toEqual(saved)
+    expect(saved.foods).toEqual([
+      {
+        id: input.cookedFoodId,
+        name: 'Lasagna',
+        totalCalories: 600,
+        kcalPer100: 100,
+      },
+    ])
+    const after = await read()
+    expect(after).toEqual({
+      ...before,
+      foods: before.foods.map((food) =>
+        food._id === input.cookedFoodId
+          ? {
+              ...food,
+              finishedWeightGrams: 600,
+              kcalPer100: 100,
+              editRevision: input.expectedEditRevision + 1,
+            }
+          : food,
+      ),
+    })
+    const historical = await user.query(api.meals.getDetail, { mealId })
+    expect(historical?.meal.totalCalories).toBe(150)
+    const future = await output(
+      await call(t, own.token, 'preview_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-06',
+          items: [
+            {
+              sourceType: 'cookedFood',
+              cookedFoodId: input.cookedFoodId,
+              consumedWeightGrams: 100,
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    expect(future.totalCalories).toBe(100)
+    await expect(
+      t.mutation(internal.mcpOperations.correctCookedFoodWeight, {
+        user: { userId: TEST_TOKEN_IDENTIFIER, scopes, connectionId: own.id },
+        ...args,
+        input: { ...input, finishedWeightGrams: 700 },
+      }),
+    ).rejects.toThrow('different inputs')
+    await expect(
+      t.mutation(internal.mcpOperations.correctCookedFoodWeight, {
+        user: { userId: TEST_TOKEN_IDENTIFIER, scopes, connectionId: own.id },
+        input,
+        operationKey: 'stale-weight',
+      }),
+    ).rejects.toThrow('changed since')
+  })
+
+  it('rejects foreign batches, missing scopes, invalid weights and stale or archived edits', async () => {
+    const { t, user, input, saved } = await cookedWeightFixture()
+    const other = await credential(t, 'other|owner')
+    for (const name of [
+      'preview_cooked_food_weight_correction',
+      'correct_cooked_food_weight',
+    ]) {
+      expect(
+        await (
+          await call(t, other.token, name, {
+            input,
+            ...(name === 'correct_cooked_food_weight'
+              ? { operationKey: 'foreign' }
+              : {}),
+          })
+        ).json(),
+      ).toMatchObject({ result: { isError: true } })
+    }
+    const read = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
+    expect(
+      (
+        await call(t, read.token, 'correct_cooked_food_weight', {
+          input,
+          operationKey: 'read-only',
+        })
+      ).status,
+    ).toBe(403)
+    await expect(
+      t.mutation(internal.mcpOperations.correctCookedFoodWeight, {
+        user: { ...user, scopes: ['cooking:write'] },
+        input,
+        operationKey: 'missing-read',
+      }),
+    ).rejects.toThrow('permission')
+    for (const badInput of [
+      ...[0, -1, NaN, Infinity, Number.MIN_VALUE].map(
+        (finishedWeightGrams) => ({ ...input, finishedWeightGrams }),
+      ),
+      { ...input, expectedEditRevision: 99 },
+    ]) {
+      await expect(
+        t.mutation(internal.mcpOperations.previewCookedFoodWeightCorrection, {
+          user,
+          input: badInput,
+        }),
+      ).rejects.toThrow()
+      await expect(
+        t.mutation(internal.mcpOperations.correctCookedFoodWeight, {
+          user,
+          input: badInput,
+          operationKey: 'invalid',
+        }),
+      ).rejects.toThrow()
+    }
+    await t.run((ctx) => ctx.db.patch(input.cookedFoodId, { archived: true }))
+    await expect(
+      t.mutation(internal.mcpOperations.previewCookedFoodWeightCorrection, {
+        user,
+        input,
+      }),
+    ).rejects.toThrow('archived')
+    await expect(
+      t.mutation(internal.mcpOperations.correctCookedFoodWeight, {
+        user,
+        input,
+        operationKey: 'archived',
+      }),
+    ).rejects.toThrow('archived')
+    await t.run((ctx) => ctx.db.patch(input.cookedFoodId, { archived: false }))
+    const foreignPerson = await insertPerson(t, {
+      ownerTokenIdentifier: 'other|owner',
+    })
+    const foreignSession = await asTestUserWithToken(t, 'other|owner').mutation(
+      api.nutrition.createCookSession,
+      {
+        cookedAt: Date.now(),
+        cookedOn: '2026-11-06',
+        cookedByPersonId: foreignPerson,
+      },
+    )
+    await t.run((ctx) =>
+      ctx.db.patch(input.cookedFoodId, { cookSessionId: foreignSession }),
+    )
+    await expect(
+      t.mutation(internal.mcpOperations.correctCookedFoodWeight, {
+        user,
+        input,
+        operationKey: 'foreign-session',
+      }),
+    ).rejects.toThrow('Cook session not found')
+    await t.run((ctx) =>
+      ctx.db.patch(input.cookedFoodId, { cookSessionId: saved.sessionId }),
+    )
+  })
+
+  it('checks shared membership again before replaying a completed correction', async () => {
+    const { t, own, user, input } = await cookedWeightFixture()
+    const robi = asTestUser(t)
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const guest = asTestUserWithToken(t, 'guest|owner')
+    const invite = await robi.mutation(api.households.invite, { householdId })
+    await guest.mutation(api.households.acceptInvitation, { token: invite })
+    const guestCredential = await credential(t, 'guest|owner')
+    const args = { householdId, input, operationKey: 'shared-weight' }
+    const saved = await output(
+      await call(t, guestCredential.token, 'correct_cooked_food_weight', args),
+      cookingResult,
+    )
+    expect(saved.context?.householdId).toBe(householdId)
+    const member = (
+      await robi.query(api.households.members, { householdId })
+    ).find((row) => !row.isYou)!
+    await robi.mutation(api.households.updateMember, {
+      householdId,
+      memberId: member._id,
+      role: 'remove',
+    })
+    expect(
+      await (
+        await call(t, guestCredential.token, 'correct_cooked_food_weight', args)
+      ).json(),
+    ).toMatchObject({ result: { isError: true } })
+    // The original household still has the corrected batch and can read its new revision.
+    const detail = await output(
+      await call(t, own.token, 'get_food_details', {
+        kind: 'cookedFood',
+        id: input.cookedFoodId,
+      }),
+      foodDetails,
+    )
+    expect(detail.editRevision).toBe(input.expectedEditRevision + 1)
+    await expect(
+      t.mutation(internal.mcpOperations.previewCookedFoodWeightCorrection, {
+        user,
+        input,
+      }),
+    ).rejects.toThrow('changed since')
+  })
+})
 
 describe('MCP meal corrections', () => {
   it('previews without writes, corrects the same meal exactly once, and preserves unmentioned data', async () => {

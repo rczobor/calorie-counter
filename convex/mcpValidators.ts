@@ -217,6 +217,24 @@ export const cookingResult = v.object({
   path: v.string(),
 })
 
+export const cookedFoodWeightCorrectionInput = v.object({
+  cookedFoodId: v.id('cookedFoods'),
+  expectedEditRevision: v.number(),
+  finishedWeightGrams: v.number(),
+})
+const cookedFoodWeightSummary = v.object({
+  name: v.string(),
+  finishedWeightGrams: v.number(),
+  totalCalories: v.number(),
+  kcalPer100: v.number(),
+})
+export const cookedFoodWeightCorrectionPreview = v.object({
+  context: v.optional(loggingContext),
+  input: cookedFoodWeightCorrectionInput,
+  before: cookedFoodWeightSummary,
+  after: cookedFoodWeightSummary,
+})
+
 const correctionProvenance = {
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
 }
@@ -316,6 +334,7 @@ export const foodCandidate = v.object({
 export const foodDetails = v.object({
   context: v.optional(loggingContext),
   food: foodCandidate,
+  editRevision: v.optional(v.number()),
   finishedWeightGrams: v.optional(v.number()),
   totalCalories: v.optional(v.number()),
   nutritionProvenance: v.optional(nutritionProvenanceValidator),

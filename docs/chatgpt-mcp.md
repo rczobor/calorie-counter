@@ -189,8 +189,17 @@ sources stated by an assistant are claims, not verified database lookups.
 
 The app's primary navigation is **Today**, **History**, and **Settings**. Open
 meal details on Today before editing. Settings links to people/goals, household
-access, the food library, and cooked batches. Cooking inspection and corrections
-remain in the app; ordinary new cooking is recorded through MCP.
+access, the food library, and cooked batches. To correct a cooked batch's finished weight, read `get_food_details` with
+`kind: "cookedFood"`, then pass its `editRevision` as `expectedEditRevision` to
+`preview_cooked_food_weight_correction` with the desired positive
+`finishedWeightGrams`. Show the before/after weight and calorie density and obtain
+approval, then call `correct_cooked_food_weight` with the exact preview input and
+a unique `operationKey`. Retry with the same input and key after an uncertain
+outcome. Concurrent changes require fresh details, preview, and approval.
+This updates the same batch without duplicating it. Ingredients, total batch
+calories, existing meals, and downstream cooking snapshots stay unchanged;
+future portions use the corrected calorie density. Other cooking edits remain
+in the app. The existing `cooking:write` permission covers weight corrections.
 
 Reusable foods have a separate list in **Settings → Food library**. Archive an
 incorrect entry and explicitly save a corrected replacement through MCP.
