@@ -143,3 +143,22 @@ for (const width of [1440, 390]) {
     })
   }
 }
+
+test('a landscape iPhone keeps content clear of the notch', async ({
+  page,
+}) => {
+  // Unlike iOS, Chromium applies these insets without viewport-fit=cover, so
+  // this covers the side padding but not the viewport opt-in.
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', {
+    insets: { left: 47, right: 47 },
+  })
+  await page.setViewportSize({ width: 844, height: 390 })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const homeBox = await page
+    .getByRole('link', { name: 'Calorie Counter' })
+    .boundingBox()
+  expect(homeBox).not.toBeNull()
+  expect(homeBox!.x).toBeGreaterThanOrEqual(47)
+})
