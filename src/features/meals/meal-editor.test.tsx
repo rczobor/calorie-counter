@@ -34,6 +34,7 @@ type DashboardFixture = {
   cookSessions: Array<Doc<'cookSessions'>>
   cookedFoods: Array<Doc<'cookedFoods'>>
   meals: Array<Doc<'meals'>>
+  templates: unknown[]
 }
 
 let mockMealDashboardData: DashboardFixture = createDashboardFixture()
@@ -160,7 +161,7 @@ describe('Meal editor', () => {
     expect(screen.getByLabelText('Select person').textContent).toContain(
       'Select person',
     )
-    expect(screen.getByRole('button', { name: 'Create meal' })).toHaveProperty(
+    expect(screen.getByRole('button', { name: 'Save meal' })).toHaveProperty(
       'disabled',
       true,
     )
@@ -172,6 +173,7 @@ describe('Meal editor', () => {
     fireEvent.change(screen.getByLabelText('Meal name'), {
       target: { value: 'Lunch draft' },
     })
+    openQuickCalories()
     fireEvent.change(screen.getByLabelText('Quick add name'), {
       target: { value: 'Banana' },
     })
@@ -179,7 +181,7 @@ describe('Meal editor', () => {
       target: { value: '105' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
-    fireEvent.click(screen.getByRole('button', { name: 'New' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New food' }))
     fireEvent.change(screen.getByLabelText('Custom ingredient name'), {
       target: { value: 'Unfinished oats' },
     })
@@ -198,10 +200,8 @@ describe('Meal editor', () => {
       'value',
       'Lunch draft',
     )
-    expect(screen.getByLabelText('Meal date').textContent).toContain(
-      'April 4, 2026',
-    )
-    expect(screen.getByText(/Banana.*105 kcal/)).toBeTruthy()
+    expect(screen.getByLabelText('Meal date').textContent).toContain('Apr 4')
+    expect(mealItemText('Banana')).toContain('105 kcal')
     expect(screen.getByLabelText('Custom ingredient name')).toHaveProperty(
       'value',
       'Unfinished oats',
@@ -310,9 +310,11 @@ describe('Meal editor', () => {
       'value',
       'My unsaved changes',
     )
-    expect(screen.getByText(/Original food.*100 kcal/)).toBeTruthy()
+    expect(mealItemText('Original food')).toContain('100 kcal')
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save meal changes' }))
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Save meal (1 food)' }),
+      )
     })
     expect(mutations.updateMeal).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -380,20 +382,27 @@ describe('Meal editor', () => {
       'Assistant estimate: Assumed one medium bowl.',
     )
   })
-  it('creates a meal from a quick-add item', async () => {
+  it('creates a meal from a quick-add item using only the keyboard', async () => {
     const mutations = configureMutationMocks()
     renderMealsRoute()
 
-    fireEvent.change(screen.getByLabelText(/quick add name/i), {
-      target: { value: 'Protein bar' },
-    })
+    // With no matching food, Enter in search opens quick calories for that name.
+    searchFoods('Protein bar')
+    fireEvent.keyDown(screen.getByLabelText('Search foods'), { key: 'Enter' })
+    expect(screen.getByLabelText(/quick add name/i)).toHaveProperty(
+      'value',
+      'Protein bar',
+    )
     fireEvent.change(screen.getByLabelText(/quick add calories/i), {
       target: { value: '250' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
+    fireEvent.keyDown(screen.getByLabelText(/quick add calories/i), {
+      key: 'Enter',
+    })
+    expect(mealItemText('Protein bar')).toContain('250 kcal')
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: /create meal \(1 item\)/i }),
+        screen.getByRole('button', { name: /save meal \(1 food\)/i }),
       )
     })
 
@@ -434,31 +443,26 @@ describe('Meal editor', () => {
     const mutations = configureMutationMocks()
     renderMealsRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ingredient' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+    searchFoods('oat')
+    pickResult(/^Oats/)
     fireEvent.change(screen.getByLabelText('Ingredient grams'), {
       target: { value: '50' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cooked' }))
-    fireEvent.focus(
-      screen.getByRole('combobox', { name: 'Cooked food filter' }),
-    )
-    const cookedFoodOption = screen.getByRole('option', {
-      name: /Granola batch/i,
-    })
-    fireEvent.pointerDown(cookedFoodOption, { button: 0 })
-    fireEvent.pointerUp(cookedFoodOption, { button: 0 })
-    fireEvent.click(cookedFoodOption)
+    // Batches from any session are searchable, not just the latest session's.
+    searchFoods('granola')
+    pickResult(/^Granola batch/)
     fireEvent.change(screen.getByLabelText('Consumed cooked food grams'), {
       target: { value: '75' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.keyDown(screen.getByLabelText('Consumed cooked food grams'), {
+      key: 'Enter',
+    })
 
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: /create meal \(2 items\)/i }),
+        screen.getByRole('button', { name: /save meal \(2 foods\)/i }),
       )
     })
 
@@ -508,6 +512,7 @@ describe('Meal editor', () => {
     const mutations = configureMutationMocks()
     const view = renderMealsRoute()
 
+    openQuickCalories()
     fireEvent.change(screen.getByLabelText(/quick add name/i), {
       target: { value: 'Protein bar' },
     })
@@ -530,7 +535,7 @@ describe('Meal editor', () => {
 
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: /create meal \(1 item\)/i }),
+        screen.getByRole('button', { name: /save meal \(1 food\)/i }),
       )
     })
 
@@ -575,14 +580,12 @@ describe('Meal editor', () => {
       name: 'Edit saved meal',
     })
     fireEvent.click(mealEditButton)
-    expect(screen.getByText(/Energy cube.*\(\+5 kcal\)/i)).toBeTruthy()
+    expect(mealItemText('Energy cube')).toContain('5 kcal')
     fireEvent.click(mealEditButton)
-    expect(screen.getByText(/Energy cube.*\(\+5 kcal\)/i)).toBeTruthy()
+    expect(mealItemText('Energy cube')).toContain('5 kcal')
 
     await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', { name: /save meal changes/i }),
-      )
+      fireEvent.click(screen.getByRole('button', { name: /^Save meal/ }))
     })
 
     expect(mutations.updateMeal).toHaveBeenCalledWith({
@@ -604,6 +607,40 @@ describe('Meal editor', () => {
     })
   })
 
+  it('names the edited meal and previews a corrected amount with the recorded nutrition', () => {
+    const ingredient = createIngredientDoc('ingredient-rice', 'Rice', {
+      kcalPer100: 200,
+    })
+    const meal = createMealDoc('meal-rice', 'person-1', { name: 'Rice bowl' })
+    mockMealDashboardData = createDashboardFixture({
+      ingredients: [ingredient],
+      meals: [meal],
+    })
+    mockMealDetailItems = [
+      createMealItemDoc('meal-item-rice', meal._id, {
+        sourceType: 'ingredient',
+        ingredientId: ingredient._id,
+        nameSnapshot: 'Rice',
+        kcalPer100Snapshot: 100,
+        consumedWeightGrams: 100,
+        caloriesSnapshot: 100,
+      }),
+    ]
+    renderMealsRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit saved meal' }))
+    // The meal being corrected is named up top and jumps to its name field.
+    fireEvent.click(screen.getByRole('button', { name: 'Rice bowl, rename' }))
+    expect(document.activeElement).toBe(screen.getByLabelText('Meal name'))
+    fireEvent.click(screen.getByRole('button', { name: /^Edit Rice/ }))
+    fireEvent.change(screen.getByLabelText('Ingredient grams'), {
+      target: { value: '150' },
+    })
+    expect(screen.getByText('150 kcal')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+    expect(mealItemText('Rice')).toContain('150 g · 150 kcal')
+  })
+
   it('retains the complete original item set when replacing every meal item', async () => {
     const meal = createMealDoc('meal-replaced', 'person-1', {
       name: 'Replace everything',
@@ -620,7 +657,10 @@ describe('Meal editor', () => {
     renderMealsRoute()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit saved meal' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove Original item' }),
+    )
+    openQuickCalories()
     fireEvent.change(screen.getByLabelText(/quick add name/i), {
       target: { value: 'Replacement item' },
     })
@@ -630,9 +670,7 @@ describe('Meal editor', () => {
     fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
 
     await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', { name: /save meal changes/i }),
-      )
+      fireEvent.click(screen.getByRole('button', { name: /^Save meal/ }))
     })
 
     expect(mutations.updateMeal).toHaveBeenCalledWith(
@@ -661,9 +699,11 @@ describe('Meal editor', () => {
     configureMutationMocks()
     renderMealsRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ingredient' }))
+    searchFoods('piece')
 
-    expect(screen.queryByText(pieceIngredient.name)).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /^Piece-only snack/ }),
+    ).toBeNull()
     expect(paginatedQueryCalls).toContainEqual({
       name: 'catalog:listIngredients',
       args: { archived: false, kcalBasisUnit: 'g' },
@@ -680,13 +720,13 @@ describe('Meal editor', () => {
     configureMutationMocks()
     const view = renderMealsRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ingredient' }))
     mockMealDashboardData = createDashboardFixture({
       ingredients: [remoteIngredient],
     })
     const Component = MealsRoute.options.component as ComponentType
     view.rerender(<Component />)
-    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+    searchFoods('point')
+    pickResult(/^Point-loaded oats/)
     fireEvent.change(screen.getByLabelText('Ingredient grams'), {
       target: { value: '50' },
     })
@@ -694,7 +734,7 @@ describe('Meal editor', () => {
     mockMealDashboardData = createDashboardFixture({ ingredients: [] })
     mockPointLoadedIngredient = { ...remoteIngredient, archived: true }
     view.rerender(<Component />)
-    expect(screen.queryByText('Selected:')).toBeNull()
+    expect(screen.getByText(/no longer available/)).toBeTruthy()
     expect(
       (screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement)
         .disabled,
@@ -725,14 +765,8 @@ describe('Meal editor', () => {
     configureMutationMocks()
     const view = renderMealsRoute()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cooked' }))
-    fireEvent.focus(
-      screen.getByRole('combobox', { name: 'Cooked food filter' }),
-    )
-    const option = screen.getByRole('option', { name: /Remote stew/i })
-    fireEvent.pointerDown(option, { button: 0 })
-    fireEvent.pointerUp(option, { button: 0 })
-    fireEvent.click(option)
+    searchFoods('remote')
+    pickResult(/^Remote stew/)
     fireEvent.change(screen.getByLabelText('Consumed cooked food grams'), {
       target: { value: '50' },
     })
@@ -752,6 +786,7 @@ describe('Meal editor', () => {
     view.rerender(<Component />)
     await act(async () => undefined)
 
+    expect(screen.getByText(/no longer available/)).toBeTruthy()
     expect(
       (screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement)
         .disabled,
@@ -779,9 +814,11 @@ describe('Meal editor', () => {
         .getAttribute('aria-label'),
     ).toContain('Loading meal items')
     expect(
-      (screen.getByLabelText(/quick add name/i) as HTMLInputElement).closest(
-        'fieldset',
-      )?.disabled,
+      screen.getByLabelText('Search foods').closest('fieldset')?.disabled,
+    ).toBe(true)
+    // Loading the meal would overwrite a name typed meanwhile.
+    expect(
+      (screen.getByLabelText('Meal name') as HTMLInputElement).disabled,
     ).toBe(true)
 
     isMealDetailLoading = false
@@ -789,11 +826,12 @@ describe('Meal editor', () => {
     view.rerender(<Component />)
 
     expect(
-      (screen.getByLabelText(/quick add name/i) as HTMLInputElement).closest(
-        'fieldset',
-      )?.disabled,
+      screen.getByLabelText('Search foods').closest('fieldset')?.disabled,
     ).toBe(false)
-    expect(screen.getByText(/Existing item.*\(\+200 kcal\)/i)).toBeTruthy()
+    expect(
+      (screen.getByLabelText('Meal name') as HTMLInputElement).disabled,
+    ).toBe(false)
+    expect(mealItemText('Existing item')).toContain('200 kcal')
   })
 
   it('restores off-page ingredient and cooked-food selections while editing', async () => {
@@ -838,29 +876,58 @@ describe('Meal editor', () => {
     renderMealsRoute()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit saved meal' }))
-    const ingredientItem = screen.getByText(
-      /Remote oats.*\(\+100 kcal\)/i,
-    ).parentElement
-    fireEvent.click(
-      within(ingredientItem!).getByRole('button', { name: 'Edit' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /^Edit Remote oats,/ }))
+    // The archived, non-gram ingredient keeps its snapshot while it is edited.
+    expect(screen.getByText('Editing item 1')).toBeTruthy()
     expect(screen.getAllByText('Remote oats').length).toBeGreaterThan(1)
-    expect(screen.getByRole('button', { name: 'Selected' })).toBeTruthy()
+    expect(
+      (screen.getByRole('button', { name: 'Update' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false)
 
-    const cookedFoodItem = screen.getByText(
-      /Remote batch.*\(\+100 kcal\)/i,
-    ).parentElement
-    fireEvent.click(
-      within(cookedFoodItem!).getByRole('button', { name: 'Edit' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /^Edit Remote batch,/ }))
     await act(async () => undefined)
 
-    expect(
-      screen.getByText('Remote batch').parentElement?.textContent,
-    ).toContain('Selected:')
-    expect(screen.getByLabelText('Cooking session').textContent).toContain(
-      'Remote prep',
+    expect(screen.getByText('Editing item 2')).toBeTruthy()
+    expect(screen.getAllByText('Remote batch').length).toBeGreaterThan(1)
+    expect(screen.getByText(/^Cooked batch/)).toBeTruthy()
+  })
+
+  it('reaches every matching batch and tells same-named batches apart by date', () => {
+    // Entered on the same day, cooked on different days.
+    const batches = Array.from({ length: 9 }, (_, index) =>
+      createCookedFoodDoc(`cooked-${index}`, `session-${index}`, 'Lasagna', {
+        createdAt: new Date(2026, 3, 20, 9).getTime(),
+      }),
     )
+    mockMealDashboardData = createDashboardFixture({
+      // The first batch's session is not loaded yet.
+      cookSessions: batches.slice(1).map((batch, index) =>
+        createCookSessionDoc(batch.cookSessionId, 'Prep', {
+          cookedAt: new Date(2026, 3, index + 2, 18).getTime(),
+        }),
+      ),
+      cookedFoods: batches,
+    })
+    renderMealsRoute()
+
+    searchFoods('lasagna')
+    const results = () =>
+      within(screen.getByRole('list', { name: 'Search results' })).getAllByRole(
+        'button',
+      )
+    expect(results()).toHaveLength(8)
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 9 matches' }))
+    expect(results()).toHaveLength(9)
+    expect(results()[8].textContent).toContain('Apr 9')
+    // No session yet: no date, never the entry date.
+    expect(results()[0].textContent).toBe(
+      'LasagnaCooked batch · 300 kcal / 100 g',
+    )
+    // A new search starts short again.
+    searchFoods('lasagn')
+    searchFoods('lasagna')
+    expect(results()).toHaveLength(8)
   })
 
   it('exposes load-more controls for every paginated dashboard dataset', () => {
@@ -874,46 +941,111 @@ describe('Meal editor', () => {
     mockPaginatedStatuses = {
       'people:list': 'CanLoadMore',
       'catalog:listIngredients': 'CanLoadMore',
+      'cooking:listCookedFoods': 'CanLoadMore',
+      'savedFoods:listTemplates': 'CanLoadMore',
       'cooking:listSessions': 'CanLoadMore',
-      'cooking:listCookedFoodsForSession': 'CanLoadMore',
       'meals:listForDay': 'CanLoadMore',
     }
     configureMutationMocks()
     renderMealsRoute()
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more people' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Ingredient' }))
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Load more ingredients' }),
-    )
+    // Search covers loaded foods only, so one control pages every source.
     expect(
-      screen.getByPlaceholderText('Filter loaded ingredients'),
+      screen.getByText(/Search covers the foods loaded so far/),
     ).toBeTruthy()
-    expect(
-      screen.getByText(/Filtering includes loaded ingredients only/i),
-    ).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Cooked' }))
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Load more cooking sessions' }),
-    )
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Load more cooked foods' }),
-    )
-    expect(
-      screen.getByPlaceholderText(
-        'Filter loaded cooked foods in selected session',
-      ),
-    ).toBeTruthy()
-    expect(
-      screen.getByText(/Filtering includes loaded cooked foods only/i),
-    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
 
     expect(mockLoadMore.mock.calls).toEqual([
       ['people:list', 20],
       ['catalog:listIngredients', 20],
-      ['cooking:listSessions', 20],
-      ['cooking:listCookedFoodsForSession', 20],
+      ['cooking:listCookedFoods', 50],
+      ['savedFoods:listTemplates', 50],
+      ['cooking:listSessions', 50],
     ])
+  })
+
+  it('adds every food from a frozen meal template, names the meal after it and keeps sources through corrections', async () => {
+    mockMealDashboardData = createDashboardFixture({
+      templates: [
+        {
+          _id: 'template-cafe',
+          _creationTime: 1,
+          name: 'Café stop',
+          sourceMealId: 'meal-source',
+          sourceItemIds: [],
+          ingredientIds: [],
+          cookedFoodIds: [],
+          savedFoodIds: [],
+          editRevision: 0,
+          createdAt: 1,
+          items: [
+            {
+              sourceType: 'fixedCalories',
+              name: 'Almond croissant',
+              calories: 420,
+              nutritionProvenance: {
+                kind: 'estimate',
+                source: 'Assistant estimate',
+                assumptions: 'About 95 g.',
+              },
+            },
+            {
+              sourceType: 'customByWeight',
+              name: 'Oat milk',
+              kcalPer100: 45,
+              ignoreCalories: false,
+              consumedWeightGrams: 200,
+            },
+          ],
+        },
+      ],
+    })
+    const mutations = configureMutationMocks()
+    renderMealsRoute()
+
+    searchFoods('café')
+    pickResult(/^Café stop/)
+    expect(mealItemText('Almond croissant')).toContain('420 kcal')
+    expect(mealItemText('Oat milk')).toContain('200 g · 90 kcal')
+    expect(screen.getByLabelText('Meal name')).toHaveProperty(
+      'value',
+      'Café stop',
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Edit Almond croissant/ }),
+    )
+    fireEvent.change(screen.getByLabelText('Quick add calories'), {
+      target: { value: '380' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /save meal \(2 foods\)/i }),
+      )
+    })
+
+    expect(mutations.createMeal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Café stop',
+        items: [
+          expect.objectContaining({
+            sourceType: 'fixedCalories',
+            name: 'Almond croissant',
+            calories: 380,
+            nutritionProvenance: expect.objectContaining({
+              source: 'Assistant estimate',
+            }),
+          }),
+          expect.objectContaining({
+            sourceType: 'customByWeight',
+            name: 'Oat milk',
+            consumedWeightGrams: 200,
+            saveToCatalog: false,
+          }),
+        ],
+      }),
+    )
   })
 })
 
@@ -940,6 +1072,12 @@ function resolvePaginatedQuery(reference: unknown, args: unknown) {
       (session) =>
         session.archived === (args as { archived: boolean }).archived,
     )
+  } else if (functionName === 'cooking:listCookedFoods') {
+    results = mockMealDashboardData.cookedFoods.filter(
+      (food) => food.archived === (args as { archived: boolean }).archived,
+    )
+  } else if (functionName === 'savedFoods:listTemplates') {
+    results = mockMealDashboardData.templates
   } else if (functionName === 'cooking:listCookedFoodsForSession') {
     const queryArgs = args as {
       archived: boolean
@@ -1041,8 +1179,30 @@ function createDashboardFixture(
     cookSessions: [],
     cookedFoods: [],
     meals: [],
+    templates: [],
     ...overrides,
   }
+}
+
+function openQuickCalories() {
+  fireEvent.click(screen.getByRole('button', { name: 'Quick calories' }))
+}
+
+function searchFoods(text: string) {
+  fireEvent.change(screen.getByLabelText('Search foods'), {
+    target: { value: text },
+  })
+}
+
+function pickResult(name: RegExp) {
+  fireEvent.click(screen.getByRole('button', { name }))
+}
+
+/** The full row text of a food already in the meal, e.g. "Banana105 kcal". */
+function mealItemText(name: string) {
+  return within(screen.getByRole('region', { name: 'Foods in this meal' }))
+    .getByText(name)
+    .closest('li')?.textContent
 }
 
 function configureMutationMocks() {

@@ -19,7 +19,7 @@ import {
 } from '@clerk/react/internal'
 import { useConvexAuth } from 'convex/react'
 
-import Header from '../components/Header'
+import Header, { BottomNavigation } from '../components/Header'
 import { InstallProvider } from '@/features/install/install-provider'
 import { HouseholdProvider } from '@/features/households/household-context'
 
@@ -193,22 +193,30 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <ClerkProvider>
               <ConvexProvider>
                 <InstallProvider>
-                  <div className="flex min-h-dvh flex-col">
+                  {/* Phones reserve room for the fixed bottom navigation. */}
+                  <div className="flex min-h-dvh flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
                     <Header />
                     <AuthGate>
                       <HouseholdProvider accountPage={accountPage}>
                         {children}
                       </HouseholdProvider>
                     </AuthGate>
+                    <BottomNavigation />
                   </div>
                 </InstallProvider>
                 <Suspense fallback={null}>
-                  <Toaster richColors />
+                  <Toaster
+                    richColors
+                    mobileOffset={{
+                      bottom: 'calc(5rem + env(safe-area-inset-bottom))',
+                    }}
+                  />
                 </Suspense>
                 {import.meta.env.DEV ? (
                   <TanStackDevtools
                     config={{
-                      position: 'bottom-right',
+                      // Clear of the phone bottom navigation and its Log meal button.
+                      position: 'middle-left',
                     }}
                     plugins={[
                       {

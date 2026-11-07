@@ -16,6 +16,7 @@ import {
   createPersonDoc,
 } from '@/tests/factories'
 import { writeMealDraft } from '@/features/meals/meal-draft'
+import { requestLogMeal } from '@/features/meals/log-meal-request'
 import type { MealDraft } from '@/features/meals/meal-draft'
 
 const mocks = vi.hoisted(() => ({
@@ -43,10 +44,17 @@ vi.mock('@/features/meals/meal-editor', () => ({
   MealEditor: ({
     mealId,
     resumeDraft,
+    initialPersonId,
   }: {
     mealId?: string
     resumeDraft?: boolean
-  }) => <p>Editor {mealId ?? (resumeDraft ? 'restored draft' : 'new meal')}</p>,
+    initialPersonId?: string
+  }) => (
+    <>
+      <p>Editor {mealId ?? (resumeDraft ? 'restored draft' : 'new meal')}</p>
+      <p>Editor person {initialPersonId || 'none'}</p>
+    </>
+  ),
 }))
 vi.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mocks.query(...args),
@@ -71,6 +79,7 @@ const item = createMealItemDoc('item-chili', meal._id, {
 })
 let loaded = [alex, sam]
 let peopleLoading = false
+let personLookupLoading = false
 let mealsLoading = false
 let consumedCalories = 1250
 const nameOf = (ref: FunctionReference<'query'>) => getFunctionName(ref)
@@ -85,6 +94,7 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/')
   loaded = [alex, sam]
   peopleLoading = false
+  personLookupLoading = false
   mealsLoading = false
   consumedCalories = 1250
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -120,11 +130,13 @@ beforeEach(() => {
     (ref: FunctionReference<'query'>, args: { personId?: string } | 'skip') => {
       if (args === 'skip') return undefined
       if (nameOf(ref) === 'people:get')
-        return args.personId === alex._id
-          ? alex
-          : args.personId === sam._id
-            ? sam
-            : null
+        return personLookupLoading
+          ? undefined
+          : args.personId === alex._id
+            ? alex
+            : args.personId === sam._id
+              ? sam
+              : null
       if (nameOf(ref) === 'meals:getDayNutrition')
         return {
           personId: args.personId,
@@ -259,7 +271,7 @@ describe('Today intake dashboard', () => {
     )
     show()
     expect(screen.getByText(/selected person is unavailable/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Add meal' })).toHaveProperty(
+    expect(screen.getByRole('button', { name: 'Log meal' })).toHaveProperty(
       'disabled',
       true,
     )
@@ -309,8 +321,9 @@ describe('Today intake dashboard', () => {
     act(() => {
       window.dispatchEvent(new Event('focus'))
     })
+    // Two days back once the new day starts.
     expect(
-      screen.getByRole('heading', { name: 'Day summary', level: 1 }),
+      screen.getByRole('heading', { name: 'Sun, Nov 1', level: 1 }),
     ).toBeTruthy()
     expect(
       mocks.page.mock.calls.some(
@@ -324,7 +337,7 @@ describe('Today intake dashboard', () => {
     expect(
       screen.getByRole('heading', { name: 'Archived meals', level: 1 }),
     ).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Add meal' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Log meal' })).toBeNull()
     expect(screen.queryByRole('region', { name: 'Alex’s intake' })).toBeNull()
     expect(
       screen.getByRole('combobox', { name: 'Person' }).textContent,
@@ -354,6 +367,14 @@ describe('Today intake dashboard', () => {
       screen.queryByRole('status', { name: 'Loading daily intake' }),
     ).toBeNull()
   })
+  it('opens a Log meal request from another tab for the saved person while people load', async () => {
+    window.localStorage.setItem('calorie-counter:person:account:home', sam._id)
+    peopleLoading = true
+    personLookupLoading = true
+    requestLogMeal()
+    show()
+    expect(await screen.findByText(`Editor person ${sam._id}`)).toBeTruthy()
+  })
   it('protects an existing draft and offers explicit continuation or discard', async () => {
     const draft: MealDraft = {
       selectedPersonId: alex._id,
@@ -378,7 +399,7 @@ describe('Today intake dashboard', () => {
     }
     writeMealDraft('account:home', JSON.stringify({ version: 1, draft }))
     show()
-    fireEvent.click(screen.getByRole('button', { name: 'Add meal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log meal' }))
     expect(
       screen.getByText(/Continue or discard your existing draft/),
     ).toBeTruthy()

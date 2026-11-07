@@ -43,3 +43,9 @@ running the browser suite. Review light/dark mode, desktop/mobile layouts, and
 the affected empty, loading, and error states. Share evidence through the
 reviewer's supported surface; a host-local path alone is insufficient on a
 remote device. No separate design-only implementation is needed.
+
+For design reviews, `VITE_E2E_SCENARIO=design pnpm run dev:e2e` replaces the
+minimal seed with fuller synthetic data from
+`src/testing/e2e/design-scenario.ts`: several assistant-logged meals a day with
+mixed sources and provenance, two weeks of history with over-goal days and a
+gap, and an archived duplicate. The browser suite always uses the minimal seed.

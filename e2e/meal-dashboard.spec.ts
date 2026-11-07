@@ -73,13 +73,14 @@ test('intake opens read-only and a manual meal updates live daily totals', async
   await expect(page.getByLabel('Meal name')).toHaveCount(0)
   await page.getByRole('button', { name: /Seeded breakfast/ }).click()
   await expect(page.getByText('Seeded oatmeal')).toBeVisible()
-  await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+  await page.getByRole('button', { name: 'Log meal', exact: true }).click()
   await page.getByLabel('Meal name').fill('Browser smoke snack')
+  await page.getByRole('button', { name: 'Quick calories' }).click()
   await page.getByLabel('Quick add name').fill('Banana')
   await page.getByLabel('Quick add calories').fill('105')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
   await page
-    .getByRole('button', { name: 'Create meal (1 item)', exact: true })
+    .getByRole('button', { name: 'Save meal (1 food)', exact: true })
     .click()
   await expect(page.getByText('Meal created.', { exact: true })).toBeVisible()
   await expect(
@@ -90,16 +91,42 @@ test('intake opens read-only and a manual meal updates live daily totals', async
   expect(errors).toEqual([])
 })
 
+test('on a phone, Log meal works from any tab and search adds a food by keyboard', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/history')
+  // The shell is prerendered; wait for the client-rendered page before acting.
+  await expect(
+    page.getByRole('heading', { name: 'History', level: 1 }),
+  ).toBeVisible()
+  const navigation = page.getByRole('navigation', {
+    name: 'Primary navigation',
+  })
+  await navigation.getByRole('button', { name: 'Log meal' }).click()
+  await expect(page).toHaveURL(/\/$/)
+  const search = page.getByLabel('Search foods')
+  await expect(search).toBeFocused()
+  await search.fill('bea')
+  await page.getByRole('button', { name: /^Beans/ }).click()
+  await page.getByLabel('Ingredient grams').fill('150')
+  await page.getByLabel('Ingredient grams').press('Enter')
+  await expect(search).toBeFocused()
+  await page.getByRole('button', { name: 'Save meal (1 food)' }).click()
+  await expect(page.getByText('Meal created.', { exact: true })).toBeVisible()
+  await expect(page.getByText('400 / 2100 kcal logged')).toBeVisible()
+})
+
 test('a meal correction preserves the record and updates intake', async ({
   page,
 }) => {
   await page.goto('/')
   await page.getByRole('button', { name: /Seeded breakfast/ }).click()
   await page.getByRole('button', { name: 'Edit meal', exact: true }).click()
-  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit Seeded oatmeal' }).click()
   await page.getByLabel('Quick add calories').fill('300')
   await page.getByRole('button', { name: 'Update', exact: true }).click()
-  await page.getByRole('button', { name: 'Save meal changes' }).click()
+  await page.getByRole('button', { name: 'Save meal (1 food)' }).click()
   await expect(page.getByText('300 / 2100 kcal logged')).toBeVisible()
   await expect(
     page.getByRole('button', { name: /Seeded breakfast/ }),
@@ -132,16 +159,17 @@ test('meal drafts recover on request after refresh and stay independent across t
   context,
 }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+  await page.getByRole('button', { name: 'Log meal', exact: true }).click()
   await page.getByLabel('Meal name').fill('First tab draft')
+  await page.getByRole('button', { name: 'Quick calories' }).click()
   await page.getByLabel('Quick add name').fill('Banana')
   await page.getByLabel('Quick add calories').fill('105')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
-  await page.getByText('Add or replace food', { exact: true }).click()
+  await page.getByRole('button', { name: 'Quick calories' }).click()
   await page.getByLabel('Quick add name').fill('Unfinished snack')
   const otherTab = await context.newPage()
   await otherTab.goto('/')
-  await otherTab.getByRole('button', { name: 'Add meal', exact: true }).click()
+  await otherTab.getByRole('button', { name: 'Log meal', exact: true }).click()
   await expect(otherTab.getByLabel('Meal name')).toHaveValue('')
   await otherTab.getByLabel('Meal name').fill('Second tab draft')
   await page.reload()
@@ -154,7 +182,7 @@ test('meal drafts recover on request after refresh and stay independent across t
   await otherTab.reload()
   await otherTab.getByRole('button', { name: 'Continue draft' }).click()
   await expect(otherTab.getByLabel('Meal name')).toHaveValue('Second tab draft')
-  await page.getByRole('button', { name: 'Create meal (1 item)' }).click()
+  await page.getByRole('button', { name: 'Save meal (1 food)' }).click()
   await page.reload()
   await expect(
     page.getByRole('button', { name: 'Continue draft' }),
@@ -269,7 +297,7 @@ test('opening a deferred editor shows a skeleton without replacing the intake pa
   )
   try {
     await page.goto('/')
-    await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+    await page.getByRole('button', { name: 'Log meal', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(
       dialog.getByRole('status', { name: 'Loading editor', exact: true }),
@@ -283,7 +311,7 @@ test('opening a deferred editor shows a skeleton without replacing the intake pa
       }),
     ).toBeVisible()
     releaseEditor()
-    await expect(dialog.getByLabel('Quick add name')).toBeVisible()
+    await expect(dialog.getByLabel('Search foods')).toBeVisible()
     await expect(
       dialog.getByRole('status', { name: 'Loading editor', exact: true }),
     ).toHaveCount(0)

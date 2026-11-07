@@ -12,7 +12,6 @@ import {
   isValid,
   parseISO,
 } from 'date-fns'
-import { History } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../convex/_generated/api'
@@ -24,7 +23,11 @@ import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select } from '@/components/ui/select'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import { toLocalDateString, toErrorMessage } from '@/lib/nutrition'
+import {
+  toErrorMessage,
+  toLocalDateString,
+  toTimestampFromDate,
+} from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/history')({
@@ -56,6 +59,9 @@ type Goal = FunctionReturnType<typeof api.history.goalsForRange>[number]
 const HISTORY_PAGE_SIZE = 50
 const PEOPLE_PAGE_SIZE = 50
 const MAX_HISTORY_DAYS = 366
+const RANGE_PRESETS = [7, 30]
+const SELECTED_RANGE_CLASS =
+  'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary dark:bg-primary/10'
 
 const columns: DataTableColumnDef<DayRow>[] = [
   {
@@ -119,7 +125,9 @@ function HistoryPageContent() {
   const [startDate, setStartDate] = useState(() =>
     toLocalDateString(addDays(new Date(), -6).getTime()),
   )
-  const [endDate, setEndDate] = useState(() => toLocalDateString(Date.now()))
+  const [today] = useState(() => toLocalDateString(Date.now()))
+  const [endDate, setEndDate] = useState(today)
+  const [customRangeOpen, setCustomRangeOpen] = useState(false)
 
   const inclusiveDayCount = getInclusiveDayCount(startDate, endDate)
   const isDateRangeOrdered = inclusiveDayCount > 0
@@ -264,9 +272,19 @@ function HistoryPageContent() {
     if (householdId) search.set('householdId', householdId)
     return `/?${search}`
   }
+  // A preset is selected while the range still ends today and spans its length.
+  const matchingPreset = RANGE_PRESETS.find(
+    (days) => endDate === today && inclusiveDayCount === days,
+  )
+  const showCustomRange = customRangeOpen || matchingPreset === undefined
   const setPresetDays = (days: number) => {
-    setEndDate(toLocalDateString(Date.now()))
-    setStartDate(toLocalDateString(addDays(new Date(), -(days - 1)).getTime()))
+    setCustomRangeOpen(false)
+    setEndDate(today)
+    setStartDate(
+      toLocalDateString(
+        addDays(new Date(toTimestampFromDate(today)), -(days - 1)).getTime(),
+      ),
+    )
   }
 
   const isInitialLoading =
@@ -276,16 +294,16 @@ function HistoryPageContent() {
       (historyStatus === 'LoadingFirstPage' || goals === undefined))
 
   return (
-    <PageShell title="History" icon={<History className="h-4 w-4" />}>
+    <PageShell title="History">
       <div className="mt-4 space-y-4">
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">
               Person
             </p>
             {peopleStatus === 'LoadingFirstPage' ? (
               <Skeleton
-                className="h-9 w-40"
+                className="h-10 w-40"
                 role="status"
                 aria-label="Loading people"
               />
@@ -293,6 +311,7 @@ function HistoryPageContent() {
               <p className="text-sm text-muted-foreground">No active people.</p>
             ) : (
               <Select
+                className="h-10 min-w-40 border-border bg-transparent hover:bg-input/50 data-[size=default]:h-10"
                 options={people.map((person) => ({
                   value: person._id,
                   label: person.name,
@@ -319,42 +338,67 @@ function HistoryPageContent() {
               </Button>
             ) : null}
           </div>
-          <details>
-            <summary className="cursor-pointer rounded-md border px-3 py-2 text-sm">
-              Custom range
-            </summary>
-            <div className="mt-3 flex flex-wrap gap-3">
-              <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
-                  From
-                </p>
-                <DatePicker
-                  value={startDate}
-                  onChange={setStartDate}
-                  ariaLabel="History start date"
-                />
-              </div>
-              <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
-                  To
-                </p>
-                <DatePicker
-                  value={endDate}
-                  onChange={setEndDate}
-                  ariaLabel="History end date"
-                />
-              </div>
+          <div>
+            <p
+              id="history-range-label"
+              className="mb-1 text-xs font-medium text-muted-foreground"
+            >
+              Range
+            </p>
+            <div
+              role="group"
+              aria-labelledby="history-range-label"
+              className="flex flex-wrap gap-2"
+            >
+              {RANGE_PRESETS.map((days) => {
+                const selected = !showCustomRange && matchingPreset === days
+                return (
+                  <Button
+                    key={days}
+                    variant="outline"
+                    aria-pressed={selected}
+                    className={cn('h-10', selected && SELECTED_RANGE_CLASS)}
+                    onClick={() => setPresetDays(days)}
+                  >
+                    {days} days
+                  </Button>
+                )
+              })}
+              <Button
+                variant="outline"
+                aria-pressed={showCustomRange}
+                className={cn('h-10', showCustomRange && SELECTED_RANGE_CLASS)}
+                onClick={() => setCustomRangeOpen(true)}
+              >
+                Custom range
+              </Button>
             </div>
-          </details>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setPresetDays(7)}>
-              7 days
-            </Button>
-            <Button variant="outline" onClick={() => setPresetDays(30)}>
-              30 days
-            </Button>
           </div>
         </div>
+        {showCustomRange ? (
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                From
+              </p>
+              <DatePicker
+                value={startDate}
+                onChange={setStartDate}
+                ariaLabel="History start date"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                To
+              </p>
+              <DatePicker
+                value={endDate}
+                onChange={setEndDate}
+                ariaLabel="History end date"
+              />
+            </div>
+          </div>
+        ) : null}
 
         {!isDateRangeValid ? (
           <div
@@ -491,7 +535,7 @@ function HistoryChart({
             Consumed
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-accent-foreground" />
+            <span className="h-2 w-2 rounded-full bg-accent-foreground/75" />
             Goal
           </span>
         </div>

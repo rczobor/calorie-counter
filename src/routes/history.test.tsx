@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { getFunctionName } from 'convex/server'
 import type { ComponentType } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -317,6 +323,7 @@ describe('History route', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Custom range' }))
     fireEvent.change(screen.getByLabelText('History start date'), {
       target: { value: '2026-04-05' },
     })
@@ -351,10 +358,31 @@ describe('History route', () => {
     expect(loadMoreHistory).toHaveBeenCalledWith(50)
   })
 
+  it('selects one range option and shows dates only for a custom range', () => {
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+    const pressed = () =>
+      within(screen.getByRole('group', { name: 'Range' }))
+        .getAllByRole('button', { pressed: true })
+        .map((button) => button.textContent)
+
+    expect(pressed()).toEqual(['7 days'])
+    expect(screen.queryByLabelText('History start date')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Custom range' }))
+    expect(pressed()).toEqual(['Custom range'])
+    expect(screen.getByLabelText('History start date')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '30 days' }))
+    expect(pressed()).toEqual(['30 days'])
+    expect(screen.queryByLabelText('History start date')).toBeNull()
+  })
+
   it('keeps overlong ranges idle before the backend range validator', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Custom range' }))
     fireEvent.change(screen.getByLabelText('History start date'), {
       target: { value: '2025-01-01' },
     })

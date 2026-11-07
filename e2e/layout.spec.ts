@@ -35,7 +35,7 @@ test('a day without meals keeps the meal action without placeholder copy', async
   await expect(
     page.getByRole('button', { name: /Seeded breakfast/ }),
   ).toHaveCount(0)
-  await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+  await page.getByRole('button', { name: 'Log meal', exact: true }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
 })
 
@@ -126,9 +126,17 @@ for (const width of [1440, 390]) {
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width)
       await page.goto('/')
-      await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+      // The shell is prerendered; wait for the client-rendered page before acting.
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      // Phones log from the bottom navigation; wider screens use the inline action.
+      await page
+        .getByRole('button', {
+          name: 'Log meal',
+          exact: true,
+        })
+        .click()
       await expect(page.getByRole('dialog')).toBeVisible()
-      await expect(page.getByLabel('Quick add name')).toBeVisible()
+      await expect(page.getByLabel('Search foods')).toBeVisible()
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width)
