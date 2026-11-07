@@ -4,6 +4,7 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
+import type { WithoutSystemFields } from 'convex/server'
 import { v, type Infer } from 'convex/values'
 import {
   groupScopeValidator,
@@ -1381,6 +1382,15 @@ export async function buildMealItemSnapshots(
       if (item.sourceType === 'historical') {
         assertPositive(item.multiplier, 'Historical portion multiplier')
         const original = await loadHistoricalItem(db, owner, item.itemId)
+        if (item.expectedMealEditRevision !== undefined) {
+          const sourceMeal = await db.get(original.mealId)
+          if (sourceMeal)
+            assertExpectedEditRevision(
+              sourceMeal,
+              item.expectedMealEditRevision,
+              'Meal',
+            )
+        }
         const {
           _id,
           _creationTime,
@@ -1712,57 +1722,69 @@ export async function buildMealItemSnapshots(
   })
 }
 
-async function insertMealItemSnapshots(
+function mealItemDocument(
+  owner: AuthenticatedOwner,
+  mealId: Id<'meals'>,
+  snapshot: MealItemSnapshot,
+): WithoutSystemFields<Doc<'mealItems'>> {
+  const common = {
+    ...ownerFields(owner),
+    mealId,
+    nameSnapshot: snapshot.nameSnapshot,
+    foodIdentity: snapshot.foodIdentity,
+    servingCount: snapshot.servingCount,
+    caloriesSnapshot: snapshot.caloriesSnapshot,
+    nutritionProvenance: snapshot.nutritionProvenance,
+    notes: snapshot.notes,
+  }
+  if (snapshot.sourceType === 'fixedCalories') {
+    return { ...common, sourceType: 'fixedCalories' }
+  }
+  const weighted = {
+    ...common,
+    consumedWeightGrams: snapshot.consumedWeightGrams,
+    kcalPer100Snapshot: snapshot.kcalPer100Snapshot,
+    kcalBasisUnitSnapshot: snapshot.kcalBasisUnitSnapshot,
+    ignoreCaloriesSnapshot: snapshot.ignoreCaloriesSnapshot,
+  }
+  if (snapshot.sourceType === 'ingredient') {
+    return {
+      ...weighted,
+      sourceType: 'ingredient',
+      ingredientId: snapshot.ingredientId,
+    }
+  }
+  if (snapshot.sourceType === 'customByWeight') {
+    return {
+      ...weighted,
+      sourceType: 'customByWeight',
+      ingredientId: snapshot.ingredientId,
+      kcalBasisUnitSnapshot: 'g',
+    }
+  }
+  return {
+    ...weighted,
+    sourceType: 'cookedFood',
+    cookedFoodId: snapshot.cookedFoodId,
+  }
+}
+
+// Retained items keep their IDs, so saved foods, templates, and pending
+// previews that reference them still resolve after an edit.
+async function writeMealItemSnapshots(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
   mealId: Id<'meals'>,
   snapshots: MealItemSnapshot[],
+  retainedIds: ReadonlyArray<Id<'mealItems'> | undefined> = [],
 ) {
   await Promise.all(
-    snapshots.map((snapshot) => {
-      const common = {
-        ...ownerFields(owner),
-        mealId,
-        nameSnapshot: snapshot.nameSnapshot,
-        foodIdentity: snapshot.foodIdentity,
-        servingCount: snapshot.servingCount,
-        caloriesSnapshot: snapshot.caloriesSnapshot,
-        nutritionProvenance: snapshot.nutritionProvenance,
-        notes: snapshot.notes,
-      }
-      if (snapshot.sourceType === 'fixedCalories') {
-        return db.insert('mealItems', {
-          ...common,
-          sourceType: 'fixedCalories',
-        })
-      }
-      const weighted = {
-        ...common,
-        consumedWeightGrams: snapshot.consumedWeightGrams,
-        kcalPer100Snapshot: snapshot.kcalPer100Snapshot,
-        kcalBasisUnitSnapshot: snapshot.kcalBasisUnitSnapshot,
-        ignoreCaloriesSnapshot: snapshot.ignoreCaloriesSnapshot,
-      }
-      if (snapshot.sourceType === 'ingredient') {
-        return db.insert('mealItems', {
-          ...weighted,
-          sourceType: 'ingredient',
-          ingredientId: snapshot.ingredientId,
-        })
-      }
-      if (snapshot.sourceType === 'customByWeight') {
-        return db.insert('mealItems', {
-          ...weighted,
-          sourceType: 'customByWeight',
-          ingredientId: snapshot.ingredientId,
-          kcalBasisUnitSnapshot: 'g',
-        })
-      }
-      return db.insert('mealItems', {
-        ...weighted,
-        sourceType: 'cookedFood',
-        cookedFoodId: snapshot.cookedFoodId,
-      })
+    snapshots.map((snapshot, index) => {
+      const document = mealItemDocument(owner, mealId, snapshot)
+      const retainedId = retainedIds[index]
+      return retainedId
+        ? db.replace(retainedId, document)
+        : db.insert('mealItems', document)
     }),
   )
 }
@@ -3394,7 +3416,7 @@ export async function createMealForOwner(
     editRevision: 0,
     createdAt: now,
   })
-  await insertMealItemSnapshots(ctx.db, owner, mealId, itemSnapshots)
+  await writeMealItemSnapshots(ctx.db, owner, mealId, itemSnapshots)
   await adjustDailySummary(
     ctx.db,
     owner,
@@ -3491,8 +3513,21 @@ export async function updateMealForOwner(
     mealPatch.notes = normalizeNullableText(args.notes)
   }
   await ctx.db.patch(args.mealId, mealPatch)
-  await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
-  await insertMealItemSnapshots(ctx.db, owner, args.mealId, snapshots)
+  const retainedIds = args.items.map((item) =>
+    'existingMealItemId' in item ? item.existingMealItemId : undefined,
+  )
+  await Promise.all(
+    existingItems
+      .filter((item) => !retainedIds.includes(item._id))
+      .map((item) => ctx.db.delete(item._id)),
+  )
+  await writeMealItemSnapshots(
+    ctx.db,
+    owner,
+    args.mealId,
+    snapshots,
+    retainedIds,
+  )
   const now = Date.now()
   if (!meal.archived) {
     const oldKey = { personId: meal.personId, eatenOn: meal.eatenOn }

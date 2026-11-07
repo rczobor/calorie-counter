@@ -166,6 +166,26 @@ export async function resolveMealItems(
         if (!saved) throw new ConvexError('Saved food not found.')
         return saved.input
       }
+      if (item.sourceType === 'historical') {
+        const source = assertOwnedOrThrow(
+          await ctx.db.get(item.itemId),
+          owner,
+          'Meal item not found.',
+        )
+        const sourceMeal = assertOwnedOrThrow(
+          await ctx.db.get(source.mealId),
+          owner,
+          'Meal not found.',
+        )
+        // Saving checks this revision, so an approved preview cannot pick up
+        // later edits to the source meal.
+        return {
+          ...item,
+          expectedMealEditRevision:
+            item.expectedMealEditRevision ??
+            getEditRevision(sourceMeal, 'Meal'),
+        }
+      }
       if (item.sourceType === 'ingredient') {
         const ingredient = assertOwnedOrThrow(
           await ctx.db.get(item.ingredientId),

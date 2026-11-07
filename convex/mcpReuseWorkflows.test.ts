@@ -597,6 +597,68 @@ describe('historical meal discovery and repeats', () => {
     ).rejects.toThrow()
   })
 
+  it.each(['selection', 'addition', 'preview_meal'] as const)(
+    'refuses a historical %s preview after its source meal was edited',
+    async (path) => {
+      const { t, account, user, personId, mealId } = await fixture()
+      const detail = (await account.query(api.meals.getDetail, { mealId }))!
+      const cookie = detail.items.find(
+        (item) => item.nameSnapshot === 'Cookie',
+      )!
+      const historical = {
+        sourceType: 'historical' as const,
+        itemId: cookie._id,
+        multiplier: 1,
+      }
+      const target = { personId, eatenOn: '2026-11-02' }
+      const preview =
+        path === 'preview_meal'
+          ? await t.mutation(internal.mcpOperations.previewMeal, {
+              user,
+              input: { ...target, items: [historical] },
+            })
+          : await t.mutation(internal.mcpFoodReuse.previewRepeatMeal, {
+              user,
+              input: {
+                mealId,
+                ...target,
+                ...(path === 'selection'
+                  ? { selections: [{ itemId: cookie._id, multiplier: 1 }] }
+                  : {
+                      selections: [],
+                      additions: [historical],
+                    }),
+              },
+            })
+      expect(
+        preview.items.find((item) => item.name === 'Cookie')?.calories,
+      ).toBe(200)
+      // The retained cookie keeps its ID while its calories change.
+      await account.mutation(api.nutrition.updateMeal, {
+        mealId,
+        expectedMealItemIds: detail.items.map((item) => item._id),
+        expectedEditRevision: detail.meal.editRevision,
+        personId,
+        eatenOn: detail.meal.eatenOn,
+        items: [
+          {
+            existingMealItemId: cookie._id,
+            sourceType: 'fixedCalories',
+            name: 'Cookie',
+            calories: 400,
+          },
+        ],
+      })
+      await expect(
+        t.mutation(internal.mcpOperations.logMeal, {
+          user,
+          input: preview.input,
+          operationKey: `stale-${path}`,
+        }),
+      ).rejects.toThrow('Meal changed since editing began')
+    },
+  )
+
   it('repeats exact snapshots despite catalog edits and saves only on the explicit write, once per key', async () => {
     const { t, account, user, personId, mealId, ingredientId, items } =
       await fixture()

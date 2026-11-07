@@ -179,8 +179,8 @@ ownership checks, numeric validation, and snapshot checks always apply.
 
 Use `get_day` to find a meal, `get_meal` to inspect it, then
 `preview_meal_correction` and `correct_meal` to review and save a correction.
-Read the meal again for every new correction: its edit revision and item IDs
-change after editing. Concurrent changes require a fresh preview and approval.
+Read the meal again for every new correction: its edit revision changes after
+editing. Corrected items keep their IDs. Concurrent changes require a fresh preview and approval.
 Retries reuse the exact input and operation key, even after a successful edit.
 
 MCP cannot add, remove, or replace foods within an existing meal, archive/delete
