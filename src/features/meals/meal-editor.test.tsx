@@ -607,7 +607,7 @@ describe('Meal editor', () => {
     })
   })
 
-  it('previews a corrected amount with the recorded nutrition that Update keeps', () => {
+  it('names the edited meal and previews a corrected amount with the recorded nutrition', () => {
     const ingredient = createIngredientDoc('ingredient-rice', 'Rice', {
       kcalPer100: 200,
     })
@@ -629,6 +629,9 @@ describe('Meal editor', () => {
     renderMealsRoute()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit saved meal' }))
+    // The meal being corrected is named up top and jumps to its name field.
+    fireEvent.click(screen.getByRole('button', { name: 'Rice bowl, rename' }))
+    expect(document.activeElement).toBe(screen.getByLabelText('Meal name'))
     fireEvent.click(screen.getByRole('button', { name: /^Edit Rice/ }))
     fireEvent.change(screen.getByLabelText('Ingredient grams'), {
       target: { value: '150' },

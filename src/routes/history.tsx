@@ -311,7 +311,7 @@ function HistoryPageContent() {
               <p className="text-sm text-muted-foreground">No active people.</p>
             ) : (
               <Select
-                className="h-10 min-w-40 data-[size=default]:h-10"
+                className="h-10 min-w-40 border-border bg-transparent hover:bg-input/50 data-[size=default]:h-10"
                 options={people.map((person) => ({
                   value: person._id,
                   label: person.name,
@@ -535,7 +535,7 @@ function HistoryChart({
             Consumed
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-accent-foreground" />
+            <span className="h-2 w-2 rounded-full bg-accent-foreground/75" />
             Goal
           </span>
         </div>

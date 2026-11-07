@@ -244,10 +244,13 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                         undefined,
                         { month: 'short', day: 'numeric', year: 'numeric' },
                       )}
-                      <ChevronDown aria-hidden="true" className="size-3.5" />
+                      <ChevronDown
+                        aria-hidden="true"
+                        className="size-3.5 text-muted-foreground"
+                      />
                     </>
                   }
-                  className="h-10 gap-1.5 rounded-full px-3 text-sm text-muted-foreground"
+                  className="h-10 gap-1.5 rounded-full px-3 text-sm"
                 />
                 <div className="flex shrink-0 items-center gap-1">
                   {date !== today ? (
@@ -824,21 +827,21 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
         disabled={isRunning}
         className="mt-3 flex flex-wrap items-center justify-end gap-2"
       >
-        {/* Overflow sits apart, so Archive and Edit meal read as one pair. */}
+        {/* One right-aligned group: overflow, then Archive, then Edit meal. */}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
                 size="icon"
                 variant="ghost"
-                className="mr-auto size-10 text-muted-foreground"
+                className="size-10 text-muted-foreground"
                 aria-label="More meal actions"
               />
             }
           >
             <Ellipsis />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="end">
             <DropdownMenuItem
               variant="destructive"
               onClick={() =>

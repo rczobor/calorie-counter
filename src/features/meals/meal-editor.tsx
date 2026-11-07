@@ -8,7 +8,7 @@ import {
 } from '@/features/households/convex-hooks'
 import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Search, Trash2, X, Zap } from 'lucide-react'
+import { Pencil, Plus, Search, Trash2, X, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../../convex/_generated/api'
@@ -1000,7 +1000,7 @@ function MealEditorContent({
   const closePanel = (
     <Button
       variant="ghost"
-      className="-mr-2 h-10 shrink-0 text-muted-foreground"
+      className="-mr-2 h-10 shrink-0"
       onClick={resetDraftItemInputs}
     >
       Cancel
@@ -1081,6 +1081,21 @@ function MealEditorContent({
           className="flex min-w-0 flex-1 flex-col gap-5"
           disabled={isRunning}
         >
+          {editingMealId && mealName.trim() ? (
+            // The meal being corrected, named up top; its field sits below the foods.
+            <button
+              type="button"
+              className="-mb-2 flex max-w-full min-w-0 items-start gap-1.5 self-start text-left text-sm font-medium text-foreground"
+              onClick={() => document.getElementById('mealName')?.focus()}
+            >
+              <span className="line-clamp-2">{mealName}</span>
+              <Pencil
+                aria-hidden="true"
+                className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+              />
+              <span className="sr-only">, rename</span>
+            </button>
+          ) : null}
           {people.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Add a person in Settings, under People &amp; goals, before logging
@@ -1089,6 +1104,7 @@ function MealEditorContent({
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <Select
+                className="border-border bg-transparent hover:bg-input/50"
                 options={people.map((person) => ({
                   value: person._id,
                   label: person.name,
@@ -1186,7 +1202,7 @@ function MealEditorContent({
                     </span>
                   </div>
                   <span
-                    className="w-20 shrink-0 text-right text-sm text-muted-foreground tabular-nums"
+                    className="w-20 shrink-0 text-right text-sm font-medium text-foreground tabular-nums"
                     aria-live="polite"
                   >
                     {activeFood && Number(itemWeight) > 0
@@ -1230,22 +1246,27 @@ function MealEditorContent({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="quickCalories">Calories</Label>
-                    <Input
-                      id="quickCalories"
-                      type="number"
-                      inputMode="numeric"
-                      aria-label="Quick add calories"
-                      placeholder="kcal"
-                      autoFocus={Boolean(itemQuickName)}
-                      className="h-11"
-                      value={itemQuickCalories}
-                      onChange={(event) =>
-                        setItemQuickCalories(event.target.value)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && canQuickAdd) addQuickItem()
-                      }}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="quickCalories"
+                        type="number"
+                        inputMode="numeric"
+                        aria-label="Quick add calories"
+                        autoFocus={Boolean(itemQuickName)}
+                        className="h-11 pr-12"
+                        value={itemQuickCalories}
+                        onChange={(event) =>
+                          setItemQuickCalories(event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && canQuickAdd)
+                            addQuickItem()
+                        }}
+                      />
+                      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
+                        kcal
+                      </span>
+                    </div>
                   </div>
                   <Button
                     className="col-span-full h-11 sm:col-span-1 sm:self-end"
@@ -1456,9 +1477,12 @@ function MealEditorContent({
 
             {mealItems.length > 0 ? (
               <section aria-label="Foods in this meal">
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  In this meal · {mealItems.length} food
-                  {mealItems.length === 1 ? '' : 's'}
+                <p className="mb-1.5 flex justify-between gap-3 text-xs font-medium text-muted-foreground">
+                  <span>
+                    In this meal · {mealItems.length} food
+                    {mealItems.length === 1 ? '' : 's'}
+                  </span>
+                  <span className="font-normal">Tap a food to edit</span>
                 </p>
                 <ul className="divide-y rounded-xl border">
                   {mealItems.map((item, index) => {
