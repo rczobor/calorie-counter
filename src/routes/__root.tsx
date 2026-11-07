@@ -1,5 +1,5 @@
 import { LoadingRows } from '@/components/page/loading-content'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import {
   HeadContent,
   Scripts,
@@ -35,6 +35,11 @@ import { convexUrl, isConvexConfigured } from '../integrations/convex/config'
 import { ThemeProvider } from '../components/theme-provider'
 import { Button } from '../components/ui/button'
 import { isE2eMockMode } from '../testing/e2e/config'
+import { markStartup } from '@/lib/startup-timing'
+import {
+  registerServiceWorker,
+  unregisterServiceWorkers,
+} from '@/service-worker/register'
 import {
   Card,
   CardDescription,
@@ -166,6 +171,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         state.location.pathname,
       ),
   })
+  useEffect(() => {
+    markStartup('app')
+    if (IS_MAINTENANCE_MODE) unregisterServiceWorkers()
+    else if (import.meta.env.PROD && !isE2eMockMode) registerServiceWorker()
+  }, [])
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -313,6 +323,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
 function ConvexAuthReady({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth()
+  useEffect(() => {
+    markStartup('clerk')
+  }, [])
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) markStartup('convex')
+  }, [isLoading, isAuthenticated])
 
   if (isLoading) {
     return <SessionLoading />

@@ -5,7 +5,9 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
+import { useState } from 'react'
 import { InstallEntry } from '@/features/install/install-entry'
+import { readStartupTimings } from '@/lib/startup-timing'
 
 export const Route = createFileRoute('/settings')({
   ssr: false,
@@ -32,6 +34,7 @@ function SettingsPage() {
         <SettingsLink to="/catalog" title="Food library" />
         <SettingsLink to="/cooking" title="Cooked batches" />
       </div>
+      <StartupTimings />
     </main>
   )
 }
@@ -62,5 +65,48 @@ function SettingsLink({
         aria-hidden="true"
       />
     </Link>
+  )
+}
+
+const startedAt = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+function seconds(milliseconds: number | undefined) {
+  return milliseconds === undefined
+    ? '–'
+    : `${(milliseconds / 1000).toFixed(1)} s`
+}
+
+// Cold-start diagnostics for slow launches on a specific device.
+function StartupTimings() {
+  const [timings] = useState(readStartupTimings)
+  if (timings.length === 0) return null
+  return (
+    <>
+      <h2 className="mt-8 text-sm font-semibold">Recent app starts</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Time from launch until each step finished on this device.
+      </p>
+      <ul className="mt-3 divide-y border-y border-border/60">
+        {timings.map((timing) => (
+          <li key={timing.at} className="space-y-1 py-4 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="font-medium">{startedAt.format(timing.at)}</span>
+              <span className="font-medium tabular-nums">
+                {seconds(timing.household)}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              Page {seconds(timing.page)} · App {seconds(timing.app)} · Sign-in{' '}
+              {seconds(timing.clerk)} · Data {seconds(timing.convex)} ·{' '}
+              {timing.standalone ? 'Home Screen app' : 'Browser'}
+              {timing.serviceWorker ? ' · Cached files' : ''}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
