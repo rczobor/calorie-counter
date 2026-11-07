@@ -110,11 +110,14 @@ async function cacheFirst(event) {
 async function staleWhileRevalidate(event) {
   const cache = await caches.open(CLERK_CACHE)
   const cached = await cache.match(event.request)
-  const network = fetch(event.request).then(async (response) => {
-    if (response.ok) await cache.put(event.request, response.clone())
-    return response
-  })
-  if (!cached) return network
-  event.waitUntil(network.catch(() => undefined))
-  return cached
+  const network = fetch(event.request)
+  // A failed cache write (e.g. storage quota) must never block Clerk loading.
+  event.waitUntil(
+    network
+      .then((response) =>
+        response.ok ? cache.put(event.request, response.clone()) : undefined,
+      )
+      .catch(() => undefined),
+  )
+  return cached ?? network
 }

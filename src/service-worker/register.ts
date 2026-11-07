@@ -10,7 +10,10 @@ export function registerServiceWorker() {
   else window.addEventListener('load', register, { once: true })
 }
 
-/** Maintenance builds must not let a cached app keep writing data. */
+/**
+ * Maintenance builds stop serving cached apps from the next launch on. A slow
+ * launch may still open the old app once, so pause Convex to block writes.
+ */
 export function unregisterServiceWorkers() {
   if (!('serviceWorker' in navigator)) return
   void navigator.serviceWorker

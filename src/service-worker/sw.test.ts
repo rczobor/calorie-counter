@@ -32,6 +32,7 @@ function basic(body: string, status = 200) {
 function setup({
   build = 'b1',
   network = new Map<string, () => Promise<Response>>(),
+  storageFull = false,
 } = {}) {
   const stores = new Map<string, Map<string, Response>>()
   const open = (name: string) => {
@@ -41,6 +42,7 @@ function setup({
       match: async (request: string | FakeRequest) =>
         entries.get(keyOf(request))?.clone(),
       put: async (request: string | FakeRequest, response: Response) => {
+        if (storageFull) throw new DOMException('Quota', 'QuotaExceededError')
         entries.set(keyOf(request), response)
       },
       addAll: async (urls: string[]) => {
@@ -203,5 +205,17 @@ describe('service worker', () => {
 
     expect(await (await dispatch('fetch', request))!.text()).toBe('clerk v1')
     expect(await (await dispatch('fetch', request))!.text()).toBe('clerk v2')
+  })
+
+  it('still loads Clerk when the cache cannot store it', async () => {
+    const network = new Map([[CLERK_JS, async () => basic('clerk v1')]])
+    const { dispatch } = setup({ network, storageFull: true })
+
+    const response = await dispatch('fetch', {
+      url: CLERK_JS,
+      destination: 'script',
+    })
+
+    expect(await response!.text()).toBe('clerk v1')
   })
 })
