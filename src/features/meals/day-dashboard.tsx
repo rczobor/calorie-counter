@@ -65,7 +65,7 @@ function readLinkedDate() {
 
 export function DayDashboard({ archived = false }: { archived?: boolean }) {
   const { userId } = useDraftPersistenceIdentity()
-  const [today] = useState(() => toLocalDateString(Date.now()))
+  const [today, setToday] = useState(() => toLocalDateString(Date.now()))
   const [date, setDate] = useState(readLinkedDate)
   const [selectedPersonId, setSelectedPersonId] = usePersonSelection(
     userId,
@@ -86,6 +86,25 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   )
   const [discardDraft, setDiscardDraft] = useState(false)
   const [draftConflict, setDraftConflict] = useState(false)
+  // An installed app can resume on a later day. Keep Today current, and move a
+  // dashboard still showing the old day to the new one.
+  useEffect(() => {
+    function refreshToday() {
+      const current = toLocalDateString(Date.now())
+      if (current === today) return
+      setToday(current)
+      if (date === today) {
+        setDate(current)
+        setOpenMealId(null)
+      }
+    }
+    document.addEventListener('visibilitychange', refreshToday)
+    window.addEventListener('focus', refreshToday)
+    return () => {
+      document.removeEventListener('visibilitychange', refreshToday)
+      window.removeEventListener('focus', refreshToday)
+    }
+  }, [date, today])
   const people = usePaginatedQuery(
     api.people.listForDay,
     { archived: false, eatenOn: date },

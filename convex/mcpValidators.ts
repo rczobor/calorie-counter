@@ -404,6 +404,7 @@ export const mealHistoryEntry = v.object({
   name: v.optional(v.string()),
   totalCalories: v.number(),
   items: v.array(mealCorrectionItem),
+  omittedItemCount: v.optional(v.number()),
 })
 export const mealHistoryResult = v.object({
   matches: v.array(mealHistoryEntry),

@@ -73,12 +73,14 @@ export const list = query({
 export const get = query({
   args: {
     householdId: v.optional(v.id('households')),
-    personId: v.id('people'),
+    // Deep links and saved selections may hold malformed IDs; treat them as missing.
+    personId: v.string(),
   },
   returns: v.union(v.null(), personDto),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
-    const person = await ctx.db.get(args.personId)
+    const personId = ctx.db.normalizeId('people', args.personId)
+    const person = personId ? await ctx.db.get(personId) : null
     if (person?.householdId !== owner.householdId) {
       return null
     }

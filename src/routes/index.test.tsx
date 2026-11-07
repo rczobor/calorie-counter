@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -279,6 +280,42 @@ describe('Today intake dashboard', () => {
       mocks.page.mock.calls.some(
         ([ref, args]) =>
           nameOf(ref) === 'meals:listForDay' && args.archived === true,
+      ),
+    ).toBe(false)
+  })
+  it('moves from yesterday to the new day when the app resumes after midnight', () => {
+    show()
+    expect(
+      screen.getByRole('heading', { name: 'Today', level: 1 }),
+    ).toBeTruthy()
+    vi.setSystemTime(new Date('2026-11-03T07:00:00'))
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(
+      screen.getByRole('heading', { name: 'Today', level: 1 }),
+    ).toBeTruthy()
+    expect(
+      mocks.page.mock.calls.some(
+        ([ref, args]) =>
+          nameOf(ref) === 'people:listForDay' && args.eatenOn === '2026-11-03',
+      ),
+    ).toBe(true)
+  })
+  it('keeps a past day selected when the app resumes after midnight', () => {
+    show()
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
+    vi.setSystemTime(new Date('2026-11-03T07:00:00'))
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(
+      screen.getByRole('heading', { name: 'Day summary', level: 1 }),
+    ).toBeTruthy()
+    expect(
+      mocks.page.mock.calls.some(
+        ([ref, args]) =>
+          nameOf(ref) === 'people:listForDay' && args.eatenOn === '2026-11-03',
       ),
     ).toBe(false)
   })

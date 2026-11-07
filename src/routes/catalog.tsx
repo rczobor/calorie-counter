@@ -569,7 +569,7 @@ function ManagePageContent() {
                 setEditingIngredientRevision(ingredient.editRevision)
                 setIngredientName(ingredient.name)
                 setIngredientBrand(ingredient.brand ?? '')
-                setIngredientKcal(formatKcalPer100(ingredient.kcalPer100))
+                setIngredientKcal(String(ingredient.kcalPer100))
                 setIngredientKcalBasisUnit(ingredient.kcalBasisUnit)
                 setIngredientIgnoreCalories(ingredient.ignoreCalories)
                 setIngredientGroupId(ingredient.groupId ?? '')

@@ -164,12 +164,14 @@ export const listSessions = query({
 export const getSession = query({
   args: {
     householdId: v.optional(v.id('households')),
-    sessionId: v.id('cookSessions'),
+    // Deep links may hold malformed IDs; treat them as missing.
+    sessionId: v.string(),
   },
   returns: v.union(v.null(), cookSessionDto),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
-    const session = await ctx.db.get(args.sessionId)
+    const sessionId = ctx.db.normalizeId('cookSessions', args.sessionId)
+    const session = sessionId ? await ctx.db.get(sessionId) : null
     if (session?.householdId !== owner.householdId) {
       return null
     }

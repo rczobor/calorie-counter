@@ -93,21 +93,22 @@ export const resolveDiscoveryHousehold = internalMutation({
     personId: v.optional(v.id('people')),
   },
   returns: v.id('households'),
-  handler: async (ctx, args) => {
-    const owner = await requireMcpOwner(
-      ctx,
-      args.user,
-      'nutrition:read',
-      args.householdId,
-    )
-    if (args.personId)
-      assertOwnedOrThrow(
-        await ctx.db.get(args.personId),
-        owner,
-        'Person not found.',
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
       )
-    return owner.householdId
-  },
+      if (args.personId)
+        assertOwnedOrThrow(
+          await ctx.db.get(args.personId),
+          owner,
+          'Person not found.',
+        )
+      return owner.householdId
+    }),
 })
 
 export function describeHistoricalItem(item: Doc<'mealItems'>) {
@@ -128,10 +129,15 @@ export function describeHistoricalItem(item: Doc<'mealItems'>) {
   }
 }
 
+const MAX_REUSE_ITEMS = 30
+
+// Reuse accepts at most 30 items. Browsing lists larger meals partially so one
+// big meal cannot block every history page that contains it.
 export async function historicalMealItems(
   ctx: Pick<MutationCtx, 'db'>,
   owner: AuthenticatedOwner,
   mealId: Id<'meals'>,
+  { partial = false } = {},
 ) {
   const meal = assertOwnedOrThrow(
     await ctx.db.get(mealId),
@@ -150,12 +156,14 @@ export async function historicalMealItems(
     .withIndex('by_householdId_and_mealId', (q) =>
       q.eq('householdId', owner.householdId).eq('mealId', mealId),
     )
-    .take(31)
-  assertArrayLimit(items, 30, 'Historical meal items')
+    .take(MAX_REUSE_ITEMS + 1)
+  if (!partial)
+    assertArrayLimit(items, MAX_REUSE_ITEMS, 'Historical meal items')
+  const listed = items.slice(0, MAX_REUSE_ITEMS)
   await Promise.all(
-    items.map((item) => loadHistoricalItem(ctx.db, owner, item._id)),
+    listed.map((item) => loadHistoricalItem(ctx.db, owner, item._id)),
   )
-  return { meal, items }
+  return { meal, items: listed, partial: items.length > MAX_REUSE_ITEMS }
 }
 
 export const previewRepeatMeal = internalMutation({
@@ -341,7 +349,12 @@ export const searchMealHistory = internalMutation({
         const page = await rows.paginate(pagination)
         for (const meal of page.page) {
           if (meal.archived || (eatenOn && meal.eatenOn !== eatenOn)) continue
-          const { items } = await historicalMealItems(ctx, owner, meal._id)
+          const { items, partial } = await historicalMealItems(
+            ctx,
+            owner,
+            meal._id,
+            { partial: true },
+          )
           matches.push({
             kind: 'meal',
             mealId: meal._id,
@@ -350,6 +363,9 @@ export const searchMealHistory = internalMutation({
             name: meal.name,
             totalCalories: meal.totalCalories,
             items: items.map(describeHistoricalItem),
+            ...(partial
+              ? { omittedItemCount: meal.itemCount - items.length }
+              : {}),
           })
         }
         next = page.isDone
@@ -440,43 +456,44 @@ export const searchMealTemplates = internalMutation({
     limit: v.optional(v.number()),
   },
   returns: templateSearchResult,
-  handler: async (ctx, args) => {
-    const owner = await requireMcpOwner(
-      ctx,
-      args.user,
-      'nutrition:read',
-      args.householdId,
-    )
-    const limit = args.limit ?? 10
-    if (!Number.isInteger(limit) || limit < 1 || limit > 20)
-      throw new ConvexError('Search limit must be between 1 and 20.')
-    const search = normalizeSearch(args.search)
-    const rows = search
-      ? ctx.db
-          .query('mealTemplates')
-          .withSearchIndex('search_name', (q) =>
-            q.search('name', search).eq('householdId', owner.householdId),
-          )
-      : ctx.db
-          .query('mealTemplates')
-          .withIndex('by_householdId_and_name', (q) =>
-            q.eq('householdId', owner.householdId),
-          )
-    const page = await rows.paginate({
-      numItems: limit,
-      cursor: args.cursor ?? null,
-      maximumRowsRead: 100,
-    })
-    return {
-      templates: page.page.map(
-        ({ householdId, ownerTokenIdentifier, ...template }) => {
-          void [householdId, ownerTokenIdentifier]
-          return template
-        },
-      ),
-      cursor: page.isDone ? null : page.continueCursor,
-    }
-  },
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
+      const limit = args.limit ?? 10
+      if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+        throw new ConvexError('Search limit must be between 1 and 20.')
+      const search = normalizeSearch(args.search)
+      const rows = search
+        ? ctx.db
+            .query('mealTemplates')
+            .withSearchIndex('search_name', (q) =>
+              q.search('name', search).eq('householdId', owner.householdId),
+            )
+        : ctx.db
+            .query('mealTemplates')
+            .withIndex('by_householdId_and_name', (q) =>
+              q.eq('householdId', owner.householdId),
+            )
+      const page = await rows.paginate({
+        numItems: limit,
+        cursor: args.cursor ?? null,
+        maximumRowsRead: 100,
+      })
+      return {
+        templates: page.page.map(
+          ({ householdId, ownerTokenIdentifier, ...template }) => {
+            void [householdId, ownerTokenIdentifier]
+            return template
+          },
+        ),
+        cursor: page.isDone ? null : page.continueCursor,
+      }
+    }),
 })
 
 export async function changeTemplate(

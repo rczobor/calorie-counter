@@ -439,6 +439,36 @@ describe('review regressions', () => {
 })
 
 describe('historical meal discovery and repeats', () => {
+  it('lists meals larger than the reuse limit partially instead of failing the page', async () => {
+    const { t, account, user, personId } = await fixture()
+    const bigMealId = await account.mutation(api.nutrition.createMeal, {
+      personId,
+      eatenOn: '2026-11-05',
+      name: 'Party platter',
+      items: Array.from({ length: 31 }, (_, index) => ({
+        sourceType: 'fixedCalories' as const,
+        name: `Bite ${index + 1}`,
+        calories: 10,
+      })),
+    })
+    const result = await t.mutation(internal.mcpFoodReuse.searchMealHistory, {
+      user,
+      search: '',
+      personId,
+    })
+    const big = result.matches.find((match) => match.mealId === bigMealId)
+    expect(big).toMatchObject({ totalCalories: 310, omittedItemCount: 1 })
+    expect(big?.items).toHaveLength(30)
+    await expect(
+      t.mutation(internal.mcpFoodReuse.previewRepeatMeal, {
+        user,
+        input: { mealId: bigMealId, personId, eatenOn: '2026-11-06' },
+      }),
+    ).rejects.toThrow(
+      'Historical meal items cannot contain more than 30 items.',
+    )
+  })
+
   it('finds individual food names within differently named meals and paginates meal-name hits', async () => {
     const { t, user, mealId, personId } = await fixture()
     const result = await t.mutation(internal.mcpFoodReuse.searchMealHistory, {

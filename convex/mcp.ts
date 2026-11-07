@@ -73,7 +73,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
   tools: {
     search_meal_history: tool({
       description:
-        'Search historical meal and individual food names with token/prefix matching, without knowing dates. Household scoped; optional personId and eatenOn YYYY-MM-DD narrow results. Item matches include their meal ID, date, historical grams or servingCount, calories, kcal/100 g, brand and provenance. Ranked by text relevance, then recency within each indexed page. Items and meal-name hits are separate paginated streams and may identify the same meal. Follow every non-null cursor, including empty filtered pages. Empty search browses recent meals. Preview selected IDs with preview_repeat_meal.',
+        'Search historical meal and individual food names with token/prefix matching, without knowing dates. Household scoped; optional personId and eatenOn YYYY-MM-DD narrow results. Item matches include their meal ID, date, historical grams or servingCount, calories, kcal/100 g, brand and provenance. Ranked by text relevance, then recency within each indexed page. Items and meal-name hits are separate paginated streams and may identify the same meal. Follow every non-null cursor, including empty filtered pages. Empty search browses recent meals. Meals over 30 items list the first 30 with omittedItemCount and cannot be repeated whole. Preview selected IDs with preview_repeat_meal.',
       args: {
         householdId: v.optional(v.id('households')),
         search: v.string(),
