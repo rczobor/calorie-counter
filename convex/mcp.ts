@@ -428,7 +428,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     get_meal: tool({
       description:
-        'Inspect an active meal selected from get_day before correcting it. Returns the current editRevision, item IDs, historical portions and nutrition, and estimate assumptions for up to 30 items. Clarify when several meals match. Private notes are omitted and remain unchanged by corrections. Item IDs change after an edit; read again before each new correction.',
+        'Inspect an active meal selected from get_day before correcting it. Returns the current editRevision, item IDs, historical portions and nutrition, and estimate assumptions for up to 30 items. Clarify when several meals match. Private notes are omitted and remain unchanged by corrections. The editRevision changes after an edit; read again before each new correction.',
       args: {
         householdId: v.optional(v.id('households')),
         mealId: v.id('meals'),

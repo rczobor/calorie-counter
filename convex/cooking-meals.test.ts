@@ -1551,6 +1551,62 @@ describe('nutrition cooking and meal mutations', () => {
     expect(await t.run(async (ctx) => ctx.db.get(ownItemId))).not.toBeNull()
   })
 
+  it('keeps retained meal item IDs when a meal is edited', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await insertPerson(t)
+    const mealId = await user.mutation(api.nutrition.createMeal, {
+      personId,
+      eatenOn: '2026-04-04',
+      items: [
+        { sourceType: 'fixedCalories', name: 'Toast', calories: 100 },
+        { sourceType: 'fixedCalories', name: 'Jam', calories: 50 },
+      ],
+    })
+    const before = await t.run((ctx) =>
+      ctx.db
+        .query('mealItems')
+        .withIndex('by_householdId_and_mealId', (q) =>
+          q
+            .eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER))
+            .eq('mealId', mealId),
+        )
+        .collect(),
+    )
+    const toast = before.find((item) => item.nameSnapshot === 'Toast')!
+    const jam = before.find((item) => item.nameSnapshot === 'Jam')!
+
+    await user.mutation(api.nutrition.updateMeal, {
+      mealId,
+      expectedMealItemIds: [toast._id, jam._id],
+      expectedEditRevision: await readEditRevision(t, mealId),
+      personId,
+      eatenOn: '2026-04-04',
+      items: [
+        {
+          existingMealItemId: toast._id,
+          sourceType: 'fixedCalories',
+          name: 'Toast',
+          calories: 120,
+        },
+        { sourceType: 'fixedCalories', name: 'Butter', calories: 70 },
+      ],
+    })
+
+    const after = await readMealItemIds(t, mealId)
+    expect(after).toContain(toast._id)
+    expect(after).not.toContain(jam._id)
+    expect(after).toHaveLength(2)
+    expect(await t.run((ctx) => ctx.db.get(toast._id))).toMatchObject({
+      nameSnapshot: 'Toast',
+      caloriesSnapshot: 120,
+    })
+    expect(await t.run((ctx) => ctx.db.get(mealId))).toMatchObject({
+      totalCalories: 190,
+      itemCount: 2,
+    })
+  })
+
   it('rejects a stale meal edit after another editor fully replaces its items', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)
