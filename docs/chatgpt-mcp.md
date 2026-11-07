@@ -1,8 +1,9 @@
-# ChatGPT integration
+# AI assistant integration
 
-Calorie Counter exposes an authenticated MCP server for ChatGPT. ChatGPT provides
-the model and conversation; the app does not call an LLM API or need an OpenAI
-API key. The same tools can be used by other compatible MCP clients.
+Calorie Counter exposes an authenticated MCP server for AI assistants such as
+ChatGPT and Claude. The assistant provides the model and conversation; the app
+does not call an LLM API or need an OpenAI or Anthropic API key. The same tools
+can be used by other compatible MCP clients.
 
 ## Configure an isolated test environment first
 
@@ -45,6 +46,18 @@ In ChatGPT Plugins, choose **Add custom MCP server**, paste the MCP URL, and use
 OAuth authentication. Install/enable the resulting integration in a conversation.
 Account/workspace policies may restrict custom connections.
 
+## Connect from Claude
+
+In Claude, open **Customize → Connectors**, choose **Add custom connector**, paste
+the MCP URL, keep the default sign-in settings, and add it. Select **Connect** to
+sign in, then turn the connector on from the chat **+** menu under
+**Connectors**. On Team and Enterprise plans an organization Owner adds the
+connector in **Organization settings → Connectors** first. The server supports
+both Claude's published client identity (Client ID Metadata Document) and
+dynamic client registration.
+
+## Consent and permissions
+
 Sign in to Calorie Counter when redirected. The consent screen shows the client
 name as unverified, its return address, and the requested permissions. Approve
 only a connection you started. Clerk sign-in stays on the current consent URL.
@@ -54,7 +67,7 @@ requires read access. A client requesting only `nutrition:read` can preview and
 read but cannot save. Scope selection depends on the client's OAuth settings;
 the consent page approves or denies the scope set the client requested.
 
-Disconnect an agent from **Integrations → Connected agents**. Revocation removes
+Disconnect an agent from **Settings → AI assistants**. Revocation removes
 its credentials without removing recorded meals or cooking. No personal API-key
 creation or device-code flow is exposed in this release.
 
@@ -122,7 +135,7 @@ to an existing environment is part of this implementation.
   output, then log portions using the returned cooked-food IDs.
 - Remember logging defaults with `set_logging_preferences`: household, person,
   IANA timezone, and confirmation policy. Pass `preferences: null` to clear them.
-  **Settings → ChatGPT** can inspect, change, or reset the same account defaults,
+  **Settings → AI assistants** can inspect, change, or reset the same account defaults,
   even when the browser's selected household is unavailable. Browser household
   and person selection remain independent.
 - Save a logged food for reuse with `save_food_from_meal`, using IDs from
@@ -165,14 +178,14 @@ the explicit local cooking date. Ingredient meals require grams. Cooking's
 alone do not establish a conversion from cans, bowls, or spoons.
 
 The default `confirmationMode: "always"` shows a preview and asks before saving.
-Only the user can turn on `explicitOnly`, in **Settings → ChatGPT**. ChatGPT can
-keep it when it is already on but cannot turn it on. With it, fully specified,
+Only the user can turn on `explicitOnly`, in **Settings → AI assistants**. The
+assistant can keep it when it is already on but cannot turn it on. With it, fully specified,
 non-estimated new meals that the user asks to log can be previewed and saved in
 the same turn. Estimates, cooking, corrections, and
 transfers between households always require review and approval. Missing or
 archived person defaults revert to the conservative confirmation behavior.
 Clarify material ambiguity (for example single versus double toast slices) and
-prefer measured weights over photo estimates. ChatGPT's own write
+prefer measured weights over photo estimates. The assistant's own write
 confirmation settings can be changed by the user; previews and model-provided
 booleans are not independent proof of human approval. Server-side scopes,
 ownership checks, numeric validation, and snapshot checks always apply.
@@ -231,13 +244,12 @@ back or save successful entries again with new keys.
 Writes are limited per owner to 30 per minute with a burst capacity of 10. Meal
 requests allow 30 items; write/preview inputs are capped at 64,000 characters.
 Search and day lists are paginated. The receipt stores bounded operation inputs
-and result IDs for retry handling; it does not store the ChatGPT conversation.
+and result IDs for retry handling; it does not store the assistant conversation.
 
 Food names, composition, portions, estimate assumptions, and daily totals returned
 by tools are shared with the connected assistant. Tools omit owner identifiers,
 Clerk credentials, unrelated private notes, and internal document metadata. No
-tool sends information to an arbitrary model-supplied URL. Inspect OpenAI's
-account/workspace data settings separately.
+tool sends information to an arbitrary model-supplied URL. Inspect your assistant provider's account/workspace data settings separately.
 
 ## Verification and rollout
 
@@ -298,6 +310,7 @@ rolling back: disable the MCP routes by unsetting the consent URL, revoke
 connections when appropriate, and leave historical snapshots intact.
 
 Official references: [ChatGPT MCP connections](https://developers.openai.com/api/docs/guides/custom-mcp-server),
+[Claude custom connectors](https://claude.com/docs/connectors/custom/remote-mcp),
 [Convex MCP component](https://www.convex.dev/components/mcp).
 
 ## Household access

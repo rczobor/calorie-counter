@@ -229,7 +229,8 @@ export function LoggingPreferences() {
               <p className="text-xs text-muted-foreground sm:col-span-2">
                 Only complete, non-estimated new meals can save directly.
                 Estimates, cooking, corrections, and transfers still need
-                approval. ChatGPT’s own confirmation settings are separate.
+                approval. Your assistant’s own confirmation settings are
+                separate.
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -284,7 +285,7 @@ export function LoggingPreferences() {
           <details className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
             <summary className="cursor-pointer">About these defaults</summary>
             <p className="mt-3">
-              Applies across your ChatGPT conversations and connections.
+              Applies across all your assistant conversations and connections.
               Browsing another person or household here does not change them.
             </p>
           </details>

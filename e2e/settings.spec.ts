@@ -82,7 +82,7 @@ for (const width of [390, 1440]) {
         ['/settings', 'Settings'],
         ['/people', 'People & goals'],
         ['/household', 'Household'],
-        ['/settings/integrations', 'ChatGPT'],
+        ['/settings/integrations', 'AI assistants'],
         ['/settings/archived-meals', 'Archived meals'],
       ]) {
         await page.goto(route)

@@ -1,6 +1,6 @@
 # Calorie Counter
 
-The optional [ChatGPT MCP integration](docs/chatgpt-mcp.md) supports natural-language
+The optional [AI assistant MCP integration](docs/chatgpt-mcp.md) (ChatGPT, Claude) supports natural-language
 meal logging and cooking through scoped, authenticated tools.
 
 A multi-person calorie tracking app built with TanStack Start, Convex, and
@@ -20,10 +20,10 @@ Clerk authentication.
 - `/`: Today: focused intake for the person remembered on this device, date-aware goals, recorded meal details, and optional meal entry/correction. Reveal household intake to check or select someone else.
 - `/history`: Person-scoped history with complete-range loading and links back to a day's meals.
 - `/settings/archived-meals`: Inspect and restore archived meals by person and day.
-- `/settings`: People, household, ChatGPT, and data-maintenance links.
+- `/settings`: People, household, AI assistants, and data-maintenance links.
 - `/people`: Browse-first people and goal settings, with goal history inside each person.
 - `/catalog`: Food library for MCP reusable foods, ingredients, recipes, and optional groups.
-- `/cooking`: Cooked-batch inspection, composition/weight correction, and old-draft recovery. Record new cooking through ChatGPT.
+- `/cooking`: Cooked-batch inspection, composition/weight correction, and old-draft recovery. Record new cooking through an AI assistant.
 - `/household`: Household naming, invitations, roles, and membership.
 - `/settings/integrations`: Connected assistants and account-level logging defaults.
 - `/connect`: OAuth connection consent.

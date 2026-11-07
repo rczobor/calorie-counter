@@ -347,9 +347,9 @@ export function MealTemplates() {
   return (
     <section aria-label="Meal templates" className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Ask ChatGPT to save a logged meal as a template. Templates keep recorded
-        nutrition until you explicitly replace a product. Past meals stay
-        unchanged.
+        Ask your AI assistant to save a logged meal as a template. Templates
+        keep recorded nutrition until you explicitly replace a product. Past
+        meals stay unchanged.
       </p>
       <Input
         aria-label="Search meal templates"

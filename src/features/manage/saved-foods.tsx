@@ -47,8 +47,8 @@ export function SavedFoods({ showArchived }: { showArchived: boolean }) {
         <LoadingRows label="Loading reusable foods" />
       ) : foods.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-          No reusable foods found. Ask ChatGPT to remember a logged food to save
-          it here.
+          No reusable foods found. Ask your AI assistant to remember a logged
+          food to save it here.
         </p>
       ) : (
         <div className="divide-y border-y border-border/60">
