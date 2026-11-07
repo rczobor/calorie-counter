@@ -154,7 +154,7 @@ export const setLoggingPreferences = internalMutation({
           'explicitOnly'
       )
         throw new ConvexError(
-          'Only the user can turn on explicitOnly, in Calorie Counter under Settings, ChatGPT. Use confirmationMode always.',
+          'Only the user can turn on explicitOnly, in Calorie Counter under Settings, AI assistants. Use confirmationMode always.',
         )
       const owner = await updateLoggingPreferencesForAccount(
         ctx,

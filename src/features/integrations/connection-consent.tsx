@@ -53,8 +53,8 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
             <p>You can return to your assistant.</p>
           ) : !requestId ? (
             <p>
-              Start the connection from ChatGPT using the MCP URL in
-              Integrations settings.
+              Start the connection from your assistant using the MCP URL in
+              Settings, AI assistants.
             </p>
           ) : request === undefined ? (
             <LoadingRows label="Loading connection request" rows={2} />
@@ -66,7 +66,7 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
           ) : request.kind !== 'redirect' ? (
             <p>
               This connection method is not enabled. Start a browser OAuth
-              connection from ChatGPT.
+              connection from your assistant.
             </p>
           ) : (
             <>
@@ -107,7 +107,7 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
                 and cooking in all households you belong to, including
                 households you join later, within the permissions above. It
                 chooses the household explicitly for each request. You can
-                disconnect it in Integrations settings.
+                disconnect it in Settings, AI assistants.
               </p>
               <div className="flex gap-2">
                 <Button disabled={pending} onClick={() => void decide(true)}>

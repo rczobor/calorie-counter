@@ -142,6 +142,25 @@ describe('MCP connection UI', () => {
     ).toBe(false)
   })
 
+  it('offers setup steps for ChatGPT and Claude with the same MCP URL', async () => {
+    query.mockImplementation((reference) =>
+      getFunctionName(reference) === 'mcp:getConfiguration'
+        ? { enabled: true, url: 'https://example.convex.site/mcp' }
+        : [],
+    )
+    render(<ConnectedAgents />)
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'AI assistants' }),
+    ).toBeTruthy()
+    expect(screen.getByLabelText('MCP server URL').textContent).toBe(
+      'https://example.convex.site/mcp',
+    )
+    expect(screen.getByText(/In ChatGPT Plugins/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'Claude' }))
+    expect(await screen.findByText(/choose Add custom connector/)).toBeTruthy()
+    expect(screen.queryByText(/In ChatGPT Plugins/)).toBeNull()
+  })
+
   it('discloses readable permissions and their exact scope names on demand', () => {
     query.mockImplementation((reference) =>
       getFunctionName(reference) === 'mcp:getConfiguration'

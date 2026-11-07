@@ -39,9 +39,9 @@ test('settings, integration defaults, and expired consent remain reachable', asy
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/settings')
-  await page.getByRole('link', { name: 'ChatGPT', exact: true }).click()
+  await page.getByRole('link', { name: 'AI assistants', exact: true }).click()
   await expect(
-    page.getByRole('heading', { name: 'ChatGPT', exact: true }),
+    page.getByRole('heading', { name: 'AI assistants', exact: true }),
   ).toBeVisible()
   await expect(
     page.getByRole('heading', { name: 'Logging defaults' }),
