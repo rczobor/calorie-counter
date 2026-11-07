@@ -190,135 +190,14 @@ arguments. For `--preview-run`, those values must be configured as Convex
 deployment env vars because the function runs on Convex, not in the Vercel build
 shell. `ownerUserId` alone is not sufficient.
 
-## Production Schema Reset and Restore
+## Maintenance Mode
 
-Breaking schema normalization uses a scheduled maintenance window and an
-export-transform-restore cutover. Do not edit or repack the original Convex
-snapshot, and rehearse the entire sequence on a disposable deployment first.
-The frontend maintenance page is only the user-facing notice; the
-backend-enforced fence is Convex's
+Build and deploy the frontend with `VITE_MAINTENANCE_MODE=true` to show a
+maintenance page before Clerk, Convex, or application queries initialize. It is
+only a user-facing notice. To stop backend writes, use Convex's
 [Pause deployment](https://docs.convex.dev/production/pause-deployment)
-control.
-
-1. Build and deploy the frontend with `VITE_MAINTENANCE_MODE=true`. The root
-   route renders the maintenance page before Clerk, Convex, or application
-   queries initialize.
-2. In the Convex Dashboard deployment settings, pause the production
-   deployment. Verify that a normal authenticated application mutation returns
-   the expected paused-deployment error before continuing. A paused deployment
-   rejects all new function calls, not only mutations. Scheduled jobs queue and
-   run after resume, while cron jobs are skipped. Keep production paused through
-   the final export, clear, code push, import, reconciliation, and any rollback.
-3. Only after the rejection check succeeds, take the final production export,
-   including file storage. Keep the original snapshot untouched for rollback.
-
-```bash
-pnpm exec convex export --prod --include-file-storage --path .convex-backups/<timestamp>/original.zip
-```
-
-4. Extract a working copy of the snapshot into a directory. The normal Convex
-   snapshot layout is `<table>/documents.jsonl`. Before transforming, verify
-   that the extracted working copy explicitly contains `documents.jsonl` for
-   all twelve legacy application tables, including tables with zero rows. The
-   transformer rejects a snapshot when any application table file is missing;
-   it does not interpret a missing file as an empty table.
-
-   If an application table file is missing, stop and confirm from the untouched
-   archive and the deployment checks rehearsed in step 5 that the table is
-   genuinely empty. Only after that confirmation, create an empty
-   `<table>/documents.jsonl` in the extracted working copy. Never add, remove,
-   or edit files in the original snapshot. Transform the verified working copy
-   into a separate, empty output directory; the output must not be the input or
-   a directory inside it:
-
-```bash
-pnpm run transform:convex-export -- --input .convex-backups/<timestamp>/source --output .convex-backups/<timestamp>/transformed
-```
-
-The transformer writes flat `<table>.jsonl` files plus `report.json`. Existing
-documents retain their `_id` and exact `_creationTime` (including fractional
-values). Rebuilt `dailySummaries` intentionally omit those system fields so the
-single-table JSONL import assigns them. The transformer validates that every
-legacy application table file is present, along with required parent
-relationships, ownership, recoverable historical nutrition, and current
-recipe-version consistency before producing importable output. It also rejects
-non-finite derived values before JSON serialization and text that cannot be
-round-tripped through the current mutation limits. The transformer does not
-silently truncate historical text; resolve any reported over-limit value in an
-explicit working-copy remediation. It similarly stops on ambiguous multi-group
-assignments, invalid owner token identifiers, inaccessible parent child-counts,
-and counted nutrition that current mutations cannot save; make those choices or
-corrections explicitly in the working copy. Because meal editing is gram-based, legacy
-non-gram custom-weight meal snapshots are reported and converted to
-fixed-calorie items with their exact stored name, notes, and calories. Review
-the report and reconcile source/output
-counts before continuing. A rerun must use another empty output directory. The
-transformer never invokes the Convex CLI or changes a deployment.
-
-5. Deploy the new schema/functions to an empty disposable deployment, import
-   the transformed files there, and verify record counts, preserved IDs,
-   references, meal totals, and daily summaries. As part of this rehearsal,
-   pause the disposable deployment and explicitly confirm the export, import,
-   and code-push behavior needed by this runbook while it is paused. Also
-   confirm that normal function calls fail and that resume restores them. Do
-   not assume production CLI behavior that was not exercised in this rehearsal.
-6. For the production cutover, clear the twelve legacy application tables,
-   then deploy the new schema/functions. Do not try to clear `dailySummaries`
-   before that deploy: it is generated by the transformer and does not exist in
-   the legacy schema. Create the empty import file explicitly and stop on the
-   first failed clear:
-
-```bash
-empty_file=.convex-backups/<timestamp>/empty.jsonl
-: > "$empty_file"
-for table in recipeVersionIngredients cookedFoodIngredients mealItems cookedFoods meals recipeVersions personGoalHistory ingredients recipes cookSessions foodGroups people; do
-  pnpm exec convex import --prod --replace --table "$table" "$empty_file" || exit 1
-done
-```
-
-7. Import the transformed files in dependency order. The transformer always
-   emits every file in this loop, including empty files. `--append` is
-   deliberate and assumes every legacy table was successfully cleared in step
-   6; it does not replace any remaining rows.
-
-```bash
-for table in people foodGroups ingredients recipes cookSessions personGoalHistory recipeVersions recipeVersionIngredients cookedFoods cookedFoodIngredients meals mealItems dailySummaries; do
-  pnpm exec convex import --prod --append --table "$table" ".convex-backups/<timestamp>/transformed/$table.jsonl" || exit 1
-done
-```
-
-If `report.json` lists passthrough tables, leave them untouched by default. Do
-not import their emitted files unless their target schema and clear/restore
-procedure have been reviewed separately.
-
-8. Keep the deployment paused while reconciling import results, report counts,
-   preserved IDs, references, meal totals, and daily summaries using the
-   paused-compatible procedures proven in step 5. Normal query and mutation
-   functions remain unavailable while paused. Only after reconciliation
-   succeeds, resume the deployment and immediately run authenticated smoke
-   queries and a safe authenticated mutation. Rebuild with
-   `VITE_MAINTENANCE_MODE=false` only after those live checks pass. If a live
-   check fails, pause production again before starting rollback.
-
-If any verification fails, keep the frontend maintenance page active and keep
-the Convex deployment paused (or pause it again before rollback). While the
-normalized schema is still deployed, clear its application tables (including
-`dailySummaries`), redeploy the prior Convex revision, and then restore the
-untouched snapshot. Reconcile the restored data while paused, then resume and
-rerun the authenticated live checks before restoring the prior frontend. The
-`empty_file` created in step 6 can be reused:
-
-```bash
-empty_file=.convex-backups/<timestamp>/empty.jsonl
-for table in recipeVersionIngredients cookedFoodIngredients mealItems dailySummaries cookedFoods meals recipeVersions personGoalHistory ingredients recipes cookSessions foodGroups people; do
-  pnpm exec convex import --prod --replace --table "$table" "$empty_file" || exit 1
-done
-# Redeploy the prior Convex revision before restoring its data.
-pnpm exec convex import --prod --replace-all .convex-backups/<timestamp>/original.zip
-```
-
-Every production export, clear, deploy, and import remains an explicit
-operator action; no repository script performs the destructive steps.
+control. Rehearse any destructive production operation on a disposable
+deployment first.
 
 ## Scripts
 
@@ -328,7 +207,6 @@ operator action; no repository script performs the destructive steps.
 - `pnpm run build`: Production build (client + SSR bundles)
 - `pnpm run preview`: Preview production build
 - `pnpm run seed:defaults`: Seed the selected Convex deployment with default data
-- `pnpm run transform:convex-export`: Convert an extracted legacy snapshot into validated per-table JSONL
 - `pnpm run format`: Format first-party files with Prettier
 - `pnpm run format:check`: Verify formatting without changing files
 - `pnpm run lint`: Run ESLint
