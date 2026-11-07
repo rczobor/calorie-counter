@@ -205,7 +205,6 @@ export const previewRepeatMeal = internalMutation({
             ...selections.map((selection) => ({
               sourceType: 'historical' as const,
               ...selection,
-              expectedMealEditRevision: getEditRevision(meal, 'Meal'),
             })),
             ...(args.input.additions ?? []),
           ],
