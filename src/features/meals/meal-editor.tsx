@@ -296,6 +296,8 @@ function MealEditorContent({
     { initialNumItems: PAGE_SIZE },
   )
   // A batch is dated by its cooking session, not by when it was entered.
+  // Sessions page with the foods; until a batch's session loads it shows no
+  // date rather than a wrong one.
   const cookSessionsQuery = usePaginatedQuery(
     api.cooking.listSessions,
     { archived: false },
@@ -304,6 +306,15 @@ function MealEditorContent({
   const cookedAtBySession = new Map(
     cookSessionsQuery.results.map((session) => [session._id, session.cookedAt]),
   )
+  const batchDate = (sessionId: Id<'cookSessions'>) => {
+    const cookedAt = cookedAtBySession.get(sessionId)
+    return cookedAt === undefined
+      ? undefined
+      : new Date(cookedAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+        })
+  }
 
   useEffect(() => {
     if (selectedPersonId) {
@@ -1058,7 +1069,13 @@ function MealEditorContent({
         ? resultRow(
             `c-${result.food._id}`,
             result.food.name,
-            `Cooked batch · ${new Date(cookedAtBySession.get(result.food.cookSessionId) ?? result.food.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
+            [
+              'Cooked batch',
+              batchDate(result.food.cookSessionId),
+              `${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
             () => pickResult(result),
           )
         : resultRow(
@@ -1482,7 +1499,8 @@ function MealEditorContent({
                 )}
                 {paging.ingredients.canLoadMore ||
                 cookedFoodsQuery.status === 'CanLoadMore' ||
-                templatesQuery.status === 'CanLoadMore' ? (
+                templatesQuery.status === 'CanLoadMore' ||
+                cookSessionsQuery.status === 'CanLoadMore' ? (
                   <p className="mt-2 text-xs text-muted-foreground">
                     Search covers the foods loaded so far.{' '}
                     <button
@@ -1495,6 +1513,8 @@ function MealEditorContent({
                           cookedFoodsQuery.loadMore(PAGE_SIZE)
                         if (templatesQuery.status === 'CanLoadMore')
                           templatesQuery.loadMore(PAGE_SIZE)
+                        if (cookSessionsQuery.status === 'CanLoadMore')
+                          cookSessionsQuery.loadMore(PAGE_SIZE)
                       }}
                     >
                       Load more

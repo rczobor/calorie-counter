@@ -894,9 +894,10 @@ describe('Meal editor', () => {
       }),
     )
     mockMealDashboardData = createDashboardFixture({
-      cookSessions: batches.map((batch, index) =>
+      // The first batch's session is not loaded yet.
+      cookSessions: batches.slice(1).map((batch, index) =>
         createCookSessionDoc(batch.cookSessionId, 'Prep', {
-          cookedAt: new Date(2026, 3, index + 1, 18).getTime(),
+          cookedAt: new Date(2026, 3, index + 2, 18).getTime(),
         }),
       ),
       cookedFoods: batches,
@@ -912,6 +913,10 @@ describe('Meal editor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all 9 matches' }))
     expect(results()).toHaveLength(9)
     expect(results()[8].textContent).toContain('Apr 9')
+    // No session yet: no date, never the entry date.
+    expect(results()[0].textContent).toBe(
+      'LasagnaCooked batch · 300 kcal / 100 g',
+    )
     // A new search starts short again.
     searchFoods('lasagn')
     searchFoods('lasagna')
@@ -931,6 +936,7 @@ describe('Meal editor', () => {
       'catalog:listIngredients': 'CanLoadMore',
       'cooking:listCookedFoods': 'CanLoadMore',
       'savedFoods:listTemplates': 'CanLoadMore',
+      'cooking:listSessions': 'CanLoadMore',
       'meals:listForDay': 'CanLoadMore',
     }
     configureMutationMocks()
@@ -948,6 +954,7 @@ describe('Meal editor', () => {
       ['catalog:listIngredients', 20],
       ['cooking:listCookedFoods', 50],
       ['savedFoods:listTemplates', 50],
+      ['cooking:listSessions', 50],
     ])
   })
 
