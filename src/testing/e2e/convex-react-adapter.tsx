@@ -14,6 +14,7 @@ import {
   createCookedFoodDoc,
   createCookedFoodIngredientDoc,
 } from '@/tests/factories'
+import { createDesignData } from './design-scenario'
 
 type DashboardData = {
   people: Array<Doc<'people'>>
@@ -65,7 +66,7 @@ type MockMealDetail = {
   items: Array<Doc<'mealItems'>>
 }
 
-type MockState = {
+export type MockState = {
   templates: FunctionReturnType<typeof api.savedFoods.listTemplates>['page']
   dashboard: DashboardData
   mealDetails: Record<string, MockMealDetail>
@@ -229,7 +230,13 @@ function createInitialState(): MockState {
   }
 }
 
-let state = createInitialState()
+let state: MockState =
+  import.meta.env.VITE_E2E_SCENARIO === 'design'
+    ? {
+        ...createInitialState(),
+        ...createDesignData(Date.now(), ownerTokenIdentifier),
+      }
+    : createInitialState()
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
