@@ -119,7 +119,7 @@ describe('nutrition cooking and meal mutations', () => {
       name: 'Oat base',
       totalRawWeightGrams: 150,
       totalCalories: 300,
-      kcalPer100: 167,
+      kcalPer100: expect.closeTo((300 / 180) * 100, 9),
       notes: 'Batch',
     })
     expect(session?.updatedAt).toBe(cookedFood?.createdAt)
@@ -1194,6 +1194,55 @@ describe('nutrition cooking and meal mutations', () => {
     ).rejects.toThrow(
       'Cooked food changed since it was added. Refresh it and try again.',
     )
+  })
+
+  it('keeps exact calorie density for low-calorie batches and custom lines', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const sessionId = await insertCookSession(t, {})
+    const personId = await insertPerson(t, { name: 'Alex' })
+    const { cookedFoodId } = await user.mutation(
+      api.nutrition.createCookedFood,
+      {
+        cookSessionId: sessionId,
+        name: 'Clear broth',
+        finishedWeightGrams: 1000,
+        ingredients: [
+          {
+            sourceType: 'custom',
+            name: 'Broth base',
+            kcalPer100: 0.45,
+            ignoreCalories: false,
+            referenceAmount: 1000,
+            referenceUnit: 'g',
+            countedAmount: 1000,
+            saveToCatalog: false,
+          },
+        ],
+      },
+    )
+    const cookedFood = await t.run((ctx) => ctx.db.get(cookedFoodId))
+    expect(cookedFood?.kcalPer100).toBeCloseTo(0.45, 9)
+
+    const mealId = await user.mutation(api.nutrition.createMeal, {
+      personId,
+      eatenOn: '2026-04-04',
+      items: [
+        {
+          sourceType: 'cookedFood',
+          cookedFoodId,
+          expectedSnapshot: {
+            name: 'Clear broth',
+            kcalPer100: cookedFood!.kcalPer100,
+            kcalBasisUnit: 'g',
+            ignoreCalories: false,
+          },
+          consumedWeightGrams: 500,
+        },
+      ],
+    })
+    const meal = await t.run((ctx) => ctx.db.get(mealId))
+    expect(meal?.totalCalories).toBeCloseTo(2.25, 9)
   })
 
   it('keeps historical meal item snapshots after ingredient updates', async () => {

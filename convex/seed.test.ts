@@ -346,7 +346,7 @@ describe('default seed data', () => {
     expect(data.cookSessions[0]?.searchText).toBe('2026-04-04 Sunday prep')
     expect(data.cookedFoods[0]).toMatchObject({
       name: 'Chicken rice bowl portions',
-      kcalPer100: 120,
+      kcalPer100: expect.closeTo((1082.6 / 900) * 100, 9),
     })
     expect(data.meals[0]).toMatchObject({
       name: 'Preview breakfast',

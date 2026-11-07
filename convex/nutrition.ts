@@ -454,7 +454,6 @@ type MealItemSnapshot =
 
 function getIngredientKcalPer100(ingredient: { kcalPer100: number }) {
   return normalizeKcalPer100(ingredient.kcalPer100, {
-    preservePrecision: true,
     allowZero: true,
     fieldName: 'Ingredient kcal/100',
   })
@@ -584,7 +583,6 @@ async function saveCustomIngredientToCatalog(
   const normalizedKcalPer100 = normalizeKcalPer100(
     customIngredient.kcalPer100,
     {
-      preservePrecision: true,
       allowZero: customIngredient.ignoreCalories,
       fieldName: 'Custom ingredient kcal/100',
     },
@@ -1520,7 +1518,6 @@ export async function buildMealItemSnapshots(
           'Custom ingredient name',
         )
         const normalizedKcalPer100 = normalizeKcalPer100(item.kcalPer100, {
-          preservePrecision: true,
           allowZero: item.ignoreCalories,
           fieldName: 'Custom ingredient kcal/100',
         })
@@ -2270,7 +2267,6 @@ export const createIngredient = mutation({
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Ingredient name')
     const normalizedKcalPer100 = normalizeKcalPer100(args.kcalPer100, {
-      preservePrecision: true,
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
@@ -2335,7 +2331,6 @@ export const updateIngredient = mutation({
     )
     assertNonEmpty(args.name, 'Ingredient name')
     const normalizedKcalPer100 = normalizeKcalPer100(args.kcalPer100, {
-      preservePrecision: true,
       allowZero: args.ignoreCalories,
       fieldName: 'kcal/100',
     })
