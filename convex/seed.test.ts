@@ -8,6 +8,7 @@ import {
   createConvexTest,
   testHouseholdId,
 } from '../src/tests/convex-test-utils'
+import { ensurePersonalHousehold } from './households'
 
 type SeedDefaultsArgs = {
   ownerUserId?: string
@@ -65,67 +66,67 @@ async function readSeedData(
     return {
       people: await ctx.db
         .query('people')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       personGoalHistory: await ctx.db
         .query('personGoalHistory')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       foodGroups: await ctx.db
         .query('foodGroups')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       recipes: await ctx.db
         .query('recipes')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       recipeVersions: await ctx.db
         .query('recipeVersions')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_recipeId', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       recipeVersionIngredients: await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       cookSessions: await ctx.db
         .query('cookSessions')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_cookedAt', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       cookedFoods: await ctx.db
         .query('cookedFoods')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       cookedFoodIngredients: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
       meals: await ctx.db
         .query('meals')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_eatenOn', (q) =>
           q.eq('householdId', testHouseholdId(t, ownerTokenIdentifier)),
         )
         .collect(),
@@ -395,8 +396,10 @@ describe('default seed data', () => {
     const existingCalories = 123
 
     await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(ctx, token)
       const personId = await ctx.db.insert('people', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Alex',
         notes: 'Seeded default data.',
         currentDailyGoalKcal: 2200,
@@ -405,6 +408,7 @@ describe('default seed data', () => {
       })
       await ctx.db.insert('meals', {
         ownerTokenIdentifier: token,
+        householdId,
         personId,
         name: 'Existing meal',
         eatenOn: '2026-04-04',
@@ -415,6 +419,7 @@ describe('default seed data', () => {
       })
       await ctx.db.insert('dailySummaries', {
         ownerTokenIdentifier: token,
+        householdId,
         personId,
         eatenOn: '2026-04-04',
         consumedCalories: existingCalories,
@@ -442,8 +447,10 @@ describe('default seed data', () => {
     const t = createConvexTest()
     const token = 'https://issuer.example|archived-defaults'
     const archivedIds = await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(ctx, token)
       const pantryGroupId = await ctx.db.insert('foodGroups', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Pantry',
         appliesTo: 'ingredient',
         archived: true,
@@ -451,6 +458,7 @@ describe('default seed data', () => {
       })
       const alexId = await ctx.db.insert('people', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Alex',
         notes: 'Seeded default data.',
         currentDailyGoalKcal: 2200,
@@ -459,6 +467,7 @@ describe('default seed data', () => {
       })
       const oatsId = await ctx.db.insert('ingredients', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Rolled oats',
         brand: 'Default pantry',
         kcalPer100: 389,
@@ -471,6 +480,7 @@ describe('default seed data', () => {
       })
       const recipeId = await ctx.db.insert('recipes', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Chicken rice bowl',
         description: 'Seeded meal prep recipe.',
         archived: true,
@@ -479,6 +489,7 @@ describe('default seed data', () => {
       })
       const sessionId = await ctx.db.insert('cookSessions', {
         ownerTokenIdentifier: token,
+        householdId,
         label: 'Sunday prep',
         searchText: '2026-04-04 Sunday prep',
         cookedAt: Date.now(),
@@ -533,8 +544,10 @@ describe('default seed data', () => {
     const t = createConvexTest()
     const token = 'https://issuer.example|seed-collisions'
     const collisions = await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(ctx, token)
       const alexId = await ctx.db.insert('people', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Alex',
         currentDailyGoalKcal: 900,
         archived: false,
@@ -542,6 +555,7 @@ describe('default seed data', () => {
       })
       const chickenId = await ctx.db.insert('ingredients', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Chicken breast',
         kcalPer100: 999,
         kcalBasisUnit: 'piece',
@@ -551,6 +565,7 @@ describe('default seed data', () => {
       })
       const recipeId = await ctx.db.insert('recipes', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Chicken rice bowl',
         description: 'User recipe',
         archived: false,
@@ -559,6 +574,7 @@ describe('default seed data', () => {
       })
       const corruptSeedRecipeId = await ctx.db.insert('recipes', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Chicken rice bowl',
         description: 'Seeded meal prep recipe.',
         archived: false,
@@ -621,8 +637,10 @@ describe('default seed data', () => {
     const t = createConvexTest()
     const token = 'https://issuer.example|seed-overflow'
     await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(ctx, token)
       const personId = await ctx.db.insert('people', {
         ownerTokenIdentifier: token,
+        householdId,
         name: 'Alex',
         notes: 'Seeded default data.',
         currentDailyGoalKcal: 2200,
@@ -631,6 +649,7 @@ describe('default seed data', () => {
       })
       await ctx.db.insert('dailySummaries', {
         ownerTokenIdentifier: token,
+        householdId,
         personId,
         eatenOn: '2026-04-04',
         consumedCalories: 0,

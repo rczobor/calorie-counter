@@ -5,6 +5,7 @@ import { convexTest } from 'convex-test'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 
 import schema from '../../convex/schema'
+import { ensurePersonalHousehold } from '../../convex/households'
 
 const modules = import.meta.glob('../../convex/**/*.ts')
 
@@ -93,13 +94,28 @@ export async function readEditRevision<Table extends EditRevisionTable>(
   })
 }
 
+// Inserted rows belong to the account's personal household, created on demand.
+async function testOwner(
+  ctx: Parameters<typeof ensurePersonalHousehold>[0],
+  overrides: { ownerTokenIdentifier?: string; householdId?: Id<'households'> },
+) {
+  const ownerTokenIdentifier =
+    overrides.ownerTokenIdentifier ?? TEST_TOKEN_IDENTIFIER
+  return {
+    ownerTokenIdentifier,
+    householdId:
+      overrides.householdId ??
+      (await ensurePersonalHousehold(ctx, ownerTokenIdentifier)),
+  }
+}
+
 export async function insertPerson(
   t: ReturnType<typeof createConvexTest>,
   overrides: Partial<Doc<'people'>> = {},
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('people', {
-      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+      ...(await testOwner(ctx, overrides)),
       name: 'Alex',
       notes: undefined,
       currentDailyGoalKcal: 2000,
@@ -117,7 +133,7 @@ export async function insertFoodGroup(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('foodGroups', {
-      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+      ...(await testOwner(ctx, overrides)),
       name: 'Prep',
       appliesTo: 'ingredient',
       editRevision: 0,
@@ -134,7 +150,7 @@ export async function insertIngredient(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('ingredients', {
-      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+      ...(await testOwner(ctx, overrides)),
       name: 'Ingredient',
       brand: undefined,
       kcalPer100: 100,
@@ -161,7 +177,7 @@ export async function insertCookSession(
       overrides.searchText ??
       `${new Date(cookedAt).toISOString().slice(0, 10)} ${label}`.trim()
     return await ctx.db.insert('cookSessions', {
-      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+      ...(await testOwner(ctx, overrides)),
       label,
       searchText,
       cookedAt,
@@ -182,7 +198,7 @@ export async function insertMeal(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('meals', {
-      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+      ...(await testOwner(ctx, overrides)),
       personId,
       name: undefined,
       eatenOn: '2026-04-04',
@@ -209,7 +225,7 @@ export async function insertMealItem(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert('mealItems', {
-      ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+      ...(await testOwner(ctx, overrides)),
       mealId,
       sourceType: 'customByWeight',
       ingredientId: undefined,

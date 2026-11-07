@@ -128,11 +128,6 @@ export default defineSchema({
     'key',
   ]),
   people: defineTable(peopleFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_archived_and_name', [
       'householdId',
       'archived',
@@ -143,11 +138,6 @@ export default defineSchema({
       filterFields: ['householdId', 'archived'],
     }),
   personGoalHistory: defineTable(personGoalHistoryFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_personId_and_createdAt', [
       'householdId',
       'personId',
@@ -159,11 +149,6 @@ export default defineSchema({
       'effectiveDate',
     ]),
   foodGroups: defineTable(foodGroupsFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_archived_and_name', [
       'householdId',
       'archived',
@@ -180,11 +165,6 @@ export default defineSchema({
       filterFields: ['householdId', 'archived', 'appliesTo'],
     }),
   ingredients: defineTable(ingredientsFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_archived_and_name', [
       'householdId',
       'archived',
@@ -202,11 +182,6 @@ export default defineSchema({
       filterFields: ['householdId', 'archived', 'kcalBasisUnit'],
     }),
   recipes: defineTable(recipesFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_archived_and_name', [
       'householdId',
       'archived',
@@ -218,11 +193,6 @@ export default defineSchema({
       filterFields: ['householdId', 'archived'],
     }),
   recipeVersions: defineTable(recipeVersionsFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_recipeId', ['householdId', 'recipeId'])
     .index('by_householdId_and_recipeId_and_versionNumber', [
       'householdId',
@@ -230,22 +200,12 @@ export default defineSchema({
       'versionNumber',
     ]),
   recipeVersionIngredients: defineTable(recipeVersionIngredientRecordValidator)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_recipeVersionId', [
       'householdId',
       'recipeVersionId',
     ])
     .index('by_householdId_and_ingredientId', ['householdId', 'ingredientId']),
   cookSessions: defineTable(cookSessionsFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_archived_and_label', [
       'householdId',
       'archived',
@@ -265,11 +225,6 @@ export default defineSchema({
       filterFields: ['householdId', 'archived'],
     }),
   cookedFoods: defineTable(cookedFoodsFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_archived_and_name', [
       'householdId',
       'archived',
@@ -289,11 +244,6 @@ export default defineSchema({
       filterFields: ['householdId', 'cookSessionId', 'archived'],
     }),
   cookedFoodIngredients: defineTable(cookedFoodIngredientRecordValidator)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_cookedFoodId', ['householdId', 'cookedFoodId'])
     .index('by_householdId_and_ingredientId', ['householdId', 'ingredientId']),
   meals: defineTable(mealsFields)
@@ -301,11 +251,6 @@ export default defineSchema({
       searchField: 'name',
       filterFields: ['householdId', 'personId', 'archived'],
     })
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
-    .index('by_householdId', ['householdId'])
     .index('by_householdId_and_personId_and_eatenOn_and_name', [
       'householdId',
       'personId',
@@ -329,18 +274,10 @@ export default defineSchema({
       searchField: 'nameSnapshot',
       filterFields: ['householdId'],
     })
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
     .index('by_householdId_and_mealId', ['householdId', 'mealId'])
     .index('by_householdId_and_cookedFoodId', ['householdId', 'cookedFoodId'])
     .index('by_householdId_and_ingredientId', ['householdId', 'ingredientId']),
   dailySummaries: defineTable(dailySummariesFields)
-    .index('by_ownerTokenIdentifier_and_householdId', [
-      'ownerTokenIdentifier',
-      'householdId',
-    ])
     .index('by_householdId_and_personId_and_eatenOn', [
       'householdId',
       'personId',

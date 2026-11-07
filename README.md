@@ -83,16 +83,10 @@ baseline must be exported and applied to a freshly opened record. Switching
 households remounts feature state. A saved
 person that is archived or unavailable must be replaced explicitly.
 
-On first use, the app creates an account's original personal household and
-assigns its legacy records to that household in a single transaction. IDs,
-references, snapshots, totals, and timestamps are preserved. The compatibility
-schema allows missing `householdId` only for existing records; every new domain
-write sets it, and all authorization, indexes, and searches use it. The legacy
-`ownerTokenIdentifier` field retains account attribution and supports the
-bounded migration, not access rights. Migration stops atomically if any legacy
-table has more than 200 records for that account; larger datasets need a
-separately rehearsed migration. This deployment requires no production reset or
-manual data migration for the current small datasets.
+On first use, the app creates an account's personal household. Every domain
+record has a required `householdId`, and all authorization, indexes, and
+searches use it. `ownerTokenIdentifier` records which account wrote a row; it
+does not grant access.
 
 ## Local Setup
 

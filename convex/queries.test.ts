@@ -14,6 +14,7 @@ import {
   readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
+import { ensurePersonalHousehold } from './households'
 
 const seedDefaults = makeFunctionReference<
   'mutation',
@@ -152,9 +153,14 @@ describe('nutrition scoped queries', () => {
     const t = createConvexTest()
     const user = asTestUser(t)
     const legacy = await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(
+        ctx,
+        TEST_TOKEN_IDENTIFIER,
+      )
       const createdAt = Date.now()
       const personId = await ctx.db.insert('people', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         name: 'Legacy person',
         currentDailyGoalKcal: 2_000,
         archived: false,
@@ -162,6 +168,7 @@ describe('nutrition scoped queries', () => {
       })
       const groupId = await ctx.db.insert('foodGroups', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         name: 'Legacy group',
         appliesTo: 'ingredient',
         archived: false,
@@ -169,6 +176,7 @@ describe('nutrition scoped queries', () => {
       })
       const ingredientId = await ctx.db.insert('ingredients', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         name: 'Legacy ingredient',
         kcalPer100: 100,
         kcalBasisUnit: 'g',
@@ -179,6 +187,7 @@ describe('nutrition scoped queries', () => {
       })
       const recipeId = await ctx.db.insert('recipes', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         name: 'Legacy recipe',
         archived: false,
         latestVersionNumber: 1,
@@ -186,6 +195,7 @@ describe('nutrition scoped queries', () => {
       })
       await ctx.db.insert('recipeVersions', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         recipeId,
         versionNumber: 1,
         name: 'Legacy recipe',
@@ -193,6 +203,7 @@ describe('nutrition scoped queries', () => {
       })
       const sessionId = await ctx.db.insert('cookSessions', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         label: 'Legacy session',
         searchText: '2026-04-04 Legacy session',
         cookedAt: createdAt,
@@ -202,6 +213,7 @@ describe('nutrition scoped queries', () => {
       })
       const cookedFoodId = await ctx.db.insert('cookedFoods', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         cookSessionId: sessionId,
         name: 'Legacy cooked food',
         finishedWeightGrams: 100,
@@ -213,6 +225,7 @@ describe('nutrition scoped queries', () => {
       })
       const mealId = await ctx.db.insert('meals', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         personId,
         name: 'Legacy meal',
         eatenOn: '2026-04-04',
@@ -288,6 +301,10 @@ describe('nutrition scoped queries', () => {
       label: 'Other prep',
     })
     const [cookedFoodId] = await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(
+        ctx,
+        TEST_TOKEN_IDENTIFIER,
+      )
       const insertCookedFood = async (
         cookSessionId: typeof sessionId,
         name: string,
@@ -295,6 +312,7 @@ describe('nutrition scoped queries', () => {
       ) =>
         await ctx.db.insert('cookedFoods', {
           ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+          householdId,
           cookSessionId,
           name,
           recipeId: undefined,
@@ -434,43 +452,43 @@ describe('nutrition scoped queries', () => {
     const seeded = await t.run(async (ctx) => ({
       person: await ctx.db
         .query('people')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
       group: await ctx.db
         .query('foodGroups')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
       ingredient: await ctx.db
         .query('ingredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
       recipe: await ctx.db
         .query('recipes')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
       session: await ctx.db
         .query('cookSessions')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_cookedAt', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
       cookedFood: await ctx.db
         .query('cookedFoods')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
       meal: await ctx.db
         .query('meals')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_eatenOn', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .first(),
@@ -581,13 +599,13 @@ describe('nutrition scoped queries', () => {
       meal: await ctx.db.get(mealId),
       recipeLines: await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .take(10),
       cookedFoodLines: await ctx.db
         .query('cookedFoodIngredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_cookedFoodId', (q) =>
           q.eq('householdId', testHouseholdId(t, tokenB)),
         )
         .take(10),
