@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { toErrorMessage } from '@/lib/nutrition'
 import { HouseholdInvitation } from './household-invitation'
+import { markStartup } from '@/lib/startup-timing'
 
 const Select = lazy(async () => ({
   default: (await import('@/components/ui/select')).Select,
@@ -106,6 +107,9 @@ function HouseholdSession({
   }, [ensurePersonal, householdsLoaded])
 
   const household = households?.find((row) => row._id === selected)
+  useEffect(() => {
+    if (household) markStartup('household')
+  }, [household])
   function selectHousehold(id: Id<'households'>) {
     try {
       window.localStorage.setItem(storageKey, id)

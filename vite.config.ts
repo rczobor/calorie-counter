@@ -7,6 +7,7 @@ import { nitro } from 'nitro/vite'
 import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
+import { serviceWorker } from './src/service-worker/vite-plugin'
 
 const e2eConvexReactAdapter = fileURLToPath(
   new URL('./src/testing/e2e/convex-react-adapter.tsx', import.meta.url),
@@ -76,6 +77,7 @@ export default defineConfig(({ command, mode }) => {
       babel({
         presets: [reactCompilerPreset()],
       }),
+      serviceWorker(),
     ],
   }
 })
