@@ -5,9 +5,7 @@ import {
   asTestUser,
   asTestUserWithToken,
   createConvexTest,
-  insertPerson,
   readEditRevision,
-  TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
 async function setupHousehold() {
@@ -29,62 +27,19 @@ const page = { numItems: 20, cursor: null }
 afterEach(() => vi.useRealTimers())
 
 describe('household sharing', () => {
-  it('migrates existing data in place, preserves history, and is idempotent', async () => {
+  it('creates one personal household idempotently', async () => {
     const t = createConvexTest()
-    const personId = await insertPerson(t)
-    const mealId = await t.run((ctx) =>
-      ctx.db.insert('meals', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
-        personId,
-        eatenOn: '2026-10-31',
-        archived: false,
-        totalCalories: 123,
-        itemCount: 1,
-        createdAt: 1,
-      }),
-    )
     const user = asTestUser(t)
     const householdId = await user.mutation(api.households.ensurePersonal, {})
     expect(await user.mutation(api.households.ensurePersonal, {})).toBe(
       householdId,
     )
-    const stored = await t.run(async (ctx) => ({
-      person: await ctx.db.get(personId),
-      meal: await ctx.db.get(mealId),
-      members: await ctx.db.query('householdMembers').collect(),
-    }))
-    expect(stored.person).toMatchObject({ _id: personId, householdId })
-    expect(stored.meal).toMatchObject({
-      _id: mealId,
-      householdId,
-      personId,
-      totalCalories: 123,
-    })
-    expect(stored.members).toHaveLength(1)
+    expect(
+      await t.run((ctx) => ctx.db.query('householdMembers').collect()),
+    ).toHaveLength(1)
     expect(await user.query(api.households.list, {})).toEqual([
       { _id: householdId, name: 'My household', role: 'admin' },
     ])
-  })
-
-  it('fails an oversized legacy migration atomically instead of partially moving data', async () => {
-    const t = createConvexTest()
-    await t.run(async (ctx) => {
-      for (let i = 0; i < 201; i++)
-        await ctx.db.insert('people', {
-          ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
-          name: `Person ${i}`,
-          archived: false,
-          currentDailyGoalKcal: 2000,
-          createdAt: 1,
-        })
-    })
-    const user = t.withIdentity({ tokenIdentifier: TEST_TOKEN_IDENTIFIER })
-    await expect(
-      user.mutation(api.households.ensurePersonal, {}),
-    ).rejects.toThrow('administrator-assisted')
-    expect(await t.run((ctx) => ctx.db.query('households').collect())).toEqual(
-      [],
-    )
   })
 
   it('shares people, catalog, recipes, cooking, meals, and summaries while keeping original households separate', async () => {

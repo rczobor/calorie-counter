@@ -76,6 +76,7 @@ type MockState = {
 }
 
 const ownerTokenIdentifier = 'e2e-user|mock-token'
+const householdId = 'e2e-household' as Id<'households'>
 const sessionId = 'cccccccccccccccccccc' as Id<'cookSessions'>
 const cookedFoodId = 'dddddddddddddddddddd' as Id<'cookedFoods'>
 const ingredientId = 'iiiiiiiiiiiiiiiiiiii' as Id<'ingredients'>
@@ -109,6 +110,7 @@ function createInitialState(): MockState {
     _id: personId,
     _creationTime: now - 10_000,
     ownerTokenIdentifier,
+    householdId,
     name: 'Alex',
     currentDailyGoalKcal: 2100,
     archived: false,
@@ -119,6 +121,7 @@ function createInitialState(): MockState {
     _id: mealId,
     _creationTime: now - 5_000,
     ownerTokenIdentifier,
+    householdId,
     personId,
     name: 'Seeded breakfast',
     eatenOn: today,
@@ -132,6 +135,7 @@ function createInitialState(): MockState {
     _id: mealItemId,
     _creationTime: now - 5_000,
     ownerTokenIdentifier,
+    householdId,
     mealId,
     sourceType: 'fixedCalories',
     nameSnapshot: 'Seeded oatmeal',
@@ -151,18 +155,21 @@ function createInitialState(): MockState {
       ingredients: [
         createIngredientDoc(ingredientId, 'Beans', {
           ownerTokenIdentifier,
+          householdId,
           kcalPer100: 100,
         }),
       ],
       cookSessions: [
         createCookSessionDoc(sessionId, 'Weekend cooking', {
           ownerTokenIdentifier,
+          householdId,
           cookedAt: now - 86400000,
         }),
       ],
       cookedFoods: [
         createCookedFoodDoc(cookedFoodId, sessionId, 'Homemade chili', {
           ownerTokenIdentifier,
+          householdId,
           finishedWeightGrams: 1000,
           totalCalories: 1200,
           kcalPer100: 120,
@@ -278,6 +285,7 @@ function createMealItemDocument(
     _id: id,
     _creationTime: createdAt,
     ownerTokenIdentifier,
+    householdId,
     mealId,
     caloriesSnapshot: caloriesForItem(item),
     notes: item.notes ?? undefined,
@@ -352,6 +360,7 @@ function createMeal(args: CreateMealArgs) {
     _id: mealId,
     _creationTime: createdAt,
     ownerTokenIdentifier,
+    householdId,
     personId: args.personId,
     name: args.name,
     eatenOn: args.eatenOn,

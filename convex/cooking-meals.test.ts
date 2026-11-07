@@ -16,6 +16,7 @@ import {
   readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
+import { ensurePersonalHousehold } from './households'
 
 type TestContext = ReturnType<typeof createConvexTest>
 
@@ -174,25 +175,25 @@ describe('nutrition cooking and meal mutations', () => {
       const cookedFood = await ctx.db.get(cookedFoodId)
       const ingredients = await ctx.db
         .query('ingredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       const recipes = await ctx.db
         .query('recipes')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       const versions = await ctx.db
         .query('recipeVersions')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_recipeId', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
       const versionLines = await ctx.db
         .query('recipeVersionIngredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_recipeVersionId', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect()
@@ -261,7 +262,7 @@ describe('nutrition cooking and meal mutations', () => {
         .collect(),
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
@@ -613,7 +614,7 @@ describe('nutrition cooking and meal mutations', () => {
     const { ingredients, items } = await t.run(async (ctx) => ({
       ingredients: await ctx.db
         .query('ingredients')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
@@ -749,7 +750,7 @@ describe('nutrition cooking and meal mutations', () => {
     const records = await t.run(async (ctx) => ({
       meals: await ctx.db
         .query('meals')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_eatenOn', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
@@ -885,7 +886,7 @@ describe('nutrition cooking and meal mutations', () => {
     const records = await t.run(async (ctx) => ({
       meals: await ctx.db
         .query('meals')
-        .withIndex('by_householdId', (q) =>
+        .withIndex('by_householdId_and_eatenOn', (q) =>
           q.eq('householdId', testHouseholdId(t, TEST_TOKEN_IDENTIFIER)),
         )
         .collect(),
@@ -1009,8 +1010,13 @@ describe('nutrition cooking and meal mutations', () => {
     const sessionId = await insertCookSession(t)
     const ingredientId = await insertIngredient(t)
     const seeded = await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(
+        ctx,
+        TEST_TOKEN_IDENTIFIER,
+      )
       const cookedFoodId = await ctx.db.insert('cookedFoods', {
         ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        householdId,
         cookSessionId: sessionId,
         name: 'Legacy batch',
         finishedWeightGrams: 100,
@@ -1023,6 +1029,7 @@ describe('nutrition cooking and meal mutations', () => {
       const insertLine = () =>
         ctx.db.insert('cookedFoodIngredients', {
           ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+          householdId,
           cookedFoodId,
           sourceType: 'ingredient' as const,
           ingredientId,

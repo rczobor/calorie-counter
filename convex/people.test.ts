@@ -12,6 +12,7 @@ import {
   readEditRevision,
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
+import { ensurePersonalHousehold } from './households'
 
 describe('nutrition people mutations', () => {
   beforeEach(() => {
@@ -334,10 +335,15 @@ describe('nutrition people mutations', () => {
     })
 
     await t.run(async (ctx) => {
+      const householdId = await ensurePersonalHousehold(
+        ctx,
+        TEST_TOKEN_IDENTIFIER,
+      )
       await Promise.all(
         Array.from({ length: 100 }, (_, index) =>
           ctx.db.insert('personGoalHistory', {
             ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+            householdId,
             personId,
             effectiveDate: '2026-04-04',
             goalKcal: 2200 + index,

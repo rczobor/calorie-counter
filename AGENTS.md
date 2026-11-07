@@ -155,9 +155,9 @@ expand-migrate-contract:
    deploy again.
 
 Prefer `internalMutation` or `internalAction` for one-off migrations, make them
-idempotent when practical, and remove them after successful execution. For a
-breaking export-transform-restore operation, follow the maintenance and
-rollback runbook in `README.md`; never improvise against production.
+idempotent when practical, and remove them after successful execution. Rehearse
+any destructive restore on a disposable deployment first; never improvise
+against production.
 
 ## Local development
 

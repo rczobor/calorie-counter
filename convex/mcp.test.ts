@@ -1523,8 +1523,6 @@ describe('MCP upgrade compatibility', () => {
     'bootstraps an existing connection on its first %s call without a browser visit',
     async (tool) => {
       const t = setup()
-      const personId = await insertPerson(t)
-      const ingredientId = await insertIngredient(t)
       const own = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
       expect(
         await t.run((ctx) => ctx.db.query('households').collect()),
@@ -1535,21 +1533,9 @@ describe('MCP upgrade compatibility', () => {
       expect(body).toMatchObject({
         result: { structuredContent: expect.any(Object) },
       })
-      const records = await t.run(async (ctx) => ({
-        households: await ctx.db.query('households').collect(),
-        people: await ctx.db.get(personId),
-        ingredient: await ctx.db.get(ingredientId),
-      }))
-      expect(records.households).toHaveLength(1)
-      expect(records.people).toMatchObject({
-        _id: personId,
-        householdId: records.households[0]._id,
-        name: 'Alex',
-      })
-      expect(records.ingredient).toMatchObject({
-        _id: ingredientId,
-        householdId: records.households[0]._id,
-      })
+      expect(
+        await t.run((ctx) => ctx.db.query('households').collect()),
+      ).toMatchObject([{ personalOwnerTokenIdentifier: TEST_TOKEN_IDENTIFIER }])
     },
   )
 
@@ -1659,27 +1645,6 @@ describe('MCP upgrade compatibility', () => {
     const args = { input, operationKey: 'legacy-cooking' }
     await output(await call(t, own.token, 'log_cooking', args), cookingResult)
     const legacy = await makeReceiptLegacy(t, own.id, 'cooking:legacy-cooking')
-    await t.run(async (ctx) => {
-      for (const table of [
-        'cookSessions',
-        'cookedFoods',
-        'cookedFoodIngredients',
-      ] as const) {
-        for (const row of await ctx.db.query(table).collect())
-          await ctx.db.patch(row._id, { householdId: undefined })
-      }
-      const members = await ctx.db
-        .query('householdMembers')
-        .withIndex('by_householdId', (q) =>
-          q.eq('householdId', legacy.householdId),
-        )
-        .collect()
-      for (const member of members) await ctx.db.delete(member._id)
-      await ctx.db.delete(legacy.householdId)
-    })
-    expect(await t.run((ctx) => ctx.db.query('households').collect())).toEqual(
-      [],
-    )
     expect(
       await output(
         await call(t, own.token, 'log_cooking', args),
@@ -1687,8 +1652,7 @@ describe('MCP upgrade compatibility', () => {
       ),
     ).toEqual(legacy.result)
     const migratedReceipt = await t.run((ctx) => ctx.db.get(legacy.id))
-    expect(migratedReceipt?.householdId).toBeDefined()
-    expect(migratedReceipt?.householdId).not.toBe(legacy.householdId)
+    expect(migratedReceipt?.householdId).toBe(legacy.householdId)
     const records = await t.run(async (ctx) => ({
       sessions: await ctx.db.query('cookSessions').collect(),
       foods: await ctx.db.query('cookedFoods').collect(),

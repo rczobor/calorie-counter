@@ -18,23 +18,7 @@ import { assertPageSize, normalizeRequiredText } from './lib/validation'
 
 const MAX_MEMBERS = 20
 const MAX_HOUSEHOLDS = 10
-const LEGACY_TABLES = [
-  'people',
-  'personGoalHistory',
-  'foodGroups',
-  'ingredients',
-  'recipes',
-  'recipeVersions',
-  'recipeVersionIngredients',
-  'cookSessions',
-  'cookedFoods',
-  'cookedFoodIngredients',
-  'meals',
-  'mealItems',
-  'dailySummaries',
-] as const
 
-// One bounded transaction preserves IDs and all historical relationships for existing small datasets.
 export async function ensurePersonalHousehold(
   ctx: MutationCtx,
   tokenIdentifier: string,
@@ -62,22 +46,6 @@ export async function ensurePersonalHousehold(
     household = await ctx.db.get(householdId)
   }
   if (!household) throw new Error('Household could not be created.')
-  for (const table of LEGACY_TABLES) {
-    const rows = await ctx.db
-      .query(table)
-      .withIndex('by_ownerTokenIdentifier_and_householdId', (q) =>
-        q
-          .eq('ownerTokenIdentifier', tokenIdentifier)
-          .eq('householdId', undefined),
-      )
-      .take(201)
-    if (rows.length > 200)
-      throw new Error(
-        'Existing data needs an administrator-assisted household migration.',
-      )
-    for (const row of rows)
-      await ctx.db.patch(row._id, { householdId: household._id })
-  }
   return household._id
 }
 

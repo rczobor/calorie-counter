@@ -1,6 +1,7 @@
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 
 const OWNER_TOKEN_IDENTIFIER = 'user-1|token'
+const HOUSEHOLD_ID = 'household-1' as Id<'households'>
 
 export function asId<TableName extends TableNames>(value: string) {
   return value as Id<TableName>
@@ -15,6 +16,7 @@ export function createPersonDoc(
     _id: asId<'people'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     name,
     notes: undefined,
     currentDailyGoalKcal: 2000,
@@ -34,6 +36,7 @@ export function createFoodGroupDoc(
     _id: asId<'foodGroups'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     name,
     appliesTo: 'cookedFood',
     archived: false,
@@ -52,6 +55,7 @@ export function createPersonGoalHistoryDoc(
     _id: asId<'personGoalHistory'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     personId: asId<'people'>(personId),
     effectiveDate: '2026-04-04',
     goalKcal: 2000,
@@ -70,6 +74,7 @@ export function createIngredientDoc(
     _id: asId<'ingredients'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     name,
     brand: undefined,
     kcalPer100: 100,
@@ -93,6 +98,7 @@ export function createCookSessionDoc(
     _id: asId<'cookSessions'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     label,
     searchText: `2026-04-04 ${label}`,
     cookedAt: 1,
@@ -116,6 +122,7 @@ export function createCookedFoodDoc(
     _id: asId<'cookedFoods'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     cookSessionId: asId<'cookSessions'>(sessionId),
     name,
     recipeId: undefined,
@@ -174,6 +181,7 @@ export function createCookedFoodIngredientDoc(
     _id: asId<'cookedFoodIngredients'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     cookedFoodId: asId<'cookedFoods'>(cookedFoodId),
     ingredientNameSnapshot: 'Ingredient',
     referenceAmount: 100,
@@ -209,6 +217,7 @@ export function createMealDoc(
     _id: asId<'meals'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     personId: asId<'people'>(personId),
     name: undefined,
     eatenOn: '2026-04-04',
@@ -288,6 +297,7 @@ export function createMealItemDoc(
     _id: asId<'mealItems'>(id),
     _creationTime: 1,
     ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    householdId: HOUSEHOLD_ID,
     mealId: asId<'meals'>(mealId),
     nameSnapshot: 'Meal item',
     caloriesSnapshot: 100,
