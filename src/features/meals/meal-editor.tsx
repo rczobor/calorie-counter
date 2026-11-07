@@ -295,6 +295,15 @@ function MealEditorContent({
     {},
     { initialNumItems: PAGE_SIZE },
   )
+  // A batch is dated by its cooking session, not by when it was entered.
+  const cookSessionsQuery = usePaginatedQuery(
+    api.cooking.listSessions,
+    { archived: false },
+    { initialNumItems: PAGE_SIZE },
+  )
+  const cookedAtBySession = new Map(
+    cookSessionsQuery.results.map((session) => [session._id, session.cookedAt]),
+  )
 
   useEffect(() => {
     if (selectedPersonId) {
@@ -1049,7 +1058,7 @@ function MealEditorContent({
         ? resultRow(
             `c-${result.food._id}`,
             result.food.name,
-            `Cooked batch · ${new Date(result.food.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
+            `Cooked batch · ${new Date(cookedAtBySession.get(result.food.cookSessionId) ?? result.food.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
             () => pickResult(result),
           )
         : resultRow(
@@ -1369,7 +1378,10 @@ function MealEditorContent({
                     autoFocus={!editingMealId}
                     className="h-11 pr-11 pl-9"
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value)
+                      setExpandedQuery(null)
+                    }}
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter' || !needle) return
                       event.preventDefault()

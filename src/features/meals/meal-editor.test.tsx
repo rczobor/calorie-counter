@@ -887,14 +887,17 @@ describe('Meal editor', () => {
   })
 
   it('reaches every matching batch and tells same-named batches apart by date', () => {
+    // Entered on the same day, cooked on different days.
     const batches = Array.from({ length: 9 }, (_, index) =>
       createCookedFoodDoc(`cooked-${index}`, `session-${index}`, 'Lasagna', {
-        createdAt: new Date(2026, 3, index + 1, 18).getTime(),
+        createdAt: new Date(2026, 3, 20, 9).getTime(),
       }),
     )
     mockMealDashboardData = createDashboardFixture({
-      cookSessions: batches.map((batch) =>
-        createCookSessionDoc(batch.cookSessionId, 'Prep'),
+      cookSessions: batches.map((batch, index) =>
+        createCookSessionDoc(batch.cookSessionId, 'Prep', {
+          cookedAt: new Date(2026, 3, index + 1, 18).getTime(),
+        }),
       ),
       cookedFoods: batches,
     })
@@ -909,6 +912,10 @@ describe('Meal editor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all 9 matches' }))
     expect(results()).toHaveLength(9)
     expect(results()[8].textContent).toContain('Apr 9')
+    // A new search starts short again.
+    searchFoods('lasagn')
+    searchFoods('lasagna')
+    expect(results()).toHaveLength(8)
   })
 
   it('exposes load-more controls for every paginated dashboard dataset', () => {
