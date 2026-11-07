@@ -597,6 +597,44 @@ describe('historical meal discovery and repeats', () => {
     ).rejects.toThrow()
   })
 
+  it('refuses a repeat preview after its source meal was edited, even with stable item IDs', async () => {
+    const { t, account, user, personId, mealId } = await fixture()
+    const detail = (await account.query(api.meals.getDetail, { mealId }))!
+    const cookie = detail.items.find((item) => item.nameSnapshot === 'Cookie')!
+    const preview = await t.mutation(internal.mcpFoodReuse.previewRepeatMeal, {
+      user,
+      input: {
+        mealId,
+        personId,
+        eatenOn: '2026-11-02',
+        selections: [{ itemId: cookie._id, multiplier: 1 }],
+      },
+    })
+    expect(preview.totalCalories).toBe(200)
+    await account.mutation(api.nutrition.updateMeal, {
+      mealId,
+      expectedMealItemIds: detail.items.map((item) => item._id),
+      expectedEditRevision: detail.meal.editRevision,
+      personId,
+      eatenOn: detail.meal.eatenOn,
+      items: [
+        {
+          existingMealItemId: cookie._id,
+          sourceType: 'fixedCalories',
+          name: 'Cookie',
+          calories: 400,
+        },
+      ],
+    })
+    await expect(
+      t.mutation(internal.mcpOperations.logMeal, {
+        user,
+        input: preview.input,
+        operationKey: 'stale-repeat',
+      }),
+    ).rejects.toThrow('Meal changed since editing began')
+  })
+
   it('repeats exact snapshots despite catalog edits and saves only on the explicit write, once per key', async () => {
     const { t, account, user, personId, mealId, ingredientId, items } =
       await fixture()

@@ -1382,6 +1382,15 @@ export async function buildMealItemSnapshots(
       if (item.sourceType === 'historical') {
         assertPositive(item.multiplier, 'Historical portion multiplier')
         const original = await loadHistoricalItem(db, owner, item.itemId)
+        if (item.expectedMealEditRevision !== undefined) {
+          const sourceMeal = await db.get(original.mealId)
+          if (sourceMeal)
+            assertExpectedEditRevision(
+              sourceMeal,
+              item.expectedMealEditRevision,
+              'Meal',
+            )
+        }
         const {
           _id,
           _creationTime,

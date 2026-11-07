@@ -27,6 +27,8 @@ export const historicalMealItemInput = v.object({
   sourceType: v.literal('historical'),
   itemId: v.id('mealItems'),
   multiplier: v.number(),
+  // Previews set this so a save fails if the source meal was edited after approval.
+  expectedMealEditRevision: v.optional(v.number()),
 })
 
 export const nutritionUnitValidator = v.union(
