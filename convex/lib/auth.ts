@@ -1,5 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
+import { DomainError } from './validation'
 
 export type AuthenticatedOwner = {
   householdId: Id<'households'>
@@ -40,7 +41,7 @@ export function assertOwnedOrThrow<TDoc extends OwnedDocument>(
   owner: AuthenticatedOwner,
   notFoundMessage: string,
 ): NonNullable<TDoc> {
-  if (!isOwnedBy(doc, owner)) throw new Error(notFoundMessage)
+  if (!isOwnedBy(doc, owner)) throw new DomainError(notFoundMessage)
   return doc
 }
 
@@ -48,7 +49,7 @@ export async function requireAuthenticatedUser(
   ctx: Pick<QueryCtx | MutationCtx, 'auth'>,
 ) {
   const identity = await ctx.auth.getUserIdentity()
-  if (!identity) throw new Error('Authentication required.')
+  if (!identity) throw new DomainError('Authentication required.')
   return { ownerTokenIdentifier: identity.tokenIdentifier }
 }
 
@@ -67,14 +68,14 @@ export async function requireHouseholdForAccount(
         )
         .unique()
     )?._id
-  if (!householdId) throw new Error('Select a household first.')
+  if (!householdId) throw new DomainError('Select a household first.')
   const member = await ctx.db
     .query('householdMembers')
     .withIndex('by_tokenIdentifier_and_householdId', (q) =>
       q.eq('tokenIdentifier', tokenIdentifier).eq('householdId', householdId),
     )
     .unique()
-  if (!member) throw new Error('Household access denied.')
+  if (!member) throw new DomainError('Household access denied.')
   return { householdId, ownerTokenIdentifier: tokenIdentifier }
 }
 

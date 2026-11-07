@@ -1467,7 +1467,14 @@ describe('MCP household authorization', () => {
           operationKey: 'shared-snack',
         })
       ).json(),
-    ).toMatchObject({ result: { isError: true } })
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          { text: expect.stringContaining('Household access denied.') },
+        ],
+      },
+    })
     const after = await output(
       await call(t, own.token, 'list_households', {}),
       v.object({

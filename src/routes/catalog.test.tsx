@@ -86,6 +86,13 @@ const ingredientPerPiece = {
   kcalBasisUnit: 'piece' as const,
 }
 
+const fractionalIngredient = {
+  ...ingredient,
+  _id: 'ingredient-fractional' as Id<'ingredients'>,
+  name: 'Oat milk',
+  kcalPer100: 52.5,
+}
+
 const recipe = {
   _id: 'recipe-1' as Id<'recipes'>,
   _creationTime: 1,
@@ -205,6 +212,7 @@ vi.mock('convex/react', () => ({
           ingredientWithArchivedGroup,
           ingredientWithUnloadedActiveGroup,
           ingredientPerPiece,
+          fractionalIngredient,
         ],
         paginationStatus,
         ingredientLoadMore,
@@ -586,6 +594,26 @@ describe('Catalog route', () => {
         args: expect.objectContaining({
           ingredientId: ingredientPerPiece._id,
           kcalBasisUnit: 'piece',
+        }),
+      }),
+    )
+  })
+  it('keeps fractional kcal/100 when an ingredient is edited', async () => {
+    renderCatalogRoute()
+
+    const ingredientRow = screen.getByText('Oat milk').closest('tr')
+    expect(ingredientRow).not.toBeNull()
+    fireEvent.click(
+      within(ingredientRow!).getByRole('button', { name: 'Edit' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({
+          ingredientId: fractionalIngredient._id,
+          kcalPer100: 52.5,
         }),
       }),
     )

@@ -138,6 +138,19 @@ describe('nutrition people mutations', () => {
     ).resolves.toBeNull()
   })
 
+  it('treats malformed deep-link IDs as missing people and sessions', async () => {
+    const t = createConvexTest()
+    const owner = asTestUser(t)
+    const malformed = 'aaaaaaaaaaaaaaaaaaaaaaaa'
+
+    await expect(
+      owner.query(api.people.get, { personId: malformed }),
+    ).resolves.toBeNull()
+    await expect(
+      owner.query(api.cooking.getSession, { sessionId: malformed }),
+    ).resolves.toBeNull()
+  })
+
   it('returns empty goal history for deleted or foreign people', async () => {
     const t = createConvexTest()
     const owner = asTestUser(t)

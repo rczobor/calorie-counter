@@ -5,12 +5,13 @@ import { ensurePersonalHousehold } from './households'
 import { components } from './_generated/api'
 import {
   describeContext,
+  domainResult,
   localCalendarDate,
   projectDailySummary,
   readDailySummary,
   requireMcpOwner,
 } from './mcpContext'
-export { requireMcpOwner } from './mcpContext'
+export { domainResult, requireMcpOwner } from './mcpContext'
 import { resolveCookedIngredient, resolveSavedMealItem } from './mcpFoodReuse'
 import { savedFoodQuery } from './savedFoods'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
@@ -122,24 +123,6 @@ export async function findReceipt(
   if (receipt && receipt.householdId === undefined)
     await ctx.db.patch(receipt._id, { householdId: owner.householdId })
   return receipt
-}
-
-// Only domain validation messages reach the model; unexpected database failures stay private.
-export async function domainResult<T>(run: () => Promise<T>): Promise<T> {
-  try {
-    return await run()
-  } catch (error) {
-    if (error instanceof ConvexError) throw error
-    if (
-      error instanceof Error &&
-      /^(At least|Too many|Meal|Person|Cook|Ingredient|Custom|Finished|Consumed|Counted|Reference|Recipe|Session|Output|Estimate|Food|Operation|Name|Date|Daily|Selected|Only |Invalid|Cannot|Linked|Existing|Expected)/.test(
-        error.message,
-      ) &&
-      error.message.length < 300
-    )
-      throw new ConvexError(error.message)
-    throw error
-  }
 }
 
 function requireSnapshots(
@@ -1189,29 +1172,30 @@ export const getLoggingContext = internalMutation({
     cursor: v.optional(v.string()),
   },
   returns: loggingContextResult,
-  handler: async (ctx, args) => {
-    const owner = await requireMcpOwner(
-      ctx,
-      args.user,
-      'nutrition:read',
-      args.householdId,
-    )
-    const context = await describeContext(ctx, owner)
-    const timeZone = args.timeZone ?? context.timeZone
-    const localDate = timeZone ? localCalendarDate(timeZone, args.now) : null
-    const result = await ctx.db
-      .query('people')
-      .withIndex('by_householdId_and_archived_and_name', (q) =>
-        q.eq('householdId', owner.householdId).eq('archived', false),
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
       )
-      .paginate({ numItems: 50, cursor: args.cursor ?? null })
-    return {
-      context: { ...context, timeZone },
-      people: result.page.map((p) => ({ id: p._id, name: p.name })),
-      cursor: result.isDone ? null : result.continueCursor,
-      localDate,
-    }
-  },
+      const context = await describeContext(ctx, owner)
+      const timeZone = args.timeZone ?? context.timeZone
+      const localDate = timeZone ? localCalendarDate(timeZone, args.now) : null
+      const result = await ctx.db
+        .query('people')
+        .withIndex('by_householdId_and_archived_and_name', (q) =>
+          q.eq('householdId', owner.householdId).eq('archived', false),
+        )
+        .paginate({ numItems: 50, cursor: args.cursor ?? null })
+      return {
+        context: { ...context, timeZone },
+        people: result.page.map((p) => ({ id: p._id, name: p.name })),
+        cursor: result.isDone ? null : result.continueCursor,
+        localDate,
+      }
+    }),
 })
 
 export const listHouseholds = internalMutation({

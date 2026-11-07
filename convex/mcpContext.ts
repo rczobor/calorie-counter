@@ -9,6 +9,7 @@ import type { Id } from './_generated/dataModel'
 import { ensurePersonalHousehold } from './households'
 import { calculateDailySummaryChange } from './nutrition'
 import { readDayNutrition } from './lib/dayNutrition'
+import { DomainError } from './lib/validation'
 import {
   assertOwnedOrThrow,
   requireHouseholdForAccount,
@@ -30,6 +31,25 @@ function requireAccount(user: McpUser, scope = 'nutrition:read') {
     throw new ConvexError(
       'This connection does not have permission for this operation. Reconnect with the required permissions.',
     )
+}
+
+// Only domain validation messages reach the model; unexpected database failures stay private.
+export async function domainResult<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    if (error instanceof ConvexError) throw error
+    if (error instanceof DomainError) throw new ConvexError(error.message)
+    if (
+      error instanceof Error &&
+      /^(At least|Too many|Meal|Person|Cook|Ingredient|Custom|Finished|Consumed|Counted|Reference|Recipe|Session|Output|Estimate|Food|Operation|Name|Date|Daily|Selected|Only |Invalid|Cannot|Linked|Existing|Expected)/.test(
+        error.message,
+      ) &&
+      error.message.length < 300
+    )
+      throw new ConvexError(error.message)
+    throw error
+  }
 }
 
 export function getPreferences(ctx: Pick<QueryCtx, 'db'>, userId: string) {
@@ -123,16 +143,17 @@ export const setLoggingPreferences = internalMutation({
     preferences: v.union(loggingPreferences, v.null()),
   },
   returns: v.object({ context: v.union(loggingContext, v.null()) }),
-  handler: async (ctx, { user, preferences }) => {
-    requireAccount(user, 'meals:write')
-    await ensurePersonalHousehold(ctx, user.userId)
-    const owner = await updateLoggingPreferencesForAccount(
-      ctx,
-      user.userId,
-      preferences,
-    )
-    return { context: owner ? await describeContext(ctx, owner) : null }
-  },
+  handler: (ctx, { user, preferences }) =>
+    domainResult(async () => {
+      requireAccount(user, 'meals:write')
+      await ensurePersonalHousehold(ctx, user.userId)
+      const owner = await updateLoggingPreferencesForAccount(
+        ctx,
+        user.userId,
+        preferences,
+      )
+      return { context: owner ? await describeContext(ctx, owner) : null }
+    }),
 })
 
 export async function updateLoggingPreferencesForAccount(
