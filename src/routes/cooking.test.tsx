@@ -253,6 +253,28 @@ describe('cooked batches', () => {
       ),
     ).toBeNull()
   })
+  it('rejects a counted custom line with zero calories, as the server does', async () => {
+    render(<Page />)
+    fireEvent.click(screen.getByText('Chili'))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit cooked food' }),
+    )
+    fireEvent.change(screen.getByLabelText('Ingredient name'), {
+      target: { value: 'Water' },
+    })
+    fireEvent.change(screen.getByLabelText('Calories / 100 basis units'), {
+      target: { value: '0' },
+    })
+    fireEvent.change(screen.getByLabelText('Reference amount'), {
+      target: { value: '500' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add ingredient line' }))
+    expect(
+      screen.getByText(
+        'Enter an ingredient name, positive reference amount, and valid nutrition and counted amount.',
+      ),
+    ).toBeTruthy()
+  })
   it('keeps differing counted amounts and ingredient sources behind the notes disclosure', async () => {
     currentDetail = {
       ...detail,

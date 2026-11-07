@@ -99,26 +99,17 @@ export function assertArrayLimit(
   }
 }
 
+// Calorie densities keep full precision. Round only for display.
 export function normalizeKcalPer100(
   value: number,
-  options: {
-    allowZero: boolean
-    fieldName: string
-    preservePrecision?: boolean
-  },
+  options: { allowZero: boolean; fieldName: string },
 ) {
   if (options.allowZero) {
     assertNonNegative(value, options.fieldName)
   } else {
     assertPositive(value, options.fieldName)
   }
-  const normalized = options.preservePrecision ? value : Math.round(value)
-  if (options.allowZero) {
-    assertNonNegative(normalized, options.fieldName)
-  } else {
-    assertPositive(normalized, options.fieldName)
-  }
-  return normalized
+  return value
 }
 
 export function normalizeRequiredDate(value: string, fieldName: string) {

@@ -504,7 +504,7 @@ export const defaults = internalMutation({
     const oilCalories = caloriesFor(15, 884)
     const totalCalories = chickenCalories + riceCalories + oilCalories
     const finishedWeightGrams = 900
-    const kcalPer100 = Math.round((totalCalories / finishedWeightGrams) * 100)
+    const kcalPer100 = (totalCalories / finishedWeightGrams) * 100
     let cookedFoodId: Id<'cookedFoods'> | undefined
     for (const food of cookedFoodMatches) {
       if (

@@ -129,7 +129,7 @@ export function CookedFoodEditor({
       !Number.isFinite(referenceAmount) ||
       referenceAmount <= 0 ||
       (!draft.lineCustomIgnoreCalories &&
-        (!Number.isFinite(kcal) || kcal < 0)) ||
+        (!Number.isFinite(kcal) || kcal <= 0)) ||
       (countedAmount !== undefined &&
         (!Number.isFinite(countedAmount) || countedAmount <= 0))
     ) {

@@ -273,7 +273,7 @@ describe('MCP cooked batches used in cooking', () => {
     expect(resolved.input).toMatchObject({
       sourceType: 'custom',
       name: 'Baked pumpkin',
-      kcalPer100: 75,
+      kcalPer100: expect.closeTo(74.592, 9),
       referenceAmount: 365,
       referenceUnit: 'g',
       countedAmount: 365,
@@ -287,7 +287,7 @@ describe('MCP cooked batches used in cooking', () => {
     )
     const snapshot = { ...resolved.input }
     await t.run((ctx) => ctx.db.patch(cookedFoodId, { kcalPer100: 90 }))
-    expect(snapshot.kcalPer100).toBe(75)
+    expect(snapshot.kcalPer100).toBeCloseTo(74.592, 9)
     await expect(
       t.run((ctx) =>
         resolveCookedIngredient(ctx, owner, {
