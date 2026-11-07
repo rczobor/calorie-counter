@@ -234,7 +234,7 @@ let state: MockState =
   import.meta.env.VITE_E2E_SCENARIO === 'design'
     ? {
         ...createInitialState(),
-        ...createDesignData(Date.now(), ownerTokenIdentifier),
+        ...createDesignData(Date.now(), ownerTokenIdentifier, householdId),
       }
     : createInitialState()
 const listeners = new Set<() => void>()

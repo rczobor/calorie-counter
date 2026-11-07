@@ -321,8 +321,9 @@ describe('Today intake dashboard', () => {
     act(() => {
       window.dispatchEvent(new Event('focus'))
     })
+    // Two days back once the new day starts.
     expect(
-      screen.getByRole('heading', { name: 'Day summary', level: 1 }),
+      screen.getByRole('heading', { name: 'Sun, Nov 1', level: 1 }),
     ).toBeTruthy()
     expect(
       mocks.page.mock.calls.some(

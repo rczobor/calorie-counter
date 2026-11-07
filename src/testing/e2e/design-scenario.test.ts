@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Id } from '../../../convex/_generated/dataModel'
 import { createDesignData } from './design-scenario'
 
 const now = new Date(2026, 10, 7, 18, 0).getTime()
-const data = createDesignData(now, 'owner')
+const data = createDesignData(now, 'owner', 'household' as Id<'households'>)
 
 function dayTotal(personId: string, eatenOn: string) {
   return data.dashboard.meals
