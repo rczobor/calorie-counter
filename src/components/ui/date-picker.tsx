@@ -1,5 +1,5 @@
 import { Calendar as CalendarIcon } from 'lucide-react'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +20,9 @@ type DatePickerProps = {
   ariaLabel?: string
   className?: string
   disabled?: boolean
+  /** Replaces the long date shown in the trigger. */
+  label?: ReactNode
+  variant?: 'outline' | 'ghost'
 }
 
 function parseLocalDate(value: string) {
@@ -68,6 +71,8 @@ export function DatePicker({
   ariaLabel,
   className,
   disabled,
+  label,
+  variant = 'outline',
 }: DatePickerProps) {
   const date = parseLocalDate(value)
 
@@ -76,7 +81,7 @@ export function DatePicker({
       <PopoverTrigger
         render={
           <Button
-            variant="outline"
+            variant={variant}
             data-empty={!date}
             className={cn(
               'data-[empty=true]:text-muted-foreground justify-start text-left font-normal',
@@ -87,7 +92,7 @@ export function DatePicker({
           >
             <CalendarIcon />
             {date ? (
-              date.toLocaleDateString('en-US', { dateStyle: 'long' })
+              (label ?? date.toLocaleDateString('en-US', { dateStyle: 'long' }))
             ) : (
               <span>{placeholder}</span>
             )}

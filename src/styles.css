@@ -12,8 +12,11 @@
   --card-foreground: oklch(0.16 0.015 250);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.16 0.015 250);
-  --primary: oklch(0.68 0.18 42);
+  /* 4.8:1 with white text and as text on white (WCAG AA); 0.68 was 3.1:1. */
+  --primary: oklch(0.57 0.18 42);
   --primary-foreground: oklch(0.995 0 0);
+  /* Estimate notes: a hue apart from primary so caution never reads as a link (5.6:1 on white). */
+  --caution: oklch(0.52 0.11 80);
   --secondary: oklch(0.955 0.012 250);
   --secondary-foreground: oklch(0.25 0.018 250);
   --muted: oklch(0.96 0.006 250);
@@ -49,6 +52,7 @@
   --popover-foreground: oklch(0.93 0.01 75);
   --primary: oklch(0.78 0.15 55);
   --primary-foreground: oklch(0.15 0.02 55);
+  --caution: oklch(0.83 0.15 84);
   --secondary: oklch(0.27 0.015 55);
   --secondary-foreground: oklch(0.93 0.01 75);
   --muted: oklch(0.27 0.015 55);
@@ -75,6 +79,7 @@
 }
 
 @theme inline {
+  --color-caution: var(--caution);
   --font-sans: 'Inter Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

@@ -10,11 +10,12 @@ const WIDTH_CLASS_MAP = {
 } as const
 
 type PageShellProps = {
-  title: string
+  title?: string
+  /** Replaces the title and subtitle, e.g. with a page-specific title control. */
+  header?: ReactNode
   breadcrumbs?: ReactNode
   subtitle?: string
   eyebrow?: string
-  icon?: ReactNode
   maxWidth?: keyof typeof WIDTH_CLASS_MAP
   showArchived?: boolean
   onShowArchivedChange?: (checked: boolean) => void
@@ -26,9 +27,9 @@ type PageShellProps = {
 
 export function PageShell({
   title,
+  header,
   breadcrumbs,
   subtitle,
-  icon,
   maxWidth = '7xl',
   showArchived,
   onShowArchivedChange,
@@ -53,21 +54,16 @@ export function PageShell({
             headerClassName,
           )}
         >
-          <div className="flex items-center gap-3">
-            {icon ? (
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                {icon}
-              </span>
-            ) : null}
+          {header ?? (
             <div>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                 {title}
               </h1>
               {subtitle ? (
                 <p className="text-sm text-muted-foreground">{subtitle}</p>
               ) : null}
             </div>
-          </div>
+          )}
           {typeof showArchived === 'boolean' && onShowArchivedChange ? (
             <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent">
               <input

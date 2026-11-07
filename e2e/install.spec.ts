@@ -27,7 +27,7 @@ test('a return visit introduces installation, respects dismissal, and keeps help
   await expect(suggestion).toHaveCount(0)
   await page.getByRole('button', { name: 'Today', exact: true }).click()
   await expect(suggestion).toBeVisible()
-  await page.getByRole('button', { name: 'Add meal', exact: true }).click()
+  await page.getByRole('button', { name: 'Log meal', exact: true }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(suggestion).toHaveCount(0)
   await page.getByRole('button', { name: 'Close editor' }).click()

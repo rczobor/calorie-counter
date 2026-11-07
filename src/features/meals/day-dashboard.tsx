@@ -1,15 +1,24 @@
 import { Link } from '@tanstack/react-router'
 import {
+  Archive,
   ArrowDownRight,
   ArrowUpRight,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Flame,
+  Ellipsis,
+  Pencil,
   Plus,
 } from 'lucide-react'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from 'react'
 import type { FunctionReturnType } from 'convex/server'
 
 import { api } from '../../../convex/_generated/api'
@@ -22,6 +31,7 @@ import {
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { readMealDraft, writeMealDraft } from '@/features/meals/meal-draft'
+import { subscribeLogMeal } from '@/features/meals/log-meal-request'
 import { InstallEntry } from '@/features/install/install-entry'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
@@ -34,6 +44,12 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
 import { DatePicker } from '@/components/ui/date-picker'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { cn } from '@/lib/utils'
 import { toLocalDateString, toTimestampFromDate } from '@/lib/nutrition'
@@ -48,6 +64,22 @@ type EditorRequest = {
   personId: Id<'people'> | ''
   date: string
   resume?: boolean
+}
+
+// The title names the day relative to today; the date picker below it shows the date once.
+function dayHeading(date: string, today: string) {
+  const days = Math.round(
+    (toTimestampFromDate(date) - toTimestampFromDate(today)) / 86_400_000,
+  )
+  if (days === 0) return 'Today'
+  if (days === -1) return 'Yesterday'
+  if (days === 1) return 'Tomorrow'
+  // A bare weekday would read as this week, so other days name their date.
+  return new Date(toTimestampFromDate(date)).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function readLinkedDate() {
@@ -158,6 +190,16 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
     next.setDate(next.getDate() + amount)
     selectDay(toLocalDateString(next.getTime()))
   }
+  // The shell's Log button opens the editor for the day and person in view. A
+  // request from another tab arrives before people load, so fall back to the
+  // saved selection rather than '' (which would pick the first person).
+  const onLogRequest = useEffectEvent(() =>
+    openEditor({ personId: selected?._id ?? selectedPersonId, date }),
+  )
+  useEffect(
+    () => (archived ? undefined : subscribeLogMeal(onLogRequest)),
+    [archived],
+  )
   const visiblePeople = [...people.results]
   if (selected && !visiblePeople.some((p) => p._id === selected._id) && summary)
     visiblePeople.push({ ...selected, ...summary, _id: selected._id })
@@ -183,49 +225,94 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             <SettingsBreadcrumbs current="Archived meals" />
           ) : undefined
         }
-        title={
-          archived ? 'Archived meals' : date === today ? 'Today' : 'Day summary'
+        title="Archived meals"
+        header={
+          archived ? undefined : (
+            <div className="w-full">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                {dayHeading(date, today)}
+              </h1>
+              {/* The date pill and the day controls share one row and one height. */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <DatePicker
+                  value={date}
+                  onChange={selectDay}
+                  ariaLabel="Day"
+                  label={
+                    <>
+                      {new Date(toTimestampFromDate(date)).toLocaleDateString(
+                        undefined,
+                        { month: 'short', day: 'numeric', year: 'numeric' },
+                      )}
+                      <ChevronDown aria-hidden="true" className="size-3.5" />
+                    </>
+                  }
+                  className="h-10 gap-1.5 rounded-full px-3 text-sm text-muted-foreground"
+                />
+                <div className="flex shrink-0 items-center gap-1">
+                  {date !== today ? (
+                    <Button
+                      variant="outline"
+                      className="h-10 rounded-full px-4"
+                      onClick={() => selectDay(toLocalDateString(Date.now()))}
+                    >
+                      Today
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="size-10 rounded-full"
+                    aria-label="Previous day"
+                    onClick={() => shiftDay(-1)}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="size-10 rounded-full"
+                    aria-label="Next day"
+                    onClick={() => shiftDay(1)}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
         }
-        subtitle={
-          archived
-            ? undefined
-            : new Date(toTimestampFromDate(date)).toLocaleDateString(
-                undefined,
-                { weekday: 'long', month: 'long', day: 'numeric' },
-              )
-        }
-        icon={archived ? undefined : <Flame className="h-4 w-4" />}
         contentClassName="max-w-3xl"
       >
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              aria-label="Previous day"
-              onClick={() => shiftDay(-1)}
-            >
-              <ChevronLeft />
-            </Button>
-            <DatePicker value={date} onChange={selectDay} ariaLabel="Day" />
-            <Button
-              size="icon"
-              variant="ghost"
-              aria-label="Next day"
-              onClick={() => shiftDay(1)}
-            >
-              <ChevronRight />
-            </Button>
-            {date !== today ? (
+        {archived ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1">
               <Button
+                size="icon"
                 variant="ghost"
-                onClick={() => selectDay(toLocalDateString(Date.now()))}
+                aria-label="Previous day"
+                onClick={() => shiftDay(-1)}
               >
-                Today
+                <ChevronLeft />
               </Button>
-            ) : null}
-          </div>
-          {archived ? (
+              <DatePicker value={date} onChange={selectDay} ariaLabel="Day" />
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Next day"
+                onClick={() => shiftDay(1)}
+              >
+                <ChevronRight />
+              </Button>
+              {date !== today ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => selectDay(toLocalDateString(Date.now()))}
+                >
+                  Today
+                </Button>
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select
                 ariaLabel="Person"
@@ -257,8 +344,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 </Button>
               ) : null}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         {archived && !loadingPerson && !selected ? (
           <p role="status" className="mt-4 text-sm text-muted-foreground">
             {selectedPersonId
@@ -523,18 +610,35 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               : 'Meals'}
           </h2>
           {!archived ? (
+            // Phones log from the bottom navigation instead.
             <Button
-              variant="ghost"
+              variant="outline"
+              className="hidden md:inline-flex"
               disabled={!selected}
               onClick={() =>
                 openEditor({ personId: selected?._id ?? '', date })
               }
             >
               <Plus className="h-4 w-4" />
-              Add meal
+              Log meal
             </Button>
           ) : null}
         </div>
+        {!archived &&
+        selected &&
+        !loadingPerson &&
+        meals.status !== 'LoadingFirstPage' &&
+        meals.results.length === 0 ? (
+          // Phones have no inline Log meal, so an empty day offers the action in place.
+          <Button
+            variant="outline"
+            className="mt-3 h-11 w-full md:hidden"
+            onClick={() => openEditor({ personId: selected._id, date })}
+          >
+            <Plus />
+            Log meal
+          </Button>
+        ) : null}
         <div
           className={cn(
             'mt-3 divide-y',
@@ -618,7 +722,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           title={
             editor.mealId || (draft?.editingMealId && editor.resume)
               ? 'Edit meal'
-              : 'Add meal'
+              : 'Log meal'
           }
           onClose={closeEditor}
           pending={editorPending}
@@ -691,11 +795,15 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
             <p className="text-sm tabular-nums">
               {item.caloriesSnapshot.toFixed(0)} kcal
             </p>
-            <p className="text-xs text-muted-foreground">
-              {item.sourceType === 'fixedCalories'
-                ? 'Fixed calorie entry'
-                : `${item.consumedWeightGrams} g · ${item.kcalPer100Snapshot} kcal / 100 ${item.kcalBasisUnitSnapshot}`}
-            </p>
+            {item.sourceType !== 'fixedCalories' ? (
+              <p className="text-xs text-muted-foreground">
+                {`${item.consumedWeightGrams} g · ${item.kcalPer100Snapshot} kcal / 100 ${item.kcalBasisUnitSnapshot}`}
+              </p>
+            ) : item.foodIdentity?.servingLabel ? (
+              <p className="text-xs text-muted-foreground">
+                {`${item.servingCount ?? 1} ${item.foodIdentity.servingLabel}`}
+              </p>
+            ) : null}
             <div className="col-span-full">
               <EstimateNotice provenance={item.nutritionProvenance} />
               {item.notes ? (
@@ -714,14 +822,44 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
       ) : null}
       <fieldset
         disabled={isRunning}
-        className="mt-3 flex flex-wrap justify-end gap-2"
+        className="mt-3 flex flex-wrap items-center justify-end gap-2"
       >
-        <Button size="sm" variant="outline" onClick={onEdit}>
-          Edit meal
-        </Button>
+        {/* Overflow sits apart, so Archive and Edit meal read as one pair. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                size="icon"
+                variant="ghost"
+                className="mr-auto size-10 text-muted-foreground"
+                aria-label="More meal actions"
+              />
+            }
+          >
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() =>
+                confirmAndRunAction(
+                  'Delete this meal permanently?',
+                  'Meal deleted.',
+                  () =>
+                    remove({
+                      mealId: meal._id,
+                      expectedEditRevision: detail.meal.editRevision,
+                    }),
+                )
+              }
+            >
+              Delete permanently
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
-          size="sm"
           variant="ghost"
+          className="h-10 text-muted-foreground"
           onClick={() =>
             void runAction(
               meal.archived ? 'Meal restored.' : 'Meal archived.',
@@ -734,30 +872,13 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
             )
           }
         >
+          <Archive />
           {meal.archived ? 'Restore' : 'Archive'}
         </Button>
-        <details>
-          <summary className="cursor-pointer rounded-md px-3 py-2 text-xs text-muted-foreground">
-            More
-          </summary>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() =>
-              confirmAndRunAction(
-                'Delete this meal permanently?',
-                'Meal deleted.',
-                () =>
-                  remove({
-                    mealId: meal._id,
-                    expectedEditRevision: detail.meal.editRevision,
-                  }),
-              )
-            }
-          >
-            Delete permanently
-          </Button>
-        </details>
+        <Button variant="secondary" className="h-10" onClick={onEdit}>
+          <Pencil />
+          Edit meal
+        </Button>
       </fieldset>
       <ConfirmDestructiveDialog
         open={isConfirmDialogOpen}
