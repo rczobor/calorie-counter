@@ -233,6 +233,8 @@ function MealEditorContent({
   // Search is the default way to add food. Quick calories and new foods open
   // their own panels; a restored draft reopens the panel it was filling in.
   const [query, setQuery] = useState('')
+  // The search whose full match list is shown; any other search shows the first few.
+  const [expandedQuery, setExpandedQuery] = useState<string | null>(null)
   const [entry, setEntry] = useState<'search' | 'quick' | 'new'>(() => {
     if (
       restoredDraft?.itemMode === 'new' &&
@@ -443,7 +445,7 @@ function MealEditorContent({
   const needle = query.trim().toLocaleLowerCase()
   const matches = (...texts: Array<string | undefined>) =>
     texts.some((text) => text?.toLocaleLowerCase().includes(needle))
-  const results: SearchResult[] = needle
+  const matchingResults: SearchResult[] = needle
     ? [
         ...usableTemplates
           .filter(({ template }) => matches(template.name))
@@ -462,8 +464,14 @@ function MealEditorContent({
               matches(ingredient.name, ingredient.brand),
           )
           .map((ingredient) => ({ kind: 'ingredient' as const, ingredient })),
-      ].slice(0, RESULT_LIMIT)
+      ]
     : []
+  // Short by default, but every loaded match stays reachable: batches can share
+  // a name across cooking sessions.
+  const results =
+    expandedQuery === needle
+      ? matchingResults
+      : matchingResults.slice(0, RESULT_LIMIT)
 
   // The food currently being weighed, from a search pick or an item being
   // edited. An edited food keeps its recorded nutrition, which Update saves.
@@ -1041,7 +1049,7 @@ function MealEditorContent({
         ? resultRow(
             `c-${result.food._id}`,
             result.food.name,
-            `Cooked batch · ${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
+            `Cooked batch · ${new Date(result.food.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
             () => pickResult(result),
           )
         : resultRow(
@@ -1390,6 +1398,15 @@ function MealEditorContent({
                       >
                         {results.map(describe)}
                       </ul>
+                    ) : null}
+                    {matchingResults.length > results.length ? (
+                      <Button
+                        variant="ghost"
+                        className="mt-1 h-10 self-start"
+                        onClick={() => setExpandedQuery(needle)}
+                      >
+                        Show all {matchingResults.length} matches
+                      </Button>
                     ) : null}
                     <p
                       id="add-yourself-label"
