@@ -67,7 +67,10 @@ export const Route = createRootRoute({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        // iOS reports every env(safe-area-inset-*) as 0 without
+        // viewport-fit=cover, which puts the home indicator over the bottom
+        // navigation in the installed app.
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
         name: 'description',
@@ -193,8 +196,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <ClerkProvider>
               <ConvexProvider>
                 <InstallProvider>
-                  {/* Phones reserve room for the fixed bottom navigation. */}
-                  <div className="flex min-h-dvh flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+                  {/* Phones reserve room for the fixed bottom navigation and keep
+                      landscape content clear of the notch. */}
+                  <div className="flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pb-[calc(4.5rem+env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] md:pb-0">
                     <Header />
                     <AuthGate>
                       <HouseholdProvider accountPage={accountPage}>
