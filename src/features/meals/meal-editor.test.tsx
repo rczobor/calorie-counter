@@ -816,6 +816,10 @@ describe('Meal editor', () => {
     expect(
       screen.getByLabelText('Search foods').closest('fieldset')?.disabled,
     ).toBe(true)
+    // Loading the meal would overwrite a name typed meanwhile.
+    expect(
+      (screen.getByLabelText('Meal name') as HTMLInputElement).disabled,
+    ).toBe(true)
 
     isMealDetailLoading = false
     const Component = MealsRoute.options.component as ComponentType
@@ -823,6 +827,9 @@ describe('Meal editor', () => {
 
     expect(
       screen.getByLabelText('Search foods').closest('fieldset')?.disabled,
+    ).toBe(false)
+    expect(
+      (screen.getByLabelText('Meal name') as HTMLInputElement).disabled,
     ).toBe(false)
     expect(mealItemText('Existing item')).toContain('200 kcal')
   })

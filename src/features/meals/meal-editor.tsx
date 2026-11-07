@@ -1607,6 +1607,8 @@ function MealEditorContent({
               aria-label="Meal name"
               placeholder="Breakfast, lunch, snack"
               className="h-11"
+              // Loading the edited meal sets its name; typing first would be lost.
+              disabled={!isEditingMealHydrated}
               value={mealName}
               onChange={(event) => setMealName(event.target.value)}
             />
