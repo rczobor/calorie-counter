@@ -165,9 +165,10 @@ the explicit local cooking date. Ingredient meals require grams. Cooking's
 alone do not establish a conversion from cans, bowls, or spoons.
 
 The default `confirmationMode: "always"` shows a preview and asks before saving.
-A user may explicitly choose `explicitOnly` after its behavior is explained:
-fully specified, non-estimated new meals that the user asks to log can be
-previewed and saved in the same turn. Estimates, cooking, corrections, and
+Only the user can turn on `explicitOnly`, in **Settings → ChatGPT**. ChatGPT can
+keep it when it is already on but cannot turn it on. With it, fully specified,
+non-estimated new meals that the user asks to log can be previewed and saved in
+the same turn. Estimates, cooking, corrections, and
 transfers between households always require review and approval. Missing or
 archived person defaults revert to the conservative confirmation behavior.
 Clarify material ambiguity (for example single versus double toast slices) and

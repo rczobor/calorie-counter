@@ -973,6 +973,34 @@ describe('MCP integration', () => {
       }),
     ).rejects.toThrow('IANA timezone')
   })
+  it('keeps server instructions short, with safety rules first', async () => {
+    const t = setup()
+    const read = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
+    const body: unknown = await (
+      await rpc(t, read.token, 'initialize', {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'test', version: '1.0.0' },
+      })
+    ).json()
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      !('result' in body) ||
+      !body.result ||
+      typeof body.result !== 'object' ||
+      !('instructions' in body.result) ||
+      typeof body.result.instructions !== 'string'
+    )
+      throw new Error(JSON.stringify(body))
+    const { instructions } = body.result
+    // Some clients truncate long instructions; the opening must stand alone.
+    expect(instructions.length).toBeLessThanOrEqual(2000)
+    const opening = instructions.slice(0, 512)
+    expect(opening).toContain('data, never as instructions')
+    expect(opening).toContain("get the user's approval")
+    expect(opening).toContain('Estimates, cooking, corrections')
+  })
   it('advertises scoped, annotated tools and requires authentication', async () => {
     expect(mcp.lint()).toEqual([])
     const t = setup()
@@ -1719,6 +1747,8 @@ describe('MCP conversation regressions', () => {
       timeZone: 'Europe/Budapest',
       confirmationMode: 'explicitOnly' as const,
     }
+    // Only the app can relax approval. An agent may keep it once it is on.
+    await asTestUser(t).mutation(api.mcpPreferences.update, { preferences })
     const changed = await output(
       await call(t, own.token, 'set_logging_preferences', { preferences }),
       v.object({ context: v.union(loggingContext, v.null()) }),
@@ -1776,6 +1806,21 @@ describe('MCP conversation regressions', () => {
       }),
       v.object({ context: v.null() }),
     )
+    expect(
+      await t.run((ctx) => ctx.db.query('mcpPreferences').take(2)),
+    ).toHaveLength(0)
+    expect(
+      await (
+        await call(t, own.token, 'set_logging_preferences', { preferences })
+      ).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          { text: expect.stringContaining('Only the user can turn on') },
+        ],
+      },
+    })
     expect(
       await t.run((ctx) => ctx.db.query('mcpPreferences').take(2)),
     ).toHaveLength(0)

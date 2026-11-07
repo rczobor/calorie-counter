@@ -147,6 +147,15 @@ export const setLoggingPreferences = internalMutation({
     domainResult(async () => {
       requireAccount(user, 'meals:write')
       await ensurePersonalHousehold(ctx, user.userId)
+      // Relaxing approval must be a human choice in the app, never an agent's.
+      if (
+        preferences?.confirmationMode === 'explicitOnly' &&
+        (await getPreferences(ctx, user.userId))?.confirmationMode !==
+          'explicitOnly'
+      )
+        throw new ConvexError(
+          'Only the user can turn on explicitOnly, in Calorie Counter under Settings, ChatGPT. Use confirmationMode always.',
+        )
       const owner = await updateLoggingPreferencesForAccount(
         ctx,
         user.userId,

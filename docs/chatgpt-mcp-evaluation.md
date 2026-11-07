@@ -109,8 +109,9 @@ Pass criteria:
 - The rice pudding carries clear portion and nutrition assumptions. It is not
   represented as verified manufacturer nutrition.
 - With the default confirmation policy, the assistant asks before saving.
-  With an explicitly chosen direct-logging preference, a complete exact entry
-  can be saved without another natural-language approval turn. Estimates and
+  With a direct-logging preference the user turned on in the app, a complete
+  exact entry can be saved without another natural-language approval turn.
+  Asking ChatGPT to turn that preference on is refused. Estimates and
   corrections still require review; ChatGPT's own write confirmation is separate.
 - “Five toasties” triggers clarification of consequential assumptions, such as
   one or two bread slices each. A provided measured weight overrides photo-based
