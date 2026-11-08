@@ -2953,7 +2953,9 @@ describe('MCP goal tools', () => {
           effectiveDate: shiftDay(today, 1),
         }),
       ),
-    ).toContain('Effective date must be today.')
+    ).toContain(
+      `Effective date must be today, ${today} in the saved time zone UTC.`,
+    )
     await t.run((ctx) => ctx.db.patch(personId, { archived: true }))
     expect(
       await error(await preview({ expectedEditRevision: 0, goalKcal: 1900 })),

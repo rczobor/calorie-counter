@@ -1,4 +1,4 @@
-import { vMcpUser, type McpUser } from '@convex-dev/mcp'
+import { vMcpUser } from '@convex-dev/mcp'
 import { v, type Infer } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { internalMutation, type MutationCtx } from './_generated/server'
@@ -54,18 +54,29 @@ const STATED_REASON = 'Set through an AI assistant'
  */
 async function requireToday(
   ctx: MutationCtx,
-  user: McpUser,
+  owner: AuthenticatedOwner,
   date: string,
   field: string,
 ) {
   const day = normalizeRequiredDate(date, field)
   const now = Date.now()
-  const timeZone = (await getPreferences(ctx, user.userId))?.timeZone
+  const preferences = await getPreferences(ctx, owner.ownerTokenIdentifier)
+  // get_logging_context uses the saved zone only for its own household.
+  const timeZone =
+    preferences?.householdId === owner.householdId
+      ? preferences.timeZone
+      : undefined
+  if (timeZone) {
+    // Named, so a caller who passed another zone can correct the date.
+    const today = localCalendarDate(timeZone, now)
+    if (day !== today)
+      throw new DomainError(
+        `${field} must be today, ${today} in the saved time zone ${timeZone}. Goal changes apply from today and earlier days keep their goals.`,
+      )
+    return day
+  }
   const utc = new Date(now).toISOString().slice(0, 10)
-  const isToday = timeZone
-    ? day === localCalendarDate(timeZone, now)
-    : day >= shiftDay(utc, -1) && day <= shiftDay(utc, 1)
-  if (!isToday)
+  if (day < shiftDay(utc, -1) || day > shiftDay(utc, 1))
     throw new DomainError(
       `${field} must be today. Use localDate from get_logging_context: goal changes apply from today and earlier days keep their goals.`,
     )
@@ -127,12 +138,7 @@ export const getGoal = internalMutation({
         owner,
         'Person not found.',
       )
-      const today = await requireToday(
-        ctx,
-        args.user,
-        args.localDate,
-        'Local date',
-      )
+      const today = await requireToday(ctx, owner, args.localDate, 'Local date')
       const checkIn = buildCheckIn({
         today,
         ...(await readCheckInData(ctx, owner, person._id, today)),
@@ -201,7 +207,6 @@ export const getGoal = internalMutation({
  */
 async function prepareGoalChange(
   ctx: MutationCtx,
-  user: McpUser,
   owner: AuthenticatedOwner,
   input: Infer<typeof goalChangeInput>,
 ): Promise<Infer<typeof goalChangePreview>> {
@@ -209,7 +214,7 @@ async function prepareGoalChange(
   assertExpectedEditRevision(person, input.expectedEditRevision, 'Person')
   const effectiveDate = await requireToday(
     ctx,
-    user,
+    owner,
     input.effectiveDate,
     'Effective date',
   )
@@ -403,7 +408,6 @@ export const previewGoalChange = internalMutation({
     domainResult(async () =>
       prepareGoalChange(
         ctx,
-        args.user,
         await requireMcpOwner(
           ctx,
           args.user,
@@ -435,7 +439,7 @@ export const setGoal = internalMutation({
         )
       const effectiveDate = await requireToday(
         ctx,
-        user,
+        owner,
         input.effectiveDate,
         'Effective date',
       )
