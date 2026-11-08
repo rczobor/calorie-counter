@@ -319,3 +319,49 @@ test('opening a deferred editor shows a skeleton without replacing the intake pa
     releaseEditor()
   }
 })
+
+test.describe('on a touch phone', () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } })
+
+  test('the meal sheet settles after a short swipe and closes after a long one', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(page.getByText('Seeded breakfast')).toBeVisible()
+    await page
+      .getByRole('navigation', { name: 'Primary navigation' })
+      .getByRole('button', { name: 'Log meal' })
+      .click()
+    const sheet = page.getByRole('dialog')
+    await expect(sheet.getByLabel('Search foods')).toBeFocused()
+    const box = await sheet.boundingBox()
+    if (!box) throw new Error('The sheet has no layout box.')
+    const cdp = await page.context().newCDPSession(page)
+    // Drag from the handle, the way a thumb would.
+    const swipe = async (distance: number) => {
+      const x = box.x + box.width / 2
+      const y = box.y + 6
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x, y }],
+      })
+      for (let step = 1; step <= 10; step++) {
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x, y: y + (distance * step) / 10 }],
+        })
+      }
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+      })
+    }
+
+    await swipe(30)
+    await expect(sheet).toBeVisible()
+    await expect.poll(async () => (await sheet.boundingBox())?.y).toBe(box.y)
+
+    await swipe(400)
+    await expect(sheet).toHaveCount(0)
+  })
+})
