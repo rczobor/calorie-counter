@@ -2781,8 +2781,79 @@ describe('MCP goal tools', () => {
     expect(person?.energyProfile).toEqual(profile)
   })
 
+  it('takes the check-in suggestion and ends a plan whose target is reached', async () => {
+    const t = setup()
+    const own = await credential(t)
+    const personId = await insertPerson(t, {
+      energyProfile: profile,
+      goalPlan: { direction: 'lose', percentPerWeek: 0.5, targetWeightKg: 83 },
+    })
+    // Four weeks of ~1960 kcal logged while the trend falls to about 82.4 kg.
+    await t.run(async (ctx) => {
+      const person = await ctx.db.get(personId)
+      if (!person) throw new Error('Expected the test person.')
+      const owner = {
+        ownerTokenIdentifier: person.ownerTokenIdentifier,
+        householdId: person.householdId,
+      }
+      for (let daysAgo = 28; daysAgo >= 1; daysAgo--) {
+        const date = shiftDay(today, -daysAgo)
+        await ctx.db.insert('dailySummaries', {
+          ...owner,
+          personId,
+          eatenOn: date,
+          consumedCalories: 1960 + (daysAgo % 2 ? 80 : -80),
+          mealCount: 3,
+          createdAt: 0,
+          updatedAt: 0,
+        })
+        if (daysAgo % 2 === 0)
+          await ctx.db.insert('weightEntries', {
+            ...owner,
+            personId,
+            measuredOn: date,
+            weightKg: 83.4 - ((28 - daysAgo) * 0.26) / 7,
+            editRevision: 0,
+            createdAt: 0,
+            updatedAt: 0,
+          })
+      }
+    })
+    const status = await output(
+      await call(t, own.token, 'get_goal', { personId, localDate: today }),
+      goalStatusResult,
+    )
+    expect(status.checkIn).toMatchObject({
+      status: 'ready',
+      suggestion: { targetReached: true, plannedKgPerWeek: 0 },
+    })
+    const previewed = await output(
+      await call(t, own.token, 'preview_goal_change', {
+        input: { personId, expectedEditRevision: 0, effectiveDate: today },
+      }),
+      goalChangePreview,
+    )
+    expect(previewed).toMatchObject({
+      basis: 'checkIn',
+      after: {
+        goalKcal: status.checkIn.suggestion?.goalKcal,
+        goalPlan: { direction: 'maintain' },
+      },
+      input: { goalPlan: { direction: 'maintain' } },
+      working: {
+        maintenanceKcal: status.checkIn.maintenanceKcal,
+        adjustmentKcal: 0,
+      },
+      warnings: [expect.stringContaining('The target is reached')],
+    })
+    await call(t, own.token, 'set_goal', { input: previewed.input })
+    expect((await t.run((ctx) => ctx.db.get(personId)))?.goalPlan).toEqual({
+      direction: 'maintain',
+    })
+  })
+
   it('refuses backdated changes, unsafe plans, missing scopes and other households', async () => {
-    const { t, personId, preview } = await goalFixture()
+    const { t, personId, own, preview } = await goalFixture()
     const error = async (response: Response) =>
       (
         (await response.json()) as {
@@ -2807,6 +2878,25 @@ describe('MCP goal tools', () => {
         }),
       ),
     ).toContain('Goal plans are for adults.')
+    // A stale saved plan is checked before a goal is calculated from it.
+    await t.run((ctx) =>
+      ctx.db.patch(personId, {
+        energyProfile: profile,
+        goalPlan: {
+          direction: 'lose',
+          percentPerWeek: 0.5,
+          targetWeightKg: 70,
+        },
+      }),
+    )
+    await call(t, own.token, 'record_weight', {
+      personId,
+      measuredOn: today,
+      weightKg: 68,
+    })
+    expect(await error(await preview({ expectedEditRevision: 0 }))).toContain(
+      'The target is not below the current weight.',
+    )
     // A very low stated goal is allowed, with a warning to show the user.
     expect(
       await output(
@@ -2842,6 +2932,32 @@ describe('MCP goal tools', () => {
         })
       ).status,
     ).toBe(403)
+    // With a saved time zone, "today" is exactly its local date.
+    const { householdId } = await output(
+      await call(t, own.token, 'get_goal', { personId, localDate: today }),
+      goalStatusResult,
+    )
+    await call(t, own.token, 'set_logging_preferences', {
+      preferences: {
+        householdId,
+        personId,
+        timeZone: 'UTC',
+        confirmationMode: 'always',
+      },
+    })
+    expect(
+      await error(
+        await preview({
+          expectedEditRevision: 0,
+          goalKcal: 1900,
+          effectiveDate: shiftDay(today, 1),
+        }),
+      ),
+    ).toContain('Effective date must be today.')
+    await t.run((ctx) => ctx.db.patch(personId, { archived: true }))
+    expect(
+      await error(await preview({ expectedEditRevision: 0, goalKcal: 1900 })),
+    ).toContain('Person is archived.')
     const stranger = await credential(t, 'user-2|token')
     expect(
       await error(

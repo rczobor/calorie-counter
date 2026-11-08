@@ -1,4 +1,4 @@
-import { vMcpUser } from '@convex-dev/mcp'
+import { vMcpUser, type McpUser } from '@convex-dev/mcp'
 import { v, type Infer } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { internalMutation, type MutationCtx } from './_generated/server'
@@ -28,7 +28,12 @@ import {
   normalizeOptionalText,
   normalizeRequiredDate,
 } from './lib/validation'
-import { domainResult, requireMcpOwner } from './mcpContext'
+import {
+  domainResult,
+  getPreferences,
+  localCalendarDate,
+  requireMcpOwner,
+} from './mcpContext'
 import { appUrl, canonical, limiter } from './mcpOperations'
 import {
   goalChangeInput,
@@ -42,14 +47,25 @@ const GOAL_HISTORY_ROWS = 10
 const STATED_REASON = 'Set through an AI assistant'
 
 /**
- * Goals apply from today, so earlier days keep the goal they had. The server
- * can't know the caller's time zone, so "today" is any date within a day of
- * the UTC date: every time zone's local date.
+ * Goals apply from today, so earlier days keep the goal they had, and a goal
+ * dated tomorrow can't later override the app's. With a saved time zone that
+ * is the exact local date; without one, any date within a day of the UTC date,
+ * which covers every time zone.
  */
-function requireToday(date: string, now: number, field: string) {
+async function requireToday(
+  ctx: MutationCtx,
+  user: McpUser,
+  date: string,
+  field: string,
+) {
   const day = normalizeRequiredDate(date, field)
+  const now = Date.now()
+  const timeZone = (await getPreferences(ctx, user.userId))?.timeZone
   const utc = new Date(now).toISOString().slice(0, 10)
-  if (day < shiftDay(utc, -1) || day > shiftDay(utc, 1))
+  const isToday = timeZone
+    ? day === localCalendarDate(timeZone, now)
+    : day >= shiftDay(utc, -1) && day <= shiftDay(utc, 1)
+  if (!isToday)
     throw new DomainError(
       `${field} must be today. Use localDate from get_logging_context: goal changes apply from today and earlier days keep their goals.`,
     )
@@ -111,7 +127,12 @@ export const getGoal = internalMutation({
         owner,
         'Person not found.',
       )
-      const today = requireToday(args.localDate, Date.now(), 'Local date')
+      const today = await requireToday(
+        ctx,
+        args.user,
+        args.localDate,
+        'Local date',
+      )
       const checkIn = buildCheckIn({
         today,
         ...(await readCheckInData(ctx, owner, person._id, today)),
@@ -180,13 +201,18 @@ export const getGoal = internalMutation({
  */
 async function prepareGoalChange(
   ctx: MutationCtx,
+  user: McpUser,
   owner: AuthenticatedOwner,
   input: Infer<typeof goalChangeInput>,
-  now: number,
 ): Promise<Infer<typeof goalChangePreview>> {
   const person = requireActivePerson(await ctx.db.get(input.personId), owner)
   assertExpectedEditRevision(person, input.expectedEditRevision, 'Person')
-  const effectiveDate = requireToday(input.effectiveDate, now, 'Effective date')
+  const effectiveDate = await requireToday(
+    ctx,
+    user,
+    input.effectiveDate,
+    'Effective date',
+  )
   const profile = input.energyProfile ?? person.energyProfile
   let plan: GoalPlan | undefined =
     input.goalPlan === undefined
@@ -241,15 +267,21 @@ async function prepareGoalChange(
     })
     let maintenance: Estimate
     let goal: ReturnType<typeof goalForPlan>
-    if (checkIn.estimate.status === 'ready' && checkIn.suggestion) {
+    if (
+      checkIn.estimate.status === 'ready' &&
+      checkIn.suggestion &&
+      data.latestWeightKg !== null
+    ) {
       maintenance = checkIn.estimate.maintenance
-      goal = {
-        goalKcal: checkIn.suggestion.goalKcal,
-        kgPerWeek: checkIn.suggestion.kgPerWeek,
-        adjustmentKcal:
-          checkIn.suggestion.goalKcal - roundKcal(maintenance.kcal),
-        heldAtMinimum: checkIn.suggestion.heldAtMinimum,
-      }
+      // The same calculation as the suggestion, which keeps its working.
+      goal = goalForPlan({
+        maintenanceKcal: maintenance.kcal,
+        weightKg: data.latestWeightKg,
+        sex: profile.sex,
+        plan: checkIn.suggestion.targetReached
+          ? { direction: 'maintain' }
+          : plan,
+      })
       basis = 'checkIn'
       reason ??= `Check-in: maintenance ≈ ${roundKcal(maintenance.kcal)} kcal`
       // A reached target ends the plan, as the app's check-in does.
@@ -264,6 +296,14 @@ async function prepareGoalChange(
         throw new DomainError(
           'Record a weight first with record_weight, or give goalKcal.',
         )
+      // A saved plan can go stale (a target passed): check it as the app does.
+      const problem = energyPlanProblem({
+        profile,
+        plan,
+        date: effectiveDate,
+        weightKg: data.latestWeightKg,
+      })
+      if (problem) throw new DomainError(problem)
       maintenance = formulaMaintenance(
         profile,
         data.latestWeightKg,
@@ -309,6 +349,12 @@ async function prepareGoalChange(
         'This person is under 18. Teens need energy to grow; a doctor or dietitian should suggest their goal.',
       )
   }
+  const before = goalState(person)
+  const after = { goalKcal, energyProfile: profile, goalPlan: plan }
+  if (canonical(after) === canonical(before))
+    warnings.push(
+      'This matches the saved goal, plan and profile: saving changes nothing.',
+    )
   const weeks =
     plan && data.latestWeightKg !== null
       ? weeksToTarget(plan, data.latestWeightKg)
@@ -331,8 +377,8 @@ async function prepareGoalChange(
       ...(goalPlan !== undefined ? { goalPlan } : {}),
       ...(reason ? { reason } : {}),
     },
-    before: goalState(person),
-    after: { goalKcal, energyProfile: profile, goalPlan: plan },
+    before,
+    after,
     basis,
     working,
     targetProjection:
@@ -357,6 +403,7 @@ export const previewGoalChange = internalMutation({
     domainResult(async () =>
       prepareGoalChange(
         ctx,
+        args.user,
         await requireMcpOwner(
           ctx,
           args.user,
@@ -364,7 +411,6 @@ export const previewGoalChange = internalMutation({
           args.householdId,
         ),
         args.input,
-        Date.now(),
       ),
     ),
 })
@@ -387,9 +433,10 @@ export const setGoal = internalMutation({
         throw new DomainError(
           'Send the exact input returned by preview_goal_change, including its goalKcal.',
         )
-      const effectiveDate = requireToday(
+      const effectiveDate = await requireToday(
+        ctx,
+        user,
         input.effectiveDate,
-        Date.now(),
         'Effective date',
       )
       const requested = {
