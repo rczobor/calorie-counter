@@ -12,10 +12,11 @@ const { archive, loadMore } = vi.hoisted(() => ({
   archive: vi.fn(),
   loadMore: vi.fn(),
 }))
+const fixedPortion = { kind: 'fixedCalories', calories: 14 }
+let nutrition: Record<string, unknown> = fixedPortion
 const food = {
   _id: 'vitamins',
   name: 'Vitamins',
-  nutrition: { kind: 'fixedCalories', calories: 14 },
   nutritionProvenance: {
     kind: 'provided',
     source: 'Label',
@@ -36,6 +37,7 @@ vi.mock('convex/react', () => ({
       results: [
         {
           ...food,
+          nutrition,
           _id: args.archived ? 'archived-vitamins' : food._id,
           name: args.archived ? 'Older vitamins' : food.name,
           archivedAt: args.archived ? 10 : undefined,
@@ -50,22 +52,30 @@ import { SavedFoods } from './saved-foods'
 beforeEach(() => {
   vi.clearAllMocks()
   calls.length = 0
+  nutrition = fixedPortion
   archive.mockResolvedValue(null)
 })
 afterEach(cleanup)
 
 describe('Reusable food library', () => {
   it('explains the stored portion and nutrition source without a nutrition editor', () => {
-    render(<SavedFoods showArchived={false} />)
-    expect(screen.getByText('14 kcal / saved portion')).toBeTruthy()
-    fireEvent.click(screen.getByText('Vitamins', { selector: 'summary' }))
+    render(<SavedFoods showArchived={false} onShowArchivedChange={vi.fn()} />)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Vitamins 14 kcal / saved portion' }),
+    )
     expect(screen.getByText(/entire originally logged item/)).toBeTruthy()
     expect(screen.getByText('Nutrition source')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
   })
+  it('names the per-100 g basis of a by-weight food in its sheet', () => {
+    nutrition = { kind: 'byWeight', kcalPer100: 250 }
+    render(<SavedFoods showArchived={false} onShowArchivedChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Vitamins/ }))
+    expect(screen.getByText('kcal per 100 g')).toBeTruthy()
+  })
   it('archives or restores the selected reusable food and keeps pagination explicit', async () => {
-    render(<SavedFoods showArchived />)
-    fireEvent.click(screen.getByText('Vitamins', { selector: 'summary' }))
+    render(<SavedFoods showArchived onShowArchivedChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Vitamins/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
     await waitFor(() =>
       expect(archive).toHaveBeenCalledWith({
@@ -74,7 +84,7 @@ describe('Reusable food library', () => {
       }),
     )
     fireEvent.click(
-      screen.getByText('Older vitamins · Archived', { selector: 'summary' }),
+      screen.getByRole('button', { name: /^Older vitamins Archived/ }),
     )
     fireEvent.click(screen.getByRole('button', { name: 'Restore' }))
     await waitFor(() =>

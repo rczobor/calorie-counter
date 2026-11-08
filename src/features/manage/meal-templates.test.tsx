@@ -74,9 +74,8 @@ describe('meal template management', () => {
   it('renames, changes portions, and explicitly replaces a product without editing until save', async () => {
     render(<MealTemplates />)
     fireEvent.click(
-      screen.getByText('Usual breakfast', { selector: 'summary' }),
+      screen.getByRole('button', { name: /^Edit Usual breakfast/ }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
     fireEvent.change(screen.getByLabelText('Template name'), {
       target: { value: 'New breakfast' },
     })
@@ -124,9 +123,8 @@ describe('meal template management', () => {
   it('removes ingredients, validates quantities, paginates, and confirms deletion', async () => {
     render(<MealTemplates />)
     fireEvent.click(
-      screen.getByText('Usual breakfast', { selector: 'summary' }),
+      screen.getByRole('button', { name: /^Edit Usual breakfast/ }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Edit template' }))
     fireEvent.click(screen.getByLabelText('Remove Cookie'))
     fireEvent.change(screen.getByLabelText('Quantity (g)'), {
       target: { value: '0' },
@@ -155,10 +153,19 @@ describe('meal template management', () => {
         }),
       }),
     )
+    expect(screen.queryByLabelText('Template name')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Load more templates' }))
     expect(loadMore).toHaveBeenCalledWith(20)
     update.mockClear()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete template' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Edit Usual breakfast/ }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'More actions for Usual breakfast' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Delete template' }),
+    )
     expect(update).not.toHaveBeenCalled()
     const dialog = screen.getByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))

@@ -395,7 +395,7 @@ export function CookedFoodEditor({
                   {line.sourceType === 'custom' ? (
                     <div className="space-y-1">
                       <Label htmlFor={`kcal-${line.draftId}`}>
-                        kcal / 100 {basis}
+                        kcal/100 {basis}
                       </Label>
                       <Input
                         id={`kcal-${line.draftId}`}

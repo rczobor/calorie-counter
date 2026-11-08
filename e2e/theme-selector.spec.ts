@@ -1,8 +1,20 @@
 import { expect, test } from '@playwright/test'
 
-for (const viewport of [
-  { width: 1440, height: 1000 },
-  { width: 390, height: 844 },
+// Desktop keeps the theme menu in the top bar; phones have no top bar, so the
+// control is the Appearance row in Settings.
+for (const { viewport, path, heading, label } of [
+  {
+    viewport: { width: 1440, height: 1000 },
+    path: '/',
+    heading: 'Today',
+    label: 'Theme',
+  },
+  {
+    viewport: { width: 390, height: 844 },
+    path: '/settings',
+    heading: 'Settings',
+    label: 'Appearance',
+  },
 ]) {
   test.describe(`${viewport.width}px theme selector`, () => {
     test.use({ viewport, colorScheme: 'dark' })
@@ -10,12 +22,12 @@ for (const viewport of [
     test('keeps choices closed and persists an override and a return to System', async ({
       page,
     }) => {
-      await page.goto('/')
+      await page.goto(path)
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Today' }),
+        page.getByRole('heading', { level: 1, name: heading }),
       ).toBeVisible()
 
-      const trigger = page.getByRole('combobox', { name: 'Theme: System' })
+      const trigger = page.getByRole('combobox', { name: `${label}: System` })
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
       await expect(page.getByRole('listbox')).toHaveCount(0)
       await expect(page.locator('html')).toHaveClass('dark')
@@ -29,7 +41,9 @@ for (const viewport of [
       await expect(page.locator('html')).toHaveClass('light')
 
       await page.reload()
-      const lightTrigger = page.getByRole('combobox', { name: 'Theme: Light' })
+      const lightTrigger = page.getByRole('combobox', {
+        name: `${label}: Light`,
+      })
       await expect(lightTrigger).toBeVisible()
       await expect(page.locator('html')).toHaveClass('light')
       await lightTrigger.click()
@@ -39,7 +53,7 @@ for (const viewport of [
       await page.getByRole('option', { name: 'Dark', exact: true }).click()
       await expect(page.locator('html')).toHaveClass('dark')
 
-      const darkTrigger = page.getByRole('combobox', { name: 'Theme: Dark' })
+      const darkTrigger = page.getByRole('combobox', { name: `${label}: Dark` })
       await darkTrigger.focus()
       await darkTrigger.press('ArrowDown')
       await expect(page.getByRole('listbox')).toBeVisible()

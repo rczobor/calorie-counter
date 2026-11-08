@@ -1,5 +1,4 @@
 import {
-  act,
   cleanup,
   fireEvent,
   render,
@@ -90,11 +89,7 @@ function show() {
   return render(<Component />)
 }
 function openAlex() {
-  const details = screen.getByText('Alex', { exact: true }).closest('details')!
-  act(() => {
-    details.open = true
-    fireEvent(details, new Event('toggle'))
-  })
+  fireEvent.click(screen.getByRole('button', { name: /^Edit Alex/ }))
 }
 beforeEach(() => {
   vi.clearAllMocks()
@@ -112,15 +107,17 @@ describe('People settings', () => {
   it('starts with a person list and opens goal history without a creation form', async () => {
     show()
     expect(screen.queryByLabelText('Person name')).toBeNull()
-    expect(screen.getByText('2001 kcal / day')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Edit Alex 2001 kcal / day' }),
+    ).toBeTruthy()
     expect(screen.queryByText('Consumed')).toBeNull()
+    expect(screen.queryByText('Archived')).toBeNull()
     openAlex()
     expect(await screen.findByText('Initial goal')).toBeTruthy()
   })
   it('opens creation explicitly and preserves fractional goals on a name-only edit', async () => {
     show()
     openAlex()
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Alex' }))
     expect(
       (screen.getByLabelText('Daily calorie goal') as HTMLInputElement).value,
     ).toBe('2000.5')
@@ -140,7 +137,8 @@ describe('People settings', () => {
       ),
     )
     expect(screen.queryByLabelText('Person name')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Add person' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New person' }))
+    expect(screen.queryByLabelText('Goal change reason')).toBeNull()
     fireEvent.change(screen.getByLabelText('Person name'), {
       target: { value: 'New person' },
     })
@@ -157,16 +155,26 @@ describe('People settings', () => {
   })
   it('requires confirmation before discarding unsaved edits', () => {
     show()
-    fireEvent.click(screen.getByRole('button', { name: 'Add person' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New person' }))
     fireEvent.change(screen.getByLabelText('Person name'), {
       target: { value: 'Unsaved' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close editor' }))
     expect(confirm).toHaveBeenCalledWith(
       'Discard unsaved person changes?',
       expect.any(String),
       expect.any(Function),
     )
+  })
+  it('keeps Archive off while the open person has unsaved edits', () => {
+    show()
+    openAlex()
+    fireEvent.change(screen.getByLabelText('Person name'), {
+      target: { value: 'Alex renamed' },
+    })
+    expect(
+      screen.getByRole('button', { name: 'Archive' }).hasAttribute('disabled'),
+    ).toBe(true)
   })
   it('retains archive, restore, deletion and load-more paths', async () => {
     activeStatus = 'CanLoadMore'
@@ -180,7 +188,18 @@ describe('People settings', () => {
         archived: true,
       }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Delete person' }))
+    openAlex()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'More actions for Alex' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Delete permanently' }),
+    )
+    expect(confirm).toHaveBeenCalledWith(
+      'Delete this person permanently?',
+      'Person deleted.',
+      expect.any(Function),
+    )
     await waitFor(() =>
       expect(mutate).toHaveBeenCalledWith('nutrition:deletePerson', {
         personId: alex._id,
@@ -189,12 +208,14 @@ describe('People settings', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Load more people' }))
     expect(loadMore).toHaveBeenCalledWith(20)
-    fireEvent.click(screen.getByLabelText('Show archived'))
-    expect(screen.getByText('Sam · Archived')).toBeTruthy()
+    fireEvent.click(screen.getByRole('switch', { name: 'Show archived' }))
+    expect(
+      screen.getByRole('button', { name: /^Edit Sam .*Archived/ }),
+    ).toBeTruthy()
   })
   it('locks form controls while saving', () => {
     const view = show()
-    fireEvent.click(screen.getByRole('button', { name: 'Add person' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New person' }))
     pending = true
     const Component = Route.options.component as ComponentType
     view.rerender(<Component />)
@@ -204,8 +225,18 @@ describe('People settings', () => {
       )?.disabled,
     ).toBe(true)
     expect(
-      (screen.getByRole('button', { name: 'Add person' }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole('button', {
+          name: 'Create person',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Close editor',
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true)
   })
 })

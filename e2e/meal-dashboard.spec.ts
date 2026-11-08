@@ -138,7 +138,7 @@ test('cooked batches open for inspection and finished-weight correction', async 
 }) => {
   await page.goto('/cooking')
   await expect(
-    page.getByRole('heading', { name: 'Cooked batches', level: 1 }),
+    page.getByRole('heading', { name: 'Cooking', level: 1 }),
   ).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start cooking' })).toHaveCount(
     0,
@@ -151,7 +151,11 @@ test('cooked batches open for inspection and finished-weight correction', async 
   await page.getByLabel('Finished weight (g)').fill('1200')
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByText(/1200 g/)).toBeVisible()
-  await expect(page.getByText(/100 kcal \/ 100 g/)).toBeVisible()
+  await expect(
+    page.getByRole('button', {
+      name: 'Homemade chili 1200 g cooked · per 100 g 100 kcal',
+    }),
+  ).toBeVisible()
 })
 
 test('meal drafts recover on request after refresh and stay independent across tabs', async ({
@@ -197,11 +201,13 @@ test('history opens its selected day using the same intake view', async ({
   page,
 }) => {
   await page.goto('/history')
-  await expect(page.getByRole('heading', { name: 'Trend' })).toBeVisible()
   await expect(
-    page.getByText('Average on days with meals logged'),
+    page.getByRole('heading', { name: 'Daily calories' }),
   ).toBeVisible()
-  await page.getByRole('link', { name: 'View day →' }).click()
+  await expect(
+    page.getByText('Average skips days with no meals logged.'),
+  ).toBeVisible()
+  await page.getByRole('link', { name: 'View day' }).click()
   await expect(
     page.getByRole('heading', { name: 'Today', level: 1 }),
   ).toBeVisible()
@@ -211,18 +217,19 @@ test('history opens its selected day using the same intake view', async ({
 test('reusable foods can be inspected, archived, and restored without editing past meals', async ({
   page,
 }) => {
-  await page.goto('/catalog')
-  await page.getByText('Vitamins', { exact: false }).first().click()
-  await page.getByText('Portion & nutrition', { exact: true }).click()
+  await page.goto('/catalog?section=foods')
+  await page.getByRole('button', { name: /^Vitamins\b/ }).click()
   await expect(
     page.getByText(/One saved portion is the entire originally logged item/),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Archive', exact: true }).click()
-  await expect(page.getByText('14 kcal / saved portion')).toHaveCount(0)
-  await page.getByLabel('Show archived', { exact: true }).check()
-  await page.getByText('Vitamins · Archived', { exact: false }).click()
+  await expect(page.getByRole('button', { name: /^Vitamins\b/ })).toHaveCount(0)
+  await page.getByRole('switch', { name: 'Show archived' }).click()
+  await page.getByRole('button', { name: /^Vitamins Archived\b/ }).click()
   await page.getByRole('button', { name: 'Restore', exact: true }).click()
-  await expect(page.getByText('Vitamins · Archived')).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: /^Vitamins Archived\b/ }),
+  ).toHaveCount(0)
   await page.goto('/')
   await expect(page.getByText('250 / 2100 kcal logged')).toBeVisible()
 })
@@ -239,7 +246,7 @@ test('Today focuses on a remembered person and reveals household intake on reque
   await expect(
     page.getByRole('button', { name: 'Archived meals' }),
   ).toHaveCount(0)
-  await page.getByRole('button', { name: 'Household intake' }).click()
+  await page.getByRole('button', { name: 'Switch person' }).click()
   await page.getByRole('button', { name: /^Viki/ }).click()
   await expect(
     page.getByRole('region', { name: 'Viki’s intake' }),

@@ -7,13 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { MoreHorizontal } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ActionsMenu } from '@/components/list/actions-menu'
+import { Disclosure } from '@/components/list/disclosure'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 
@@ -94,55 +89,47 @@ export function LoggingPreferences() {
     else void runAction('Logging defaults updated.', action)
   }
   return (
-    <section className="space-y-3" aria-label="Logging defaults">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Logging defaults</h2>
+    <section aria-label="Logging defaults">
+      {/* The group header carries its actions on the right, as an iOS list's Edit does. */}
+      <div className="flex min-h-10 items-center justify-between gap-3 pb-1">
+        <h2 className="group-label pb-0">Logging defaults</h2>
         {!editing ? (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <Button
-              size="sm"
               variant="ghost"
+              size="sm"
               disabled={isRunning || preferences === undefined}
               onClick={beginEdit}
             >
               {preferences ? 'Edit defaults' : 'Set defaults'}
             </Button>
             {preferences ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Logging default actions"
-                      disabled={isRunning}
-                    />
-                  }
-                >
-                  <MoreHorizontal />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem
-                    className="min-h-9"
-                    disabled={isRunning}
-                    onClick={() =>
+              <ActionsMenu
+                label="Logging default actions"
+                disabled={isRunning}
+                actions={[
+                  {
+                    label: 'Reset defaults',
+                    disabled: isRunning,
+                    onSelect: () =>
                       confirmAndRunAction(
                         'Reset logging defaults? Your assistant will ask for a household and person again. Recorded meals and connections remain.',
                         'Logging defaults reset.',
                         () => update({ preferences: null }),
-                      )
-                    }
-                  >
-                    Reset defaults
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      ),
+                  },
+                ]}
+              />
             ) : null}
           </div>
         ) : null}
       </div>
       {preferences === undefined ? (
-        <LoadingRows label="Loading logging defaults" rows={1} />
+        <LoadingRows
+          label="Loading logging defaults"
+          rows={1}
+          className="inset-group px-4"
+        />
       ) : editing ? (
         <form
           onSubmit={(event) => {
@@ -151,7 +138,7 @@ export function LoggingPreferences() {
           }}
         >
           <fieldset
-            className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"
+            className="mt-1 grid min-w-0 gap-4 sm:grid-cols-2"
             disabled={isRunning}
           >
             <div className="space-y-2">
@@ -226,7 +213,7 @@ export function LoggingPreferences() {
               />
             </div>
             {confirmationMode === 'explicitOnly' ? (
-              <p className="text-xs text-muted-foreground sm:col-span-2">
+              <p className="px-4 type-footnote text-muted-foreground sm:col-span-2">
                 Only complete, non-estimated new meals can save directly.
                 Estimates, cooking, corrections, and transfers still need
                 approval. Your assistant’s own confirmation settings are
@@ -256,7 +243,7 @@ export function LoggingPreferences() {
         </form>
       ) : preferences ? (
         <>
-          <dl className="mt-3 divide-y text-sm">
+          <dl className="inset-group inset-rows">
             <PreferenceRow
               label="Household"
               value={preferences.householdName ?? 'Unavailable household'}
@@ -276,22 +263,21 @@ export function LoggingPreferences() {
             />
           </dl>
           {!preferences.available ? (
-            <p role="alert" className="mt-3 text-sm text-destructive">
+            <p role="alert" className="mt-2 px-4 type-subhead text-destructive">
               The remembered household or person is unavailable. Choose new
               defaults or reset them; the assistant will not silently select
               another household.
             </p>
           ) : null}
-          <details className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">About these defaults</summary>
-            <p className="mt-3">
+          <Disclosure summary="About these defaults" className="mt-1">
+            <p>
               Applies across all your assistant conversations and connections.
               Browsing another person or household here does not change them.
             </p>
-          </details>
+          </Disclosure>
         </>
       ) : (
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="inset-group px-4 py-3.5 type-subhead text-muted-foreground">
           No defaults saved. Your assistant will ask which household and person
           to use.
         </p>
@@ -309,8 +295,9 @@ export function LoggingPreferences() {
 
 function PreferenceRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-2 gap-3 py-3">
-      <dt className="text-muted-foreground">{label}</dt>
+    // Label and value are both content; position, not colour, tells them apart.
+    <div className="grid min-h-12 grid-cols-[auto_minmax(0,1fr)] items-center gap-4 px-4 py-2.5 text-base">
+      <dt>{label}</dt>
       <dd className="min-w-0 text-right break-words">{value}</dd>
     </div>
   )

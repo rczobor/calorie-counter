@@ -8,12 +8,13 @@ for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 })
       await page.emulateMedia({ colorScheme })
       await page.goto('/catalog')
-      await page.getByRole('tab', { name: 'Meal templates' }).click()
+      await page.getByRole('link', { name: 'Meal templates' }).click()
+      await expect(
+        page.getByRole('heading', { name: 'Meal templates', level: 1 }),
+      ).toBeVisible()
       await page
-        .locator('summary')
-        .filter({ hasText: 'Regular breakfast' })
+        .getByRole('button', { name: /^Edit Regular breakfast\b/ })
         .click()
-      await page.getByRole('button', { name: 'Edit template' }).click()
       await expect(page.getByLabel('Quantity (g)')).toHaveValue('50')
       await expect(page.getByLabel('Quantity (cookies)')).toHaveValue('2')
       expect(
@@ -33,18 +34,24 @@ for (const width of [1440, 390]) {
       await page
         .getByRole('button', { name: 'Save template', exact: true })
         .click()
-      await expect(
-        page.locator('summary').filter({ hasText: 'Lighter breakfast' }),
-      ).toBeVisible()
-      await expect(page.getByText('75 g · 350 kcal / 100 g')).toBeVisible()
+      const template = page.getByRole('button', {
+        name: /^Edit Lighter breakfast\b/,
+      })
+      await template.click()
+      await expect(page.getByText('75 g · 350 kcal/100 g')).toBeVisible()
       await expect(page.getByText('Cookies', { exact: true })).toHaveCount(0)
-      await page.getByRole('button', { name: 'Delete template' }).click()
+      const more = page.getByRole('button', {
+        name: 'More actions for Lighter breakfast',
+      })
+      await more.click()
+      await page.getByRole('menuitem', { name: 'Delete template' }).click()
       await expect(page.getByRole('alertdialog')).toBeVisible()
       await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-      await expect(
-        page.locator('summary').filter({ hasText: 'Lighter breakfast' }),
-      ).toBeVisible()
-      await page.getByRole('button', { name: 'Delete template' }).click()
+      await expect(page.getByLabel('Template name')).toHaveValue(
+        'Lighter breakfast',
+      )
+      await more.click()
+      await page.getByRole('menuitem', { name: 'Delete template' }).click()
       await page
         .getByRole('alertdialog')
         .getByRole('button', { name: 'Delete', exact: true })

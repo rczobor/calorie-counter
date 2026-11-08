@@ -162,18 +162,49 @@ describe('History route', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
 
-    const rows = screen.getAllByRole('row')
-    expect(rows[1]?.textContent).toContain('Sat, Apr 4, 2026')
-    expect(rows[1]?.textContent).toContain('777 kcal')
-    expect(rows[2]?.textContent).toContain('Fri, Apr 3, 2026')
-    expect(rows[2]?.textContent).toContain('333 kcal')
-    expect(screen.getByText('555 kcal')).toBeTruthy()
+    // The day list runs newest first, one item per day.
+    const rows = screen.getAllByRole('listitem')
+    expect(rows[0]?.textContent).toContain('Sat, Apr 4')
+    expect(rows[0]?.textContent).toContain('777 / 2000 kcal')
+    expect(rows[1]?.textContent).toContain('Fri, Apr 3')
+    expect(rows[1]?.textContent).toContain('333 / 2000 kcal')
+    expect(
+      screen.getByText('Daily average').parentElement?.textContent,
+    ).toContain('555 kcal')
     expect(lastPeopleArgs).toEqual({ archived: false })
     expect(lastHistoryArgs).toEqual({
       personId: 'person-1',
       startDate: '2026-03-29',
       endDate: '2026-04-04',
     })
+  })
+
+  it('splits an over-goal day at its goal, like the day summary bar', () => {
+    mockPeople = [
+      createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2000 }),
+    ]
+    mockGoals = []
+    mockSummaries = [
+      createDailySummary('summary-1', 'person-1', '2026-04-04', 2500),
+      createDailySummary('summary-2', 'person-1', '2026-04-03', 1500),
+    ]
+
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+
+    const over = screen.getByRole('button', {
+      name: '2026-04-04: 2500 kcal, goal 2000 kcal',
+    })
+    // Berry tint up to the goal, solid berry for the top fifth past it.
+    const overage = over.querySelector<HTMLElement>(
+      '.bg-kcal-over-base > .bg-kcal-over-bar',
+    )
+    expect(overage?.style.height).toBe('20%')
+    const under = screen.getByRole('button', {
+      name: '2026-04-03: 1500 kcal, goal 2000 kcal',
+    })
+    expect(under.querySelector('.bg-kcal-left-bar')).not.toBeNull()
+    expect(under.querySelector('.bg-kcal-over-base')).toBeNull()
   })
 
   it('uses the goal effective on each historical date', () => {
@@ -200,12 +231,12 @@ describe('History route', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
 
-    const rows = screen.getAllByRole('row')
+    const rows = screen.getAllByRole('listitem')
     const aprilFourthRow = rows.find((row) =>
-      row.textContent?.includes('Sat, Apr 4, 2026'),
+      row.textContent?.includes('Sat, Apr 4'),
     )
     const aprilSecondRow = rows.find((row) =>
-      row.textContent?.includes('Thu, Apr 2, 2026'),
+      row.textContent?.includes('Thu, Apr 2'),
     )
 
     expect(aprilFourthRow?.textContent).toContain('2200 kcal')
@@ -222,11 +253,13 @@ describe('History route', () => {
     ]
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
-    expect(screen.getByText('50 kcal')).toBeTruthy()
+    expect(
+      screen.getByText('Daily average').parentElement?.textContent,
+    ).toContain('50 kcal')
     expect(
       screen.getByText('Days with meals').parentElement?.textContent,
     ).toContain('2')
-    const rows = screen.getAllByRole('row')
+    const rows = screen.getAllByRole('listitem')
     expect(
       rows.find((row) => row.textContent?.includes('Sat, Apr 4'))?.textContent,
     ).toContain('0 kcal')
@@ -237,7 +270,7 @@ describe('History route', () => {
       screen.getByRole('button', { name: '2026-04-02: No meals logged' }),
     )
     expect(
-      screen.getByRole('link', { name: 'View day →' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'View day' }).getAttribute('href'),
     ).toContain('date=2026-04-02&personId=person-1')
   })
 
@@ -262,7 +295,7 @@ describe('History route', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
     const row = screen
-      .getAllByRole('row')
+      .getAllByRole('listitem')
       .find((row) => row.textContent?.includes('Sat, Apr 4'))
     expect(row?.textContent).toContain('2200 kcal')
     expect(row?.textContent).toContain('1700 kcal')
@@ -287,7 +320,9 @@ describe('History route', () => {
       startDate: '2026-03-29',
       endDate: '2026-04-04',
     })
-    expect(screen.getByLabelText('Select person').textContent).toContain('Alex')
+    expect(screen.getByLabelText(/^Switch person/).textContent).toContain(
+      'Alex',
+    )
   })
 
   it('waits for an off-page person lookup before loading history', () => {

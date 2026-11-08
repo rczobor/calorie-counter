@@ -1,16 +1,11 @@
 import { LoadingRows } from '@/components/page/loading-content'
 import { createFileRoute, useBlocker } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import type { FunctionReturnType } from 'convex/server'
-import { ChevronRight, MoreHorizontal } from 'lucide-react'
+import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
@@ -24,7 +19,23 @@ import { Select } from '@/components/ui/select'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfigMissingState } from '@/components/page/page-states'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { EditorDialog } from '@/components/page/editor-dialog'
+import { ActionsMenu } from '@/components/list/actions-menu'
+import { Field } from '@/components/list/field'
+import {
+  ListToolbar,
+  LoadMoreButton,
+  type ArchivedToggle,
+} from '@/components/list/list-toolbar'
+import {
+  ArchivedBadge,
+  RecordList,
+  RecordRow,
+} from '@/components/list/record-list'
+import { SheetFooter } from '@/components/list/sheet-footer'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
+import { Value } from '@/components/nutrition/value'
 import {
   useMutation,
   usePaginatedQuery,
@@ -45,7 +56,6 @@ import {
   writeCookingEdit,
 } from '@/features/cooking/use-persisted-cooking-drafts'
 import {
-  formatCookSessionLabel,
   formatKcalPer100,
   getNutritionUnitLabel,
   toErrorMessage,
@@ -81,7 +91,6 @@ function CookingContent({ userId }: { userId: string | null }) {
   > | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [view, setView] = useState<'foods' | 'sessions'>('foods')
-  const [sessionEditing, setSessionEditing] = useState(false)
   const [selectedSessionId, setSelectedSessionId] =
     useState<Id<'cookSessions'> | null>(() => {
       const id = new URLSearchParams(window.location.search).get('sessionId')
@@ -165,23 +174,25 @@ function CookingContent({ userId }: { userId: string | null }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
+  const archivedToggle = {
+    checked: showArchived,
+    onCheckedChange: setShowArchived,
+  }
+
   return (
     <>
       <PageShell
-        title="Cooked batches"
+        title="Cooking"
         breadcrumbs={
           <SettingsBreadcrumbs
-            current="Cooked batches"
+            current="Cooking"
             onCurrentClick={
               selectedFood ? () => setSelectedFood(null) : undefined
             }
           />
         }
         headerClassName={selectedFood && !draft ? 'hidden lg:flex' : undefined}
-        showArchived={showArchived}
-        onShowArchivedChange={(value) => {
-          if (!sessionEditing) setShowArchived(value)
-        }}
+        contentClassName="max-w-3xl"
       >
         {draft ? (
           <CookedFoodEditor
@@ -195,12 +206,13 @@ function CookingContent({ userId }: { userId: string | null }) {
             {recoverableEdit ? (
               <div
                 role="status"
-                className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4"
+                className="mt-5 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4"
               >
-                <p className="text-sm">
+                <p className="type-subhead">
                   An unfinished cooking edit is available in this tab.
                 </p>
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setDraft(recoverableEdit)}
                 >
@@ -211,13 +223,13 @@ function CookingContent({ userId }: { userId: string | null }) {
             {legacy.serialized ? (
               <section
                 aria-label="Recovered cooking drafts"
-                className="mt-5 space-y-3 rounded-lg border bg-card p-4"
+                className="mt-5 space-y-3 inset-group p-4"
               >
                 <div>
-                  <h2 className="font-medium">
+                  <h2 className="type-headline">
                     Cooking drafts from the previous workspace
                   </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 type-subhead text-muted-foreground">
                     Your unsaved work is preserved. Recover a draft, export a
                     copy, or discard it explicitly.
                   </p>
@@ -228,10 +240,10 @@ function CookingContent({ userId }: { userId: string | null }) {
                     className="flex flex-wrap items-center justify-between gap-3 border-t pt-3"
                   >
                     <div>
-                      <p className="text-sm font-medium">
+                      <p className="text-base">
                         {item.name.trim() || 'Untitled cooking'}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="type-footnote text-muted-foreground">
                         {item.ingredientLines.length} ingredient lines
                       </p>
                     </div>
@@ -288,96 +300,119 @@ function CookingContent({ userId }: { userId: string | null }) {
                 work was removed.
               </p>
             ) : null}
-            <div
-              className={cn(
-                'my-5 flex flex-wrap gap-2',
-                selectedFood && 'hidden lg:flex',
-              )}
+            <Tabs
+              value={view}
+              onValueChange={(value) => {
+                if (value === 'sessions') setSelectedFood(null)
+                if (value === 'foods' || value === 'sessions') setView(value)
+              }}
+              className="mt-4 gap-4"
             >
-              <Button
-                variant={view === 'foods' ? 'secondary' : 'ghost'}
-                disabled={sessionEditing}
-                onClick={() => setView('foods')}
+              <TabsList
+                aria-label="Cooking sections"
+                className={cn(selectedFood && 'max-lg:hidden')}
               >
-                Cooked foods
-              </Button>
-              <Button
-                variant={view === 'sessions' ? 'secondary' : 'ghost'}
-                disabled={sessionEditing}
-                onClick={() => {
-                  setSelectedFood(null)
-                  setView('sessions')
-                }}
-              >
-                Batches
-              </Button>
-            </div>
-            {view === 'sessions' ? (
-              <SessionList
-                showArchived={showArchived}
-                onEditing={setSessionEditing}
-                onOpen={(id) => {
-                  setSelectedSessionId(id)
-                  setView('foods')
-                }}
-              />
-            ) : selectedSessionId ? (
-              selectedSession === undefined ? (
-                <LoadingRows label="Loading batch" rows={1} />
-              ) : selectedSession === null ? (
-                <div className="space-y-3">
-                  <p role="alert">
-                    This batch is unavailable in the selected household.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedSessionId(null)}
-                  >
-                    Show all cooked foods
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h2 className="font-medium">
-                        {formatCookSessionLabel(selectedSession)}
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedSession.archived
-                          ? 'Archived batch'
-                          : selectedSession.cookedByPersonName ||
-                            'All cooked foods in this batch'}
+                <TabsTrigger value="foods">Cooked foods</TabsTrigger>
+                <TabsTrigger value="sessions">Batches</TabsTrigger>
+              </TabsList>
+              <TabsContent value="sessions">
+                <SessionList
+                  showArchived={showArchived}
+                  archivedToggle={archivedToggle}
+                  onOpen={(id) => {
+                    setSelectedSessionId(id)
+                    setView('foods')
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="foods">
+                {selectedSessionId ? (
+                  selectedSession === undefined ? (
+                    <LoadingRows label="Loading batch" rows={1} />
+                  ) : selectedSession === null ? (
+                    <div className="space-y-3">
+                      <p role="alert">
+                        This batch is unavailable in the selected household.
                       </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setSelectedSessionId(null)}
+                      >
+                        Show all cooked foods
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSelectedSessionId(null)}
-                    >
-                      All cooked foods
-                    </Button>
-                  </div>
+                  ) : (
+                    <>
+                      <div
+                        className={cn(
+                          'mb-3 space-y-1',
+                          selectedFood && 'hidden lg:block',
+                        )}
+                      >
+                        <Button
+                          variant="ghost"
+                          className="-ml-3 h-11 px-3 md:h-9"
+                          onClick={() => setSelectedSessionId(null)}
+                        >
+                          <ChevronLeft aria-hidden="true" />
+                          All cooked foods
+                        </Button>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h2 className="flex flex-wrap items-center gap-2 font-medium break-words text-foreground">
+                              {selectedSession.label.trim() ||
+                                formatDate(selectedSession.cookedAt)}
+                              {selectedSession.archived ? (
+                                <ArchivedBadge />
+                              ) : null}
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                              {[
+                                selectedSession.label.trim()
+                                  ? formatDate(selectedSession.cookedAt)
+                                  : '',
+                                selectedSession.cookedByPersonName,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ') ||
+                                'All cooked foods in this batch'}
+                            </p>
+                          </div>
+                          <BatchActions
+                            key={selectedSession._id}
+                            session={selectedSession}
+                            onDeleted={() => setSelectedSessionId(null)}
+                          />
+                        </div>
+                      </div>
+                      <CookedFoodList
+                        key={selectedSessionId}
+                        sessionId={selectedSessionId}
+                        showArchived={showArchived || selectedSession.archived}
+                        // An archived batch always lists its archived foods.
+                        archivedToggle={
+                          selectedSession.archived ? undefined : archivedToggle
+                        }
+                        selectedFood={selectedFood}
+                        onSelect={setSelectedFood}
+                        onClose={() => setSelectedFood(null)}
+                        onEdit={beginFoodEdit}
+                      />
+                    </>
+                  )
+                ) : (
                   <CookedFoodList
-                    key={`${selectedSessionId}:${showArchived}`}
-                    sessionId={selectedSessionId}
-                    showArchived={showArchived || selectedSession.archived}
+                    key="all"
+                    showArchived={showArchived}
+                    archivedToggle={archivedToggle}
                     selectedFood={selectedFood}
                     onSelect={setSelectedFood}
                     onClose={() => setSelectedFood(null)}
                     onEdit={beginFoodEdit}
                   />
-                </>
-              )
-            ) : (
-              <CookedFoodList
-                key={`all:${showArchived}`}
-                showArchived={showArchived}
-                selectedFood={selectedFood}
-                onSelect={setSelectedFood}
-                onClose={() => setSelectedFood(null)}
-                onEdit={beginFoodEdit}
-              />
-            )}
+                )}
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </PageShell>
@@ -407,6 +442,7 @@ function CookingContent({ userId }: { userId: string | null }) {
 function CookedFoodList({
   sessionId,
   showArchived,
+  archivedToggle,
   onEdit,
   selectedFood,
   onSelect,
@@ -414,6 +450,7 @@ function CookedFoodList({
 }: {
   sessionId?: Id<'cookSessions'>
   showArchived: boolean
+  archivedToggle?: ArchivedToggle
   onEdit: (draft: CookingDraft) => void
   selectedFood: Pick<CookedFood, '_id' | 'name'> | null
   onSelect: (food: CookedFood) => void
@@ -498,62 +535,45 @@ function CookedFoodList({
           'lg:grid lg:grid-cols-[minmax(16rem,1fr)_minmax(0,1.4fr)] lg:gap-8',
       )}
     >
-      <div className={cn('min-w-0', selectedFood && 'hidden lg:block')}>
-        <Input
-          aria-label="Search cooked foods"
-          className="mb-4 max-w-sm"
-          placeholder="Search cooked foods"
-          maxLength={SEARCH_MAX_LENGTH}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value)
-            onClose()
+      <div
+        className={cn('min-w-0 space-y-3', selectedFood && 'hidden lg:block')}
+      >
+        <ListToolbar
+          search={{
+            label: 'Search cooked foods',
+            maxLength: SEARCH_MAX_LENGTH,
+            value: search,
+            onValueChange: (value) => {
+              setSearch(value)
+              onClose()
+            },
           }}
+          archived={archivedToggle}
         />
-        {loading ? (
-          <LoadingRows label="Loading cooked foods" />
-        ) : !foods.length ? (
-          <p className="py-6 text-sm text-muted-foreground">
-            No cooked foods found.
-          </p>
-        ) : (
-          <div className="divide-y border-y">
-            {foods.map((food) => (
-              <button
-                key={food._id}
-                type="button"
-                aria-expanded={selectedId === food._id}
-                className="flex min-h-16 w-full items-center justify-between gap-3 py-4 text-left focus-visible:outline-2 focus-visible:outline-ring"
-                onClick={(event) => {
-                  triggerRef.current = event.currentTarget
-                  onSelect(food)
-                }}
-              >
-                <span className="min-w-0 text-sm font-medium">
-                  {food.name}
-                  {food.archived ? (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      Archived
-                    </span>
-                  ) : null}
-                </span>
-                <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                  <span className="text-right tabular-nums">
-                    <span className="block">
-                      {food.finishedWeightGrams.toFixed(0)} g
-                    </span>
-                    <span>
-                      {formatKcalPer100(food.kcalPer100)} kcal / 100 g
-                    </span>
-                  </span>
-                  <ChevronRight className="size-4" aria-hidden="true" />
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+        <RecordList
+          label="Cooked foods"
+          loading={loading}
+          empty="No cooked foods found."
+        >
+          {foods.map((food) => (
+            <RecordRow
+              key={food._id}
+              title={food.name}
+              // The rate's basis joins the subtitle, so names don't wrap
+              // beside a long unit.
+              detail={`${food.finishedWeightGrams.toFixed(0)} g cooked · per 100 g`}
+              value={formatKcalPer100(food.kcalPer100)}
+              archived={food.archived}
+              expanded={selectedId === food._id}
+              onOpen={(event) => {
+                triggerRef.current = event.currentTarget
+                onSelect(food)
+              }}
+            />
+          ))}
+        </RecordList>
         {term && foods.length >= 20 ? (
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             First 20 matches. Refine your search for more.
           </p>
         ) : null}
@@ -561,13 +581,8 @@ function CookedFoodList({
         [page, ...(showArchived ? [archivePage] : [])].some(
           (p) => p.status === 'CanLoadMore' || p.status === 'LoadingMore',
         ) ? (
-          <Button
-            className="mt-4"
-            variant="outline"
-            disabled={[page, archivePage].some(
-              (p) => p.status === 'LoadingMore',
-            )}
-            aria-busy={[page, archivePage].some(
+          <LoadMoreButton
+            loading={[page, archivePage].some(
               (p) => p.status === 'LoadingMore',
             )}
             onClick={() => {
@@ -577,7 +592,7 @@ function CookedFoodList({
             }}
           >
             Load more cooked foods
-          </Button>
+          </LoadMoreButton>
         ) : null}
       </div>
       {selectedFood ? (
@@ -587,12 +602,8 @@ function CookedFoodList({
           aria-label={selectedFood.name}
           className="min-w-0 outline-none lg:border-l lg:pl-8"
         >
-          <h1 className="text-xl font-semibold tracking-tight lg:hidden">
-            {selectedFood.name}
-          </h1>
-          <h2 className="hidden text-lg font-semibold lg:block">
-            {selectedFood.name}
-          </h2>
+          <h1 className="type-title lg:hidden">{selectedFood.name}</h1>
+          <h2 className="hidden type-title lg:block">{selectedFood.name}</h2>
           <CookedFoodDetail
             key={selectedFood._id}
             foodId={selectedFood._id}
@@ -641,13 +652,8 @@ function CookedFoodDetail({
   return (
     <div className="mt-4 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {detail.cookSession
-            ? new Date(detail.cookSession.cookedAt).toLocaleDateString(
-                undefined,
-                { day: 'numeric', month: 'short', year: 'numeric' },
-              )
-            : null}
+        <p className="type-footnote text-muted-foreground">
+          {detail.cookSession ? formatDate(detail.cookSession.cookedAt) : null}
           {detail.cookSession?.cookedByPersonName
             ? ` · ${detail.cookSession.cookedByPersonName}`
             : null}
@@ -664,22 +670,13 @@ function CookedFoodDetail({
           >
             Edit
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Cooked food actions"
-                  disabled={action.isRunning}
-                />
-              }
-            >
-              <MoreHorizontal />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-44">
-              <DropdownMenuItem
-                onClick={() =>
+          <ActionsMenu
+            label="Cooked food actions"
+            disabled={action.isRunning}
+            actions={[
+              {
+                label: food.archived ? 'Restore' : 'Archive',
+                onSelect: () =>
                   void action.runAction(
                     food.archived
                       ? 'Cooked food restored.'
@@ -692,17 +689,13 @@ function CookedFoodDetail({
                       })
                       onClose()
                     },
-                  )
-                }
-              >
-                {food.archived ? 'Restore' : 'Archive'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRecipe(!recipe)}>
-                Save as recipe
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() =>
+                  ),
+              },
+              { label: 'Save as recipe', onSelect: () => setRecipe(!recipe) },
+              {
+                label: 'Delete permanently',
+                destructive: true,
+                onSelect: () =>
                   action.confirmAndRunAction(
                     'Delete this cooked food permanently? Foods used by historical records must be archived instead.',
                     'Cooked food deleted.',
@@ -713,72 +706,78 @@ function CookedFoodDetail({
                       })
                       onClose()
                     },
-                  )
-                }
-              >
-                Delete permanently
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  ),
+              },
+            ]}
+          />
         </div>
       </div>
-      <dl className="grid grid-cols-3 gap-3 border-y py-4">
-        <div>
-          <dd className="text-lg font-semibold tabular-nums">
-            {food.totalCalories.toFixed(0)}{' '}
-            <span className="text-xs font-normal text-muted-foreground">
-              kcal
-            </span>
+      {/* The batch's figures, like History's stats: value over its label. */}
+      <dl className="grid grid-cols-3 divide-x inset-group">
+        <div className="flex flex-col-reverse justify-end px-4 py-3">
+          <dt className="type-footnote text-muted-foreground">Total</dt>
+          <dd>
+            <Value size="headline" value={food.totalCalories.toFixed(0)} />
           </dd>
-          <dt className="text-xs text-muted-foreground">Total</dt>
         </div>
-        <div>
-          <dd className="text-lg font-semibold tabular-nums">
-            {food.finishedWeightGrams.toFixed(0)}{' '}
-            <span className="text-xs font-normal text-muted-foreground">g</span>
+        <div className="flex flex-col-reverse justify-end px-4 py-3">
+          <dt className="type-footnote text-muted-foreground">
+            Finished weight
+          </dt>
+          <dd>
+            <Value
+              size="headline"
+              value={food.finishedWeightGrams.toFixed(0)}
+              unit="g"
+            />
           </dd>
-          <dt className="text-xs text-muted-foreground">Finished weight</dt>
         </div>
-        <div>
-          <dd className="text-lg font-semibold tabular-nums">
-            {formatKcalPer100(food.kcalPer100)}
+        <div className="flex flex-col-reverse justify-end px-4 py-3">
+          <dt className="type-footnote text-muted-foreground">kcal/100 g</dt>
+          <dd>
+            <Value
+              size="headline"
+              value={formatKcalPer100(food.kcalPer100)}
+              unit={null}
+            />
           </dd>
-          <dt className="text-xs text-muted-foreground">kcal / 100 g</dt>
         </div>
       </dl>
       <div>
-        <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 pb-2 text-xs text-muted-foreground">
-          <h3 className="font-medium text-foreground">Ingredients</h3>
+        <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 group-label">
+          <h3>Ingredients</h3>
           <span className="text-right">Amount</span>
           <span className="text-right">kcal</span>
         </div>
-        {detail.ingredients.map((line) => (
-          <div key={line._id} className="border-t py-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 text-sm">
-              <span>
-                {line.ingredientNameSnapshot}
-                {line.ignoreCaloriesSnapshot ? (
-                  <span className="block text-xs text-muted-foreground">
-                    Calories ignored
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-right text-xs text-muted-foreground tabular-nums">
-                {line.referenceAmount}{' '}
-                {line.referenceUnit === 'g'
-                  ? 'g'
-                  : getNutritionUnitLabel(line.referenceUnit)}
-              </span>
-              <span className="text-right tabular-nums">
-                {line.ingredientCaloriesSnapshot.toFixed(0)}
-              </span>
+        <div className="inset-group inset-rows">
+          {detail.ingredients.map((line) => (
+            <div key={line._id} className="px-4 py-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 text-base">
+                <span>
+                  {line.ingredientNameSnapshot}
+                  {line.ignoreCaloriesSnapshot ? (
+                    <span className="block type-footnote text-muted-foreground">
+                      Calories ignored
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-right type-footnote text-muted-foreground tabular-nums">
+                  {line.referenceAmount}{' '}
+                  {line.referenceUnit === 'g'
+                    ? 'g'
+                    : getNutritionUnitLabel(line.referenceUnit)}
+                </span>
+                <span className="text-right font-semibold tabular-nums">
+                  {line.ingredientCaloriesSnapshot.toFixed(0)}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       <EstimateNotice provenance={food.nutritionProvenance} />
       {food.notes || detail.linkedRecipe || sourceLines.length > 0 ? (
-        <details className="border-t pt-3 text-xs text-muted-foreground">
+        <details className="px-4 type-footnote text-muted-foreground">
           <summary className="cursor-pointer">
             Notes & sources
             {!food.nutritionProvenance &&
@@ -787,9 +786,7 @@ function CookedFoodDetail({
                 line.nutritionProvenance &&
                 line.nutritionProvenance.kind !== 'provided',
             ) ? (
-              <span className="ml-2 text-amber-700 dark:text-amber-400">
-                Includes estimates
-              </span>
+              <span className="ml-2 text-caution">Includes estimates</span>
             ) : null}
           </summary>
           {detail.linkedRecipe ? (
@@ -911,15 +908,14 @@ function RecipeFromCookedFood({
 
 function SessionList({
   showArchived,
+  archivedToggle,
   onOpen,
-  onEditing,
 }: {
   showArchived: boolean
+  archivedToggle: ArchivedToggle
   onOpen: (id: Id<'cookSessions'>) => void
-  onEditing: (editing: boolean) => void
 }) {
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<Session | null>(null)
   const term = search.trim().slice(0, SEARCH_MAX_LENGTH)
   const active = usePaginatedQuery(
     api.cooking.listSessions,
@@ -939,9 +935,6 @@ function SessionList({
     api.cooking.searchSessions,
     term && showArchived ? { archived: true, search: term } : 'skip',
   )
-  const archive = useMutation(api.nutrition.setCookSessionArchived)
-  const remove = useMutation(api.nutrition.deleteCookSession)
-  const action = useConfirmableAction()
   const rows = term
     ? [...(found ?? []), ...(showArchived ? (foundArchived ?? []) : [])]
     : [...active.results, ...(showArchived ? archived.results : [])]
@@ -949,125 +942,39 @@ function SessionList({
     ? found === undefined || (showArchived && foundArchived === undefined)
     : active.status === 'LoadingFirstPage'
   return (
-    <section aria-label="Cooking batches">
-      <Input
-        className="mb-4 max-w-sm"
-        aria-label="Search batches"
-        placeholder="Search batches"
-        maxLength={SEARCH_MAX_LENGTH}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+    <section aria-label="Cooking batches" className="space-y-3">
+      <ListToolbar
+        search={{
+          label: 'Search batches',
+          maxLength: SEARCH_MAX_LENGTH,
+          value: search,
+          onValueChange: setSearch,
+        }}
+        archived={archivedToggle}
       />
-      {editing ? (
-        <SessionEditor
-          key={editing._id}
-          session={editing}
-          onClose={() => {
-            setEditing(null)
-            onEditing(false)
-          }}
-        />
-      ) : null}
-      {loading ? (
-        <LoadingRows label="Loading batches" />
-      ) : !rows.length ? (
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No batches found.
-        </p>
-      ) : (
-        <div className="divide-y border-y">
-          {rows.map((session) => (
-            <div
+      <RecordList label="Batches" loading={loading} empty="No batches found.">
+        {rows.map((session) => {
+          const date = formatDate(session.cookedAt)
+          const label = session.label.trim()
+          return (
+            <RecordRow
               key={session._id}
-              className="flex flex-wrap items-center justify-between gap-3 py-4"
-            >
-              <div>
-                <p className="font-medium">{formatCookSessionLabel(session)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {session.archived
-                    ? 'Archived'
-                    : session.cookedByPersonName || 'Cooking batch'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={action.isRunning || Boolean(editing)}
-                  onClick={() => onOpen(session._id)}
-                >
-                  Open batch
-                </Button>
-                <details>
-                  <summary className="cursor-pointer px-3 py-1.5 text-sm text-muted-foreground">
-                    Manage
-                  </summary>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={action.isRunning || Boolean(editing)}
-                      onClick={() => {
-                        setEditing(session)
-                        onEditing(true)
-                      }}
-                    >
-                      Edit batch
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={action.isRunning || Boolean(editing)}
-                      onClick={() =>
-                        void action.runAction(
-                          session.archived
-                            ? 'Batch restored.'
-                            : 'Batch archived.',
-                          () =>
-                            archive({
-                              sessionId: session._id,
-                              expectedEditRevision: session.editRevision,
-                              archived: !session.archived,
-                            }),
-                        )
-                      }
-                    >
-                      {session.archived ? 'Restore' : 'Archive'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={action.isRunning || Boolean(editing)}
-                      onClick={() =>
-                        action.confirmAndRunAction(
-                          'Delete this batch permanently? Batches containing cooked foods must be archived instead.',
-                          'Batch deleted.',
-                          () =>
-                            remove({
-                              sessionId: session._id,
-                              expectedEditRevision: session.editRevision,
-                            }),
-                        )
-                      }
-                    >
-                      Delete permanently
-                    </Button>
-                  </div>
-                </details>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              title={label || date}
+              detail={[label ? date : '', session.cookedByPersonName]
+                .filter(Boolean)
+                .join(' · ')}
+              archived={session.archived}
+              onOpen={() => onOpen(session._id)}
+            />
+          )
+        })}
+      </RecordList>
       {!term &&
       [active, ...(showArchived ? [archived] : [])].some(
         (p) => p.status === 'CanLoadMore' || p.status === 'LoadingMore',
       ) ? (
-        <Button
-          className="mt-4"
-          variant="outline"
-          disabled={[active, archived].some((p) => p.status === 'LoadingMore')}
-          aria-busy={[active, archived].some((p) => p.status === 'LoadingMore')}
+        <LoadMoreButton
+          loading={[active, archived].some((p) => p.status === 'LoadingMore')}
           onClick={() => {
             if (active.status === 'CanLoadMore') active.loadMore(PAGE_SIZE)
             if (showArchived && archived.status === 'CanLoadMore')
@@ -1075,12 +982,69 @@ function SessionList({
           }}
         >
           Load more batches
-        </Button>
+        </LoadMoreButton>
       ) : null}
       {term && rows.length >= 20 ? (
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           First 20 matches. Refine your search for more.
         </p>
+      ) : null}
+    </section>
+  )
+}
+
+/** The open batch's actions: edit in a sheet, archive, or delete when empty. */
+function BatchActions({
+  session,
+  onDeleted,
+}: {
+  session: Session
+  onDeleted: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const archive = useMutation(api.nutrition.setCookSessionArchived)
+  const remove = useMutation(api.nutrition.deleteCookSession)
+  const action = useConfirmableAction()
+  return (
+    <>
+      <ActionsMenu
+        label="Batch actions"
+        disabled={action.isRunning}
+        actions={[
+          { label: 'Edit batch', onSelect: () => setEditing(true) },
+          {
+            label: session.archived ? 'Restore' : 'Archive',
+            onSelect: () =>
+              void action.runAction(
+                session.archived ? 'Batch restored.' : 'Batch archived.',
+                () =>
+                  archive({
+                    sessionId: session._id,
+                    expectedEditRevision: session.editRevision,
+                    archived: !session.archived,
+                  }),
+              ),
+          },
+          {
+            label: 'Delete permanently',
+            destructive: true,
+            onSelect: () =>
+              action.confirmAndRunAction(
+                'Delete this batch permanently? Batches containing cooked foods must be archived instead.',
+                'Batch deleted.',
+                async () => {
+                  await remove({
+                    sessionId: session._id,
+                    expectedEditRevision: session.editRevision,
+                  })
+                  onDeleted()
+                },
+              ),
+          },
+        ]}
+      />
+      {editing ? (
+        <SessionEditor session={session} onClose={() => setEditing(false)} />
       ) : null}
       <ConfirmDestructiveDialog
         open={action.isConfirmDialogOpen}
@@ -1089,7 +1053,7 @@ function SessionList({
         onConfirm={action.confirmPendingAction}
         disabled={action.isRunning}
       />
-    </section>
+    </>
   )
 }
 
@@ -1129,91 +1093,99 @@ function SessionEditor({
     else onClose()
   }
   return (
-    <form
-      className="mb-5 space-y-4 rounded-lg border bg-card p-4"
-      aria-label="Batch editor"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void action.runAction('Batch updated.', async () => {
-          await update({
-            sessionId: session._id,
-            expectedEditRevision: session.editRevision,
-            label,
-            cookedAt:
-              date === toLocalDateString(session.cookedAt)
-                ? session.cookedAt
-                : toTimestampFromDate(date),
-            cookedOn: date,
-            cookedByPersonId: personId || undefined,
-            notes,
-          })
-          onClose()
-        })
-      }}
+    <EditorDialog
+      title="Edit batch"
+      description="Changes are saved only when you choose Save batch."
+      pending={action.isRunning}
+      onClose={close}
     >
-      <h2 className="font-medium">Edit batch</h2>
-      <fieldset disabled={action.isRunning} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="batch-label">Batch label</Label>
+      <form
+        className="flex flex-1 flex-col"
+        aria-label="Batch editor"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void action.runAction('Batch updated.', async () => {
+            await update({
+              sessionId: session._id,
+              expectedEditRevision: session.editRevision,
+              label,
+              cookedAt:
+                date === toLocalDateString(session.cookedAt)
+                  ? session.cookedAt
+                  : toTimestampFromDate(date),
+              cookedOn: date,
+              cookedByPersonId: personId || undefined,
+              notes,
+            })
+            onClose()
+          })
+        }}
+      >
+        <fieldset
+          disabled={action.isRunning}
+          className="min-w-0 space-y-4 pb-5"
+        >
+          <Field label="Batch label" htmlFor="batch-label">
             <Input
               id="batch-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
-          </div>
-          <div className="space-y-1">
-            <Label>Date</Label>
+          </Field>
+          <Field label="Date">
             <DatePicker
               ariaLabel="Batch date"
               value={date}
               onChange={setDate}
             />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <Label>Cooked by</Label>
-          <Select
-            ariaLabel="Batch person"
-            value={personId}
-            onValueChange={(value) => setPersonId(value ?? '')}
-            options={[
-              { value: '', label: 'No person' },
-              ...(session.cookedByPersonId &&
-              !people.results.some((p) => p._id === session.cookedByPersonId)
-                ? [
-                    {
-                      value: session.cookedByPersonId,
-                      label: session.cookedByPersonName ?? 'Original person',
-                    },
-                  ]
-                : []),
-              ...people.results.map((p) => ({ value: p._id, label: p.name })),
-            ]}
-          />
-          {people.status === 'CanLoadMore' ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => people.loadMore(PAGE_SIZE)}
-            >
-              Load more people
-            </Button>
-          ) : null}
-        </div>
-        <Textarea
-          aria-label="Batch notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={close}>
-            Cancel
+          </Field>
+          <Field label="Cooked by">
+            <Select
+              ariaLabel="Batch person"
+              className="w-full"
+              value={personId}
+              onValueChange={(value) => setPersonId(value ?? '')}
+              options={[
+                { value: '', label: 'No person' },
+                ...(session.cookedByPersonId &&
+                !people.results.some((p) => p._id === session.cookedByPersonId)
+                  ? [
+                      {
+                        value: session.cookedByPersonId,
+                        label: session.cookedByPersonName ?? 'Original person',
+                      },
+                    ]
+                  : []),
+                ...people.results.map((p) => ({ value: p._id, label: p.name })),
+              ]}
+            />
+            {people.status === 'CanLoadMore' ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => people.loadMore(PAGE_SIZE)}
+              >
+                Load more people
+              </Button>
+            ) : null}
+          </Field>
+          <Field label="Notes" htmlFor="batch-notes">
+            <Textarea
+              id="batch-notes"
+              aria-label="Batch notes"
+              placeholder="Optional"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
+        </fieldset>
+        <SheetFooter>
+          <Button type="submit" size="lg" disabled={action.isRunning}>
+            Save batch
           </Button>
-          <Button type="submit">Save batch</Button>
-        </div>
-      </fieldset>
+        </SheetFooter>
+      </form>
       <ConfirmDestructiveDialog
         open={discard}
         onOpenChange={setDiscard}
@@ -1233,6 +1205,6 @@ function SessionEditor({
         disabled={action.isRunning}
         onConfirm={() => blocker.proceed?.()}
       />
-    </form>
+    </EditorDialog>
   )
 }

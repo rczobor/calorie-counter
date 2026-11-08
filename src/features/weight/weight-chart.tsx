@@ -14,7 +14,9 @@ const GAP_DAYS = 7
  * A line over the whole date range, so gaps between weigh-ins keep their real
  * length. A pause longer than a week is a faint dashed line, so it never looks
  * measured. The SVG stretches to any width; dots and labels are HTML so they
- * stay round and crisp.
+ * stay round and crisp. Like History's chart, marks are neutral, gridlines
+ * faint, figures readable foreground tabular numbers, and the key uses plain
+ * words beside a swatch of the whole mark.
  */
 export function WeightChart({
   entries,
@@ -27,7 +29,7 @@ export function WeightChart({
 }) {
   if (entries.length === 0)
     return (
-      <p className="flex h-32 items-center md:h-40 justify-center rounded-lg bg-muted/40 px-4 text-center text-sm text-muted-foreground">
+      <p className="flex h-32 items-center justify-center text-center type-subhead text-muted-foreground md:h-40">
         No weights in this range.
       </p>
     )
@@ -98,7 +100,7 @@ export function WeightChart({
                 x2="100"
                 y1={y(kg)}
                 y2={y(kg)}
-                className="stroke-border/70"
+                className="stroke-border"
                 vectorEffect="non-scaling-stroke"
               />
             ))}
@@ -148,21 +150,20 @@ export function WeightChart({
           <span
             key={kg}
             aria-hidden="true"
-            className="absolute right-0 -translate-y-1/2 text-xs text-muted-foreground tabular-nums"
+            className="absolute right-0 -translate-y-1/2 type-caption font-medium text-foreground tabular-nums"
             // Same inset as the plot (py-2), so each label sits on its line.
             style={{ top: `calc(0.5rem + (100% - 1rem) * ${y(kg) / 100})` }}
           >
-            {kg === high
-              ? `${kg} kg`
-              : Number.isInteger(kg)
-                ? kg
-                : kg.toFixed(1)}
+            {Number.isInteger(kg) ? kg : kg.toFixed(1)}
+            {kg === high ? (
+              <span className="font-normal text-muted-foreground"> kg</span>
+            ) : null}
           </span>
         ))}
       </div>
       <div
         aria-hidden="true"
-        className="mt-1 flex justify-between pr-12 text-xs text-muted-foreground"
+        className="mt-1 flex justify-between pr-12 type-caption text-muted-foreground"
       >
         <span>{format(parseISO(first.measuredOn), 'MMM d')}</span>
         {span >= 4 * 86_400_000 ? (
@@ -173,9 +174,10 @@ export function WeightChart({
       {gaps.length > 0 ? (
         <figcaption
           aria-hidden="true"
-          className="mt-2 text-xs text-muted-foreground"
+          className="mt-2.5 flex items-center gap-1.5 type-footnote text-muted-foreground"
         >
-          Dashed: no weigh-ins for over a week.
+          <span className="w-3 border-t-[1.5px] border-dashed border-muted-foreground/70" />
+          No weigh-ins for over a week
         </figcaption>
       ) : null}
     </figure>

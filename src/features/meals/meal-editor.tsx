@@ -8,7 +8,7 @@ import {
 } from '@/features/households/convex-hooks'
 import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Plus, Search, Trash2, X, Zap } from 'lucide-react'
+import { Pencil, Plus, SquarePen, Trash2, X, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../../convex/_generated/api'
@@ -18,7 +18,9 @@ import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
+import { PersonPicker } from '@/features/households/person-picker'
+import { RowRemoveButton } from '@/components/list/record-list'
+import { SearchField } from '@/components/list/search-field'
 import { CustomIngredientSwitchRow } from '@/components/nutrition/ingredient-line-controls'
 import {
   type MealDashboardIngredient as Ingredient,
@@ -32,8 +34,10 @@ import {
   type MealDraft,
 } from '@/features/meals/meal-draft'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { formatDate } from '@/lib/dates'
 import { formatKcalPer100, toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
+import { Value } from '@/components/nutrition/value'
 
 type MealMutationItem = FunctionArgs<
   typeof api.nutrition.createMeal
@@ -308,12 +312,7 @@ function MealEditorContent({
   )
   const batchDate = (sessionId: Id<'cookSessions'>) => {
     const cookedAt = cookedAtBySession.get(sessionId)
-    return cookedAt === undefined
-      ? undefined
-      : new Date(cookedAt).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-        })
+    return cookedAt === undefined ? undefined : formatDate(cookedAt)
   }
 
   useEffect(() => {
@@ -1020,7 +1019,7 @@ function MealEditorContent({
 
   const editingLabel =
     editingDraftItemIndex !== null ? (
-      <p className="text-xs font-medium text-primary">
+      <p className="type-footnote font-medium text-muted-foreground">
         Editing item {editingDraftItemIndex + 1}
       </p>
     ) : null
@@ -1028,7 +1027,8 @@ function MealEditorContent({
   const closePanel = (
     <Button
       variant="ghost"
-      className="-mr-2 h-10 shrink-0"
+      size="sm"
+      className="-mt-1.5 -mr-2.5 shrink-0"
       onClick={resetDraftItemInputs}
     >
       Cancel
@@ -1045,15 +1045,17 @@ function MealEditorContent({
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-h-14 w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+        className="flex min-h-14 w-full items-center justify-between gap-3 py-2.5 pr-3.5 pl-4 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
       >
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">{title}</span>
-          <span className="block truncate text-xs text-muted-foreground">
+          <span className="block truncate type-callout font-medium">
+            {title}
+          </span>
+          <span className="mt-0.5 block truncate type-footnote text-muted-foreground tabular-nums">
             {detail}
           </span>
         </span>
-        <Icon aria-hidden="true" className="size-4 shrink-0 text-foreground" />
+        <Icon aria-hidden="true" className="size-5 shrink-0 text-foreground" />
       </button>
     </li>
   )
@@ -1072,7 +1074,7 @@ function MealEditorContent({
             [
               'Cooked batch',
               batchDate(result.food.cookSessionId),
-              `${formatKcalPer100(result.food.kcalPer100)} kcal / 100 g`,
+              `${formatKcalPer100(result.food.kcalPer100)} kcal/100 g`,
             ]
               .filter(Boolean)
               .join(' · '),
@@ -1081,7 +1083,7 @@ function MealEditorContent({
         : resultRow(
             `i-${result.ingredient._id}`,
             result.ingredient.name,
-            `Ingredient · ${result.ingredient.brand ? `${result.ingredient.brand} · ` : ''}${formatKcalPer100(result.ingredient.kcalPer100)} kcal / 100 g`,
+            `Ingredient · ${result.ingredient.brand ? `${result.ingredient.brand} · ` : ''}${formatKcalPer100(result.ingredient.kcalPer100)} kcal/100 g`,
             () => pickResult(result),
           )
   const suggestions: SearchResult[] = [
@@ -1101,13 +1103,13 @@ function MealEditorContent({
       {/* Fills a fixed-height sheet so the footer stays put as the panels change. */}
       <div className="flex flex-1 flex-col gap-5">
         {editingMealId && editingMealDetail === null ? (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="type-subhead text-destructive">
             This meal is no longer available. Your draft is preserved; close the
             editor to keep it in this tab.
           </p>
         ) : null}
         {showRestoredNotice ? (
-          <p className="text-sm text-muted-foreground" role="status">
+          <p className="type-subhead text-muted-foreground" role="status">
             Draft restored in this tab.
           </p>
         ) : null}
@@ -1119,7 +1121,7 @@ function MealEditorContent({
             // The meal being corrected, named up top; its field sits below the foods.
             <button
               type="button"
-              className="-mb-2 flex max-w-full min-w-0 items-start gap-1.5 self-start text-left text-sm font-medium text-foreground"
+              className="-mt-1 -mb-2 flex max-w-full min-w-0 items-start gap-1.5 self-start text-left type-subhead font-medium text-foreground"
               onClick={() => document.getElementById('mealName')?.focus()}
             >
               <span className="line-clamp-2">{mealName}</span>
@@ -1131,14 +1133,13 @@ function MealEditorContent({
             </button>
           ) : null}
           {people.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="type-subhead text-muted-foreground">
               Add a person in Settings, under People &amp; goals, before logging
               meals.
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                className="border-border bg-transparent hover:bg-input/50"
+              <PersonPicker
                 options={people.map((person) => ({
                   value: person._id,
                   label: person.name,
@@ -1147,17 +1148,13 @@ function MealEditorContent({
                 onValueChange={(value) =>
                   setSelectedPersonId(value ?? ('' as Id<'people'>))
                 }
-                placeholder="Select person"
-                ariaLabel="Select person"
               />
               <DatePicker
+                variant="chip"
                 value={mealDate}
                 onChange={setMealDate}
                 ariaLabel="Meal date"
-                label={new Date(`${mealDate}T00:00`).toLocaleDateString(
-                  undefined,
-                  { weekday: 'short', month: 'short', day: 'numeric' },
-                )}
+                label={formatDate(mealDate)}
               />
               {paging.people.canLoadMore || paging.people.isLoadingMore ? (
                 <Button
@@ -1175,7 +1172,7 @@ function MealEditorContent({
               !paging.people.isLoadingFirstPage ? (
                 <p
                   role="status"
-                  className="w-full text-sm text-muted-foreground"
+                  className="w-full type-subhead text-muted-foreground"
                 >
                   The selected person is unavailable. Choose an active person to
                   log a meal.
@@ -1191,22 +1188,22 @@ function MealEditorContent({
             disabled={!isEditingMealHydrated}
           >
             {panel === 'food' ? (
-              <div className="rounded-xl border bg-muted/25 p-3">
+              <div className="inset-group p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 pt-1">
                     {editingLabel}
-                    <p className="font-medium">
+                    <p className="type-headline">
                       {activeFood?.name ??
                         (activeFoodUnavailable
                           ? 'This food is no longer available. Choose another.'
                           : 'Loading food…')}
                     </p>
                     {activeFood ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="mt-0.5 type-footnote text-muted-foreground tabular-nums">
                         {activeFood.kind === 'cooked'
                           ? 'Cooked batch'
                           : 'Ingredient'}{' '}
-                        · {formatKcalPer100(activeFood.kcalPer100)} kcal / 100 g
+                        · {formatKcalPer100(activeFood.kcalPer100)} kcal/100 g
                       </p>
                     ) : null}
                   </div>
@@ -1224,19 +1221,19 @@ function MealEditorContent({
                           : 'Ingredient grams'
                       }
                       placeholder="Amount"
-                      className="h-11 pr-8"
+                      className="pr-8"
                       value={itemWeight}
                       onChange={(event) => setItemWeight(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') upsertDraftItem()
                       }}
                     />
-                    <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
+                    <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-base text-muted-foreground md:text-sm">
                       g
                     </span>
                   </div>
                   <span
-                    className="w-20 shrink-0 text-right text-sm font-medium text-foreground tabular-nums"
+                    className="w-20 shrink-0 text-right text-base font-semibold text-foreground tabular-nums"
                     aria-live="polite"
                   >
                     {activeFood && Number(itemWeight) > 0
@@ -1244,7 +1241,7 @@ function MealEditorContent({
                       : null}
                   </span>
                   <Button
-                    className="h-11 px-4"
+                    className="px-4"
                     onClick={upsertDraftItem}
                     disabled={!activeFood || !(Number(itemWeight) > 0)}
                   >
@@ -1254,12 +1251,12 @@ function MealEditorContent({
                 </div>
               </div>
             ) : panel === 'quick' ? (
-              <div className="rounded-xl border bg-muted/25 p-3">
+              <div className="inset-group p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 pt-1">
                     {editingLabel}
-                    <p className="font-medium">Quick calories</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="type-headline">Quick calories</p>
+                    <p className="mt-0.5 type-footnote text-muted-foreground">
                       Know the total? Type a name and the calories.
                     </p>
                   </div>
@@ -1273,7 +1270,6 @@ function MealEditorContent({
                       aria-label="Quick add name"
                       placeholder="What did you eat?"
                       autoFocus={!itemQuickName}
-                      className="h-11"
                       value={itemQuickName}
                       onChange={(event) => setItemQuickName(event.target.value)}
                     />
@@ -1287,7 +1283,7 @@ function MealEditorContent({
                         inputMode="numeric"
                         aria-label="Quick add calories"
                         autoFocus={Boolean(itemQuickName)}
-                        className="h-11 pr-12"
+                        className="pr-12"
                         value={itemQuickCalories}
                         onChange={(event) =>
                           setItemQuickCalories(event.target.value)
@@ -1297,13 +1293,13 @@ function MealEditorContent({
                             addQuickItem()
                         }}
                       />
-                      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
+                      <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-base text-muted-foreground md:text-sm">
                         kcal
                       </span>
                     </div>
                   </div>
                   <Button
-                    className="col-span-full h-11 sm:col-span-1 sm:self-end"
+                    className="col-span-full sm:col-span-1 sm:self-end"
                     disabled={!canQuickAdd}
                     onClick={addQuickItem}
                   >
@@ -1313,12 +1309,12 @@ function MealEditorContent({
                 </div>
               </div>
             ) : panel === 'new' ? (
-              <div className="rounded-xl border bg-muted/25 p-3">
+              <div className="inset-group p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 pt-1">
                     {editingLabel}
-                    <p className="font-medium">New food</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="type-headline">New food</p>
+                    <p className="mt-0.5 type-footnote text-muted-foreground">
                       Not in your library yet? Enter its calories per 100 g.
                     </p>
                   </div>
@@ -1329,7 +1325,7 @@ function MealEditorContent({
                     aria-label="Custom ingredient name"
                     placeholder="Name, e.g. granola"
                     autoFocus={!itemCustomName}
-                    className="col-span-2 h-11 sm:col-span-1"
+                    className="col-span-2 sm:col-span-1"
                     value={itemCustomName}
                     onChange={(event) => setItemCustomName(event.target.value)}
                   />
@@ -1338,9 +1334,8 @@ function MealEditorContent({
                       type="number"
                       inputMode="decimal"
                       aria-label="Custom ingredient kcal per 100"
-                      placeholder="kcal / 100 g"
+                      placeholder="kcal/100 g"
                       autoFocus={Boolean(itemCustomName)}
-                      className="h-11"
                       value={itemCustomKcalPer100}
                       onChange={(event) =>
                         setItemCustomKcalPer100(event.target.value)
@@ -1352,7 +1347,6 @@ function MealEditorContent({
                     inputMode="decimal"
                     aria-label="Custom ingredient grams"
                     placeholder="Grams"
-                    className="h-11"
                     value={itemWeight}
                     onChange={(event) => setItemWeight(event.target.value)}
                     onKeyDown={(event) => {
@@ -1360,7 +1354,7 @@ function MealEditorContent({
                     }}
                   />
                   <Button
-                    className="col-span-2 h-11 sm:col-span-1"
+                    className="col-span-2 sm:col-span-1"
                     onClick={upsertDraftItem}
                     disabled={
                       !itemCustomName.trim() ||
@@ -1382,72 +1376,55 @@ function MealEditorContent({
               </div>
             ) : (
               <div>
-                <div className="relative">
-                  <Search
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                  />
-                  {/* A text field with its own clear button: the native search clear took the primary colour. */}
-                  <Input
-                    enterKeyHint="search"
-                    aria-label="Search foods"
-                    placeholder="Search foods, batches, templates"
-                    autoFocus={!editingMealId}
-                    className="h-11 pr-11 pl-9"
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value)
-                      setExpandedQuery(null)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Enter' || !needle) return
-                      event.preventDefault()
-                      if (results[0]) pickResult(results[0])
-                      else openQuick(query.trim())
-                    }}
-                  />
-                  {query ? (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="absolute top-1/2 right-1 size-9 -translate-y-1/2 text-muted-foreground"
-                      aria-label="Clear search"
-                      onClick={() => setQuery('')}
-                    >
-                      <X />
-                    </Button>
-                  ) : null}
-                </div>
+                <SearchField
+                  label="Search foods"
+                  placeholder="Search foods, batches, templates"
+                  autoFocus={!editingMealId}
+                  value={query}
+                  onValueChange={(value) => {
+                    setQuery(value)
+                    setExpandedQuery(null)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || !needle) return
+                    event.preventDefault()
+                    if (results[0]) pickResult(results[0])
+                    else openQuick(query.trim())
+                  }}
+                />
                 {needle ? (
                   <>
                     {results.length > 0 ? (
-                      <ul
-                        aria-label="Search results"
-                        className="mt-2 divide-y overflow-hidden rounded-xl border"
-                      >
-                        {results.map(describe)}
-                      </ul>
+                      <>
+                        {/* A quiet group label, like "Or add it yourself"
+                            below; the list keeps its own name. */}
+                        <p className="mt-5 group-label">Matches</p>
+                        <ul
+                          aria-label="Search results"
+                          className="inset-group inset-rows"
+                        >
+                          {results.map(describe)}
+                        </ul>
+                      </>
                     ) : null}
                     {matchingResults.length > results.length ? (
                       <Button
                         variant="ghost"
-                        className="mt-1 h-10 self-start"
+                        size="sm"
+                        className="mt-1 ml-0.5 self-start"
                         onClick={() => setExpandedQuery(needle)}
                       >
                         Show all {matchingResults.length} matches
                       </Button>
                     ) : null}
-                    <p
-                      id="add-yourself-label"
-                      className="mt-4 mb-2 text-xs font-medium text-muted-foreground"
-                    >
+                    <p id="add-yourself-label" className="mt-5 group-label">
                       {results.length > 0
                         ? 'Or add it yourself'
                         : 'No matches. Add it yourself'}
                     </p>
                     <ul
                       aria-labelledby="add-yourself-label"
-                      className="divide-y overflow-hidden rounded-xl border"
+                      className="inset-group inset-rows"
                     >
                       {resultRow(
                         'quick',
@@ -1456,20 +1433,31 @@ function MealEditorContent({
                         () => openQuick(query.trim()),
                         Zap,
                       )}
+                      {/* A compose glyph, so creating a food never reads
+                          like adding one of the matches above. */}
                       {resultRow(
                         'new',
                         `New food “${query.trim()}”`,
                         'Enter calories per 100 g',
                         () => openNew(query.trim()),
+                        SquarePen,
                       )}
                     </ul>
                   </>
                 ) : (
                   <>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    {/* Full size to start a meal; once it has foods, a compact
+                        row, so the foods being corrected lead. */}
+                    <div
+                      className={cn(
+                        'mt-3 gap-2',
+                        mealItems.length === 0 ? 'grid grid-cols-2' : 'flex',
+                      )}
+                    >
                       <Button
                         variant="outline"
-                        className="h-11 justify-start"
+                        size={mealItems.length === 0 ? 'default' : 'sm'}
+                        className="justify-start pl-3.5"
                         onClick={() => openQuick()}
                       >
                         <Zap />
@@ -1477,20 +1465,21 @@ function MealEditorContent({
                       </Button>
                       <Button
                         variant="outline"
-                        className="h-11 justify-start"
+                        size={mealItems.length === 0 ? 'default' : 'sm'}
+                        className="justify-start pl-3.5"
                         onClick={() => openNew()}
                       >
-                        <Plus />
+                        <SquarePen />
                         New food
                       </Button>
                     </div>
                     {/* Suggestions help start a meal; once it has foods, they'd push those below the fold. */}
                     {suggestions.length > 0 && mealItems.length === 0 ? (
                       <>
-                        <p className="mt-4 mb-1.5 text-xs font-medium text-muted-foreground">
+                        <p className="mt-5 group-label">
                           Templates and recent batches
                         </p>
-                        <ul className="divide-y overflow-hidden rounded-xl border">
+                        <ul className="inset-group inset-rows">
                           {suggestions.map(describe)}
                         </ul>
                       </>
@@ -1501,11 +1490,11 @@ function MealEditorContent({
                 cookedFoodsQuery.status === 'CanLoadMore' ||
                 templatesQuery.status === 'CanLoadMore' ||
                 cookSessionsQuery.status === 'CanLoadMore' ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 px-4 type-footnote text-muted-foreground">
                     Search covers the foods loaded so far.{' '}
                     <button
                       type="button"
-                      className="underline underline-offset-2"
+                      className="font-medium text-foreground underline underline-offset-4"
                       onClick={() => {
                         if (paging.ingredients.canLoadMore)
                           paging.ingredients.loadMore()
@@ -1526,14 +1515,14 @@ function MealEditorContent({
 
             {mealItems.length > 0 ? (
               <section aria-label="Foods in this meal">
-                <p className="mb-1.5 flex justify-between gap-3 text-xs font-medium text-muted-foreground">
+                <p className="flex justify-between gap-3 group-label">
                   <span>
                     In this meal · {mealItems.length} food
                     {mealItems.length === 1 ? '' : 's'}
                   </span>
                   <span className="font-normal">Tap a food to edit</span>
                 </p>
-                <ul className="divide-y rounded-xl border">
+                <ul className="inset-group inset-rows">
                   {mealItems.map((item, index) => {
                     const itemCalories = getDraftItemCalories(item)
                     const label =
@@ -1541,52 +1530,59 @@ function MealEditorContent({
                       item.sourceType === 'cookedFood'
                         ? item.nameSnapshot
                         : item.name
-                    const amount =
+                    const grams =
                       item.sourceType === 'fixedCalories'
-                        ? `${itemCalories.toFixed(0)} kcal`
-                        : `${item.consumedWeightGrams.toFixed(0)} g · ${itemCalories.toFixed(0)} kcal`
+                        ? null
+                        : `${item.consumedWeightGrams.toFixed(0)} g`
+                    const kcal = `${itemCalories.toFixed(0)} kcal`
                     return (
                       <li
                         key={`draft-item-${index}`}
                         className={cn(
-                          'flex items-start gap-2 pr-1',
-                          editingDraftItemIndex === index && 'bg-primary/5',
+                          'flex items-start gap-1 pr-0.5',
+                          editingDraftItemIndex === index && 'bg-accent',
                         )}
                       >
                         {/* Tapping a food edits it; removal stays a separate, quieter action. */}
                         <div className="min-w-0 flex-1">
                           <button
                             type="button"
-                            aria-label={`Edit ${label}, ${amount}`}
+                            aria-label={`Edit ${label}, ${grams ? `${grams} · ` : ''}${kcal}`}
                             onClick={() => editDraftItem(index)}
-                            className="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg py-2 pr-2 pl-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring"
+                            className="flex min-h-14 w-full items-center gap-3 py-2.5 pr-2 pl-4 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                           >
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium">
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate type-callout">
                                 {label}
                               </span>
-                              <span className="block text-xs text-muted-foreground tabular-nums">
-                                {amount}
-                              </span>
+                              {grams ? (
+                                <span className="mt-0.5 block type-footnote text-muted-foreground tabular-nums">
+                                  {grams}
+                                </span>
+                              ) : null}
                             </span>
+                            <Value
+                              size="nested"
+                              value={itemCalories.toFixed(0)}
+                              className="shrink-0 text-right"
+                            />
                           </button>
                           {item.nutritionProvenance ? (
-                            <div className="px-3 pb-2">
+                            <div className="px-4 pb-2.5">
                               <EstimateNotice
                                 provenance={item.nutritionProvenance}
                               />
                             </div>
                           ) : null}
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="mt-1.5 ml-2 size-9 text-muted-foreground/70 hover:text-destructive"
-                          aria-label={`Remove ${label}`}
+                        {/* Centred on the row's first 56px, beside the kcal. */}
+                        <RowRemoveButton
+                          className="mt-1.5"
+                          label={`Remove ${label}`}
                           onClick={() => removeDraftItem(index)}
                         >
                           <Trash2 />
-                        </Button>
+                        </RowRemoveButton>
                       </li>
                     )
                   })}
@@ -1596,7 +1592,7 @@ function MealEditorContent({
           </fieldset>
 
           <div className="space-y-1.5">
-            <Label htmlFor="mealName">
+            <Label htmlFor="mealName" className="block">
               Meal name{' '}
               <span className="font-normal text-muted-foreground">
                 (optional)
@@ -1606,7 +1602,6 @@ function MealEditorContent({
               id="mealName"
               aria-label="Meal name"
               placeholder="Breakfast, lunch, snack"
-              className="h-11"
               // Loading the edited meal sets its name; typing first would be lost.
               disabled={!isEditingMealHydrated}
               value={mealName}
@@ -1616,7 +1611,8 @@ function MealEditorContent({
           {editingMealId || mealName || mealItems.length > 0 ? (
             <Button
               variant="ghost"
-              className="-ml-3 h-10 self-start text-destructive hover:text-destructive"
+              size="sm"
+              className="ml-0.5 self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setIsDiscardDialogOpen(true)}
             >
               {editingMealId ? <X /> : <Trash2 />}
@@ -1624,15 +1620,16 @@ function MealEditorContent({
             </Button>
           ) : null}
 
-          <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-between gap-3 border-t bg-background px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          {/* A translucent toolbar: content scrolls under it, blurred. */}
+          <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center justify-between gap-3 border-t bg-background/85 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl [@media(prefers-reduced-transparency:reduce)]:bg-background">
             <div className="tabular-nums">
-              <p className="text-xs text-muted-foreground">Meal total</p>
-              <p className="text-lg font-semibold">
-                {draftCalories.toFixed(0)} kcal
+              <p className="type-footnote text-muted-foreground">Meal total</p>
+              <p>
+                <Value size="stat" value={draftCalories.toFixed(0)} />
               </p>
             </div>
             <Button
-              className="h-11 px-5"
+              size="lg"
               disabled={!canSubmitMeal || isRunning || !isEditingMealHydrated}
               onClick={saveMeal}
             >

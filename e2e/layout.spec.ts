@@ -95,6 +95,7 @@ for (const width of [1440, 390]) {
         '/settings',
         '/settings/archived-meals',
         '/catalog',
+        '/catalog?section=ingredients',
         '/cooking',
         '/people',
         '/household',
@@ -120,7 +121,7 @@ for (const width of [1440, 390]) {
         ).toBeLessThanOrEqual(width)
       }
       await page.goto('/people')
-      await page.getByRole('button', { name: 'Add person' }).click()
+      await page.getByRole('button', { name: 'New person' }).click()
       await expect(page.getByLabel('Person name')).toBeVisible()
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),

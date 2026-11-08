@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { useHousehold } from '@/features/households/household-context'
+import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { createFileRoute } from '@tanstack/react-router'
@@ -12,22 +13,29 @@ import {
   isValid,
   parseISO,
 } from 'date-fns'
+import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { PageShell } from '@/components/page/page-shell'
+import { Balance, Value } from '@/components/nutrition/value'
 import { ConfigMissingState } from '@/components/page/page-states'
-import { Button } from '@/components/ui/button'
-import { DataTable, type DataTableColumnDef } from '@/components/ui/data-table'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Select } from '@/components/ui/select'
+import {
+  SEGMENT_CLASS,
+  SEGMENT_LIST_CLASS,
+  SegmentedTrack,
+} from '@/components/ui/segmented'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import {
   toErrorMessage,
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
+import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/history')({
@@ -60,54 +68,6 @@ const HISTORY_PAGE_SIZE = 50
 const PEOPLE_PAGE_SIZE = 50
 const MAX_HISTORY_DAYS = 366
 const RANGE_PRESETS = [7, 30]
-const SELECTED_RANGE_CLASS =
-  'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary dark:bg-primary/10'
-
-const columns: DataTableColumnDef<DayRow>[] = [
-  {
-    accessorKey: 'date',
-    header: 'Date',
-    cell: ({ row }) => {
-      const dateStr = row.original.date
-      const parsed = parseISO(dateStr)
-      return format(parsed, 'EEE, MMM d, yyyy')
-    },
-  },
-  {
-    accessorKey: 'consumed',
-    header: 'Consumed',
-    cell: ({ row }) =>
-      row.original.mealCount > 0
-        ? `${Math.round(row.original.consumed)} kcal`
-        : 'No meals logged',
-  },
-  {
-    accessorKey: 'goal',
-    header: 'Goal',
-    cell: ({ row }) =>
-      row.original.goal > 0 ? `${Math.round(row.original.goal)} kcal` : '--',
-  },
-  {
-    accessorKey: 'remaining',
-    header: 'Remaining',
-    cell: ({ row }) => {
-      const { remaining, goal } = row.original
-      if (goal <= 0) return '--'
-      return (
-        <span
-          className={cn(
-            'font-medium',
-            remaining >= 0
-              ? 'text-green-600 dark:text-green-400'
-              : 'text-red-600 dark:text-red-400',
-          )}
-        >
-          {Math.round(remaining)} kcal
-        </span>
-      )
-    },
-  },
-]
 
 function HistoryPage() {
   if (!isConvexConfigured) {
@@ -293,117 +253,109 @@ function HistoryPageContent() {
       isDateRangeValid &&
       (historyStatus === 'LoadingFirstPage' || goals === undefined))
 
+  const loggedDays = rows.filter((row) => row.mealCount > 0).length
+
   return (
-    <PageShell title="History">
-      <div className="mt-4 space-y-4">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Person
+    <PageShell
+      contentClassName="max-w-3xl"
+      header={
+        <>
+          <h1 className="type-large-title text-foreground">History</h1>
+          {peopleStatus === 'LoadingFirstPage' ? (
+            <Skeleton
+              className="h-10 w-28 rounded-full"
+              role="status"
+              aria-label="Loading people"
+            />
+          ) : people.length === 0 ? (
+            <p className="type-subhead text-muted-foreground">
+              No active people.
             </p>
-            {peopleStatus === 'LoadingFirstPage' ? (
-              <Skeleton
-                className="h-10 w-40"
-                role="status"
-                aria-label="Loading people"
-              />
-            ) : people.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active people.</p>
-            ) : (
-              <Select
-                className="h-10 min-w-40 border-border bg-transparent hover:bg-input/50 data-[size=default]:h-10"
-                options={people.map((person) => ({
-                  value: person._id,
-                  label: person.name,
-                }))}
-                value={effectiveSelectedPersonId || null}
-                onValueChange={(value) =>
-                  setSelectedPersonId(value ?? ('' as Id<'people'>))
-                }
-                placeholder="Select person"
-                ariaLabel="Select person"
-              />
-            )}
-            {peopleStatus === 'CanLoadMore' ||
-            peopleStatus === 'LoadingMore' ? (
-              <Button
-                className="mt-2"
-                size="sm"
-                variant="ghost"
-                disabled={peopleStatus === 'LoadingMore'}
-                aria-busy={peopleStatus === 'LoadingMore'}
-                onClick={() => loadMorePeople(PEOPLE_PAGE_SIZE)}
-              >
-                Load more people
-              </Button>
-            ) : null}
-          </div>
-          <div>
-            <p
-              id="history-range-label"
-              className="mb-1 text-xs font-medium text-muted-foreground"
+          ) : (
+            <PersonPicker
+              options={people.map((person) => ({
+                value: person._id,
+                label: person.name,
+              }))}
+              value={effectiveSelectedPersonId || null}
+              onValueChange={(value) =>
+                setSelectedPersonId(value ?? ('' as Id<'people'>))
+              }
+            />
+          )}
+        </>
+      }
+    >
+      <div className="mt-4 space-y-6">
+        <div className="space-y-3">
+          {peopleStatus === 'CanLoadMore' || peopleStatus === 'LoadingMore' ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="float-right -mt-2"
+              disabled={peopleStatus === 'LoadingMore'}
+              aria-busy={peopleStatus === 'LoadingMore'}
+              onClick={() => loadMorePeople(PEOPLE_PAGE_SIZE)}
             >
-              Range
-            </p>
+              Load more people
+            </Button>
+          ) : null}
+          {/* One segmented control of peer ranges; the dates show only for a custom range. */}
+          <p id="history-range-label" className="sr-only">
+            Range
+          </p>
+          <SegmentedTrack>
             <div
               role="group"
               aria-labelledby="history-range-label"
-              className="flex flex-wrap gap-2"
+              className={SEGMENT_LIST_CLASS}
             >
-              {RANGE_PRESETS.map((days) => {
-                const selected = !showCustomRange && matchingPreset === days
-                return (
-                  <Button
-                    key={days}
-                    variant="outline"
-                    aria-pressed={selected}
-                    className={cn('h-10', selected && SELECTED_RANGE_CLASS)}
-                    onClick={() => setPresetDays(days)}
-                  >
-                    {days} days
-                  </Button>
-                )
-              })}
-              <Button
-                variant="outline"
+              {RANGE_PRESETS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  aria-pressed={!showCustomRange && matchingPreset === days}
+                  className={SEGMENT_CLASS}
+                  onClick={() => setPresetDays(days)}
+                >
+                  {days} days
+                </button>
+              ))}
+              <button
+                type="button"
                 aria-pressed={showCustomRange}
-                className={cn('h-10', showCustomRange && SELECTED_RANGE_CLASS)}
+                className={SEGMENT_CLASS}
                 onClick={() => setCustomRangeOpen(true)}
               >
                 Custom range
-              </Button>
+              </button>
             </div>
-          </div>
-        </div>
-        {showCustomRange ? (
-          <div className="flex flex-wrap gap-3">
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                From
-              </p>
+          </SegmentedTrack>
+          {showCustomRange ? (
+            <div className="flex flex-wrap items-center gap-2">
               <DatePicker
+                variant="chip"
                 value={startDate}
                 onChange={setStartDate}
                 ariaLabel="History start date"
               />
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                To
-              </p>
+              <span aria-hidden="true" className="text-muted-foreground">
+                –
+              </span>
               <DatePicker
+                variant="chip"
                 value={endDate}
                 onChange={setEndDate}
                 ariaLabel="History end date"
               />
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {!isDateRangeValid ? (
           <div
             role="alert"
-            className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+            className="inset-group bg-[color-mix(in_oklab,var(--destructive)_8%,var(--card))] px-4 py-3 type-subhead text-destructive"
           >
             {isDateRangeOrdered
               ? `History ranges can include at most ${MAX_HISTORY_DAYS} days.`
@@ -414,80 +366,107 @@ function HistoryPageContent() {
           <div
             role="status"
             aria-label="Loading the complete date range"
-            className="min-h-96 space-y-5"
+            className="min-h-96 space-y-6"
           >
-            <div className="flex h-10 gap-6 border-b pb-4">
-              <Skeleton className="h-5 w-56" />
-              <Skeleton className="h-5 w-28" />
-            </div>
-            <Skeleton className="h-56 w-full" />
-            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-40 w-full rounded-xl" />
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Average on days with meals logged
-                </span>
-                <span className="text-sm font-semibold">
-                  {rows.some((row) => row.mealCount > 0)
-                    ? `${Math.round(avgConsumed)} kcal`
-                    : '--'}
-                </span>
+            <div className="inset-group">
+              <div className="grid grid-cols-2">
+                <div className="px-4 py-3">
+                  <p className="type-footnote text-muted-foreground">
+                    Daily average
+                  </p>
+                  <p className="mt-0.5">
+                    {loggedDays > 0 ? (
+                      <Value size="stat" value={Math.round(avgConsumed)} />
+                    ) : (
+                      <span className="type-title">–</span>
+                    )}
+                  </p>
+                </div>
+                <div className="border-l px-4 py-3">
+                  <p className="type-footnote text-muted-foreground">
+                    Days with meals
+                  </p>
+                  <p className="mt-0.5">
+                    <Value
+                      size="stat"
+                      value={loggedDays}
+                      unit={`of ${rows.length}`}
+                    />
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Days with meals
-                </span>
-                <span className="text-sm font-semibold">
-                  {rows.filter((row) => row.mealCount > 0).length}
-                </span>
-              </div>
+              {/* The caption sits inside the card it explains. A day with a
+                  logged zero-calorie meal still counts. */}
+              <p className="border-t px-4 py-2.5 type-footnote text-muted-foreground">
+                Average skips days with no meals logged.
+              </p>
             </div>
 
             {isHistoryComplete ? (
               <>
-                <HistoryChart
-                  rows={rows}
-                  selectedDate={selectedDay?.date}
-                  onSelect={setSelectedDate}
-                />
-                {selectedDay ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
-                    <div>
-                      <p className="font-medium">
-                        {format(parseISO(selectedDay.date), 'EEE, MMM d')}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {selectedDay.mealCount
-                          ? `${Math.round(selectedDay.consumed)} / ${Math.round(selectedDay.goal)} kcal · ${Math.round(Math.abs(selectedDay.remaining))} ${selectedDay.remaining < 0 ? 'over' : 'left'}`
-                          : 'No meals logged'}
-                      </p>
-                    </div>
-                    <a
-                      href={dayHref(selectedDay.date)}
-                      className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
-                    >
-                      View day →
-                    </a>
+                <section
+                  aria-labelledby="history-chart-title"
+                  className="inset-group px-4 pt-3.5 pb-1"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <h2 id="history-chart-title" className="type-headline">
+                      Daily calories
+                    </h2>
+                    <ChartLegend rows={rows} />
                   </div>
-                ) : null}
-                <p className="text-xs text-muted-foreground">
-                  No-meal days are excluded from the average. Logged
-                  zero-calorie meals are included.
-                </p>
-
-                <details>
-                  <summary className="cursor-pointer py-2 text-sm underline underline-offset-4">
-                    Daily values
-                  </summary>
-                  <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyText="No data for the selected range."
+                  <HistoryChart
+                    rows={rows}
+                    selectedDate={selectedDay?.date}
+                    onSelect={setSelectedDate}
                   />
-                </details>
+                  {/* Names the selected day and opens it. Its figures are
+                      already on the bar and in the Days row below. */}
+                  {selectedDay ? (
+                    <div className="-mx-4 mt-1 flex items-center justify-between gap-3 border-t px-4 py-2.5">
+                      <p className="min-w-0 truncate type-headline">
+                        {formatDate(selectedDay.date)}
+                      </p>
+                      <a
+                        href={dayHref(selectedDay.date)}
+                        className={cn(
+                          buttonVariants({ variant: 'outline', size: 'sm' }),
+                          'pr-3',
+                        )}
+                      >
+                        View day
+                        <ChevronRight
+                          aria-hidden="true"
+                          className="text-muted-foreground"
+                        />
+                      </a>
+                    </div>
+                  ) : null}
+                </section>
+
+                <section aria-labelledby="history-days">
+                  <h2 id="history-days" className="type-title">
+                    Days
+                  </h2>
+                  {rows.length === 0 ? (
+                    <p className="mt-3 inset-group px-4 py-3 type-subhead text-muted-foreground">
+                      No data for the selected range.
+                    </p>
+                  ) : (
+                    <ul className="mt-3 inset-group inset-rows">
+                      {rows.map((row) => (
+                        <li key={row.date}>
+                          <DayLink row={row} href={dayHref(row.date)} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
               </>
             ) : null}
           </>
@@ -497,6 +476,102 @@ function HistoryPageContent() {
   )
 }
 
+/** A day's logged total against its goal in the value style: foreground
+ * tabular figures and one muted unit, like Today's summary line. */
+function DayTotals({ row }: { row: DayRow }) {
+  if (!row.mealCount) return 'No meals logged'
+  return (
+    <>
+      <span className="font-semibold text-foreground">
+        {Math.round(row.consumed)}
+      </span>
+      {row.goal > 0 ? (
+        <>
+          {' / '}
+          <span className="font-semibold text-foreground">
+            {Math.round(row.goal)}
+          </span>
+        </>
+      ) : null}
+      {' kcal'}
+    </>
+  )
+}
+
+/** One day in the range: the date, what was logged against the goal, and
+ * the balance in its state colour with a sign and arrow. Opens that day. */
+function DayLink({ row, href }: { row: DayRow; href: string }) {
+  return (
+    <a
+      href={href}
+      className="flex min-h-15 items-center gap-3 py-2.5 pr-3.5 pl-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-base">{formatDate(row.date)}</span>
+        <span className="mt-0.5 block type-footnote text-muted-foreground tabular-nums">
+          <DayTotals row={row} />
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5">
+        {row.mealCount > 0 && row.goal > 0 ? (
+          <Balance remaining={row.remaining} className="type-subhead" />
+        ) : null}
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 text-muted-foreground"
+        />
+      </span>
+    </a>
+  )
+}
+
+/** The legend in the app's words. The goal line names its value, or the
+ * range of values when the goal changed within the range. */
+function ChartLegend({ rows }: { rows: DayRow[] }) {
+  const goals = rows.map((row) => Math.round(row.goal)).filter((g) => g > 0)
+  const low = Math.min(...goals)
+  const high = Math.max(...goals)
+  return (
+    <div className="flex items-center gap-3 type-footnote text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-[3px] bg-kcal-left-bar" />
+        Left
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        {/* The whole over mark, as the bars draw it: the tint up to the
+            goal with the solid overage as a cap above. */}
+        <span className="flex size-2.5 flex-col overflow-hidden rounded-[3px]">
+          <span className="h-1 bg-kcal-over-bar" />
+          <span className="flex-1 bg-kcal-over-base" />
+        </span>
+        Over
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-0.5 w-3 rounded-full bg-muted-foreground/70" />
+        Goal
+        {goals.length ? (
+          <span className="font-semibold text-foreground tabular-nums">
+            {low === high ? low : `${low}–${high}`}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  )
+}
+
+// The plot's height (h-40) in px, to keep a figure clear of a goal mark.
+const PLOT_PX = 160
+// A figure's line (18px) and its gap, plus a little air.
+const FIGURE_ZONE_PX = 28
+// The figure's line box has about 3px below the digits, so this leaves a
+// visible gap of about 8px between the digits and the bar or goal mark.
+const FIGURE_GAP = '0.3125rem'
+
+/** One bar per day, with that day's goal as a bar-width mark. Under goal the
+ * bar is the left colour; over it, the bar is the berry tint up to the goal and
+ * solid berry above, as on the day summary. A week shows each day's total
+ * (on phones in a row above the plot, on wider screens 8px above each bar);
+ * longer ranges keep the bars only. */
 function HistoryChart({
   rows,
   selectedDate,
@@ -507,74 +582,137 @@ function HistoryChart({
   onSelect: (date: string) => void
 }) {
   const chronologicalRows = [...rows].reverse()
-  const maxValue = Math.max(
-    1,
-    ...chronologicalRows.map((row) => Math.max(row.consumed, row.goal)),
-  )
+  const maxValue =
+    Math.max(
+      1,
+      ...chronologicalRows.map((row) => Math.max(row.consumed, row.goal)),
+    ) * 1.05
+  const showValues = chronologicalRows.length <= 10
+  const labelEvery = chronologicalRows.length <= 14 ? 1 : 5
 
   if (chronologicalRows.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
+      <p className="py-8 text-center type-subhead text-muted-foreground">
         No chart data for the selected range.
-      </div>
+      </p>
     )
   }
 
   return (
-    <section className="rounded-lg border border-border/60 bg-card p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Trend</h2>
-          <p className="text-xs text-muted-foreground">
-            Daily consumed calories compared with goal.
-          </p>
-        </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-primary" />
-            Consumed
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-accent-foreground/75" />
-            Goal
-          </span>
-        </div>
-      </div>
-      <div className="flex h-52 items-end gap-1 overflow-x-auto pb-2">
-        {chronologicalRows.map((row) => {
-          const consumedHeight = Math.max(2, (row.consumed / maxValue) * 100)
-          const goalHeight = Math.max(2, (row.goal / maxValue) * 100)
-          return (
-            <button
-              type="button"
-              key={row.date}
-              aria-label={`${row.date}: ${row.mealCount ? `${Math.round(row.consumed)} kcal, goal ${Math.round(row.goal)} kcal` : 'No meals logged'}`}
-              aria-pressed={selectedDate === row.date}
-              onClick={() => onSelect(row.date)}
-              className="flex min-w-8 flex-1 flex-col items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
-              title={`${row.date}: ${Math.round(row.consumed)} / ${Math.round(row.goal)} kcal`}
+    <div
+      className={cn(
+        'mt-3 flex items-stretch',
+        // Bars, empty days and goal marks share one width. It scales with
+        // the column on wider screens (about 44px in a 720px column).
+        chronologicalRows.length > 14
+          ? 'gap-px [--bar-w:70%]'
+          : 'gap-1 [--bar-w:min(60%,1.75rem)] md:[--bar-w:min(46%,2.75rem)]',
+      )}
+    >
+      {chronologicalRows.map((row, index) => {
+        const selected = selectedDate === row.date
+        const over = row.mealCount > 0 && row.goal > 0 && row.remaining < 0
+        const showLabel =
+          index % labelEvery === 0 || index === chronologicalRows.length - 1
+        const barPercent =
+          row.mealCount > 0
+            ? Math.max(1.5, (row.consumed / maxValue) * 100)
+            : null
+        const goalPercent = row.goal > 0 ? (row.goal / maxValue) * 100 : null
+        // On wider screens the figure sits 8px above its bar, or above the
+        // goal mark when that sits just over the bar, so they never cross.
+        const goalGapPx =
+          goalPercent === null
+            ? Infinity
+            : ((goalPercent - (barPercent ?? 0)) / 100) * PLOT_PX
+        const figureBottom =
+          goalPercent !== null && goalGapPx >= 0 && goalGapPx < FIGURE_ZONE_PX
+            ? `calc(${goalPercent}% + 1px + ${FIGURE_GAP})`
+            : barPercent === null
+              ? `calc(0.25rem + ${FIGURE_GAP})`
+              : `calc(${barPercent}% + ${FIGURE_GAP})`
+        return (
+          <button
+            type="button"
+            key={row.date}
+            aria-label={`${row.date}: ${row.mealCount ? `${Math.round(row.consumed)} kcal, goal ${Math.round(row.goal)} kcal` : 'No meals logged'}`}
+            aria-pressed={selected}
+            onClick={() => onSelect(row.date)}
+            className={cn(
+              'group flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-xl py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+              // The selected day is outlined with a bold label, never a grey
+              // block that could read as an empty bar.
+              'not-aria-pressed:hover:bg-muted/50 aria-pressed:inset-ring aria-pressed:inset-ring-foreground/22',
+            )}
+            title={`${row.date}: ${Math.round(row.consumed)} / ${Math.round(row.goal)} kcal`}
+          >
+            <span
+              className={cn(
+                'relative h-40 w-full',
+                // Room for the figures: their row on phones, the tallest
+                // bar's figure on wider screens.
+                showValues &&
+                  (chronologicalRows.length <= 7 ? 'mt-6' : 'mt-[1.375rem]'),
+              )}
             >
-              <div className="flex h-40 w-full items-end justify-center gap-1 rounded-md bg-muted/35 px-1 py-2">
-                <div
+              {/* Values are readable figures; the selected day is bold, not tinted. */}
+              {showValues ? (
+                <span
                   className={cn(
-                    'w-2 rounded-t',
-                    row.mealCount > 0 ? 'bg-primary' : 'bg-muted-foreground/30',
+                    'absolute inset-x-0 bottom-[calc(100%+0.375rem)] text-center font-medium text-foreground tabular-nums group-aria-pressed:font-bold md:bottom-(--figure-bottom)',
+                    chronologicalRows.length <= 7
+                      ? 'type-footnote'
+                      : 'type-caption',
                   )}
-                  style={{ height: `${consumedHeight}%` }}
+                  style={{ '--figure-bottom': figureBottom } as CSSProperties}
+                >
+                  {row.mealCount > 0 ? Math.round(row.consumed) : '–'}
+                </span>
+              ) : null}
+              {barPercent !== null ? (
+                <span
+                  className={cn(
+                    'absolute bottom-0 left-1/2 flex w-(--bar-w) -translate-x-1/2 flex-col overflow-hidden rounded-t-[0.3125rem]',
+                    over ? 'bg-kcal-over-base' : 'bg-kcal-left-bar',
+                    chronologicalRows.length > 14 && 'rounded-t-[2px]',
+                  )}
+                  style={{ height: `${barPercent}%` }}
+                >
+                  {/* At least 4px, so a small overage never reads as at
+                      goal; only the segment grows, the goal line stays put. */}
+                  {over ? (
+                    <span
+                      className="min-h-1 shrink-0 bg-kcal-over-bar"
+                      style={{
+                        height: `${((row.consumed - row.goal) / row.consumed) * 100}%`,
+                      }}
+                    />
+                  ) : null}
+                </span>
+              ) : (
+                <span className="absolute bottom-0 left-1/2 h-1 w-(--bar-w) -translate-x-1/2 rounded-full bg-track" />
+              )}
+              {/* Muted and bar-width, so the selected day's outline stays
+                  the chart's only strong stroke. */}
+              {goalPercent !== null ? (
+                <span
+                  className="absolute left-1/2 h-0.5 w-[calc(var(--bar-w)+2px)] -translate-x-1/2 translate-y-1/2 rounded-full bg-muted-foreground/70"
+                  style={{ bottom: `${goalPercent}%` }}
                 />
-                <div
-                  className="w-2 rounded-t bg-accent-foreground/75"
-                  style={{ height: `${goalHeight}%` }}
-                />
-              </div>
-              <span className="text-[0.7rem] text-muted-foreground">
-                {format(parseISO(row.date), rows.length <= 7 ? 'EEE' : 'd')}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-    </section>
+              ) : null}
+            </span>
+            <span
+              className={cn(
+                'type-caption text-muted-foreground group-aria-pressed:font-semibold group-aria-pressed:text-foreground',
+                !showLabel && 'invisible',
+              )}
+            >
+              {format(parseISO(row.date), rows.length <= 7 ? 'EEE' : 'd')}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

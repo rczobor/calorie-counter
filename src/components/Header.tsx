@@ -16,10 +16,11 @@ const NAV_ITEMS = [
   { to: '/history', label: 'History', icon: Clock },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const
+// The selected link is the same tinted pill as the phone tab bar.
 const NAV_LINK_CLASS =
-  'inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+  'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring'
 const NAV_LINK_ACTIVE_CLASS =
-  'inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary'
+  'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full bg-primary/10 px-3.5 text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-ring'
 
 function usePathname() {
   return useRouterState({ select: (state) => state.location.pathname })
@@ -57,7 +58,7 @@ function HeaderNavigation() {
               aria-current={active ? 'page' : undefined}
               className={active ? NAV_LINK_ACTIVE_CLASS : NAV_LINK_CLASS}
             >
-              <item.icon className="h-3.5 w-3.5" />
+              <item.icon aria-hidden="true" className="size-4" />
               {item.label}
             </Link>
           )
@@ -88,7 +89,7 @@ export function BottomNavigation() {
             <span
               aria-hidden="true"
               className={cn(
-                'absolute inset-y-1 left-1 rounded-full bg-primary/14 transition-[translate,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none dark:bg-primary/10',
+                'absolute inset-y-1 left-1 rounded-full bg-primary/14 transition-[translate,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none dark:bg-primary/12',
                 activeIndex < 0 && 'opacity-0',
               )}
               style={{
@@ -106,13 +107,17 @@ export function BottomNavigation() {
                   aria-current={active ? 'page' : undefined}
                   aria-label={item.label}
                   className={cn(
-                    'relative flex h-11 flex-1 items-center justify-center rounded-full transition-[color,scale] focus-visible:outline-2 focus-visible:outline-ring motion-safe:active:scale-90',
+                    'relative flex h-11 flex-1 items-center justify-center rounded-full transition-[color,scale] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-90',
                     active
                       ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground',
+                      : 'text-foreground/80 hover:text-foreground',
                   )}
                 >
-                  <item.icon aria-hidden="true" className="size-6" />
+                  <item.icon
+                    aria-hidden="true"
+                    className="size-6"
+                    strokeWidth={active ? 2.25 : 1.75}
+                  />
                 </Link>
               )
             })}
@@ -120,13 +125,13 @@ export function BottomNavigation() {
           <Button
             size="icon"
             aria-label="Log meal"
-            className="size-13 rounded-full shadow-[0_10px_30px_-10px_var(--glass-shadow)] motion-safe:active:scale-90"
+            className="size-13 rounded-full shadow-[inset_0_1px_0_oklch(1_0_0/0.25),0_10px_30px_-10px_var(--glass-shadow),0_2px_8px_-2px_var(--glass-shadow)] hover:bg-primary motion-safe:active:scale-90 [&_svg:not([class*='size-'])]:size-6"
             onClick={() => {
               requestLogMeal()
               if (pathname !== '/') void navigate({ to: '/' })
             }}
           >
-            <Plus aria-hidden="true" className="size-6" />
+            <Plus aria-hidden="true" strokeWidth={2.5} />
           </Button>
         </div>
       </nav>
@@ -134,24 +139,30 @@ export function BottomNavigation() {
   )
 }
 
+/** Desktop only: phones open each page on its large title, with the account
+ * and theme in Settings. The bar shares the pages' content column (PageShell's
+ * max-w-3xl and gutter), so the brand lines up with every page's left edge. */
 export default function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <div className="flex min-h-14 items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-            <Link to="/">
-              <span className="inline-flex items-center gap-2 whitespace-nowrap text-sm font-bold tracking-tight text-foreground">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Flame className="h-4 w-4" />
+    <header className="sticky top-0 z-40 hidden border-b border-border bg-card/80 backdrop-blur-xl backdrop-saturate-150 md:block [@media(prefers-reduced-transparency:reduce)]:bg-card">
+      <div className="mx-auto w-full max-w-3xl px-6">
+        <div className="flex h-14 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-6">
+            <Link
+              to="/"
+              className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span className="inline-flex items-center gap-2.5 whitespace-nowrap type-headline text-foreground">
+                <span className="flex size-7 items-center justify-center rounded-[0.5rem] bg-primary text-primary-foreground">
+                  <Flame aria-hidden="true" className="size-4" />
                 </span>
                 Calorie Counter
               </span>
             </Link>
             <HeaderNavigation />
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Suspense fallback={<div aria-hidden className="size-9" />}>
+          <div className="flex shrink-0 items-center gap-3">
+            <Suspense fallback={<div aria-hidden className="size-10" />}>
               <ThemeSelector />
             </Suspense>
             <ClerkHeader />

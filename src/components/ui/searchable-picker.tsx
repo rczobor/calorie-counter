@@ -131,12 +131,12 @@ export function SearchablePicker({
           {loading ? (
             <LoaderCircle
               aria-hidden="true"
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 animate-spin"
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin"
             />
           ) : (
             <Search
               aria-hidden="true"
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2"
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
             />
           )}
           <Combobox.Input
@@ -144,7 +144,7 @@ export function SearchablePicker({
             aria-label={ariaLabel ?? placeholder}
             aria-busy={loading}
             placeholder={placeholder}
-            className="pl-8"
+            className="pl-9"
             onFocus={() => setOpen(true)}
           />
         </div>
@@ -152,9 +152,9 @@ export function SearchablePicker({
         {selected ? (
           <div
             aria-live="polite"
-            className="flex items-start gap-1 rounded-md border border-emerald-400/35 bg-emerald-500/8 px-2 py-1 text-xs text-foreground dark:border-emerald-400/25 dark:bg-emerald-400/10"
+            className="flex items-start gap-1.5 rounded-lg bg-muted px-3 py-2 text-xs text-foreground"
           >
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
+            <Check className="mt-px size-4 shrink-0 text-foreground" />
             <span className="min-w-0 wrap-break-word">
               Selected:{' '}
               <span className="font-medium" title={selected.label}>
@@ -172,24 +172,24 @@ export function SearchablePicker({
           sideOffset={4}
           className="isolate z-50"
         >
-          <Combobox.Popup className="w-(--anchor-width) min-w-40 rounded-md bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden">
+          <Combobox.Popup className="elevated w-(--anchor-width) min-w-40 rounded-2xl bg-popover text-popover-foreground shadow-[0_12px_40px_-8px_oklch(0_0_0/0.25)] ring-1 ring-foreground/8 outline-hidden">
             <Combobox.Status className="text-muted-foreground px-3 py-2 text-sm">
               {loading ? loadingMessage : null}
             </Combobox.Status>
             <Combobox.Empty className="text-muted-foreground px-3 py-2 text-sm">
               {loading ? null : emptyMessage}
             </Combobox.Empty>
-            <Combobox.List className="max-h-56 overflow-y-auto p-1">
+            <Combobox.List className="max-h-64 overflow-y-auto p-1.5">
               {visibleOptions.map((option, index) => (
                 <Combobox.Item
                   key={option.value}
                   value={option}
                   index={index}
-                  className="relative flex w-full cursor-default items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-selected:bg-accent/60 data-selected:text-accent-foreground"
+                  className="relative flex min-h-11 w-full cursor-default items-center justify-between rounded-md px-3 py-2 text-left text-base outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-selected:font-medium md:min-h-10 md:text-sm"
                 >
                   <span className="pr-2 wrap-break-word">{option.label}</span>
                   <Combobox.ItemIndicator className="shrink-0">
-                    <Check className="h-3.5 w-3.5" />
+                    <Check className="size-4 text-foreground" />
                   </Combobox.ItemIndicator>
                 </Combobox.Item>
               ))}

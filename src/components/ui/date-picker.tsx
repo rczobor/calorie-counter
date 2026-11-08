@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronDown } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
 const Calendar = lazy(async () => ({
@@ -20,9 +21,10 @@ type DatePickerProps = {
   ariaLabel?: string
   className?: string
   disabled?: boolean
-  /** Replaces the long date shown in the trigger. */
+  /** Replaces the app's short date shown in the trigger. */
   label?: ReactNode
-  variant?: 'outline' | 'ghost'
+  /** `chip`: a prefilled choice, the same outline capsule as a chip `Select`. */
+  variant?: 'outline' | 'ghost' | 'chip'
 }
 
 function parseLocalDate(value: string) {
@@ -81,21 +83,36 @@ export function DatePicker({
       <PopoverTrigger
         render={
           <Button
-            variant={variant}
+            variant={variant === 'chip' ? 'outline' : variant}
+            size={variant === 'chip' ? 'chip' : 'default'}
             data-empty={!date}
             className={cn(
-              'data-[empty=true]:text-muted-foreground justify-start text-left font-normal',
+              'data-[empty=true]:text-muted-foreground justify-start text-left',
+              // A field reads like the inputs beside it. A chip's date is
+              // prose, so its figures are proportional, and with no leading
+              // glyph it pads 12px on both sides.
+              variant === 'chip'
+                ? 'pl-3 proportional-nums'
+                : 'text-base font-normal md:text-sm',
               className,
             )}
             aria-label={ariaLabel ?? placeholder}
             disabled={disabled}
           >
-            <CalendarIcon />
+            {/* A chip's date names itself and its chevron marks the picker,
+                so it carries no calendar glyph: the year-long Today pill
+                must share a 390px row with Today and both arrows. */}
+            {variant === 'chip' ? null : <CalendarIcon />}
             {date ? (
-              (label ?? date.toLocaleDateString('en-US', { dateStyle: 'long' }))
+              (label ?? formatDate(date.getTime()))
             ) : (
               <span>{placeholder}</span>
             )}
+            {/* A picker that opens carries a chevron, like the person chip. */}
+            <ChevronDown
+              aria-hidden="true"
+              className="ml-auto size-4 text-muted-foreground"
+            />
           </Button>
         }
       />

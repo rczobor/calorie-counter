@@ -48,12 +48,13 @@ import {
 } from '../components/ui/card'
 
 import appCss from '../styles.css?url'
-import interFont from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
+import interFont from '@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2?url'
 
 const APP_DESCRIPTION =
   'Track meals, calories, people, goals, recipes, and cooking sessions.'
-const LIGHT_THEME_COLOR = '#fdfdfb'
-const DARK_THEME_COLOR = '#110c09'
+// The grouped page backgrounds (--background), so the status bar blends in.
+const LIGHT_THEME_COLOR = '#f2f2f7'
+const DARK_THEME_COLOR = '#000000'
 const IS_MAINTENANCE_MODE =
   import.meta.env.VITE_MAINTENANCE_MODE?.toLowerCase() === 'true'
 const Toaster = lazy(async () => ({

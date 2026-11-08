@@ -1,5 +1,6 @@
 import { addDays, format, parseISO } from 'date-fns'
 
+import { formatDate } from '@/lib/dates'
 import { toLocalDateString, toTimestampFromDate } from '@/lib/nutrition'
 
 // The server's bounds; the form checks them first to say so in place.
@@ -45,11 +46,5 @@ export function datedLabel(date: string, today: string) {
 export function dayLabel(date: string, today: string) {
   if (date === today) return 'Today'
   if (date === shiftDate(today, -1)) return 'Yesterday'
-  const parsed = parseISO(date)
-  return format(
-    parsed,
-    parsed.getFullYear() === parseISO(today).getFullYear()
-      ? 'EEE, MMM d'
-      : 'EEE, MMM d, yyyy',
-  )
+  return formatDate(date)
 }
