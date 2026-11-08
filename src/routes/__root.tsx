@@ -1,4 +1,4 @@
-import { LoadingRows } from '@/components/page/loading-content'
+import { PagePlaceholder } from '@/components/page/page-placeholder'
 import { lazy, Suspense, useEffect } from 'react'
 import {
   HeadContent,
@@ -352,11 +352,7 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
 
 function SessionLoading() {
   const t = useMessages(messages)
-  return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <LoadingRows label={t.preparingSession} />
-    </main>
-  )
+  return <PagePlaceholder label={t.preparingSession} />
 }
 
 function AuthStatusCard({

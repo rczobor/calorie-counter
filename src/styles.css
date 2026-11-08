@@ -70,6 +70,8 @@
   /* The empty part of a progress bar and a day without meals in a chart:
      one track for Today's bar and the History chart (1.25:1 on white). */
   --track: oklch(0.925 0.006 286);
+  /* Placeholder bars: the empty track, a clear step above a cell. */
+  --skeleton: oklch(0.925 0.006 286);
   /* A quiet well inside a cell, such as an opened meal's foods: a shade
      below white (1.09:1), with muted text 6.3:1 and caution 5.1:1 on it. */
   --recessed: oklch(0.97 0.005 286);
@@ -156,6 +158,7 @@
   /* One step above the cell fill (#3a3a3c, 1.5:1 on the #1c1c1e card), so
      an empty bar reads as a track rather than a gap. */
   --track: oklch(0.349 0.0034 286);
+  --skeleton: oklch(0.349 0.0034 286);
   /* A shade below the cell (1.10:1), muted text 8.3:1 on it. */
   --recessed: oklch(0.185 0.0035 286);
 
@@ -186,6 +189,7 @@
   --background: oklch(0.227 0.0038 286);
   --card: oklch(0.294 0.0036 286);
   --muted: oklch(0.349 0.0034 286);
+  --skeleton: oklch(0.4 0.0034 286);
   --secondary: oklch(0.349 0.0034 286);
   --accent: oklch(0.38 0.004 286);
   --border: oklch(0.39 0.0034 286);
@@ -208,6 +212,18 @@
   @media (prefers-reduced-transparency: reduce) {
     background-color: var(--card);
     backdrop-filter: none;
+  }
+}
+
+/* Placeholders fade in after a beat, so a wait shorter than that shows
+   nothing and a longer one arrives softly instead of flashing. */
+@utility loading-reveal {
+  animation: loading-reveal 240ms ease-out 160ms both;
+}
+
+@keyframes loading-reveal {
+  from {
+    opacity: 0;
   }
 }
 
@@ -337,6 +353,7 @@
   --color-disabled: var(--disabled);
   --color-disabled-foreground: var(--disabled-foreground);
   --color-track: var(--track);
+  --color-skeleton: var(--skeleton);
   --color-recessed: var(--recessed);
   /* Prefixed so `text-kcal-left` never collides with `text-left` alignment. */
   --color-kcal-left: var(--left);

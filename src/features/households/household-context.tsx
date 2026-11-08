@@ -1,4 +1,5 @@
 import { LoadingRows } from '@/components/page/loading-content'
+import { PagePlaceholder } from '@/components/page/page-placeholder'
 import {
   createContext,
   lazy,
@@ -150,11 +151,7 @@ function HouseholdSession({
   // A saved selection is usable once current membership is verified. The
   // personal-household bootstrap can finish without delaying returning users.
   if ((!ready && (!hydrated || !household)) || households === undefined)
-    return (
-      <div className="mx-auto w-full max-w-3xl p-6">
-        <LoadingRows label={t.preparing} />
-      </div>
-    )
+    return <PagePlaceholder label={t.preparing} />
   if (!household && accountPage) return <>{children}</>
   if (!household)
     return (

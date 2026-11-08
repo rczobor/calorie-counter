@@ -44,8 +44,13 @@ import { EditorDialog } from '@/components/page/editor-dialog'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { Balance, Value } from '@/components/nutrition/value'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
+import {
+  IntakeSkeleton,
+  MEAL_ROW_HEIGHT,
+  PersonPickerPlaceholder,
+  WeightRowPlaceholder,
+} from '@/components/page/page-placeholder'
 import { DatePicker } from '@/components/ui/date-picker'
 import {
   DropdownMenu,
@@ -246,11 +251,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   {dayHeading(date, today, locale)}
                 </h1>
                 {people.status === 'LoadingFirstPage' ? (
-                  <Skeleton
-                    className="h-10 w-28 rounded-full"
-                    role="status"
-                    aria-label={t.loadingPeople}
-                  />
+                  <PersonPickerPlaceholder label={t.loadingPeople} />
                 ) : visiblePeople.length > 0 ? (
                   <PersonPicker
                     ref={householdButton}
@@ -532,9 +533,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </>
             ) : loadingPerson ? (
               <div role="status" aria-label={t.loadingDailyIntake}>
-                <Skeleton className="h-14 w-56" />
-                <Skeleton className="mt-4 h-2 w-full" />
-                <Skeleton className="mt-2.5 h-5 w-44" />
+                <IntakeSkeleton />
               </div>
             ) : (
               <p className="type-subhead text-muted-foreground">
@@ -561,6 +560,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               today={today}
             />
           </div>
+        ) : !archived && loadingPerson ? (
+          <WeightRowPlaceholder />
         ) : null}
         {!archived && draft && !editor ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4">
@@ -715,8 +716,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           (selected && meals.status === 'LoadingFirstPage') ? (
             <LoadingRows
               label={t.loadingMeals}
-              rows={focused ? Math.min(3, Math.max(1, focused.mealCount)) : 1}
-              className="px-4"
+              rows={focused ? Math.min(3, Math.max(1, focused.mealCount)) : 3}
+              inset
+              rowClassName={MEAL_ROW_HEIGHT}
             />
           ) : null}
         </div>

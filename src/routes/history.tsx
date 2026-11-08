@@ -1,4 +1,7 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import {
+  HistorySkeleton,
+  PersonPickerPlaceholder,
+} from '@/components/page/page-placeholder'
 import { useHousehold } from '@/features/households/household-context'
 import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
@@ -270,11 +273,7 @@ function HistoryPageContent() {
         <>
           <h1 className="type-large-title text-foreground">{t.title}</h1>
           {peopleStatus === 'LoadingFirstPage' ? (
-            <Skeleton
-              className="h-10 w-28 rounded-full"
-              role="status"
-              aria-label={t.loadingPeople}
-            />
+            <PersonPickerPlaceholder label={t.loadingPeople} />
           ) : people.length === 0 ? (
             <p className="type-subhead text-muted-foreground">
               {t.noActivePeople}
@@ -371,15 +370,7 @@ function HistoryPageContent() {
           </div>
         ) : isInitialLoading ||
           (Boolean(effectiveSelectedPersonId) && !isHistoryComplete) ? (
-          <div
-            role="status"
-            aria-label={t.loadingRange}
-            className="min-h-96 space-y-6"
-          >
-            <Skeleton className="h-20 w-full rounded-xl" />
-            <Skeleton className="h-64 w-full rounded-xl" />
-            <Skeleton className="h-40 w-full rounded-xl" />
-          </div>
+          <HistorySkeleton label={t.loadingRange} />
         ) : (
           <>
             <div className="inset-group">

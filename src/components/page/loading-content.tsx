@@ -6,29 +6,55 @@ import { messages } from './loading-content.messages'
 export function LoadingRows({
   label,
   rows = 3,
+  inset = false,
+  rowClassName,
   className,
 }: {
   label: string
   rows?: number
+  /** Rows of an inset group: padded cells with hairlines like `inset-rows`. */
+  inset?: boolean
+  /** Match the real row's height so data replaces the rows without a jump. */
+  rowClassName?: string
   className?: string
 }) {
   return (
-    <div role="status" aria-label={label} className={cn('divide-y', className)}>
-      {Array.from({ length: rows }, (_, index) => (
-        <div
-          key={index}
-          aria-hidden="true"
-          className="flex h-16 items-center justify-between gap-4"
-        >
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-3 w-24" />
-          </div>
-          <Skeleton className="h-4 w-16" />
-        </div>
-      ))}
+    <div
+      role="status"
+      aria-label={label}
+      className={cn(inset ? 'inset-rows' : 'divide-y', className)}
+    >
+      <SkeletonRows rows={rows} inset={inset} className={rowClassName} />
     </div>
   )
+}
+
+export function SkeletonRows({
+  rows,
+  inset = false,
+  className,
+}: {
+  rows: number
+  inset?: boolean
+  className?: string
+}) {
+  return Array.from({ length: rows }, (_, index) => (
+    <div
+      key={index}
+      aria-hidden="true"
+      className={cn(
+        'flex h-16 items-center justify-between gap-4',
+        inset && 'px-4',
+        className,
+      )}
+    >
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+      <Skeleton className="h-4 w-16" />
+    </div>
+  ))
 }
 
 export function EditorSkeleton() {
