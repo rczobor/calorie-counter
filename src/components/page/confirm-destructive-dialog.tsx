@@ -10,6 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './confirm-destructive-dialog.messages'
 
 type ConfirmDestructiveDialogProps = {
   open: boolean
@@ -26,19 +28,20 @@ export function ConfirmDestructiveDialog({
   onOpenChange,
   onConfirm,
   description,
-  title = 'Confirm deletion',
-  confirmLabel = 'Delete',
+  title,
+  confirmLabel,
   disabled = false,
 }: ConfirmDestructiveDialogProps) {
+  const t = useMessages(messages)
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogTitle>{title ?? t.title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
           <AlertDialogAction
             className="gap-2"
             variant="destructive"
@@ -46,7 +49,7 @@ export function ConfirmDestructiveDialog({
             onClick={onConfirm}
           >
             <Trash2 className="h-4 w-4" />
-            {confirmLabel}
+            {confirmLabel ?? t.confirm}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

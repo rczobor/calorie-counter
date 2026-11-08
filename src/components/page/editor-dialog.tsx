@@ -4,6 +4,8 @@ import type { ReactNode } from 'react'
 
 import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './editor-dialog.messages'
 
 /**
  * The editors' sheet (see `Sheet`). On phones it has a fixed height, so its
@@ -27,6 +29,7 @@ export function EditorDialog({
   children: ReactNode
   pending?: boolean
 }) {
+  const t = useMessages(messages)
   return (
     <Sheet
       onClose={onClose}
@@ -38,8 +41,7 @@ export function EditorDialog({
           {title}
         </Drawer.Title>
         <Drawer.Description className="sr-only">
-          {description ??
-            'Changes are saved only when you choose Save. Closing keeps your meal draft in this tab.'}
+          {description ?? t.description}
         </Drawer.Description>
         <Drawer.Close
           disabled={pending}
@@ -48,7 +50,7 @@ export function EditorDialog({
               variant="ghost"
               size="icon"
               className="text-muted-foreground"
-              aria-label="Close editor"
+              aria-label={t.close}
             />
           }
         >

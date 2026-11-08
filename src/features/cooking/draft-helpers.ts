@@ -1,7 +1,12 @@
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 
+import type { Locale } from '@/i18n/locale'
 import { createDraftId } from '@/lib/id'
-import type { NutritionUnit, NutritionProvenance } from '@/lib/nutrition'
+import {
+  getNutritionUnitLabel,
+  type NutritionUnit,
+  type NutritionProvenance,
+} from '@/lib/nutrition'
 
 export { createDraftId } from '@/lib/id'
 
@@ -102,6 +107,11 @@ export function getRecipeCountedAmount(
   return !ignoreCalories && referenceUnit === kcalBasisUnit
     ? referenceAmount
     : undefined
+}
+
+/** The unit beside an amount: grams read as "g", other units by name. */
+export function amountUnitLabel(unit: NutritionUnit, locale: Locale) {
+  return unit === 'g' ? 'g' : getNutritionUnitLabel(unit, locale)
 }
 
 export function shouldAutoFillReferenceFields(unit: NutritionUnit) {

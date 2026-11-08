@@ -14,12 +14,13 @@ import {
   PACES,
   ageInYearOf,
   bmi,
-  energyPlanProblem,
+  energyPlanIssue,
   formulaMaintenance,
   goalForPlan,
   roundKcal,
   weeksToTarget,
   type ActivityLevel,
+  type EnergyPlanIssue,
   type EnergyProfile,
   type EnergySex,
   type GoalPlan,
@@ -42,20 +43,22 @@ import {
   MIN_WEIGHT_KG,
   parseWeightInput as parseDecimal,
 } from '@/features/weight/weight-format'
+import { formatAmount } from '@/i18n/format'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
 import {
-  ACTIVITY_COPY,
   calculatorReason,
   closeness,
   currentGoalLine,
   formatKgPerWeek,
   isSuggestedPace,
   listWords,
-  PACE_NAMES,
   roughDate,
   signedKcal,
   signedKg,
 } from './energy-format'
+import { messages } from './goal-calculator.messages'
 
 export type CalculatorChoice = {
   goalKcal: number
@@ -91,13 +94,15 @@ export function GoalCalculator({
   onUse: (choice: CalculatorChoice) => void | Promise<void>
   onClose: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [sex, setSex] = useState<EnergySex | null>(profile?.sex ?? null)
   const [birthYear, setBirthYear] = useState(
     profile ? String(profile.birthYear) : '',
   )
   const [height, setHeight] = useState(profile ? String(profile.heightCm) : '')
   const [weight, setWeight] = useState(
-    latestWeight ? formatKg(latestWeight.kg) : '',
+    latestWeight ? formatKg(latestWeight.kg, locale) : '',
   )
   const [activity, setActivity] = useState<ActivityLevel | null>(
     profile?.activity ?? null,
@@ -112,7 +117,7 @@ export function GoalCalculator({
   )
   const [target, setTarget] = useState(
     plan && plan.direction !== 'maintain' && plan.targetWeightKg !== undefined
-      ? formatKg(plan.targetWeightKg)
+      ? formatKg(plan.targetWeightKg, locale)
       : '',
   )
   const [pending, setPending] = useState(false)
@@ -127,21 +132,21 @@ export function GoalCalculator({
     birthYear:
       birthYear.trim() &&
       (year === null || year < MIN_BIRTH_YEAR || year > thisYear)
-        ? `Enter a year between ${MIN_BIRTH_YEAR} and ${thisYear}.`
+        ? t.birthYearError(MIN_BIRTH_YEAR, thisYear)
         : null,
     height:
       height.trim() &&
       (heightCm === null ||
         heightCm < MIN_HEIGHT_CM ||
         heightCm > MAX_HEIGHT_CM)
-        ? `Enter a height between ${MIN_HEIGHT_CM} and ${MAX_HEIGHT_CM} cm.`
+        ? t.heightError(MIN_HEIGHT_CM, MAX_HEIGHT_CM)
         : null,
     weight:
       weight.trim() &&
       (weightKg === null ||
         weightKg < MIN_WEIGHT_KG ||
         weightKg > MAX_WEIGHT_KG)
-        ? `Enter a weight between ${MIN_WEIGHT_KG} and ${MAX_WEIGHT_KG} kg.`
+        ? t.weightError(MIN_WEIGHT_KG, MAX_WEIGHT_KG)
         : null,
   }
   const body =
@@ -185,20 +190,17 @@ export function GoalCalculator({
           activity,
         }
       : null
-  const targetError =
-    target.trim() && targetKg === null
-      ? 'Enter a target weight in kilograms, like 75.'
-      : null
-  const problem =
-    targetError ??
-    (energyProfile && goalPlan && body
-      ? energyPlanProblem({
+  const targetError = target.trim() && targetKg === null ? t.targetError : null
+  const issue =
+    energyProfile && goalPlan && body
+      ? energyPlanIssue({
           profile: energyProfile,
           plan: goalPlan,
           date: today,
           weightKg: body.weightKg,
         })
-      : null)
+      : null
+  const problem = targetError ?? (issue ? describeIssue(issue, locale) : null)
   const formula =
     energyProfile && body
       ? formulaMaintenance(energyProfile, body.weightKg, today)
@@ -214,12 +216,12 @@ export function GoalCalculator({
       : null
   const weeks = goalPlan && body ? weeksToTarget(goalPlan, body.weightKg) : null
   const missing = [
-    !sex && 'sex',
-    year === null && 'year of birth',
-    heightCm === null && 'height',
-    weightKg === null && 'weight',
-    !activity && 'activity',
-    !direction && 'a goal',
+    !sex && t.missingWords.sex,
+    year === null && t.missingWords.birthYear,
+    heightCm === null && t.missingWords.height,
+    weightKg === null && t.missingWords.weight,
+    !activity && t.missingWords.activity,
+    !direction && t.missingWords.goal,
   ].filter((item) => typeof item === 'string')
 
   function chooseDirection(next: Direction) {
@@ -239,7 +241,7 @@ export function GoalCalculator({
     try {
       await onUse({
         goalKcal: result.goalKcal,
-        reason: calculatorReason(goalPlan),
+        reason: calculatorReason(goalPlan, locale),
         energyProfile,
         goalPlan,
       })
@@ -251,11 +253,11 @@ export function GoalCalculator({
   const weightHelp =
     latestWeight &&
     weightKg !== null &&
-    formatKg(weightKg) === formatKg(latestWeight.kg)
+    formatKg(weightKg, locale) === formatKg(latestWeight.kg, locale)
       ? latestWeight.date === today
-        ? 'From today’s weigh-in.'
-        : `From the weigh-in on ${datedLabel(latestWeight.date, today)}.`
-      : 'Used for this estimate only, not saved as a weigh-in.'
+        ? t.todaysWeighIn
+        : t.weighInOn(datedLabel(latestWeight.date, today, locale))
+      : t.notSaved
 
   const id = useId()
   const pacesFor =
@@ -265,38 +267,40 @@ export function GoalCalculator({
       ? plan.percentPerWeek
       : undefined
   const projection =
-    weeks !== null && !problem
-      ? `Reach ${targetKg} kg around ${roughDate(addDays(parseISO(today), Math.round(weeks * 7)))}, in about ${Math.round(weeks)} weeks`
+    weeks !== null && !problem && targetKg !== null
+      ? t.projection(
+          formatAmount(targetKg, locale),
+          roughDate(addDays(parseISO(today), Math.round(weeks * 7)), locale),
+          Math.round(weeks),
+        )
       : null
 
   return (
     <EditorDialog
-      title="Find a daily goal"
-      description={`A suggested daily goal for ${name || 'a new person'}. Nothing changes until you use it.`}
+      title={t.title}
+      description={t.description(name)}
       pending={pending}
       onClose={onClose}
     >
       <div className="space-y-6 pt-1 pb-6">
         <section aria-labelledby={`${id}-about`}>
-          <GroupHeading id={`${id}-about`}>
-            {name ? `About ${name}` : 'About this person'}
-          </GroupHeading>
+          <GroupHeading id={`${id}-about`}>{t.about(name)}</GroupHeading>
           <p className="px-4 pb-3 type-footnote text-muted-foreground">
-            For adults who aren’t pregnant or breastfeeding.
+            {t.adultsOnly}
           </p>
           <div className="space-y-4">
             <Choices
-              legend="Sex for the formula"
+              legend={t.sex}
               value={sex}
               onChange={setSex}
               options={[
-                { value: 'female', label: 'Female' },
-                { value: 'male', label: 'Male' },
+                { value: 'female', label: t.female },
+                { value: 'male', label: t.male },
               ]}
             />
             <div className="grid grid-cols-2 gap-3">
               <Field
-                label="Year of birth"
+                label={t.birthYear}
                 htmlFor={`${id}-born`}
                 hint={<FieldError>{errors.birthYear}</FieldError>}
               >
@@ -304,7 +308,7 @@ export function GoalCalculator({
                   id={`${id}-born`}
                   inputMode="numeric"
                   autoComplete="off"
-                  placeholder="e.g. 1990"
+                  placeholder={t.birthYearPlaceholder}
                   className="tabular-nums"
                   value={birthYear}
                   onChange={(event) => setBirthYear(event.target.value)}
@@ -312,7 +316,7 @@ export function GoalCalculator({
                 />
               </Field>
               <Field
-                label="Height"
+                label={t.height}
                 htmlFor={`${id}-height`}
                 hint={<FieldError>{errors.height}</FieldError>}
               >
@@ -322,7 +326,7 @@ export function GoalCalculator({
                   // Text, not number: phones in comma locales type "170,5".
                   type="text"
                   autoComplete="off"
-                  placeholder="e.g. 170"
+                  placeholder={t.heightPlaceholder}
                   value={height}
                   onChange={(event) => setHeight(event.target.value)}
                   aria-invalid={errors.height ? true : undefined}
@@ -330,7 +334,7 @@ export function GoalCalculator({
               </Field>
             </div>
             <Field
-              label="Weight"
+              label={t.weight}
               htmlFor={`${id}-weight`}
               hint={
                 errors.weight ? (
@@ -345,7 +349,7 @@ export function GoalCalculator({
                 unit="kg"
                 type="text"
                 autoComplete="off"
-                placeholder="e.g. 75"
+                placeholder={t.weightPlaceholder}
                 value={weight}
                 onChange={(event) => setWeight(event.target.value)}
                 aria-invalid={errors.weight ? true : undefined}
@@ -354,26 +358,28 @@ export function GoalCalculator({
           </div>
           {minor ? (
             <Notice>
-              <b className="font-semibold">This is for adults.</b> Teens need
-              extra energy to grow, so adult formulas don’t fit. A doctor or
-              dietitian can suggest {name ? `${name}’s goal` : 'a goal'}; you
-              can still enter it by hand.
+              {t.minor(
+                (text) => (
+                  <b className="font-semibold">{text}</b>
+                ),
+                name,
+              )}
             </Notice>
           ) : null}
         </section>
 
         <section aria-labelledby={`${id}-activity`}>
-          <GroupHeading id={`${id}-activity`} aside="To maintain">
-            On a typical day
+          <GroupHeading id={`${id}-activity`} aside={t.toMaintain}>
+            {t.typicalDay}
           </GroupHeading>
-          <RecordList label="On a typical day" empty={null}>
+          <RecordList label={t.typicalDay} empty={null}>
             {ACTIVITY_LEVELS.map((level) => {
               const estimate = maintenanceAt(level)
               return (
                 <RecordRow
                   key={level}
-                  title={ACTIVITY_COPY[level].title}
-                  detail={ACTIVITY_COPY[level].description}
+                  title={t.activity[level].title}
+                  detail={t.activity[level].description}
                   // The column holds its place while details are missing.
                   value={estimate ? roundKcal(estimate.kcal) : '—'}
                   unit={estimate ? 'kcal' : ''}
@@ -384,37 +390,37 @@ export function GoalCalculator({
             })}
           </RecordList>
           <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
-            Unsure? Pick the lower one. Most people overestimate, and check-ins
-            correct it.
+            {t.lowerActivity}
           </p>
         </section>
 
         <section aria-labelledby={`${id}-goal`} className="space-y-4">
           <GroupHeading id={`${id}-goal`} className="pb-0">
-            Goal
+            {t.goal}
           </GroupHeading>
           <Choices
-            legend="Goal"
+            legend={t.goal}
             legendHidden
             value={direction}
             onChange={chooseDirection}
             options={[
-              { value: 'lose', label: 'Lose', disabled: underweight },
-              { value: 'maintain', label: 'Maintain' },
-              { value: 'gain', label: 'Gain' },
+              { value: 'lose', label: t.lose, disabled: underweight },
+              { value: 'maintain', label: t.maintain },
+              { value: 'gain', label: t.gain },
             ]}
           />
           {underweight ? (
             <p className="px-4 type-footnote text-muted-foreground">
-              Losing weight isn’t offered below a BMI of {MIN_HEALTHY_BMI}.
+              {t.noLossBelowBmi(formatAmount(MIN_HEALTHY_BMI, locale))}
             </p>
           ) : null}
           {pacesFor ? (
             <>
               <div>
-                <GroupHeading aside="Daily goal">Pace</GroupHeading>
-                <RecordList label="Pace" empty={null}>
+                <GroupHeading aside={t.dailyGoal}>{t.pace}</GroupHeading>
+                <RecordList label={t.pace} empty={null}>
                   {PACES[pacesFor].map((value) => {
+                    const paceNames: Record<number, string> = t.paces[pacesFor]
                     const goal =
                       formula && body
                         ? goalForPlan({
@@ -430,17 +436,18 @@ export function GoalCalculator({
                     const kg = body ? (body.weightKg * value) / 100 : null
                     const badge =
                       savedPace === value
-                        ? 'Your plan'
+                        ? t.yourPlan
                         : savedPace === undefined &&
                             isSuggestedPace(pacesFor, value)
-                          ? 'Suggested'
+                          ? t.suggested
                           : null
+                    const percent = formatAmount(value, locale)
                     return (
                       <RecordRow
                         key={value}
                         title={
                           <>
-                            {PACE_NAMES[pacesFor][value]}
+                            {paceNames[value]}
                             {badge ? (
                               <span className="ml-2 rounded-full border px-1.5 py-px align-middle type-caption font-medium text-muted-foreground">
                                 {badge}
@@ -450,12 +457,18 @@ export function GoalCalculator({
                         }
                         detail={
                           kg !== null
-                            ? `${value}% · ${signedKg(pacesFor === 'lose' ? -kg : kg)} a week`
-                            : `${value}% a week`
+                            ? t.paceDetail(
+                                percent,
+                                signedKg(
+                                  pacesFor === 'lose' ? -kg : kg,
+                                  locale,
+                                ),
+                              )
+                            : t.pacePercent(percent)
                         }
                         value={goal ? goal.goalKcal : '—'}
                         unit={
-                          goal ? (goal.heldAtMinimum ? 'minimum' : 'kcal') : ''
+                          goal ? (goal.heldAtMinimum ? t.minimum : 'kcal') : ''
                         }
                         selected={pace === value}
                         onOpen={() => setPace(value)}
@@ -465,12 +478,12 @@ export function GoalCalculator({
                 </RecordList>
                 {formula ? (
                   <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
-                    From ≈ {roundKcal(formula.kcal)} kcal a day maintenance.
+                    {t.fromMaintenance(roundKcal(formula.kcal))}
                   </p>
                 ) : null}
               </div>
               <Field
-                label="Target weight (optional)"
+                label={t.target}
                 htmlFor={`${id}-target`}
                 hint={
                   target.trim() && problem ? (
@@ -485,7 +498,7 @@ export function GoalCalculator({
                   unit="kg"
                   type="text"
                   autoComplete="off"
-                  placeholder="Optional"
+                  placeholder={t.optional}
                   value={target}
                   onChange={(event) => setTarget(event.target.value)}
                   aria-invalid={target.trim() && problem ? true : undefined}
@@ -505,6 +518,7 @@ export function GoalCalculator({
             plan={goalPlan}
             sex={body.sex}
             personName={name}
+            locale={locale}
           />
         ) : null}
       </div>
@@ -517,24 +531,27 @@ export function GoalCalculator({
               <span className="text-muted-foreground">–</span>
             )}{' '}
             <span className="type-subhead font-normal text-muted-foreground">
-              kcal a day
+              {t.kcalADay}
             </span>
           </p>
           {/* Two lines at most, so the footer keeps its height. */}
           <p className="type-footnote text-pretty text-muted-foreground">
             {minor
-              ? 'No suggestion under 18'
+              ? t.noSuggestionForMinors
               : !result || !goalPlan
                 ? missing.length > 2
-                  ? `Add ${missing.slice(0, 2).join(', ')} and ${missing.length - 2} more`
+                  ? t.addMore(missing[0], missing[1], missing.length - 2)
                   : missing.length
-                    ? `Add ${listWords(missing)}`
-                    : 'Check the details above'
+                    ? t.add(listWords(missing, locale))
+                    : t.checkDetails
                 : currentGoalKcal
-                  ? currentGoalLine(currentGoalKcal, result.goalKcal)
+                  ? currentGoalLine(currentGoalKcal, result.goalKcal, locale)
                   : goalPlan.direction === 'maintain'
-                    ? 'Keeps weight steady'
-                    : `${goalPlan.direction === 'lose' ? 'Loses' : 'Gains'} ${formatKgPerWeek(result.kgPerWeek)} kg a week`}
+                    ? t.keepsWeight
+                    : t.perWeek(
+                        goalPlan.direction,
+                        formatKgPerWeek(result.kgPerWeek, locale),
+                      )}
           </p>
         </div>
         <Button
@@ -542,11 +559,36 @@ export function GoalCalculator({
           disabled={!result || pending}
           onClick={() => void use()}
         >
-          Use goal
+          {t.useGoal}
         </Button>
       </SheetFooter>
     </EditorDialog>
   )
+}
+
+/** The server's plan check, worded in the person's language. */
+function describeIssue(issue: EnergyPlanIssue, locale: Locale) {
+  const t = messages[locale].problems
+  switch (issue.kind) {
+    case 'birthYear':
+      return t.birthYear(MIN_BIRTH_YEAR, issue.latestYear)
+    case 'height':
+      return t.height(MIN_HEIGHT_CM, MAX_HEIGHT_CM)
+    case 'adultsOnly':
+      return t.adults
+    case 'pace':
+      return t.pace
+    case 'lowBmi':
+      return t.noLoss(formatAmount(MIN_HEALTHY_BMI, locale))
+    case 'targetInvalid':
+      return t.targetInvalid
+    case 'targetBelowHealthy':
+      return t.belowHealthy(formatKg(issue.minimumKg, locale))
+    case 'targetNotBelow':
+      return t.notBelow
+    case 'targetNotAbove':
+      return t.notAbove
+  }
 }
 
 /** The heading above a grouped list, with the column's meaning on the right. */
@@ -634,25 +676,30 @@ function Breakdown({
   plan,
   sex,
   personName,
+  locale,
 }: {
   formula: { kcal: number; uncertaintyKcal: number }
   result: ReturnType<typeof goalForPlan>
   plan: GoalPlan
   sex: EnergySex
   personName: string
+  locale: Locale
 }) {
+  const t = messages[locale]
   return (
     <section aria-labelledby="goal-breakdown">
-      <GroupHeading aside="kcal a day">
-        <span id="goal-breakdown">How it adds up</span>
+      <GroupHeading aside={t.kcalADay}>
+        <span id="goal-breakdown">{t.howItAddsUp}</span>
       </GroupHeading>
       <dl className="inset-group inset-rows type-subhead tabular-nums">
         <div className="flex justify-between gap-3 px-4 py-3">
           <dt className="text-muted-foreground">
-            Maintenance, {closeness(formula.uncertaintyKcal)}
+            {t.maintenance(closeness(formula.uncertaintyKcal, locale))}
             <span className="block type-footnote">
-              likely {roundKcal(formula.kcal - formula.uncertaintyKcal)}–
-              {roundKcal(formula.kcal + formula.uncertaintyKcal)}
+              {t.likely(
+                roundKcal(formula.kcal - formula.uncertaintyKcal),
+                roundKcal(formula.kcal + formula.uncertaintyKcal),
+              )}
             </span>
           </dt>
           <dd>≈ {roundKcal(formula.kcal)}</dd>
@@ -660,30 +707,23 @@ function Breakdown({
         {plan.direction === 'maintain' ? null : (
           <div className="flex justify-between gap-3 px-4 py-3">
             <dt className="text-muted-foreground">
-              For {signedKg(result.kgPerWeek)} a week
+              {t.forChange(signedKg(result.kgPerWeek, locale))}
             </dt>
             <dd>{signedKcal(result.adjustmentKcal)}</dd>
           </div>
         )}
         {/* The sum, not a second hero: the footer carries the goal. */}
         <div className="flex justify-between gap-3 px-4 py-3 font-medium">
-          <dt>Daily goal</dt>
+          <dt>{t.dailyGoal}</dt>
           <dd>{result.goalKcal}</dd>
         </div>
       </dl>
       {result.heldAtMinimum ? (
-        <Notice>
-          Held at the {MIN_GOAL_KCAL[sex]} kcal minimum, so the pace will be
-          slower.
-        </Notice>
+        <Notice>{t.heldAtMinimum(MIN_GOAL_KCAL[sex])}</Notice>
       ) : null}
       <p className="flex gap-2 px-4 pt-2 type-footnote text-muted-foreground">
         <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-        <span>
-          A starting estimate. After two weeks of logs and weigh-ins, the Weight
-          page checks it against {personName ? `${personName}’s` : 'the'} real
-          trend.
-        </span>
+        <span>{t.startingEstimate(personName)}</span>
       </p>
     </section>
   )

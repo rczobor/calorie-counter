@@ -3,7 +3,9 @@ import { Check, LoaderCircle, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Input } from '@/components/ui/input'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './searchable-picker.messages'
 
 const DEFAULT_RESULT_LIMIT = 40
 
@@ -40,16 +42,18 @@ export function SearchablePicker({
   options,
   value,
   onValueChange,
-  placeholder = 'Search...',
-  emptyMessage = 'No matches',
+  placeholder,
+  emptyMessage,
   ariaLabel,
   className,
   searchValue,
   onSearchValueChange,
   loading = false,
-  loadingMessage = 'Loading options...',
+  loadingMessage,
   resultLimit = DEFAULT_RESULT_LIMIT,
 }: SearchablePickerProps) {
+  const t = useMessages(messages)
+  const placeholderText = placeholder ?? t.placeholder
   const [internalSearchValue, setInternalSearchValue] = useState('')
   const [open, setOpen] = useState(false)
   const isSearchControlled = searchValue !== undefined
@@ -141,9 +145,9 @@ export function SearchablePicker({
           )}
           <Combobox.Input
             render={<Input />}
-            aria-label={ariaLabel ?? placeholder}
+            aria-label={ariaLabel ?? placeholderText}
             aria-busy={loading}
-            placeholder={placeholder}
+            placeholder={placeholderText}
             className="pl-9"
             onFocus={() => setOpen(true)}
           />
@@ -156,7 +160,7 @@ export function SearchablePicker({
           >
             <Check className="mt-px size-4 shrink-0 text-foreground" />
             <span className="min-w-0 wrap-break-word">
-              Selected:{' '}
+              {t.selected}{' '}
               <span className="font-medium" title={selected.label}>
                 {selected.label}
               </span>
@@ -174,10 +178,10 @@ export function SearchablePicker({
         >
           <Combobox.Popup className="elevated w-(--anchor-width) min-w-40 rounded-2xl bg-popover text-popover-foreground shadow-[0_12px_40px_-8px_oklch(0_0_0/0.25)] ring-1 ring-foreground/8 outline-hidden">
             <Combobox.Status className="text-muted-foreground px-3 py-2 text-sm">
-              {loading ? loadingMessage : null}
+              {loading ? (loadingMessage ?? t.loading) : null}
             </Combobox.Status>
             <Combobox.Empty className="text-muted-foreground px-3 py-2 text-sm">
-              {loading ? null : emptyMessage}
+              {loading ? null : (emptyMessage ?? t.empty)}
             </Combobox.Empty>
             <Combobox.List className="max-h-64 overflow-y-auto p-1.5">
               {visibleOptions.map((option, index) => (

@@ -27,9 +27,15 @@ import {
   recipeVersionsFields,
   nutritionProvenanceValidator,
   foodIdentityValidator,
+  localeValidator,
 } from './validators'
 
 export default defineSchema({
+  // Account settings for the app itself; MCP logging defaults live in mcpPreferences.
+  userPreferences: defineTable({
+    tokenIdentifier: v.string(),
+    locale: localeValidator,
+  }).index('by_tokenIdentifier', ['tokenIdentifier']),
   mcpPreferences: defineTable({
     tokenIdentifier: v.string(),
     ...loggingPreferences.fields,

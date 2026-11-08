@@ -1,5 +1,8 @@
 import { v } from 'convex/values'
 
+// The app's interface languages; the client's Locale type must match.
+export const localeValidator = v.union(v.literal('en'), v.literal('hu'))
+
 export const nutritionProvenanceValidator = v.object({
   kind: v.optional(v.union(v.literal('estimate'), v.literal('provided'))),
   origin: v.optional(

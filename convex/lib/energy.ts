@@ -184,10 +184,21 @@ export function closeness(uncertaintyKcal: number) {
 }
 
 /**
- * Why a profile or plan cannot be used, or null. The server enforces this; the
- * calculator shows the same message in place.
+ * Why a profile or goal plan cannot be used. The server enforces it, and the
+ * calculator words the same issue in place, in the person's language.
  */
-export function energyPlanProblem({
+export type EnergyPlanIssue =
+  | { kind: 'birthYear'; latestYear: number }
+  | { kind: 'height' }
+  | { kind: 'adultsOnly' }
+  | { kind: 'pace' }
+  | { kind: 'lowBmi' }
+  | { kind: 'targetInvalid' }
+  | { kind: 'targetBelowHealthy'; minimumKg: number }
+  | { kind: 'targetNotBelow' }
+  | { kind: 'targetNotAbove' }
+
+export function energyPlanIssue({
   profile,
   plan,
   date,
@@ -197,47 +208,75 @@ export function energyPlanProblem({
   plan?: GoalPlan | null
   date: string
   weightKg?: number
-}) {
+}): EnergyPlanIssue | null {
   const year = Number(date.slice(0, 4))
   if (
     !Number.isInteger(profile.birthYear) ||
     profile.birthYear < MIN_BIRTH_YEAR ||
     profile.birthYear > year
   )
-    return `Year of birth must be between ${MIN_BIRTH_YEAR} and ${year}.`
+    return { kind: 'birthYear', latestYear: year }
   if (
     !Number.isFinite(profile.heightCm) ||
     profile.heightCm < MIN_HEIGHT_CM ||
     profile.heightCm > MAX_HEIGHT_CM
   )
-    return `Height must be between ${MIN_HEIGHT_CM} and ${MAX_HEIGHT_CM} cm.`
+    return { kind: 'height' }
   if (!plan) return null
   if (ageInYearOf(profile.birthYear, date) < MIN_ADULT_AGE)
-    return 'Goal plans are for adults.'
+    return { kind: 'adultsOnly' }
   if (plan.direction === 'maintain') return null
   if (
     !(PACES[plan.direction] as readonly number[]).includes(plan.percentPerWeek)
   )
-    return 'Choose one of the offered paces.'
+    return { kind: 'pace' }
   if (
     plan.direction === 'lose' &&
     weightKg !== undefined &&
     bmi(weightKg, profile.heightCm) < MIN_HEALTHY_BMI
   )
-    return `Losing weight isn't offered below a BMI of ${MIN_HEALTHY_BMI}.`
+    return { kind: 'lowBmi' }
   const target = plan.targetWeightKg
   if (target === undefined) return null
-  if (!Number.isFinite(target)) return 'Enter a target weight in kilograms.'
+  if (!Number.isFinite(target)) return { kind: 'targetInvalid' }
   const minimum = minHealthyWeightKg(profile.heightCm)
   if (plan.direction === 'lose' && target < minimum)
-    return `The target is below a healthy weight for this height (${minimum.toFixed(1)} kg).`
+    return { kind: 'targetBelowHealthy', minimumKg: minimum }
   if (weightKg !== undefined) {
     if (plan.direction === 'lose' && target >= weightKg)
-      return 'The target is not below the current weight.'
+      return { kind: 'targetNotBelow' }
     if (plan.direction === 'gain' && target <= weightKg)
-      return 'The target is not above the current weight.'
+      return { kind: 'targetNotAbove' }
   }
   return null
+}
+
+/** The issue in English, as the server and the assistant report it. */
+export function energyPlanProblem(
+  input: Parameters<typeof energyPlanIssue>[0],
+) {
+  const issue = energyPlanIssue(input)
+  if (!issue) return null
+  switch (issue.kind) {
+    case 'birthYear':
+      return `Year of birth must be between ${MIN_BIRTH_YEAR} and ${issue.latestYear}.`
+    case 'height':
+      return `Height must be between ${MIN_HEIGHT_CM} and ${MAX_HEIGHT_CM} cm.`
+    case 'adultsOnly':
+      return 'Goal plans are for adults.'
+    case 'pace':
+      return 'Choose one of the offered paces.'
+    case 'lowBmi':
+      return `Losing weight isn't offered below a BMI of ${MIN_HEALTHY_BMI}.`
+    case 'targetInvalid':
+      return 'Enter a target weight in kilograms.'
+    case 'targetBelowHealthy':
+      return `The target is below a healthy weight for this height (${issue.minimumKg.toFixed(1)} kg).`
+    case 'targetNotBelow':
+      return 'The target is not below the current weight.'
+    case 'targetNotAbove':
+      return 'The target is not above the current weight.'
+  }
 }
 
 // ---- Check-in: maintenance measured from logs and weigh-ins ----

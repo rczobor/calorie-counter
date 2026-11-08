@@ -18,6 +18,7 @@ import {
 import { writeMealDraft } from '@/features/meals/meal-draft'
 import { requestLogMeal } from '@/features/meals/log-meal-request'
 import type { MealDraft } from '@/features/meals/meal-draft'
+import { applySavedLocale } from '@/i18n/locale'
 
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
@@ -154,6 +155,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  applySavedLocale(null)
   vi.useRealTimers()
 })
 
@@ -338,6 +340,20 @@ describe('Today intake dashboard', () => {
           nameOf(ref) === 'people:listForDay' && args.eatenOn === '2026-11-03',
       ),
     ).toBe(false)
+  })
+  it('names and dates other days in Hungarian', () => {
+    applySavedLocale('hu')
+    show()
+    expect(screen.getByRole('heading', { name: 'Ma', level: 1 })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Előző nap' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Előző nap' }))
+    expect(
+      screen.getByRole('heading', { name: 'okt. 31., szombat', level: 1 }),
+    ).toBeTruthy()
+    // The pill always names the year, under a title that may not.
+    expect(screen.getByLabelText('Nap').textContent).toBe(
+      '2026. okt. 31., szombat',
+    )
   })
   it('keeps archived meal recovery available on its settings page', () => {
     render(<DayDashboard archived />)

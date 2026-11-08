@@ -21,8 +21,17 @@ import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-
 import { formatDate } from '@/lib/dates'
 import { toErrorMessage } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './household-settings.messages'
+
+function srOnly(text: string) {
+  return <span className="sr-only">{text}</span>
+}
 
 export function HouseholdSettings() {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const { householdId, selectHousehold } = useHousehold()
   const households = useQuery(api.households.list, {})
   const members = useQuery(
@@ -58,7 +67,7 @@ export function HouseholdSettings() {
     try {
       await action()
     } catch (error) {
-      setError(toErrorMessage(error))
+      setError(toErrorMessage(error, locale))
     } finally {
       setPending(false)
     }
@@ -70,8 +79,8 @@ export function HouseholdSettings() {
 
   return (
     <PageShell
-      title="Household"
-      breadcrumbs={<SettingsBreadcrumbs current="Household" />}
+      title={t.household}
+      breadcrumbs={<SettingsBreadcrumbs current={t.household} />}
       contentClassName="max-w-3xl"
     >
       <div className="mt-4 space-y-8">
@@ -82,13 +91,13 @@ export function HouseholdSettings() {
         ) : null}
         <HouseholdInvitation onJoined={selectHousehold} />
         {!households || !household || !householdId || members === undefined ? (
-          <LoadingRows label="Loading household" />
+          <LoadingRows label={t.loading} />
         ) : (
           <>
-            <section aria-label="Household details" className="space-y-4">
-              <Field label="Current household">
+            <section aria-label={t.details} className="space-y-4">
+              <Field label={t.current}>
                 <Select
-                  ariaLabel="Switch household"
+                  ariaLabel={t.switch}
                   className="h-11 w-full sm:w-80"
                   value={householdId}
                   options={households.map((row) => ({
@@ -115,7 +124,7 @@ export function HouseholdSettings() {
                   }}
                 >
                   <Field
-                    label="Household name"
+                    label={t.name}
                     htmlFor="household-name"
                     className="flex-1 sm:max-w-80 sm:flex-none"
                   >
@@ -138,37 +147,36 @@ export function HouseholdSettings() {
                       (name ?? household.name) === household.name
                     }
                   >
-                    Save name
+                    {t.saveName}
                   </Button>
                 </form>
               ) : (
                 <p className="px-4 type-subhead text-muted-foreground">
-                  Ask a household admin to rename the household or invite
-                  someone.
+                  {t.askAdmin}
                 </p>
               )}
             </section>
             <section aria-labelledby="members-title">
               <h2 id="members-title" className="group-label">
-                Members
+                {t.members}
               </h2>
-              <RecordList label="Members" empty="No members found.">
+              <RecordList label={t.members} empty={t.noMembers}>
                 {members.map((member) => (
                   <RecordRow
                     key={member._id}
                     title={member.name}
-                    detail={`${member.role === 'admin' ? 'Admin' : 'Member'}${member.isYou ? ' · You' : ''}`}
+                    detail={t.memberRole(member.role, member.isYou)}
                     actions={
                       isAdmin ? (
                         <ActionsMenu
-                          label={`Manage ${member.name}`}
+                          label={t.manage(member.name)}
                           disabled={pending}
                           actions={[
                             {
                               label:
                                 member.role === 'admin'
-                                  ? 'Make member'
-                                  : 'Make admin',
+                                  ? t.makeMember
+                                  : t.makeAdmin,
                               disabled: pending,
                               onSelect: () =>
                                 setConfirmation({
@@ -184,7 +192,7 @@ export function HouseholdSettings() {
                               ? []
                               : [
                                   {
-                                    label: 'Remove',
+                                    label: t.remove,
                                     destructive: true,
                                     disabled: pending,
                                     onSelect: () =>
@@ -202,18 +210,14 @@ export function HouseholdSettings() {
                   />
                 ))}
               </RecordList>
-              <Disclosure summary="Household access">
-                <p>
-                  Everyone in a household can view and manage its people, goals,
-                  meals, history, catalog, and cooking. Admins also manage
-                  invitations and membership.
-                </p>
+              <Disclosure summary={t.accessTitle}>
+                <p>{t.accessDescription}</p>
               </Disclosure>
             </section>
             {isAdmin ? (
               <section aria-labelledby="invite-title">
                 <h2 id="invite-title" className="group-label">
-                  Invite someone
+                  {t.invite}
                 </h2>
                 <div className="space-y-3">
                   <div className="space-y-2">
@@ -229,14 +233,14 @@ export function HouseholdSettings() {
                         })
                       }
                     >
-                      Create invitation link
+                      {t.createLink}
                     </Button>
                     <p className="px-4 type-footnote text-muted-foreground">
-                      One use. Expires in 7 days. Full household access.
+                      {t.linkTerms}
                     </p>
                   </div>
                   {link ? (
-                    <Field label="Invitation link" htmlFor="invitation-link">
+                    <Field label={t.link} htmlFor="invitation-link">
                       <div className="flex gap-2">
                         <Input
                           id="invitation-link"
@@ -253,18 +257,18 @@ export function HouseholdSettings() {
                             void run(() => navigator.clipboard.writeText(link))
                           }
                         >
-                          Copy link
+                          {t.copyLink}
                         </Button>
                       </div>
                     </Field>
                   ) : null}
                   {invitationRows.length ? (
-                    <RecordList label="Open invitations" empty={null}>
+                    <RecordList label={t.openInvitations} empty={null}>
                       {invitationRows.map((row) => (
                         <RecordRow
                           key={row._id}
-                          title="Invitation link"
-                          detail={`Expires ${formatDate(row.expiresAt)}`}
+                          title={t.link}
+                          detail={t.expires(formatDate(row.expiresAt, locale))}
                           actions={
                             <Button
                               variant="ghost"
@@ -280,7 +284,7 @@ export function HouseholdSettings() {
                                 })
                               }
                             >
-                              Revoke <span className="sr-only">invitation</span>
+                              {t.revoke(srOnly)}
                             </Button>
                           }
                         />
@@ -288,7 +292,7 @@ export function HouseholdSettings() {
                     </RecordList>
                   ) : null}
                   {invitations.status === 'LoadingFirstPage' ? (
-                    <LoadingRows label="Loading invitations" rows={1} />
+                    <LoadingRows label={t.loadingInvitations} rows={1} />
                   ) : null}
                   {invitations.status === 'CanLoadMore' ||
                   invitations.status === 'LoadingMore' ? (
@@ -296,7 +300,7 @@ export function HouseholdSettings() {
                       loading={pending || invitations.status === 'LoadingMore'}
                       onClick={() => invitations.loadMore(20)}
                     >
-                      Load more invitations
+                      {t.loadMoreInvitations}
                     </LoadMoreButton>
                   ) : null}
                 </div>
@@ -318,7 +322,7 @@ export function HouseholdSettings() {
                   }
                 >
                   <LogOut aria-hidden="true" className="size-5" />
-                  Leave household
+                  {t.leave}
                 </button>
               </section>
             ) : null}
@@ -330,17 +334,15 @@ export function HouseholdSettings() {
         onOpenChange={(open) => {
           if (!open) setConfirmation(null)
         }}
-        title={
-          confirmation?.role === 'remove'
-            ? 'Remove household access?'
-            : 'Change household role?'
-        }
+        title={confirmation?.role === 'remove' ? t.removeTitle : t.roleTitle}
         description={
-          confirmation?.role === 'remove'
-            ? `${confirmation.name} will lose access to this household. Shared nutrition data will remain.`
-            : `${confirmation?.name} will become a household ${confirmation?.role}. Admins can invite and remove members.`
+          !confirmation
+            ? undefined
+            : confirmation.role === 'remove'
+              ? t.removeDescription(confirmation.name)
+              : t.roleDescription(confirmation.name, confirmation.role)
         }
-        confirmLabel="Confirm change"
+        confirmLabel={t.confirm}
         disabled={pending}
         onConfirm={() => {
           if (!confirmation || !householdId) return

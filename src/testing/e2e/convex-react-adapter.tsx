@@ -80,6 +80,19 @@ export type MockState = {
   preferences: FunctionReturnType<typeof api.mcpPreferences.get>
   connected: boolean
   weights: Array<Doc<'weightEntries'>>
+  locale: FunctionReturnType<typeof api.userPreferences.getLocale>
+}
+
+// The account's language outlives a reload, as it does on the server.
+const ACCOUNT_LOCALE_KEY = 'e2e-account-locale'
+
+function readAccountLocale(): MockState['locale'] {
+  // The dev server also renders this module, where there is no storage.
+  const value =
+    typeof localStorage === 'undefined'
+      ? null
+      : localStorage.getItem(ACCOUNT_LOCALE_KEY)
+  return value === 'en' || value === 'hu' ? value : null
 }
 
 const ownerTokenIdentifier = 'e2e-user|mock-token'
@@ -234,6 +247,7 @@ function createInitialState(): MockState {
     preferences: initialPreferences,
     connected: true,
     weights: [],
+    locale: readAccountLocale(),
   }
 }
 
@@ -656,6 +670,8 @@ export function useQuery<Query extends FunctionReference<'query'>>(
     ) as FunctionReturnType<Query>
   if (functionName === 'mcpPreferences:get')
     return snapshot.preferences as FunctionReturnType<Query>
+  if (functionName === 'userPreferences:getLocale')
+    return snapshot.locale as FunctionReturnType<Query>
   if (functionName === 'meals:getDayNutrition') {
     const input = args as { personId: Id<'people'>; eatenOn: string }
     return dayNutrition(
@@ -997,6 +1013,14 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
             }
           : null
         publish({ ...state, preferences })
+        return null as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'userPreferences:setLocale') {
+        const { locale } = args as FunctionArgs<
+          typeof api.userPreferences.setLocale
+        >
+        localStorage.setItem(ACCOUNT_LOCALE_KEY, locale)
+        publish({ ...state, locale })
         return null as FunctionReturnType<Mutation>
       }
       if (functionName === 'mcp:revokeConnection') {

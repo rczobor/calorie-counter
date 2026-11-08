@@ -4,7 +4,9 @@ import {
   SEGMENT_LIST_CLASS,
   SegmentedTrack,
 } from '@/components/ui/segmented'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './ingredient-line-controls.messages'
 
 type IngredientLineMode = 'ingredient' | 'custom'
 
@@ -19,17 +21,18 @@ type IngredientLineModeToggleProps = {
 export function IngredientLineModeToggle({
   value,
   onValueChange,
-  existingLabel = 'Existing',
-  customLabel = 'New',
+  existingLabel,
+  customLabel,
   className,
 }: IngredientLineModeToggleProps) {
+  const t = useMessages(messages)
   return (
     <SegmentedTrack className={cn('w-fit', className)}>
       <div className={SEGMENT_LIST_CLASS}>
         {(
           [
-            ['ingredient', existingLabel],
-            ['custom', customLabel],
+            ['ingredient', existingLabel ?? t.existing],
+            ['custom', customLabel ?? t.custom],
           ] as const
         ).map(([mode, label]) => (
           <button
@@ -62,6 +65,7 @@ export function CustomIngredientSwitchRow({
   onSaveToCatalogChange,
   className,
 }: CustomIngredientSwitchRowProps) {
+  const t = useMessages(messages)
   return (
     <div
       className={cn(
@@ -70,7 +74,7 @@ export function CustomIngredientSwitchRow({
       )}
     >
       <label className="inline-flex min-h-10 items-center gap-2.5">
-        <span>Ignore calories</span>
+        <span>{t.ignoreCalories}</span>
         <Switch
           size="sm"
           checked={ignoreCalories}
@@ -80,7 +84,7 @@ export function CustomIngredientSwitchRow({
         />
       </label>
       <label className="inline-flex min-h-10 items-center gap-2.5">
-        <span>Save to ingredient catalog</span>
+        <span>{t.saveToCatalog}</span>
         <Switch
           size="sm"
           checked={saveToCatalog}

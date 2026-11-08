@@ -4,6 +4,8 @@ import type { Ref } from 'react'
 import { chipClass } from '@/components/ui/button'
 import { Select, type SelectOption } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './person-picker.messages'
 
 type PersonSelectProps<Value extends string> = {
   options: SelectOption<Value>[]
@@ -24,11 +26,6 @@ type PersonDisclosureProps = {
   ref?: Ref<HTMLButtonElement>
 }
 
-// The name says what the control does and includes the visible name, so
-// voice control users can say what they see.
-const accessibleName = (visible: string | undefined) =>
-  visible ? `Switch person, ${visible}` : 'Switch person'
-
 /**
  * The one person picker: the chip token with a person icon, the current
  * name and a chevron. Given `options` it is a select (History, the logging
@@ -38,6 +35,7 @@ const accessibleName = (visible: string | undefined) =>
 export function PersonPicker<Value extends string>(
   props: PersonSelectProps<Value> | PersonDisclosureProps,
 ) {
+  const t = useMessages(messages)
   if ('options' in props) {
     const name = props.options.find(
       (option) => option.value === props.value,
@@ -50,8 +48,8 @@ export function PersonPicker<Value extends string>(
         options={props.options}
         value={props.value}
         onValueChange={props.onValueChange}
-        placeholder={props.placeholder ?? 'Select person'}
-        ariaLabel={accessibleName(name ?? props.placeholder ?? 'Select person')}
+        placeholder={props.placeholder ?? t.selectPerson}
+        ariaLabel={t.switchPerson(name ?? props.placeholder ?? t.selectPerson)}
         disabled={props.disabled}
       />
     )
@@ -62,7 +60,7 @@ export function PersonPicker<Value extends string>(
       ref={ref}
       type="button"
       className={cn(chipClass, 'max-w-full')}
-      aria-label={accessibleName(name ?? placeholder)}
+      aria-label={t.switchPerson(name ?? placeholder)}
       aria-expanded={expanded}
       aria-controls={controls}
       onClick={onToggle}

@@ -66,7 +66,8 @@ export default defineConfig(({ command, mode }) => {
       tailwindcss(),
       tanstackStart({
         router: {
-          routeFileIgnorePattern: '\\.(test|spec)\\.[jt]sx?$',
+          // Interface text sits beside its route as *.messages.ts.
+          routeFileIgnorePattern: '\\.(test|spec)\\.[jt]sx?$|\\.messages\\.ts$',
         },
         // The shell contains no account data. Serve it without a server cold start;
         // protected routes still authenticate and subscribe in the browser.

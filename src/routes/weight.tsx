@@ -1,4 +1,8 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  type ErrorComponentProps,
+} from '@tanstack/react-router'
 import {
   ArrowDownRight,
   ArrowRight,
@@ -46,34 +50,36 @@ import {
   formatKgChange,
   shiftDate,
 } from '@/features/weight/weight-format'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { formatDate } from '@/lib/dates'
 import { toErrorMessage, toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
+import { messages } from './weight.messages'
 
 export const Route = createFileRoute('/weight')({
   ssr: false,
   component: WeightPage,
-  errorComponent: ({ error, reset }) => (
-    <PageShell title="Weight">
-      <p role="alert" className="mt-4 text-sm text-destructive">
-        Weight could not be loaded: {toErrorMessage(error)}
-      </p>
-      <Button className="mt-3" variant="outline" onClick={reset}>
-        Retry
-      </Button>
-    </PageShell>
-  ),
+  errorComponent: WeightError,
 })
 
-// Where the page sits in the app; its back link returns there.
-const PARENT = { label: 'Today', link: <Link to="/" /> }
+function WeightError({ error, reset }: ErrorComponentProps) {
+  const t = useMessages(messages)
+  const locale = useLocale()
+  return (
+    <PageShell title={t.title}>
+      <p role="alert" className="mt-4 text-sm text-destructive">
+        {t.loadFailed(toErrorMessage(error, locale))}
+      </p>
+      <Button className="mt-3" variant="outline" onClick={reset}>
+        {t.retry}
+      </Button>
+    </PageShell>
+  )
+}
 
-const RANGES = [
-  { days: 30, label: '30 days' },
-  { days: 90, label: '90 days' },
-  { days: 365, label: '1 year' },
-] as const
+const RANGES = [30, 90, 365] as const
 const PEOPLE_PAGE_SIZE = 50
 const ENTRIES_PAGE_SIZE = 30
 
@@ -89,6 +95,8 @@ function WeightPage() {
 }
 
 function WeightContent() {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const { userId } = useDraftPersistenceIdentity()
   const [today, setToday] = useState(() => toLocalDateString(Date.now()))
   // An installed app can resume on a later day, as on Today.
@@ -177,21 +185,21 @@ function WeightContent() {
       // above the phone tab bar.
       header={
         <>
-          <h1 className="type-large-title text-foreground">Weight</h1>
+          <h1 className="type-large-title text-foreground">{t.title}</h1>
           {loadingPeople ? (
             <Skeleton
               className="h-10 w-28 rounded-full"
               role="status"
-              aria-label="Loading people"
+              aria-label={t.loadingPeople}
             />
           ) : options.length === 0 ? (
             <p className="type-subhead text-muted-foreground">
-              No active people.{' '}
+              {t.noActivePeople}{' '}
               <Link
                 to="/people"
                 className="font-medium text-foreground underline underline-offset-4"
               >
-                Add a person
+                {t.addPerson}
               </Link>
               .
             </p>
@@ -205,14 +213,20 @@ function WeightContent() {
         </>
       }
       contentClassName="max-w-3xl"
-      breadcrumbs={<SettingsBreadcrumbs root={PARENT} current="Weight" />}
+      breadcrumbs={
+        // Weight sits under Today; its back link returns there.
+        <SettingsBreadcrumbs
+          root={{ label: t.today, link: <Link to="/" /> }}
+          current={t.title}
+        />
+      }
     >
       <div className="mt-4 space-y-5">
         {person ? (
           // The primary action sits in the summary, so it is there before the
           // first weigh-in too.
           <section
-            aria-label={`${person.name}’s weight`}
+            aria-label={t.personWeight(person.name)}
             className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 inset-group px-4 py-4"
           >
             <WeightSummary
@@ -227,7 +241,7 @@ function WeightContent() {
                 onClick={() => setDialog({ kind: 'new', date: today })}
               >
                 <Plus />
-                Record weight
+                {t.recordWeight}
               </Button>
             ) : null}
           </section>
@@ -239,10 +253,10 @@ function WeightContent() {
             <SegmentedTrack>
               <div
                 role="group"
-                aria-label="Range"
+                aria-label={t.range}
                 className={SEGMENT_LIST_CLASS}
               >
-                {RANGES.map(({ days, label }) => (
+                {RANGES.map((days) => (
                   <button
                     key={days}
                     type="button"
@@ -250,13 +264,13 @@ function WeightContent() {
                     className={SEGMENT_CLASS}
                     onClick={() => setRangeDays(days)}
                   >
-                    {label}
+                    {t.ranges[days]}
                   </button>
                 ))}
               </div>
             </SegmentedTrack>
             <section
-              aria-label="Weight trend"
+              aria-label={t.trend}
               className="inset-group px-4 pt-3.5 pb-3"
             >
               <RangeChange range={range} />
@@ -265,7 +279,7 @@ function WeightContent() {
                   <Skeleton
                     className="h-38 w-full md:h-46"
                     role="status"
-                    aria-label="Loading weight trend"
+                    aria-label={t.loadingTrend}
                   />
                 ) : (
                   <WeightChart entries={range} endDate={today} today={today} />
@@ -278,15 +292,15 @@ function WeightContent() {
             <section aria-labelledby="weight-entries-heading">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 id="weight-entries-heading" className="type-title">
-                  Weigh-ins
+                  {t.weighIns}
                 </h2>
                 <p className="type-footnote text-muted-foreground">
-                  Change from the previous weigh-in
+                  {t.changeHint}
                 </p>
               </div>
               {entries.status === 'LoadingFirstPage' ? (
                 <LoadingRows
-                  label="Loading weigh-ins"
+                  label={t.loadingWeighIns}
                   rows={3}
                   className="mt-3 inset-group px-4"
                 />
@@ -318,7 +332,7 @@ function WeightContent() {
                   aria-busy={entries.status === 'LoadingMore'}
                   onClick={() => entries.loadMore(ENTRIES_PAGE_SIZE)}
                 >
-                  Load older weigh-ins
+                  {t.loadOlder}
                 </Button>
               ) : null}
             </section>
@@ -359,10 +373,10 @@ function WeightContent() {
                 energyProfile: choice.energyProfile,
                 goalPlan: choice.goalPlan,
               })
-              toast.success('Goal updated.')
+              toast.success(t.goalUpdated)
               setCalculating(false)
             } catch (failure) {
-              toast.error(toErrorMessage(failure))
+              toast.error(toErrorMessage(failure, locale))
             }
           }}
         />
@@ -380,9 +394,11 @@ function WeightSummary({
   today: string
   archived: boolean
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   if (latest === undefined)
     return (
-      <div role="status" aria-label="Loading latest weight">
+      <div role="status" aria-label={t.loadingLatest}>
         <Skeleton className="h-14 w-40" />
         <Skeleton className="mt-2 h-5 w-28" />
       </div>
@@ -390,21 +406,23 @@ function WeightSummary({
   if (latest === null)
     return (
       <div className="min-w-0 basis-60 grow">
-        <p className="type-headline">No weigh-ins yet</p>
+        <p className="type-headline">{t.noWeighIns}</p>
         <p className="mt-1 type-subhead text-muted-foreground">
-          {archived
-            ? 'This person is archived.'
-            : 'Optional. Record a weight whenever you like. Once there are a few, the trend shows here.'}
+          {archived ? t.personArchived : t.optional}
         </p>
       </div>
     )
   return (
     <div>
       <p>
-        <Value size="display" value={formatKg(latest.weightKg)} unit="kg" />
+        <Value
+          size="display"
+          value={formatKg(latest.weightKg, locale)}
+          unit="kg"
+        />
       </p>
       <p className="mt-1.5 type-subhead text-muted-foreground">
-        {datedLabel(latest.measuredOn, today)}
+        {datedLabel(latest.measuredOn, today, locale)}
       </p>
     </div>
   )
@@ -413,28 +431,30 @@ function WeightSummary({
 // Neutral on purpose: some people want to lose weight, others to gain it, so
 // the change is foreground with a sign and arrow, never a good or bad colour.
 function RangeChange({ range }: { range: WeightEntry[] | undefined }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const first = range?.[0]
   const last = range?.at(-1)
   if (!first || !last || first === last)
     return <p className="h-5.5" aria-hidden="true" />
   const change = Math.round((last.weightKg - first.weightKg) * 10) / 10
-  const since = formatDate(first.measuredOn)
+  const since = formatDate(first.measuredOn, locale)
   const Icon =
     change === 0 ? ArrowRight : change < 0 ? ArrowDownRight : ArrowUpRight
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 type-subhead text-muted-foreground">
       <Icon aria-hidden="true" className="size-4 text-foreground" />
       {change === 0 ? (
-        <span className="type-headline text-foreground">No change</span>
+        <span className="type-headline text-foreground">{t.noChange}</span>
       ) : (
         <Value
           size="headline"
-          value={formatKgChange(change)}
+          value={formatKgChange(change, locale)}
           unit="kg"
           className="text-foreground"
         />
       )}
-      <span>since {since}</span>
+      <span>{t.since(since)}</span>
     </p>
   )
 }
@@ -450,20 +470,22 @@ function EntryRow({
   today: string
   onOpen?: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const content = (
     <>
       <span className="min-w-0 flex-1 truncate">
-        {datedLabel(entry.measuredOn, today)}
+        {datedLabel(entry.measuredOn, today, locale)}
       </span>
       {older ? (
         <span className="shrink-0 text-right type-footnote text-muted-foreground tabular-nums">
           {Math.round((entry.weightKg - older.weightKg) * 10) === 0
-            ? 'No change'
-            : `${formatKgChange(entry.weightKg - older.weightKg)} kg`}
+            ? t.unchanged
+            : `${formatKgChange(entry.weightKg - older.weightKg, locale)} kg`}
         </span>
       ) : null}
       <Value
-        value={formatKg(entry.weightKg)}
+        value={formatKg(entry.weightKg, locale)}
         unit="kg"
         className="min-w-17 text-right"
       />
@@ -479,7 +501,10 @@ function EntryRow({
     <button
       type="button"
       className={LIST_ROW_CLASS}
-      aria-label={`${datedLabel(entry.measuredOn, today)}: ${formatKg(entry.weightKg)} kg. Edit`}
+      aria-label={t.editEntry(
+        datedLabel(entry.measuredOn, today, locale),
+        formatKg(entry.weightKg, locale),
+      )}
       onClick={onOpen}
     >
       {content}

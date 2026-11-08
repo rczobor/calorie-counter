@@ -7,8 +7,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useLocale } from '@/i18n/locale'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { messages } from './date-picker.messages'
 
 const Calendar = lazy(async () => ({
   default: (await import('./calendar')).Calendar,
@@ -69,13 +71,16 @@ function toLocalDateKey(date: Date) {
 export function DatePicker({
   value,
   onChange,
-  placeholder = 'Pick a date',
+  placeholder,
   ariaLabel,
   className,
   disabled,
   label,
   variant = 'outline',
 }: DatePickerProps) {
+  const locale = useLocale()
+  const t = messages[locale]
+  const placeholderText = placeholder ?? t.placeholder
   const date = parseLocalDate(value)
 
   return (
@@ -96,7 +101,7 @@ export function DatePicker({
                 : 'text-base font-normal md:text-sm',
               className,
             )}
-            aria-label={ariaLabel ?? placeholder}
+            aria-label={ariaLabel ?? placeholderText}
             disabled={disabled}
           >
             {/* A chip's date names itself and its chevron marks the picker,
@@ -104,9 +109,9 @@ export function DatePicker({
                 must share a 390px row with Today and both arrows. */}
             {variant === 'chip' ? null : <CalendarIcon />}
             {date ? (
-              (label ?? formatDate(date.getTime()))
+              (label ?? formatDate(date.getTime(), locale))
             ) : (
-              <span>{placeholder}</span>
+              <span>{placeholderText}</span>
             )}
             {/* A picker that opens carries a chevron, like the person chip. */}
             <ChevronDown
@@ -120,7 +125,7 @@ export function DatePicker({
         <Suspense
           fallback={
             <div role="status" className="h-80 w-64 p-3">
-              Loading calendar…
+              {t.loadingCalendar}
             </div>
           }
         >

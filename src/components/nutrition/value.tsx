@@ -1,7 +1,9 @@
 import { ArrowDownRight, ArrowUpRight, Check } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './value.messages'
 
 // The figure and unit steps: a list row, the sheet's food list, a food under
 // an opened meal (one step below its meal row), a stat or total, a batch's
@@ -67,6 +69,7 @@ export function Balance({
   remaining: number
   className?: string
 }) {
+  const t = useMessages(messages)
   const figure = Math.round(Math.abs(remaining))
   const over = remaining < 0 && figure > 0
   const Icon = over ? ArrowUpRight : figure === 0 ? Check : ArrowDownRight
@@ -80,14 +83,14 @@ export function Balance({
     >
       <Icon aria-hidden="true" className="size-[1.0625em] shrink-0" />
       {figure === 0 ? (
-        'Goal reached'
+        t.goalReached
       ) : (
         <>
           {over ? '+' : ''}
           {figure}{' '}
           {/* Inter's narrow space at this size runs "kcal left" together. */}
           <span className="ml-0.5 type-footnote font-medium tracking-normal [word-spacing:0.1em]">
-            kcal {over ? 'over' : 'left'}
+            {over ? t.kcalOver : t.kcalLeft}
           </span>
         </>
       )}

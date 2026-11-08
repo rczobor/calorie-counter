@@ -3,6 +3,9 @@ import { createFileRoute, useBlocker } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import type { FunctionReturnType } from 'convex/server'
+import { formatAmount } from '@/i18n/format'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
@@ -44,6 +47,7 @@ import {
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import {
+  amountUnitLabel,
   createDraftFromCookedFood,
   type CookingDraft,
 } from '@/features/cooking/draft-helpers'
@@ -57,11 +61,11 @@ import {
 } from '@/features/cooking/use-persisted-cooking-drafts'
 import {
   formatKcalPer100,
-  getNutritionUnitLabel,
   toErrorMessage,
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
+import { messages } from './cooking.messages'
 
 const PAGE_SIZE = 20
 const SEARCH_MAX_LENGTH = 100
@@ -85,6 +89,8 @@ function CookingPage() {
 }
 
 function CookingContent({ userId }: { userId: string | null }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [selectedFood, setSelectedFood] = useState<Pick<
     CookedFood,
     '_id' | 'name'
@@ -140,9 +146,7 @@ function CookingContent({ userId }: { userId: string | null }) {
     const unfinished = readCookingEdit(userId)
     if (unfinished && unfinished.draftId !== next.draftId) {
       setRecoverableEdit(unfinished)
-      toast.warning(
-        'Resume or discard your unfinished cooking edit before opening another editor.',
-      )
+      toast.warning(t.finishEditBeforeOpening)
       return
     }
     setDraft(next)
@@ -151,11 +155,9 @@ function CookingContent({ userId }: { userId: string | null }) {
   function saved() {
     if (legacySource && userId) {
       try {
-        removeLegacyCookingDraft(userId, legacySource)
+        removeLegacyCookingDraft(userId, legacySource, locale)
       } catch (error) {
-        toast.warning(
-          `The food was saved, but its old draft could not be removed: ${toErrorMessage(error)}`,
-        )
+        toast.warning(t.oldDraftNotRemoved(toErrorMessage(error, locale)))
       }
       setLegacy(readLegacyCookingDrafts(userId))
     }
@@ -182,10 +184,10 @@ function CookingContent({ userId }: { userId: string | null }) {
   return (
     <>
       <PageShell
-        title="Cooking"
+        title={t.title}
         breadcrumbs={
           <SettingsBreadcrumbs
-            current="Cooking"
+            current={t.title}
             onCurrentClick={
               selectedFood ? () => setSelectedFood(null) : undefined
             }
@@ -208,30 +210,25 @@ function CookingContent({ userId }: { userId: string | null }) {
                 role="status"
                 className="mt-5 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4"
               >
-                <p className="type-subhead">
-                  An unfinished cooking edit is available in this tab.
-                </p>
+                <p className="type-subhead">{t.unfinishedEdit}</p>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setDraft(recoverableEdit)}
                 >
-                  Resume edit
+                  {t.resumeEdit}
                 </Button>
               </div>
             ) : null}
             {legacy.serialized ? (
               <section
-                aria-label="Recovered cooking drafts"
+                aria-label={t.recoveredDrafts}
                 className="mt-5 space-y-3 inset-group p-4"
               >
                 <div>
-                  <h2 className="type-headline">
-                    Cooking drafts from the previous workspace
-                  </h2>
+                  <h2 className="type-headline">{t.previousWorkspaceTitle}</h2>
                   <p className="mt-1 type-subhead text-muted-foreground">
-                    Your unsaved work is preserved. Recover a draft, export a
-                    copy, or discard it explicitly.
+                    {t.previousWorkspaceDescription}
                   </p>
                 </div>
                 {legacy.drafts.map((item) => (
@@ -241,10 +238,10 @@ function CookingContent({ userId }: { userId: string | null }) {
                   >
                     <div>
                       <p className="text-base">
-                        {item.name.trim() || 'Untitled cooking'}
+                        {item.name.trim() || t.untitledCooking}
                       </p>
                       <p className="type-footnote text-muted-foreground">
-                        {item.ingredientLines.length} ingredient lines
+                        {t.ingredientLines(item.ingredientLines.length)}
                       </p>
                     </div>
                     <Button
@@ -258,9 +255,7 @@ function CookingContent({ userId }: { userId: string | null }) {
                             : null
                         const unfinished = readCookingEdit(userId)
                         if (unfinished && unfinished.draftId !== item.draftId) {
-                          toast.warning(
-                            'Resume or discard your unfinished cooking edit before recovering another draft.',
-                          )
+                          toast.warning(t.finishEditBeforeRecovering)
                           return
                         }
                         setLegacySource(savedProgress ? null : item)
@@ -269,35 +264,33 @@ function CookingContent({ userId }: { userId: string | null }) {
                     >
                       {recoverableEdit?.draftId === item.draftId &&
                       recoverableEdit.persistedCookedFoodId
-                        ? 'Open recovered food'
-                        : 'Recover draft'}
+                        ? t.openRecoveredFood
+                        : t.recoverDraft}
                     </Button>
                   </div>
                 ))}
                 {!legacy.drafts.length ? (
                   <p className="text-sm text-muted-foreground">
-                    This saved workspace cannot be opened safely. Export its
-                    original data before discarding it.
+                    {t.unreadableWorkspace}
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={exportLegacy}>
-                    Export saved drafts
+                    {t.exportDrafts}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setDiscardLegacy(true)}
                   >
-                    Discard old workspace
+                    {t.discardWorkspace}
                   </Button>
                 </div>
               </section>
             ) : null}
             {legacy.unavailable ? (
               <p role="status" className="mt-4 text-sm text-muted-foreground">
-                Local draft recovery is unavailable in this browser. No stored
-                work was removed.
+                {t.recoveryUnavailable}
               </p>
             ) : null}
             <Tabs
@@ -309,11 +302,11 @@ function CookingContent({ userId }: { userId: string | null }) {
               className="mt-4 gap-4"
             >
               <TabsList
-                aria-label="Cooking sections"
+                aria-label={t.cookingSections}
                 className={cn(selectedFood && 'max-lg:hidden')}
               >
-                <TabsTrigger value="foods">Cooked foods</TabsTrigger>
-                <TabsTrigger value="sessions">Batches</TabsTrigger>
+                <TabsTrigger value="foods">{t.cookedFoods}</TabsTrigger>
+                <TabsTrigger value="sessions">{t.batches}</TabsTrigger>
               </TabsList>
               <TabsContent value="sessions">
                 <SessionList
@@ -328,17 +321,15 @@ function CookingContent({ userId }: { userId: string | null }) {
               <TabsContent value="foods">
                 {selectedSessionId ? (
                   selectedSession === undefined ? (
-                    <LoadingRows label="Loading batch" rows={1} />
+                    <LoadingRows label={t.loadingBatch} rows={1} />
                   ) : selectedSession === null ? (
                     <div className="space-y-3">
-                      <p role="alert">
-                        This batch is unavailable in the selected household.
-                      </p>
+                      <p role="alert">{t.batchUnavailable}</p>
                       <Button
                         variant="outline"
                         onClick={() => setSelectedSessionId(null)}
                       >
-                        Show all cooked foods
+                        {t.showAllCookedFoods}
                       </Button>
                     </div>
                   ) : (
@@ -355,13 +346,13 @@ function CookingContent({ userId }: { userId: string | null }) {
                           onClick={() => setSelectedSessionId(null)}
                         >
                           <ChevronLeft aria-hidden="true" />
-                          All cooked foods
+                          {t.allCookedFoods}
                         </Button>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h2 className="flex flex-wrap items-center gap-2 font-medium break-words text-foreground">
                               {selectedSession.label.trim() ||
-                                formatDate(selectedSession.cookedAt)}
+                                formatDate(selectedSession.cookedAt, locale)}
                               {selectedSession.archived ? (
                                 <ArchivedBadge />
                               ) : null}
@@ -369,13 +360,12 @@ function CookingContent({ userId }: { userId: string | null }) {
                             <p className="text-sm text-muted-foreground">
                               {[
                                 selectedSession.label.trim()
-                                  ? formatDate(selectedSession.cookedAt)
+                                  ? formatDate(selectedSession.cookedAt, locale)
                                   : '',
                                 selectedSession.cookedByPersonName,
                               ]
                                 .filter(Boolean)
-                                .join(' · ') ||
-                                'All cooked foods in this batch'}
+                                .join(' · ') || t.allFoodsInBatch}
                             </p>
                           </div>
                           <BatchActions
@@ -419,9 +409,9 @@ function CookingContent({ userId }: { userId: string | null }) {
       <ConfirmDestructiveDialog
         open={discardLegacy}
         onOpenChange={setDiscardLegacy}
-        title="Discard old cooking workspace?"
-        description="Every unsaved draft in the previous workspace will be removed from this device. Export a copy first if you may need it."
-        confirmLabel="Discard drafts"
+        title={t.discardWorkspaceTitle}
+        description={t.discardWorkspaceDescription}
+        confirmLabel={t.discardDrafts}
         onConfirm={() => {
           try {
             if (userId)
@@ -431,7 +421,7 @@ function CookingContent({ userId }: { userId: string | null }) {
             setLegacy(readLegacyCookingDrafts(userId))
             setDiscardLegacy(false)
           } catch (error) {
-            toast.error(toErrorMessage(error))
+            toast.error(toErrorMessage(error, locale))
           }
         }}
       />
@@ -456,6 +446,7 @@ function CookedFoodList({
   onSelect: (food: CookedFood) => void
   onClose: () => void
 }) {
+  const t = useMessages(messages)
   const [search, setSearch] = useState('')
   const term = search.trim().slice(0, SEARCH_MAX_LENGTH)
   const active = usePaginatedQuery(
@@ -529,7 +520,7 @@ function CookedFoodList({
   }, [selectedId])
   return (
     <section
-      aria-label="Cooked foods"
+      aria-label={t.cookedFoods}
       className={cn(
         selectedFood &&
           'lg:grid lg:grid-cols-[minmax(16rem,1fr)_minmax(0,1.4fr)] lg:gap-8',
@@ -540,7 +531,7 @@ function CookedFoodList({
       >
         <ListToolbar
           search={{
-            label: 'Search cooked foods',
+            label: t.searchCookedFoods,
             maxLength: SEARCH_MAX_LENGTH,
             value: search,
             onValueChange: (value) => {
@@ -551,9 +542,9 @@ function CookedFoodList({
           archived={archivedToggle}
         />
         <RecordList
-          label="Cooked foods"
+          label={t.cookedFoods}
           loading={loading}
-          empty="No cooked foods found."
+          empty={t.noCookedFoods}
         >
           {foods.map((food) => (
             <RecordRow
@@ -561,7 +552,7 @@ function CookedFoodList({
               title={food.name}
               // The rate's basis joins the subtitle, so names don't wrap
               // beside a long unit.
-              detail={`${food.finishedWeightGrams.toFixed(0)} g cooked · per 100 g`}
+              detail={t.cookedFoodDetail(food.finishedWeightGrams.toFixed(0))}
               value={formatKcalPer100(food.kcalPer100)}
               archived={food.archived}
               expanded={selectedId === food._id}
@@ -573,9 +564,7 @@ function CookedFoodList({
           ))}
         </RecordList>
         {term && foods.length >= 20 ? (
-          <p className="text-xs text-muted-foreground">
-            First 20 matches. Refine your search for more.
-          </p>
+          <p className="text-xs text-muted-foreground">{t.firstMatches}</p>
         ) : null}
         {!term &&
         [page, ...(showArchived ? [archivePage] : [])].some(
@@ -591,7 +580,7 @@ function CookedFoodList({
                 archivePage.loadMore(PAGE_SIZE)
             }}
           >
-            Load more cooked foods
+            {t.loadMoreCookedFoods}
           </LoadMoreButton>
         ) : null}
       </div>
@@ -625,6 +614,8 @@ function CookedFoodDetail({
   onEdit: (draft: CookingDraft) => void
   onClose: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const detail = useQuery(api.cooking.getCookedFoodDetail, {
     cookedFoodId: foodId,
   })
@@ -633,11 +624,13 @@ function CookedFoodDetail({
   const action = useConfirmableAction()
   const [recipe, setRecipe] = useState(false)
   if (detail === undefined)
-    return <LoadingRows label="Loading composition" rows={2} className="mt-4" />
+    return (
+      <LoadingRows label={t.loadingComposition} rows={2} className="mt-4" />
+    )
   if (detail === null)
     return (
       <p role="status" className="mt-4 text-sm">
-        This cooked food is no longer available.
+        {t.cookedFoodUnavailable}
       </p>
     )
   const food = detail.cookedFood
@@ -653,7 +646,9 @@ function CookedFoodDetail({
     <div className="mt-4 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="type-footnote text-muted-foreground">
-          {detail.cookSession ? formatDate(detail.cookSession.cookedAt) : null}
+          {detail.cookSession
+            ? formatDate(detail.cookSession.cookedAt, locale)
+            : null}
           {detail.cookSession?.cookedByPersonName
             ? ` · ${detail.cookSession.cookedByPersonName}`
             : null}
@@ -662,25 +657,23 @@ function CookedFoodDetail({
           <Button
             variant="outline"
             size="sm"
-            aria-label="Edit cooked food"
+            aria-label={t.editCookedFood}
             disabled={action.isRunning}
             onClick={() =>
               onEdit(createDraftFromCookedFood(food, detail.ingredients))
             }
           >
-            Edit
+            {t.edit}
           </Button>
           <ActionsMenu
-            label="Cooked food actions"
+            label={t.cookedFoodActions}
             disabled={action.isRunning}
             actions={[
               {
-                label: food.archived ? 'Restore' : 'Archive',
+                label: food.archived ? t.restore : t.archive,
                 onSelect: () =>
                   void action.runAction(
-                    food.archived
-                      ? 'Cooked food restored.'
-                      : 'Cooked food archived.',
+                    food.archived ? t.cookedFoodRestored : t.cookedFoodArchived,
                     async () => {
                       await archive({
                         cookedFoodId: food._id,
@@ -691,14 +684,14 @@ function CookedFoodDetail({
                     },
                   ),
               },
-              { label: 'Save as recipe', onSelect: () => setRecipe(!recipe) },
+              { label: t.saveAsRecipe, onSelect: () => setRecipe(!recipe) },
               {
-                label: 'Delete permanently',
+                label: t.deletePermanently,
                 destructive: true,
                 onSelect: () =>
                   action.confirmAndRunAction(
-                    'Delete this cooked food permanently? Foods used by historical records must be archived instead.',
-                    'Cooked food deleted.',
+                    t.confirmDeleteCookedFood,
+                    t.cookedFoodDeleted,
                     async () => {
                       await remove({
                         cookedFoodId: food._id,
@@ -715,14 +708,14 @@ function CookedFoodDetail({
       {/* The batch's figures, like History's stats: value over its label. */}
       <dl className="grid grid-cols-3 divide-x inset-group">
         <div className="flex flex-col-reverse justify-end px-4 py-3">
-          <dt className="type-footnote text-muted-foreground">Total</dt>
+          <dt className="type-footnote text-muted-foreground">{t.total}</dt>
           <dd>
             <Value size="headline" value={food.totalCalories.toFixed(0)} />
           </dd>
         </div>
         <div className="flex flex-col-reverse justify-end px-4 py-3">
           <dt className="type-footnote text-muted-foreground">
-            Finished weight
+            {t.finishedWeight}
           </dt>
           <dd>
             <Value
@@ -745,8 +738,8 @@ function CookedFoodDetail({
       </dl>
       <div>
         <div className="grid grid-cols-[minmax(0,1fr)_4rem_3rem] gap-3 group-label">
-          <h3>Ingredients</h3>
-          <span className="text-right">Amount</span>
+          <h3>{t.ingredients}</h3>
+          <span className="text-right">{t.amount}</span>
           <span className="text-right">kcal</span>
         </div>
         <div className="inset-group inset-rows">
@@ -757,15 +750,13 @@ function CookedFoodDetail({
                   {line.ingredientNameSnapshot}
                   {line.ignoreCaloriesSnapshot ? (
                     <span className="block type-footnote text-muted-foreground">
-                      Calories ignored
+                      {t.caloriesIgnored}
                     </span>
                   ) : null}
                 </span>
                 <span className="text-right type-footnote text-muted-foreground tabular-nums">
-                  {line.referenceAmount}{' '}
-                  {line.referenceUnit === 'g'
-                    ? 'g'
-                    : getNutritionUnitLabel(line.referenceUnit)}
+                  {formatAmount(line.referenceAmount, locale)}{' '}
+                  {amountUnitLabel(line.referenceUnit, locale)}
                 </span>
                 <span className="text-right font-semibold tabular-nums">
                   {line.ingredientCaloriesSnapshot.toFixed(0)}
@@ -779,22 +770,22 @@ function CookedFoodDetail({
       {food.notes || detail.linkedRecipe || sourceLines.length > 0 ? (
         <details className="px-4 type-footnote text-muted-foreground">
           <summary className="cursor-pointer">
-            Notes & sources
+            {t.notesAndSources}
             {!food.nutritionProvenance &&
             sourceLines.some(
               (line) =>
                 line.nutritionProvenance &&
                 line.nutritionProvenance.kind !== 'provided',
             ) ? (
-              <span className="ml-2 text-caution">Includes estimates</span>
+              <span className="ml-2 text-caution">{t.includesEstimates}</span>
             ) : null}
           </summary>
           {detail.linkedRecipe ? (
             <p className="mt-3">
-              Recipe: {detail.linkedRecipe.name}
-              {detail.linkedRecipe.versionNumber
-                ? ` · version ${detail.linkedRecipe.versionNumber}`
-                : ''}
+              {t.linkedRecipe(
+                detail.linkedRecipe.name,
+                detail.linkedRecipe.versionNumber,
+              )}
             </p>
           ) : null}
           {food.notes ? (
@@ -809,8 +800,13 @@ function CookedFoodDetail({
               (line.countedAmount !== line.referenceAmount ||
                 line.ingredientKcalBasisUnitSnapshot !== line.referenceUnit) ? (
                 <p>
-                  Counted {line.countedAmount ?? 0}{' '}
-                  {line.ingredientKcalBasisUnitSnapshot}
+                  {t.counted(
+                    formatAmount(line.countedAmount ?? 0, locale),
+                    amountUnitLabel(
+                      line.ingredientKcalBasisUnitSnapshot,
+                      locale,
+                    ),
+                  )}
                 </p>
               ) : null}
               {line.notes ? (
@@ -845,6 +841,7 @@ function RecipeFromCookedFood({
   detail: FoodDetail
   onClose: () => void
 }) {
+  const t = useMessages(messages)
   const [name, setName] = useState(detail.cookedFood.name)
   const [instructions, setInstructions] = useState('')
   const create = useMutation(api.nutrition.createRecipe)
@@ -854,34 +851,31 @@ function RecipeFromCookedFood({
       className="space-y-3 rounded-lg border bg-card p-4"
       onSubmit={(event) => {
         event.preventDefault()
-        void action.runAction(
-          'Recipe created. The cooked batch remains unchanged.',
-          async () => {
-            await create({
-              name,
-              instructions: instructions || undefined,
-              ingredientLines: detail.ingredients.map((line) => ({
-                sourceType: 'custom',
-                ingredientId: line.ingredientId,
-                name: line.ingredientNameSnapshot,
-                kcalPer100: line.ingredientKcalPer100Snapshot,
-                kcalBasisUnit: line.ingredientKcalBasisUnitSnapshot,
-                ignoreCalories: line.ignoreCaloriesSnapshot,
-                referenceAmount: line.referenceAmount,
-                referenceUnit: line.referenceUnit,
-                saveToCatalog: false,
-                notes: line.notes,
-                nutritionProvenance: line.nutritionProvenance,
-              })),
-            })
-            onClose()
-          },
-        )
+        void action.runAction(t.recipeCreated, async () => {
+          await create({
+            name,
+            instructions: instructions || undefined,
+            ingredientLines: detail.ingredients.map((line) => ({
+              sourceType: 'custom',
+              ingredientId: line.ingredientId,
+              name: line.ingredientNameSnapshot,
+              kcalPer100: line.ingredientKcalPer100Snapshot,
+              kcalBasisUnit: line.ingredientKcalBasisUnitSnapshot,
+              ignoreCalories: line.ignoreCaloriesSnapshot,
+              referenceAmount: line.referenceAmount,
+              referenceUnit: line.referenceUnit,
+              saveToCatalog: false,
+              notes: line.notes,
+              nutritionProvenance: line.nutritionProvenance,
+            })),
+          })
+          onClose()
+        })
       }}
     >
       <fieldset disabled={action.isRunning} className="space-y-3">
         <Label htmlFor={`recipe-name-${detail.cookedFood._id}`}>
-          Recipe name
+          {t.recipeName}
         </Label>
         <Input
           id={`recipe-name-${detail.cookedFood._id}`}
@@ -890,16 +884,16 @@ function RecipeFromCookedFood({
           required
         />
         <Textarea
-          aria-label="Recipe instructions"
+          aria-label={t.recipeInstructions}
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
-          placeholder="Instructions (optional)"
+          placeholder={t.instructionsPlaceholder}
         />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            {t.cancel}
           </Button>
-          <Button type="submit">Create recipe</Button>
+          <Button type="submit">{t.createRecipe}</Button>
         </div>
       </fieldset>
     </form>
@@ -915,6 +909,8 @@ function SessionList({
   archivedToggle: ArchivedToggle
   onOpen: (id: Id<'cookSessions'>) => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [search, setSearch] = useState('')
   const term = search.trim().slice(0, SEARCH_MAX_LENGTH)
   const active = usePaginatedQuery(
@@ -942,19 +938,19 @@ function SessionList({
     ? found === undefined || (showArchived && foundArchived === undefined)
     : active.status === 'LoadingFirstPage'
   return (
-    <section aria-label="Cooking batches" className="space-y-3">
+    <section aria-label={t.cookingBatches} className="space-y-3">
       <ListToolbar
         search={{
-          label: 'Search batches',
+          label: t.searchBatches,
           maxLength: SEARCH_MAX_LENGTH,
           value: search,
           onValueChange: setSearch,
         }}
         archived={archivedToggle}
       />
-      <RecordList label="Batches" loading={loading} empty="No batches found.">
+      <RecordList label={t.batches} loading={loading} empty={t.noBatches}>
         {rows.map((session) => {
-          const date = formatDate(session.cookedAt)
+          const date = formatDate(session.cookedAt, locale)
           const label = session.label.trim()
           return (
             <RecordRow
@@ -981,13 +977,11 @@ function SessionList({
               archived.loadMore(PAGE_SIZE)
           }}
         >
-          Load more batches
+          {t.loadMoreBatches}
         </LoadMoreButton>
       ) : null}
       {term && rows.length >= 20 ? (
-        <p className="text-xs text-muted-foreground">
-          First 20 matches. Refine your search for more.
-        </p>
+        <p className="text-xs text-muted-foreground">{t.firstMatches}</p>
       ) : null}
     </section>
   )
@@ -1001,6 +995,7 @@ function BatchActions({
   session: Session
   onDeleted: () => void
 }) {
+  const t = useMessages(messages)
   const [editing, setEditing] = useState(false)
   const archive = useMutation(api.nutrition.setCookSessionArchived)
   const remove = useMutation(api.nutrition.deleteCookSession)
@@ -1008,15 +1003,15 @@ function BatchActions({
   return (
     <>
       <ActionsMenu
-        label="Batch actions"
+        label={t.batchActions}
         disabled={action.isRunning}
         actions={[
-          { label: 'Edit batch', onSelect: () => setEditing(true) },
+          { label: t.editBatch, onSelect: () => setEditing(true) },
           {
-            label: session.archived ? 'Restore' : 'Archive',
+            label: session.archived ? t.restore : t.archive,
             onSelect: () =>
               void action.runAction(
-                session.archived ? 'Batch restored.' : 'Batch archived.',
+                session.archived ? t.batchRestored : t.batchArchived,
                 () =>
                   archive({
                     sessionId: session._id,
@@ -1026,12 +1021,12 @@ function BatchActions({
               ),
           },
           {
-            label: 'Delete permanently',
+            label: t.deletePermanently,
             destructive: true,
             onSelect: () =>
               action.confirmAndRunAction(
-                'Delete this batch permanently? Batches containing cooked foods must be archived instead.',
-                'Batch deleted.',
+                t.confirmDeleteBatch,
+                t.batchDeleted,
                 async () => {
                   await remove({
                     sessionId: session._id,
@@ -1064,6 +1059,7 @@ function SessionEditor({
   session: Session
   onClose: () => void
 }) {
+  const t = useMessages(messages)
   const [label, setLabel] = useState(session.label)
   const [date, setDate] = useState(() => toLocalDateString(session.cookedAt))
   const [personId, setPersonId] = useState<Id<'people'> | ''>(
@@ -1094,17 +1090,17 @@ function SessionEditor({
   }
   return (
     <EditorDialog
-      title="Edit batch"
-      description="Changes are saved only when you choose Save batch."
+      title={t.editBatch}
+      description={t.editBatchDescription}
       pending={action.isRunning}
       onClose={close}
     >
       <form
         className="flex flex-1 flex-col"
-        aria-label="Batch editor"
+        aria-label={t.batchEditor}
         onSubmit={(event) => {
           event.preventDefault()
-          void action.runAction('Batch updated.', async () => {
+          void action.runAction(t.batchUpdated, async () => {
             await update({
               sessionId: session._id,
               expectedEditRevision: session.editRevision,
@@ -1125,34 +1121,34 @@ function SessionEditor({
           disabled={action.isRunning}
           className="min-w-0 space-y-4 pb-5"
         >
-          <Field label="Batch label" htmlFor="batch-label">
+          <Field label={t.batchLabel} htmlFor="batch-label">
             <Input
               id="batch-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
           </Field>
-          <Field label="Date">
+          <Field label={t.date}>
             <DatePicker
-              ariaLabel="Batch date"
+              ariaLabel={t.batchDate}
               value={date}
               onChange={setDate}
             />
           </Field>
-          <Field label="Cooked by">
+          <Field label={t.cookedBy}>
             <Select
-              ariaLabel="Batch person"
+              ariaLabel={t.batchPerson}
               className="w-full"
               value={personId}
               onValueChange={(value) => setPersonId(value ?? '')}
               options={[
-                { value: '', label: 'No person' },
+                { value: '', label: t.noPerson },
                 ...(session.cookedByPersonId &&
                 !people.results.some((p) => p._id === session.cookedByPersonId)
                   ? [
                       {
                         value: session.cookedByPersonId,
-                        label: session.cookedByPersonName ?? 'Original person',
+                        label: session.cookedByPersonName ?? t.originalPerson,
                       },
                     ]
                   : []),
@@ -1166,15 +1162,15 @@ function SessionEditor({
                 variant="ghost"
                 onClick={() => people.loadMore(PAGE_SIZE)}
               >
-                Load more people
+                {t.loadMorePeople}
               </Button>
             ) : null}
           </Field>
-          <Field label="Notes" htmlFor="batch-notes">
+          <Field label={t.notes} htmlFor="batch-notes">
             <Textarea
               id="batch-notes"
-              aria-label="Batch notes"
-              placeholder="Optional"
+              aria-label={t.batchNotes}
+              placeholder={t.optional}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -1182,16 +1178,16 @@ function SessionEditor({
         </fieldset>
         <SheetFooter>
           <Button type="submit" size="lg" disabled={action.isRunning}>
-            Save batch
+            {t.saveBatch}
           </Button>
         </SheetFooter>
       </form>
       <ConfirmDestructiveDialog
         open={discard}
         onOpenChange={setDiscard}
-        title="Discard batch changes?"
-        description="Your unsaved batch changes will be lost."
-        confirmLabel="Discard changes"
+        title={t.discardBatchChangesTitle}
+        description={t.discardBatchChangesDescription}
+        confirmLabel={t.discardChanges}
         onConfirm={onClose}
       />
       <ConfirmDestructiveDialog
@@ -1199,9 +1195,9 @@ function SessionEditor({
         onOpenChange={(open) => {
           if (!open) blocker.reset?.()
         }}
-        title="Leave unsaved batch changes?"
-        description="Your changes to this batch have not been saved."
-        confirmLabel="Leave page"
+        title={t.leaveTitle}
+        description={t.leaveDescription}
+        confirmLabel={t.leavePage}
         disabled={action.isRunning}
         onConfirm={() => blocker.proceed?.()}
       />

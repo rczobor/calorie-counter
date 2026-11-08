@@ -10,7 +10,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './settings-breadcrumbs.messages'
 
 // Phones have no top app bar, so the parent level is a 44px "‹ Back" target.
 // From md up the same elements read as breadcrumbs.
@@ -33,8 +35,6 @@ type Level = {
   link: ReactElement
 }
 
-const SETTINGS: Level = { label: 'Settings', link: <Link to="/settings" /> }
-
 /**
  * Phones show only the level a back tap returns to; desktop shows the trail.
  * The trail starts at Settings unless `root` names another home (Weight lives
@@ -46,7 +46,7 @@ const SETTINGS: Level = { label: 'Settings', link: <Link to="/settings" /> }
  */
 export function SettingsBreadcrumbs({
   current,
-  root = SETTINGS,
+  root,
   parent,
   onCurrentClick,
 }: {
@@ -55,14 +55,16 @@ export function SettingsBreadcrumbs({
   parent?: Level
   onCurrentClick?: () => void
 }) {
+  const t = useMessages(messages)
+  const home = root ?? { label: t.settings, link: <Link to="/settings" /> }
   const back = onCurrentClick ? 'current' : parent ? 'parent' : 'root'
   return (
     <Breadcrumb className="mb-1 md:mb-5">
       <BreadcrumbList>
         <BreadcrumbItem className={cn(back !== 'root' && 'max-md:hidden')}>
-          <BreadcrumbLink className={backClass} render={root.link}>
+          <BreadcrumbLink className={backClass} render={home.link}>
             <BackChevron />
-            {root.label}
+            {home.label}
           </BreadcrumbLink>
         </BreadcrumbItem>
         {parent ? (

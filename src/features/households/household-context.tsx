@@ -19,6 +19,9 @@ import { Button } from '@/components/ui/button'
 import { toErrorMessage } from '@/lib/nutrition'
 import { HouseholdInvitation } from './household-invitation'
 import { markStartup } from '@/lib/startup-timing'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './household-context.messages'
 
 const Select = lazy(async () => ({
   default: (await import('@/components/ui/select')).Select,
@@ -70,6 +73,8 @@ function HouseholdSession({
   userId: string | null
   accountPage: boolean
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const storageKey = `calorie-counter:household:${userId}`
   const [selected, setSelected] = useState(() => {
     if (typeof window === 'undefined') return null
@@ -84,7 +89,9 @@ function HouseholdSession({
     () => true,
     () => false,
   )
-  const [error, setError] = useState('')
+  // Keeps the thrown value so the fallback text follows a language switch.
+  const [failure, setFailure] = useState<{ error: unknown }>()
+  const error = failure ? toErrorMessage(failure.error, locale) : ''
   const ensurePersonal = useMutation(api.households.ensurePersonal)
   const households = useQuery(api.households.list, {})
   const householdsLoaded = households !== undefined
@@ -99,7 +106,7 @@ function HouseholdSession({
         }
       })
       .catch((error) => {
-        if (current) setError(toErrorMessage(error))
+        if (current) setFailure({ error })
       })
     return () => {
       current = false
@@ -137,7 +144,7 @@ function HouseholdSession({
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6" role="alert">
         <p>{error}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <Button onClick={() => window.location.reload()}>{t.retry}</Button>
       </div>
     )
   // A saved selection is usable once current membership is verified. The
@@ -145,7 +152,7 @@ function HouseholdSession({
   if ((!ready && (!hydrated || !household)) || households === undefined)
     return (
       <div className="mx-auto w-full max-w-3xl p-6">
-        <LoadingRows label="Preparing your household" />
+        <LoadingRows label={t.preparing} />
       </div>
     )
   if (!household && accountPage) return <>{children}</>
@@ -153,23 +160,15 @@ function HouseholdSession({
     return (
       <div className="mx-auto max-w-xl space-y-3 p-6">
         {households.length === 0 ? (
-          <p>
-            You no longer belong to any households. Ask a household admin for an
-            invitation link to join again.
-          </p>
+          <p>{t.noHouseholds}</p>
         ) : (
           <>
-            <p>
-              Your selected household is no longer available. Choose a household
-              to continue.
-            </p>
+            <p>{t.selectionUnavailable}</p>
             <Suspense
-              fallback={
-                <LoadingRows label="Loading household choices" rows={1} />
-              }
+              fallback={<LoadingRows label={t.loadingChoices} rows={1} />}
             >
               <Select
-                ariaLabel="Household"
+                ariaLabel={t.household}
                 options={households.map((row) => ({
                   value: row._id,
                   label: row.name,
@@ -201,8 +200,7 @@ function HouseholdSession({
             role="alert"
             className="mx-auto w-full max-w-3xl px-6 py-3 text-sm"
           >
-            Household setup could not finish: {error} Your current household is
-            still available. Save your changes before refreshing to retry.
+            {t.setupFailed(error)}
           </p>
         ) : null}
         {children}

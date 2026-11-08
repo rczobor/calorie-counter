@@ -25,9 +25,12 @@ import {
   type CalculatorChoice,
 } from '@/features/energy/goal-calculator'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { formatDate } from '@/lib/dates'
 import { toLocalDateString } from '@/lib/nutrition'
+import { messages } from './people.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
 const PAGE_SIZE = 20
@@ -41,6 +44,8 @@ function PeoplePage() {
 }
 
 function PeopleContent() {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [showArchived, setShowArchived] = useState(false)
   // undefined: no sheet; null: a new person; a person: editing them.
   const [editing, setEditing] = useState<Person | null>()
@@ -118,10 +123,8 @@ function PeopleContent() {
   }
   function closeEditor() {
     if (dirty)
-      confirmAndRunAction(
-        'Discard unsaved person changes?',
-        'Changes discarded.',
-        async () => setEditing(undefined),
+      confirmAndRunAction(t.discardChanges, t.changesDiscarded, async () =>
+        setEditing(undefined),
       )
     else setEditing(undefined)
   }
@@ -129,13 +132,13 @@ function PeopleContent() {
   return (
     <PageShell
       contentClassName="max-w-3xl"
-      title="People & goals"
-      breadcrumbs={<SettingsBreadcrumbs current="People & goals" />}
+      title={t.title}
+      breadcrumbs={<SettingsBreadcrumbs current={t.title} />}
     >
       <div className="mt-4 space-y-3">
         <ListToolbar
           create={{
-            noun: 'person',
+            noun: t.personNoun,
             disabled: isRunning,
             onClick: () => beginEdit(null),
           }}
@@ -145,20 +148,22 @@ function PeopleContent() {
           }}
         />
         <RecordList
-          label="People"
+          label={t.people}
           loading={active.status === 'LoadingFirstPage'}
-          empty="No people found."
+          empty={t.noPeople}
         >
           {people.map((person) => (
             <RecordRow
               key={person._id}
-              verb="Edit"
+              verb={t.edit}
               title={person.name}
               detail={
-                person.goalPlan ? describePlan(person.goalPlan) : undefined
+                person.goalPlan
+                  ? describePlan(person.goalPlan, locale)
+                  : undefined
               }
               value={person.currentDailyGoalKcal.toFixed(0)}
-              unit="kcal / day"
+              unit={t.kcalPerDay}
               archived={person.archived}
               disabled={isRunning}
               onOpen={() => beginEdit(person)}
@@ -170,7 +175,7 @@ function PeopleContent() {
             loading={active.status === 'LoadingMore'}
             onClick={() => active.loadMore(PAGE_SIZE)}
           >
-            Load more people
+            {t.loadMorePeople}
           </LoadMoreButton>
         ) : null}
         {showArchived &&
@@ -180,72 +185,69 @@ function PeopleContent() {
             loading={archived.status === 'LoadingMore'}
             onClick={() => archived.loadMore(PAGE_SIZE)}
           >
-            Load more archived people
+            {t.loadMoreArchived}
           </LoadMoreButton>
         ) : null}
       </div>
       {editing !== undefined ? (
         <EditorDialog
-          title={editing ? 'Edit person' : 'New person'}
-          description="A goal change applies from today. Earlier goals stay in history."
+          title={editing ? t.editTitle : t.newPerson}
+          description={t.description}
           pending={isRunning}
           onClose={closeEditor}
         >
           <form
             className="flex flex-1 flex-col"
-            aria-label={editing ? `Edit ${editing.name}` : 'New person'}
+            aria-label={editing ? t.editPerson(editing.name) : t.newPerson}
             onSubmit={(event) => {
               event.preventDefault()
-              void runAction(
-                editing ? 'Person updated.' : 'Person created.',
-                async () => {
-                  const effectiveDate = toLocalDateString(Date.now())
-                  if (editing)
-                    await updatePerson({
-                      personId: editing._id,
-                      expectedEditRevision: editing.editRevision,
-                      name,
-                      goalKcal: Number(goal),
-                      reason: reason.trim() || undefined,
-                      effectiveDate,
-                      ...plan,
-                    })
-                  else
-                    await createPerson({
-                      name,
-                      currentDailyGoalKcal: Number(goal),
-                      effectiveDate,
-                      reason: reason.trim() || undefined,
-                      ...plan,
-                    })
-                  setEditing(undefined)
-                },
-              )
+              void runAction(editing ? t.updated : t.created, async () => {
+                const effectiveDate = toLocalDateString(Date.now())
+                if (editing)
+                  await updatePerson({
+                    personId: editing._id,
+                    expectedEditRevision: editing.editRevision,
+                    name,
+                    goalKcal: Number(goal),
+                    reason: reason.trim() || undefined,
+                    effectiveDate,
+                    ...plan,
+                  })
+                else
+                  await createPerson({
+                    name,
+                    currentDailyGoalKcal: Number(goal),
+                    effectiveDate,
+                    reason: reason.trim() || undefined,
+                    ...plan,
+                  })
+                setEditing(undefined)
+              })
             }}
           >
             <fieldset disabled={isRunning} className="min-w-0 space-y-4 pb-5">
-              <Field label="Name" htmlFor="person-name">
+              <Field label={t.name} htmlFor="person-name">
                 <Input
                   id="person-name"
-                  aria-label="Person name"
+                  aria-label={t.personName}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   required
                 />
               </Field>
               <Field
-                label="Daily calorie goal"
+                label={t.dailyGoal}
                 htmlFor="person-goal"
                 hint={
                   plan
-                    ? `${describePlan(plan.goalPlan)}. Saved with the goal.`
-                    : 'Applies from today. Earlier goals stay in history.'
+                    ? t.savedWithGoal(describePlan(plan.goalPlan, locale))
+                    : t.goalHint
                 }
               >
                 <UnitInput
                   id="person-goal"
                   unit="kcal"
-                  aria-label="Daily calorie goal"
+                  aria-label={t.dailyGoal}
                   min="0.01"
                   step="any"
                   value={goal}
@@ -260,14 +262,14 @@ function PeopleContent() {
                 onClick={() => setCalculatingOn(toLocalDateString(Date.now()))}
               >
                 <Calculator />
-                Help me choose
+                {t.helpMeChoose}
               </Button>
               {editing ? (
-                <Field label="Reason for a goal change" htmlFor="goal-reason">
+                <Field label={t.reasonLabel} htmlFor="goal-reason">
                   <Input
                     id="goal-reason"
-                    aria-label="Goal change reason"
-                    placeholder="Optional"
+                    aria-label={t.reason}
+                    placeholder={t.optional}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
                   />
@@ -276,20 +278,20 @@ function PeopleContent() {
               {editing && selected !== null ? (
                 <section aria-labelledby="goal-history-title" className="pt-1">
                   <h3 id="goal-history-title" className="group-label">
-                    Goal history
+                    {t.goalHistory}
                   </h3>
                   <RecordList
-                    label="Goal history"
+                    label={t.goalHistory}
                     loading={history.status === 'LoadingFirstPage'}
-                    empty="No goal history found."
+                    empty={t.noGoalHistory}
                   >
                     {history.results.map((entry) => (
                       <RecordRow
                         key={entry._id}
-                        title={formatDate(entry.effectiveDate)}
+                        title={formatDate(entry.effectiveDate, locale)}
                         detail={entry.reason}
                         value={entry.goalKcal.toFixed(0)}
-                        unit="kcal / day"
+                        unit={t.kcalPerDay}
                       />
                     ))}
                   </RecordList>
@@ -299,7 +301,7 @@ function PeopleContent() {
                       loading={history.status === 'LoadingMore'}
                       onClick={() => history.loadMore(PAGE_SIZE)}
                     >
-                      Load more goal history
+                      {t.loadMoreGoalHistory}
                     </LoadMoreButton>
                   ) : null}
                 </section>
@@ -315,7 +317,7 @@ function PeopleContent() {
                   disabled={isRunning || dirty}
                   onArchive={() =>
                     void runAction(
-                      live.archived ? 'Person restored.' : 'Person archived.',
+                      live.archived ? t.restored : t.archivedDone,
                       async () => {
                         await setArchived({
                           personId: live._id,
@@ -328,8 +330,8 @@ function PeopleContent() {
                   }
                   onDelete={() =>
                     confirmAndRunAction(
-                      'Delete this person permanently?',
-                      'Person deleted.',
+                      t.deleteConfirm,
+                      t.deleted,
                       async () => {
                         await deletePerson({
                           personId: live._id,
@@ -351,7 +353,7 @@ function PeopleContent() {
                   Number(goal) <= 0
                 }
               >
-                {editing ? 'Save changes' : 'Create person'}
+                {editing ? t.saveChanges : t.create}
               </Button>
             </SheetFooter>
           </form>

@@ -12,8 +12,9 @@ import {
 
 describe('nutrition helpers', () => {
   it('formats nutrition labels and kcal values', () => {
-    expect(getNutritionUnitLabel('g')).toBe('grams')
-    expect(getNutritionUnitLabel('ml')).toBe('ml')
+    expect(getNutritionUnitLabel('g', 'en')).toBe('grams')
+    expect(getNutritionUnitLabel('tablespoon', 'hu')).toBe('evőkanál')
+    expect(getNutritionUnitLabel('ml', 'en')).toBe('ml')
     expect(formatKcalPer100(172.6)).toBe('173')
   })
 
@@ -30,8 +31,9 @@ describe('nutrition helpers', () => {
   })
 
   it('extracts friendly error messages', () => {
-    expect(toErrorMessage(new Error('Save failed'))).toBe('Save failed')
-    expect(toErrorMessage('oops')).toBe('Request failed.')
+    expect(toErrorMessage(new Error('Save failed'), 'en')).toBe('Save failed')
+    expect(toErrorMessage('oops', 'en')).toBe('Request failed.')
+    expect(toErrorMessage('oops', 'hu')).toBe('A kérés nem sikerült.')
   })
 
   it('formats cook session labels with trimmed or blank text', () => {

@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 
 import { ActionsMenu } from '@/components/list/actions-menu'
 import { Button } from '@/components/ui/button'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './sheet-footer.messages'
 
 /**
  * The sticky footer of an EditorDialog sheet: secondary actions (⋯, Archive)
@@ -35,15 +37,16 @@ export function ArchiveActions({
   onArchive: () => void
   onDelete?: () => void
 }) {
+  const t = useMessages(messages)
   return (
     <>
       {onDelete ? (
         <ActionsMenu
-          label={`More actions for ${name}`}
+          label={t.moreActions(name)}
           disabled={disabled}
           actions={[
             {
-              label: 'Delete permanently',
+              label: t.deletePermanently,
               destructive: true,
               onSelect: onDelete,
             },
@@ -56,7 +59,7 @@ export function ArchiveActions({
         disabled={disabled}
         onClick={onArchive}
       >
-        {archived ? 'Restore' : 'Archive'}
+        {archived ? t.restore : t.archive}
       </Button>
     </>
   )

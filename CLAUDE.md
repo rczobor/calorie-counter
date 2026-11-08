@@ -50,6 +50,7 @@ Follow the same batch snapshot and single-writer Renovate takeover rules.
 - React Compiler is enabled via `@rolldown/plugin-babel` with `reactCompilerPreset`.
 - The app provides a `ConvexReactClient` directly, with Clerk auth when configured.
 - TypeScript strict mode with `noUnusedLocals` and `noUnusedParameters`.
+- The interface is English and Hungarian. Every visible string lives in a sibling `*.messages.ts`; follow the conventions and glossary in [src/i18n/README.md](src/i18n/README.md).
 
 ## Convex Conventions
 

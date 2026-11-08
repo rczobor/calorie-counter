@@ -9,9 +9,12 @@ import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@/features/households/convex-hooks'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
 import { RecordWeightDialog } from './record-weight-dialog'
 import { datedLabel, formatKg } from './weight-format'
+import { messages } from './weight-glance.messages'
 
 /**
  * One quiet cell under Today's calorie summary: the viewed day's weight, or a
@@ -30,6 +33,8 @@ export function WeightGlance({
   date: string
   today: string
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [recording, setRecording] = useState(false)
   const day = useQuery(api.weight.listRange, {
     personId,
@@ -45,16 +50,16 @@ export function WeightGlance({
         to="/weight"
         className={cn(LIST_ROW_CLASS, 'min-w-0 flex-1', canRecord && 'pr-3')}
       >
-        <span className="flex-1">Weight</span>
+        <span className="flex-1">{t.weight}</span>
         {day === undefined ? (
           <Skeleton className="h-4 w-20" />
         ) : entry ? (
-          <Value value={formatKg(entry.weightKg)} unit="kg" />
+          <Value value={formatKg(entry.weightKg, locale)} unit="kg" />
         ) : (
           // Like the calorie card, this means the day in the page title. An
           // earlier day's weight here would read as this day's.
           <span className="min-w-0 truncate text-muted-foreground">
-            Not recorded
+            {t.notRecorded}
           </span>
         )}
         {canRecord ? null : (
@@ -71,11 +76,14 @@ export function WeightGlance({
           variant="outline"
           size="sm"
           className="mr-3.5"
-          aria-label={`Record ${personName}’s weight for ${datedLabel(date, today)}`}
+          aria-label={t.recordLabel(
+            personName,
+            datedLabel(date, today, locale),
+          )}
           onClick={() => setRecording(true)}
         >
           <Plus />
-          Record
+          {t.record}
         </Button>
       ) : null}
       {recording ? (

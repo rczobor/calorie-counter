@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getFunctionName } from 'convex/server'
 import { HouseholdSettings } from './household-settings'
+import { applySavedLocale } from '@/i18n/locale'
 
 const {
   query,
@@ -243,6 +244,20 @@ describe('household settings', () => {
     expect(
       screen.getByRole('button', { name: 'Join household' }),
     ).toHaveProperty('disabled', false)
+  })
+
+  it('formats invitation expiry dates for the interface language', () => {
+    invitationRows = [
+      { _id: 'invite', expiresAt: new Date(2099, 0, 5, 12).getTime() },
+    ]
+    applySavedLocale('hu')
+    try {
+      render(<HouseholdSettings />)
+      expect(screen.getByText('Lejár: 2099. jan. 5., hétfő')).toBeTruthy()
+    } finally {
+      cleanup()
+      applySavedLocale(null)
+    }
   })
 
   it('revokes only the invitation selected by the admin', async () => {

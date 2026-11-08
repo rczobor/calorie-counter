@@ -1,11 +1,14 @@
 import { useAuth } from '@clerk/react'
 import { InternalClerkProvider as ClerkProvider } from '@clerk/react/internal'
+import type { huHU } from '@clerk/localizations/hu-HU'
+import { useEffect, useState } from 'react'
 import {
   clerkPublishableKey,
   isClerkConfigured,
   sharedClerkUiUrl,
 } from './config'
 import { DraftPersistenceIdentityProvider } from '@/features/cooking/draft-persistence-identity'
+import { useLocale } from '@/i18n/locale'
 import { isE2eMockMode } from '@/testing/e2e/config'
 
 if (!isClerkConfigured && !isE2eMockMode) {
@@ -39,11 +42,34 @@ export default function AppClerkProvider({
     )
   }
 
+  return <ConfiguredClerkProvider>{children}</ConfiguredClerkProvider>
+}
+
+// Clerk is English by default; the Hungarian text loads only for Hungarian users.
+function useClerkLocalization() {
+  const locale = useLocale()
+  const [hungarian, setHungarian] = useState<typeof huHU>()
+  useEffect(() => {
+    if (locale !== 'hu' || hungarian) return
+    let current = true
+    void import('@clerk/localizations/hu-HU').then(({ huHU }) => {
+      if (current) setHungarian(huHU)
+    })
+    return () => {
+      current = false
+    }
+  }, [locale, hungarian])
+  return locale === 'hu' ? hungarian : undefined
+}
+
+function ConfiguredClerkProvider({ children }: { children: React.ReactNode }) {
+  const localization = useClerkLocalization()
   return (
     <ClerkProvider
       publishableKey={clerkPublishableKey!}
       afterSignOutUrl="/"
       __internal_clerkUIUrl={sharedClerkUiUrl}
+      localization={localization}
     >
       <ClerkDraftPersistenceIdentity>{children}</ClerkDraftPersistenceIdentity>
     </ClerkProvider>

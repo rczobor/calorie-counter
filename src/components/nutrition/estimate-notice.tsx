@@ -1,13 +1,16 @@
 import { Info } from 'lucide-react'
 
+import { useMessages } from '@/i18n/messages'
 import type { NutritionProvenance } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
+import { messages } from './estimate-notice.messages'
 
 export function EstimateNotice({
   provenance,
 }: {
   provenance?: NutritionProvenance
 }) {
+  const t = useMessages(messages)
   if (!provenance) return null
   const provided = provenance.kind === 'provided'
   return (
@@ -20,7 +23,7 @@ export function EstimateNotice({
         )}
       >
         <Info aria-hidden="true" className="size-3.5" />
-        {provided ? 'Nutrition source' : 'Estimated'}
+        {provided ? t.nutritionSource : t.estimated}
       </summary>
       <p className="mt-1 whitespace-pre-wrap">
         {provenance.source}: {provenance.assumptions}

@@ -36,6 +36,10 @@ import { ThemeProvider } from '../components/theme-provider'
 import { Button } from '../components/ui/button'
 import { isE2eMockMode } from '../testing/e2e/config'
 import { markStartup } from '@/lib/startup-timing'
+import { AccountLocaleSync } from '@/features/language/language-setting'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './__root.messages'
 import {
   registerServiceWorker,
   unregisterServiceWorkers,
@@ -166,6 +170,7 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const locale = useLocale()
   const accountPage = useRouterState({
     select: (state) =>
       ['/settings', '/settings/integrations', '/connect'].includes(
@@ -178,7 +183,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     else if (import.meta.env.PROD && !isE2eMockMode) registerServiceWorker()
   }, [])
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <meta
           name="theme-color"
@@ -212,6 +217,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                   <div className="flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pb-[calc(4rem+max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem))] pl-[env(safe-area-inset-left)] md:pb-0">
                     <Header />
                     <AuthGate>
+                      <AccountLocaleSync />
                       <HouseholdProvider accountPage={accountPage}>
                         {children}
                       </HouseholdProvider>
@@ -252,15 +258,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 }
 
 function MaintenanceScreen() {
+  const t = useMessages(messages)
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
       <Card className="w-full max-w-xl">
         <CardHeader className="space-y-3">
-          <CardTitle>Scheduled maintenance</CardTitle>
-          <CardDescription>
-            Calorie Counter is temporarily unavailable while its data is being
-            upgraded. Please check back shortly.
-          </CardDescription>
+          <CardTitle>{t.maintenanceTitle}</CardTitle>
+          <CardDescription>{t.maintenanceDescription}</CardDescription>
         </CardHeader>
       </Card>
     </main>
@@ -268,6 +272,7 @@ function MaintenanceScreen() {
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
+  const t = useMessages(messages)
   if (isE2eMockMode) {
     return <>{children}</>
   }
@@ -277,11 +282,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       <main className="flex-1 px-4 py-10 sm:px-6">
         <Card className="mx-auto max-w-xl">
           <CardHeader className="space-y-3">
-            <CardTitle>Authentication setup required</CardTitle>
-            <CardDescription>
-              Add `VITE_CLERK_PUBLISHABLE_KEY` to your project `.env.local` to
-              sign in and access data.
-            </CardDescription>
+            <CardTitle>{t.authSetupTitle}</CardTitle>
+            <CardDescription>{t.authSetupDescription}</CardDescription>
           </CardHeader>
         </Card>
       </main>
@@ -291,8 +293,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!isConvexConfigured) {
     return (
       <AuthStatusCard
-        title="Data setup required"
-        description="Add `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` to your project `.env.local` to connect authenticated sessions to data."
+        title={t.dataSetupTitle}
+        description={t.dataSetupDescription}
       />
     )
   }
@@ -308,11 +310,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </Show>
         <Show when="signed-out">
           <AuthStatusCard
-            title="Sign in required"
-            description="You must be signed in to view or manage calorie data."
+            title={t.signInTitle}
+            description={t.signInDescription}
             action={
               <SignInButton mode="modal">
-                <Button>Sign in to continue</Button>
+                <Button>{t.signIn}</Button>
               </SignInButton>
             }
           />
@@ -323,6 +325,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function ConvexAuthReady({ children }: { children: React.ReactNode }) {
+  const t = useMessages(messages)
   const { isLoading, isAuthenticated } = useConvexAuth()
   useEffect(() => {
     markStartup('clerk')
@@ -338,8 +341,8 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return (
       <AuthStatusCard
-        title="Session verification failed"
-        description="Sign out and sign in again. If this persists, create a Clerk JWT template named `convex` (audience `convex`), verify CLERK_JWT_ISSUER_DOMAIN, then restart `pnpm exec convex dev`."
+        title={t.sessionFailedTitle}
+        description={t.sessionFailedDescription}
       />
     )
   }
@@ -348,9 +351,10 @@ function ConvexAuthReady({ children }: { children: React.ReactNode }) {
 }
 
 function SessionLoading() {
+  const t = useMessages(messages)
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <LoadingRows label="Preparing your session" />
+      <LoadingRows label={t.preparingSession} />
     </main>
   )
 }

@@ -11,10 +11,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { useDraftPersistenceIdentity } from './draft-persistence-identity'
-import { createDraftId, type CookingDraft } from './draft-helpers'
+import {
+  amountUnitLabel,
+  createDraftId,
+  type CookingDraft,
+} from './draft-helpers'
 import { writeCookingEdit } from './use-persisted-cooking-drafts'
-import { NUTRITION_UNIT_OPTIONS, toErrorMessage } from '@/lib/nutrition'
+import { nutritionUnitOptions, toErrorMessage } from '@/lib/nutrition'
+import { messages } from './cooked-food-editor.messages'
 
 type IngredientInput = FunctionArgs<
   typeof api.nutrition.updateCookedFood
@@ -71,6 +78,9 @@ export function CookedFoodEditor({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
+  const unitOptions = nutritionUnitOptions(locale)
   const [draft, setDraft] = useState(initialDraft)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -100,11 +110,9 @@ export function CookedFoodEditor({
   useEffect(() => {
     if (!writeCookingEdit(userId, draft) && !warnedRef.current) {
       warnedRef.current = true
-      toast.warning(
-        'Edit recovery is unavailable. Keep this tab open until you save or discard your changes.',
-      )
+      toast.warning(t.recoveryUnavailable)
     }
-  }, [draft, userId])
+  }, [draft, userId, t])
 
   useEffect(() => {
     const preventClose = (event: BeforeUnloadEvent) => {
@@ -133,9 +141,7 @@ export function CookedFoodEditor({
       (countedAmount !== undefined &&
         (!Number.isFinite(countedAmount) || countedAmount <= 0))
     ) {
-      setError(
-        'Enter an ingredient name, positive reference amount, and valid nutrition and counted amount.',
-      )
+      setError(t.invalidLine)
       return
     }
     patch({
@@ -172,9 +178,7 @@ export function CookedFoodEditor({
       weight <= 0 ||
       !draft.ingredientLines.length
     ) {
-      setError(
-        'Enter a name, a positive finished weight, and at least one ingredient.',
-      )
+      setError(t.invalidFood)
       return
     }
     if (unsafeLegacyEdit) return
@@ -185,7 +189,7 @@ export function CookedFoodEditor({
       draft.lineCountedAmount.trim() ||
       draft.lineCustomKcal.trim()
     ) {
-      setError('Add or clear the unfinished ingredient before saving.')
+      setError(t.unfinishedLine)
       return
     }
     setSaving(true)
@@ -232,12 +236,10 @@ export function CookedFoodEditor({
       }
       setDraft(savedDraft)
       writeCookingEdit(userId, savedDraft)
-      toast.success(
-        'Cooked food saved. Previously logged meals keep their recorded nutrition.',
-      )
+      toast.success(t.saved)
       onSaved()
     } catch (caught) {
-      setError(toErrorMessage(caught))
+      setError(toErrorMessage(caught, locale))
     } finally {
       setSaving(false)
     }
@@ -245,26 +247,22 @@ export function CookedFoodEditor({
 
   return (
     <section
-      aria-label="Cooked food editor"
+      aria-label={t.editor}
       className="mt-5 rounded-xl border border-border bg-card p-4 sm:p-5"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">
-            {draft.persistedCookedFoodId
-              ? 'Edit cooked food'
-              : 'Recover cooking draft'}
+            {draft.persistedCookedFoodId ? t.editTitle : t.recoverTitle}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Existing meals keep their historical portions and nutrition.
-          </p>
+          <p className="text-sm text-muted-foreground">{t.historyNote}</p>
         </div>
         <Button
           variant="ghost"
           disabled={saving}
           onClick={() => (dirty ? setDiscard(true) : onClose())}
         >
-          Close
+          {t.close}
         </Button>
       </div>
       {error ? (
@@ -274,19 +272,18 @@ export function CookedFoodEditor({
       ) : null}
       {unsafeLegacyEdit ? (
         <p role="alert" className="mb-4 text-sm text-destructive">
-          This older edit has no safe revision baseline. Export the recovered
-          draft, then reopen the current cooked food to apply your changes.
+          {t.unsafeLegacyEdit}
         </p>
       ) : null}
       {draft.persistedCookedFoodId && original === null ? (
         <p role="alert" className="mb-4 text-sm text-destructive">
-          This cooked food is unavailable. Your recovered edit is preserved.
+          {t.originalUnavailable}
         </p>
       ) : null}
       <fieldset disabled={saving} className="min-w-0 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="cookedFoodName">Name</Label>
+            <Label htmlFor="cookedFoodName">{t.name}</Label>
             <Input
               id="cookedFoodName"
               value={draft.name}
@@ -294,7 +291,7 @@ export function CookedFoodEditor({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="finishedWeight">Finished weight (g)</Label>
+            <Label htmlFor="finishedWeight">{t.finishedWeight}</Label>
             <Input
               id="finishedWeight"
               type="number"
@@ -306,16 +303,18 @@ export function CookedFoodEditor({
           </div>
         </div>
         <div className="space-y-3">
-          <h3 className="font-medium">Composition</h3>
+          <h3 className="font-medium">{t.composition}</h3>
           {draft.ingredientLines.map((line) => {
             const name =
               line.sourceType === 'custom'
                 ? line.name
-                : (line.ingredientNameSnapshot ?? 'Historical ingredient')
-            const basis =
+                : (line.ingredientNameSnapshot ?? t.historicalIngredient)
+            const basis = amountUnitLabel(
               line.sourceType === 'custom'
                 ? line.kcalBasisUnit
-                : (line.kcalBasisUnitSnapshot ?? 'g')
+                : (line.kcalBasisUnitSnapshot ?? 'g'),
+              locale,
+            )
             return (
               <div
                 key={line.draftId}
@@ -329,7 +328,7 @@ export function CookedFoodEditor({
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label={`Remove ${name}`}
+                    aria-label={t.removeLine(name)}
                     onClick={() =>
                       patch({
                         ingredientLines: draft.ingredientLines.filter(
@@ -338,13 +337,15 @@ export function CookedFoodEditor({
                       })
                     }
                   >
-                    Remove
+                    {t.remove}
                   </Button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1">
                     <Label htmlFor={`reference-${line.draftId}`}>
-                      Reference amount ({line.referenceUnit})
+                      {t.referenceAmountIn(
+                        amountUnitLabel(line.referenceUnit, locale),
+                      )}
                     </Label>
                     <Input
                       id={`reference-${line.draftId}`}
@@ -368,7 +369,7 @@ export function CookedFoodEditor({
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor={`counted-${line.draftId}`}>
-                      Counted amount ({basis})
+                      {t.countedAmountIn(basis)}
                     </Label>
                     <Input
                       id={`counted-${line.draftId}`}
@@ -427,15 +428,15 @@ export function CookedFoodEditor({
                       ? line.ignoreCalories
                       : line.ignoreCaloriesSnapshot
                   )
-                    ? 'Calories ignored.'
-                    : 'A reference quantity alone does not convert to the nutrition basis. Enter the counted amount in its stated unit.'}
+                    ? t.caloriesIgnored
+                    : t.countedAmountHint}
                 </p>
                 <details>
                   <summary className="cursor-pointer text-xs text-muted-foreground">
-                    Line notes
+                    {t.lineNotes}
                   </summary>
                   <Textarea
-                    aria-label={`Notes for ${name}`}
+                    aria-label={t.notesFor(name)}
                     value={line.notes ?? ''}
                     onChange={(e) =>
                       patch({
@@ -460,27 +461,25 @@ export function CookedFoodEditor({
           )}
         >
           <summary className="cursor-pointer text-sm font-medium">
-            Add an ingredient
+            {t.addIngredient}
           </summary>
           {draft.lineIngredientId ? (
             <div className="mt-3 space-y-2">
               <p className="text-xs text-muted-foreground">
-                An unfinished catalog selection remains in this recovered draft.
-                Copy it from the original export, or clear the selection before
-                saving.
+                {t.unfinishedCatalogSelection}
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => patch({ lineIngredientId: '' })}
               >
-                Clear unfinished catalog selection
+                {t.clearCatalogSelection}
               </Button>
             </div>
           ) : null}
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="new-cooking-name">Ingredient name</Label>
+              <Label htmlFor="new-cooking-name">{t.ingredientName}</Label>
               <Input
                 id="new-cooking-name"
                 value={draft.lineCustomName}
@@ -488,9 +487,7 @@ export function CookedFoodEditor({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="new-cooking-kcal">
-                Calories / 100 basis units
-              </Label>
+              <Label htmlFor="new-cooking-kcal">{t.caloriesPer100Basis}</Label>
               <Input
                 id="new-cooking-kcal"
                 type="number"
@@ -501,18 +498,18 @@ export function CookedFoodEditor({
               />
             </div>
             <div className="space-y-1">
-              <Label>Nutrition basis</Label>
+              <Label>{t.nutritionBasis}</Label>
               <Select
-                ariaLabel="New ingredient nutrition basis"
+                ariaLabel={t.newNutritionBasis}
                 value={draft.lineCustomBasisUnit}
-                options={NUTRITION_UNIT_OPTIONS}
+                options={unitOptions}
                 onValueChange={(value) =>
                   patch({ lineCustomBasisUnit: value ?? 'g' })
                 }
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="new-cooking-reference">Reference amount</Label>
+              <Label htmlFor="new-cooking-reference">{t.referenceAmount}</Label>
               <Input
                 id="new-cooking-reference"
                 type="number"
@@ -523,11 +520,11 @@ export function CookedFoodEditor({
               />
             </div>
             <div className="space-y-1">
-              <Label>Reference unit</Label>
+              <Label>{t.referenceUnit}</Label>
               <Select
-                ariaLabel="New ingredient reference unit"
+                ariaLabel={t.newReferenceUnit}
                 value={draft.lineReferenceUnit}
-                options={NUTRITION_UNIT_OPTIONS}
+                options={unitOptions}
                 onValueChange={(value) =>
                   patch({ lineReferenceUnit: value ?? 'g' })
                 }
@@ -535,7 +532,9 @@ export function CookedFoodEditor({
             </div>
             <div className="space-y-1">
               <Label htmlFor="new-cooking-counted">
-                Counted amount ({draft.lineCustomBasisUnit})
+                {t.countedAmountIn(
+                  amountUnitLabel(draft.lineCustomBasisUnit, locale),
+                )}
               </Label>
               <Input
                 id="new-cooking-counted"
@@ -555,33 +554,35 @@ export function CookedFoodEditor({
                 patch({ lineCustomIgnoreCalories: e.target.checked })
               }
             />
-            Ignore calories
+            {t.ignoreCalories}
           </label>
           <Button variant="outline" onClick={addLine}>
-            Add ingredient line
+            {t.addLine}
           </Button>
         </details>
         <details>
           <summary className="cursor-pointer text-sm text-muted-foreground">
-            Food notes
+            {t.foodNotes}
           </summary>
           <Textarea
             className="mt-3"
-            aria-label="Cooked food notes"
+            aria-label={t.cookedFoodNotes}
             value={draft.notes}
             onChange={(e) => patch({ notes: e.target.value })}
           />
         </details>
         {draft.saveAsRecipe && !draft.persistedCookedFoodId ? (
           <div className="space-y-2">
-            <Label htmlFor="recovery-recipe-name">Recovered recipe name</Label>
+            <Label htmlFor="recovery-recipe-name">
+              {t.recoveredRecipeName}
+            </Label>
             <Input
               id="recovery-recipe-name"
               value={draft.recipeDraftName}
               onChange={(e) => patch({ recipeDraftName: e.target.value })}
             />
             <Textarea
-              aria-label="Recovered recipe instructions"
+              aria-label={t.recoveredRecipeInstructions}
               value={draft.recipeDraftInstructions}
               onChange={(e) =>
                 patch({ recipeDraftInstructions: e.target.value })
@@ -594,7 +595,7 @@ export function CookedFoodEditor({
             variant="outline"
             onClick={() => (dirty ? setDiscard(true) : onClose())}
           >
-            Cancel
+            {t.cancel}
           </Button>
           <Button
             disabled={
@@ -606,19 +607,19 @@ export function CookedFoodEditor({
             onClick={() => void save()}
           >
             {saving
-              ? 'Saving…'
+              ? t.saving
               : draft.persistedCookedFoodId
-                ? 'Save changes'
-                : 'Save recovered cooking'}
+                ? t.saveChanges
+                : t.saveRecovered}
           </Button>
         </div>
       </fieldset>
       <ConfirmDestructiveDialog
         open={discard}
         onOpenChange={setDiscard}
-        title="Discard cooking changes?"
-        description="Your unsaved changes in this editor will be lost. Existing records and other recovered drafts stay in place."
-        confirmLabel="Discard changes"
+        title={t.discardTitle}
+        description={t.discardDescription}
+        confirmLabel={t.discardChanges}
         onConfirm={onClose}
       />
     </section>

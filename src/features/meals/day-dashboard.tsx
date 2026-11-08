@@ -57,6 +57,9 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { toLocalDateString, toTimestampFromDate } from '@/lib/nutrition'
+import { formatAmount } from '@/i18n/format'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { messages } from './day-dashboard.messages'
 
 const MealEditor = lazy(async () => ({
   default: (await import('@/features/meals/meal-editor')).MealEditor,
@@ -71,16 +74,22 @@ type EditorRequest = {
 }
 
 // The title names the day relative to today; the date picker below it shows the date once.
-function dayHeading(date: string, today: string) {
+function dayHeading(date: string, today: string, locale: Locale) {
+  const t = messages[locale]
   const days = Math.round(
     (toTimestampFromDate(date) - toTimestampFromDate(today)) / 86_400_000,
   )
-  if (days === 0) return 'Today'
-  if (days === -1) return 'Yesterday'
-  if (days === 1) return 'Tomorrow'
+  if (days === 0) return t.today
+  if (days === -1) return t.yesterday
+  if (days === 1) return t.tomorrow
   // A bare weekday would read as this week, so other days name their date.
-  return formatDate(date)
+  return formatDate(date, locale)
 }
+
+// The logged and goal figures stand out from the words around them.
+const figure = (kcal: number) => (
+  <span className="font-semibold text-foreground">{kcal.toFixed(0)}</span>
+)
 
 function readLinkedDate() {
   const value = new URLSearchParams(window.location.search).get('date')
@@ -96,6 +105,8 @@ function readLinkedDate() {
 }
 
 export function DayDashboard({ archived = false }: { archived?: boolean }) {
+  const locale = useLocale()
+  const t = messages[locale]
   const { userId } = useDraftPersistenceIdentity()
   const [today, setToday] = useState(() => toLocalDateString(Date.now()))
   const [date, setDate] = useState(readLinkedDate)
@@ -222,29 +233,29 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
       <PageShell
         breadcrumbs={
           archived ? (
-            <SettingsBreadcrumbs current="Archived meals" />
+            <SettingsBreadcrumbs current={t.archivedMeals} />
           ) : undefined
         }
-        title="Archived meals"
+        title={t.archivedMeals}
         header={
           archived ? undefined : (
             <div className="w-full">
               {/* The title row holds the person picker, as History's does. */}
               <div className="flex items-center justify-between gap-3">
                 <h1 className="min-w-0 type-large-title text-foreground">
-                  {dayHeading(date, today)}
+                  {dayHeading(date, today, locale)}
                 </h1>
                 {people.status === 'LoadingFirstPage' ? (
                   <Skeleton
                     className="h-10 w-28 rounded-full"
                     role="status"
-                    aria-label="Loading people"
+                    aria-label={t.loadingPeople}
                   />
                 ) : visiblePeople.length > 0 ? (
                   <PersonPicker
                     ref={householdButton}
                     name={selected?.name}
-                    placeholder="Choose a person"
+                    placeholder={t.choosePerson}
                     expanded={showHousehold}
                     controls="household-intake"
                     onToggle={() => setShowHousehold(!showHousehold)}
@@ -262,8 +273,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   variant="chip"
                   value={date}
                   onChange={selectDay}
-                  ariaLabel="Day"
-                  label={formatDate(date, { year: 'always' })}
+                  ariaLabel={t.day}
+                  label={formatDate(date, locale, { year: 'always' })}
                 />
                 <div className="ml-auto flex shrink-0 items-center gap-1.5">
                   {/* Today appears before the arrows, so they never move. */}
@@ -274,13 +285,13 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                       className="px-3"
                       onClick={() => selectDay(toLocalDateString(Date.now()))}
                     >
-                      Today
+                      {t.today}
                     </Button>
                   ) : null}
                   <Button
                     size="icon-sm"
                     variant="outline"
-                    aria-label="Previous day"
+                    aria-label={t.previousDay}
                     onClick={() => shiftDay(-1)}
                   >
                     <ChevronLeft />
@@ -288,7 +299,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   <Button
                     size="icon-sm"
                     variant="outline"
-                    aria-label="Next day"
+                    aria-label={t.nextDay}
                     onClick={() => shiftDay(1)}
                   >
                     <ChevronRight />
@@ -306,7 +317,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               <Button
                 size="icon-sm"
                 variant="outline"
-                aria-label="Previous day"
+                aria-label={t.previousDay}
                 onClick={() => shiftDay(-1)}
               >
                 <ChevronLeft />
@@ -315,12 +326,12 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 variant="chip"
                 value={date}
                 onChange={selectDay}
-                ariaLabel="Day"
+                ariaLabel={t.day}
               />
               <Button
                 size="icon-sm"
                 variant="outline"
-                aria-label="Next day"
+                aria-label={t.nextDay}
                 onClick={() => shiftDay(1)}
               >
                 <ChevronRight />
@@ -332,15 +343,13 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   className="px-3"
                   onClick={() => selectDay(toLocalDateString(Date.now()))}
                 >
-                  Today
+                  {t.today}
                 </Button>
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <PersonPicker
-                placeholder={
-                  loadingPerson ? 'Loading people' : 'Choose a person'
-                }
+                placeholder={loadingPerson ? t.loadingPeople : t.choosePerson}
                 disabled={people.status === 'LoadingFirstPage'}
                 options={visiblePeople.map((person) => ({
                   value: person._id,
@@ -362,7 +371,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   disabled={people.status === 'LoadingMore'}
                   onClick={() => people.loadMore(PAGE_SIZE)}
                 >
-                  Load more people
+                  {t.loadMorePeople}
                 </Button>
               ) : null}
             </div>
@@ -370,20 +379,18 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         ) : null}
         {archived && !loadingPerson && !selected ? (
           <p role="status" className="mt-4 type-subhead text-muted-foreground">
-            {selectedPersonId
-              ? 'This person is unavailable. Choose another person.'
-              : 'No active people.'}
+            {selectedPersonId ? t.personUnavailable : t.noActivePeople}
           </p>
         ) : null}
         {!archived && showHousehold ? (
           <section
             id="household-intake"
-            aria-label="Household intake"
+            aria-label={t.householdIntake}
             className="mt-5"
           >
             {people.status === 'LoadingFirstPage' ? (
               <LoadingRows
-                label="Loading household intake"
+                label={t.loadingHouseholdIntake}
                 className="inset-group px-4"
               />
             ) : (
@@ -395,7 +402,18 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                     key={p._id}
                     type="button"
                     aria-pressed={p._id === selectedPersonId}
-                    aria-label={`${p.name}: ${p.consumedCalories.toFixed(0)} of ${p.goalKcal.toFixed(0)} kcal logged, ${p.remainingCalories === 0 ? 'goal reached' : `${Math.abs(p.remainingCalories).toFixed(0)} kcal ${p.remainingCalories < 0 ? 'over' : 'left'}`}`}
+                    aria-label={t.personSummary(
+                      p.name,
+                      p.consumedCalories.toFixed(0),
+                      p.goalKcal.toFixed(0),
+                      p.remainingCalories === 0
+                        ? t.summaryGoalReached
+                        : p.remainingCalories < 0
+                          ? t.kcalOver(Math.abs(p.remainingCalories).toFixed(0))
+                          : t.kcalLeft(
+                              Math.abs(p.remainingCalories).toFixed(0),
+                            ),
+                    )}
                     onClick={() => {
                       setSelectedPersonId(p._id)
                       setOpenMealId(null)
@@ -426,14 +444,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                         className="type-subhead"
                       />
                       <span className="mt-0.5 block">
-                        <span className="font-semibold text-foreground">
-                          {p.consumedCalories.toFixed(0)}
-                        </span>{' '}
-                        /{' '}
-                        <span className="font-semibold text-foreground">
-                          {p.goalKcal.toFixed(0)}
-                        </span>{' '}
-                        kcal logged
+                        {t.loggedOfGoal(
+                          figure(p.consumedCalories),
+                          figure(p.goalKcal),
+                        )}
                       </span>
                     </span>
                   </button>
@@ -441,7 +455,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </div>
             )}
             <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
-              Choose whose intake to focus on. Your choice stays on this device.
+              {t.householdHint}
             </p>
             {people.status === 'CanLoadMore' ||
             people.status === 'LoadingMore' ? (
@@ -453,7 +467,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 aria-busy={people.status === 'LoadingMore'}
                 onClick={() => people.loadMore(PAGE_SIZE)}
               >
-                Load more people
+                {t.loadMorePeople}
               </Button>
             ) : null}
           </section>
@@ -461,7 +475,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         {!archived ? (
           <section
             className="mt-5 inset-group px-4 pt-4 pb-4"
-            aria-label={focused ? `${focused.name}’s intake` : 'Daily intake'}
+            aria-label={focused ? t.personIntake(focused.name) : t.dailyIntake}
             aria-busy={loadingPerson}
           >
             {focused ? (
@@ -498,8 +512,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                       <ArrowDownRight aria-hidden="true" className="size-4" />
                     )}
                     {atGoal
-                      ? 'Goal reached'
-                      : `kcal ${overGoal ? 'over' : 'left'}`}
+                      ? t.goalReached
+                      : overGoal
+                        ? t.balanceOver
+                        : t.balanceLeft}
                   </span>
                 </p>
                 <IntakeBar
@@ -508,38 +524,30 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   className="mt-4"
                 />
                 <p className="mt-2.5 type-subhead text-muted-foreground tabular-nums">
-                  <span className="font-semibold text-foreground">
-                    {focused.consumedCalories.toFixed(0)}
-                  </span>{' '}
-                  /{' '}
-                  <span className="font-semibold text-foreground">
-                    {focused.goalKcal.toFixed(0)}
-                  </span>{' '}
-                  kcal logged
+                  {t.loggedOfGoal(
+                    figure(focused.consumedCalories),
+                    figure(focused.goalKcal),
+                  )}
                 </p>
               </>
             ) : loadingPerson ? (
-              <div role="status" aria-label="Loading daily intake">
+              <div role="status" aria-label={t.loadingDailyIntake}>
                 <Skeleton className="h-14 w-56" />
                 <Skeleton className="mt-4 h-2 w-full" />
                 <Skeleton className="mt-2.5 h-5 w-44" />
               </div>
             ) : (
               <p className="type-subhead text-muted-foreground">
-                {selectedPersonId ? (
-                  'The selected person is unavailable. Use Switch person to choose another.'
-                ) : (
-                  <>
-                    No active people.{' '}
-                    <Link
-                      to="/people"
-                      className="font-medium text-foreground underline underline-offset-4"
-                    >
-                      Add a person and goal
-                    </Link>{' '}
-                    to start tracking.
-                  </>
-                )}
+                {selectedPersonId
+                  ? t.selectedPersonUnavailable
+                  : t.startTracking((text) => (
+                      <Link
+                        to="/people"
+                        className="font-medium text-foreground underline underline-offset-4"
+                      >
+                        {text}
+                      </Link>
+                    ))}
               </p>
             )}
           </section>
@@ -557,9 +565,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         {!archived && draft && !editor ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4">
             <p className="type-subhead" role="status">
-              {draftConflict
-                ? 'Continue or discard your existing draft before starting another meal.'
-                : 'You have an unsaved meal draft in this tab.'}
+              {draftConflict ? t.draftConflict : t.unsavedDraft}
             </p>
             <div className="flex gap-2">
               <Button
@@ -573,14 +579,14 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   })
                 }
               >
-                Continue draft
+                {t.continueDraft}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setDiscardDraft(true)}
               >
-                Discard
+                {t.discard}
               </Button>
             </div>
           </div>
@@ -602,8 +608,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <h2 className="type-title">
             {selected
-              ? `${selected.name}’s ${archived ? 'archived ' : ''}meals`
-              : 'Meals'}
+              ? archived
+                ? t.personArchivedMeals(selected.name)
+                : t.personMeals(selected.name)
+              : t.meals}
           </h2>
           {!archived ? (
             // Phones log from the bottom navigation instead.
@@ -616,7 +624,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               }
             >
               <Plus aria-hidden="true" />
-              Log meal
+              {t.logMeal}
             </Button>
           ) : null}
         </div>
@@ -634,7 +642,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               onClick={() => openEditor({ personId: selected._id, date })}
             >
               <Plus aria-hidden="true" className="size-5" strokeWidth={2.25} />
-              Log meal
+              {t.logMeal}
             </button>
           </div>
         ) : null}
@@ -644,7 +652,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         meals.status !== 'LoadingFirstPage' &&
         meals.results.length === 0 ? (
           <p className="mt-3 inset-group px-4 py-3.5 type-subhead text-muted-foreground">
-            No archived meals on this day.
+            {t.noArchivedMeals}
           </p>
         ) : null}
         <div
@@ -672,10 +680,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-base">
-                    {meal.name?.trim() || 'Meal'}
+                    {meal.name?.trim() || t.meal}
                   </span>
                   <span className="mt-0.5 block type-footnote text-muted-foreground">
-                    {meal.itemCount} food{meal.itemCount === 1 ? '' : 's'}
+                    {t.foodCount(meal.itemCount)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5">
@@ -706,7 +714,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           {loadingPerson ||
           (selected && meals.status === 'LoadingFirstPage') ? (
             <LoadingRows
-              label="Loading meals"
+              label={t.loadingMeals}
               rows={focused ? Math.min(3, Math.max(1, focused.mealCount)) : 1}
               className="px-4"
             />
@@ -721,7 +729,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             aria-busy={meals.status === 'LoadingMore'}
             onClick={() => meals.loadMore(PAGE_SIZE)}
           >
-            Load more meals
+            {t.loadMoreMeals}
           </Button>
         ) : null}
       </PageShell>
@@ -729,8 +737,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         <EditorDialog
           title={
             editor.mealId || (draft?.editingMealId && editor.resume)
-              ? 'Edit meal'
-              : 'Log meal'
+              ? t.editMeal
+              : t.logMeal
           }
           onClose={closeEditor}
           pending={editorPending}
@@ -750,9 +758,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
       <ConfirmDestructiveDialog
         open={discardDraft}
         onOpenChange={setDiscardDraft}
-        title="Discard meal draft?"
-        description="Your unsaved changes in this tab will be lost."
-        confirmLabel="Discard draft"
+        title={t.discardDraftTitle}
+        description={t.discardDraftDescription}
+        confirmLabel={t.discardDraft}
         onConfirm={() => {
           if (userId) writeMealDraft(userId, null)
           setDraft(null)
@@ -769,6 +777,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
 const foodGroupClass = 'mr-3.5 ml-4 rounded-xl bg-recessed [--row-inset:1rem]'
 
 function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
+  const locale = useLocale()
+  const t = messages[locale]
   const detail = useQuery(api.meals.getDetail, { mealId: meal._id })
   const archive = useMutation(api.nutrition.setMealArchived)
   const remove = useMutation(api.nutrition.deleteMeal)
@@ -784,7 +794,7 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
   if (detail === undefined)
     return (
       <LoadingRows
-        label="Loading meal details"
+        label={t.loadingMealDetails}
         rows={Math.min(3, Math.max(1, meal.itemCount))}
         className={cn(foodGroupClass, 'pr-5.5 pl-4')}
       />
@@ -792,7 +802,7 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
   if (!detail)
     return (
       <p className="px-4 pb-4 type-subhead text-muted-foreground">
-        This meal is no longer available.
+        {t.mealUnavailable}
       </p>
     )
   // The foods nest under the meal in a quiet recessed group, then the
@@ -812,11 +822,11 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
             </p>
             {item.sourceType !== 'fixedCalories' ? (
               <p className="type-footnote text-muted-foreground tabular-nums">
-                {`${item.consumedWeightGrams} g · ${item.kcalPer100Snapshot} kcal/100 ${item.kcalBasisUnitSnapshot}`}
+                {`${formatAmount(item.consumedWeightGrams, locale)} g · ${formatAmount(item.kcalPer100Snapshot, locale)} kcal/100 ${item.kcalBasisUnitSnapshot}`}
               </p>
             ) : item.foodIdentity?.servingLabel ? (
               <p className="type-footnote text-muted-foreground tabular-nums">
-                {`${item.servingCount ?? 1} ${item.foodIdentity.servingLabel}`}
+                {`${formatAmount(item.servingCount ?? 1, locale)} ${item.foodIdentity.servingLabel}`}
               </p>
             ) : null}
             <div className="col-span-full empty:hidden">
@@ -851,7 +861,7 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
                 size="icon-sm"
                 variant="ghost"
                 className="-mr-2 text-muted-foreground"
-                aria-label="More meal actions"
+                aria-label={t.moreMealActions}
               />
             }
           >
@@ -861,18 +871,15 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
             <DropdownMenuItem
               variant="destructive"
               onClick={() =>
-                confirmAndRunAction(
-                  'Delete this meal permanently?',
-                  'Meal deleted.',
-                  () =>
-                    remove({
-                      mealId: meal._id,
-                      expectedEditRevision: detail.meal.editRevision,
-                    }),
+                confirmAndRunAction(t.deleteConfirm, t.mealDeleted, () =>
+                  remove({
+                    mealId: meal._id,
+                    expectedEditRevision: detail.meal.editRevision,
+                  }),
                 )
               }
             >
-              Delete permanently
+              {t.deletePermanently}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -882,7 +889,7 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
           className="px-2.5 text-muted-foreground"
           onClick={() =>
             void runAction(
-              meal.archived ? 'Meal restored.' : 'Meal archived.',
+              meal.archived ? t.mealRestored : t.mealArchived,
               () =>
                 archive({
                   mealId: meal._id,
@@ -893,11 +900,11 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
           }
         >
           <Archive />
-          {meal.archived ? 'Restore' : 'Archive'}
+          {meal.archived ? t.restore : t.archive}
         </Button>
         <Button variant="outline" size="sm" onClick={onEdit}>
           <Pencil />
-          Edit meal
+          {t.editMeal}
         </Button>
       </fieldset>
       <ConfirmDestructiveDialog

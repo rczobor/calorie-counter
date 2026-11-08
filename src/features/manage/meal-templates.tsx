@@ -16,6 +16,10 @@ import { SheetFooter } from '@/components/list/sheet-footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { formatAmount } from '@/i18n/format'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './meal-templates.messages'
 
 type Template = FunctionReturnType<
   typeof api.savedFoods.listTemplates
@@ -56,6 +60,8 @@ function TemplateSheet({
   template: Template
   onClose: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [draft, setDraft] = useState(() => createDraft(template))
   const foods = usePaginatedQuery(
     api.savedFoods.list,
@@ -69,8 +75,8 @@ function TemplateSheet({
 
   return (
     <EditorDialog
-      title="Edit template"
-      description="Templates keep their recorded nutrition until you replace a product. Past meals stay unchanged."
+      title={t.editTemplate}
+      description={t.hint}
       pending={actions.isRunning}
       onClose={onClose}
     >
@@ -80,7 +86,7 @@ function TemplateSheet({
           disabled={actions.isRunning}
         >
           <Field
-            label="Template name"
+            label={t.templateName}
             htmlFor={`template-name-${template._id}`}
           >
             <Input
@@ -92,7 +98,7 @@ function TemplateSheet({
               }
             />
           </Field>
-          <ul aria-label="Template foods" className="inset-group inset-rows">
+          <ul aria-label={t.templateFoods} className="inset-group inset-rows">
             {frozen.map((item, index) => {
               const replacement = draft.replacements[index]
               const unit = replacement
@@ -100,12 +106,12 @@ function TemplateSheet({
                   ? 'g'
                   : replacement.nutrition.kind === 'byVolume'
                     ? 'ml'
-                    : (replacement.foodIdentity?.servingLabel ?? 'servings')
+                    : (replacement.foodIdentity?.servingLabel ?? t.servings)
                 : item.sourceType === 'customByWeight'
                   ? 'g'
                   : item.foodIdentity?.basis === 'ml'
                     ? 'ml'
-                    : (item.foodIdentity?.servingLabel ?? 'recorded portions')
+                    : (item.foodIdentity?.servingLabel ?? t.recordedPortions)
               const brand = [
                 item.foodIdentity?.brand,
                 item.foodIdentity?.variant,
@@ -123,14 +129,24 @@ function TemplateSheet({
                     ) : null}
                     <p className="type-footnote text-muted-foreground tabular-nums">
                       {item.sourceType === 'customByWeight'
-                        ? `${item.consumedWeightGrams} g · ${item.kcalPer100} kcal/100 g`
-                        : `${item.servingCount ?? 1} ${item.foodIdentity?.servingLabel ?? (item.foodIdentity?.basis === 'ml' ? 'ml' : 'recorded portions')} · ${item.calories} kcal`}
+                        ? t.weightLine(
+                            formatAmount(item.consumedWeightGrams, locale),
+                            formatAmount(item.kcalPer100, locale),
+                          )
+                        : t.portionLine(
+                            formatAmount(item.servingCount ?? 1, locale),
+                            item.foodIdentity?.servingLabel ??
+                              (item.foodIdentity?.basis === 'ml'
+                                ? 'ml'
+                                : t.recordedPortions),
+                            formatAmount(item.calories, locale),
+                          )}
                     </p>
                     <EstimateNotice provenance={item.nutritionProvenance} />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="space-y-1.5 type-subhead font-medium">
-                      <span className="block px-4">Quantity ({unit})</span>
+                      <span className="block px-4">{t.quantity(unit)}</span>
                       <Input
                         type="number"
                         inputMode="decimal"
@@ -150,7 +166,7 @@ function TemplateSheet({
                       />
                     </label>
                     <label className="space-y-1.5 type-subhead font-medium">
-                      <span className="block px-4">Replace {item.name}</span>
+                      <span className="block px-4">{t.replace(item.name)}</span>
                       <select
                         className="h-11 w-full rounded-full border border-input bg-card px-4 text-base font-normal md:text-sm"
                         disabled={draft.removed[index]}
@@ -180,7 +196,7 @@ function TemplateSheet({
                           })
                         }}
                       >
-                        <option value="">Keep recorded product</option>
+                        <option value="">{t.keepRecordedProduct}</option>
                         {foods.results.map((food) => (
                           <option key={food._id} value={food._id}>
                             {[
@@ -192,8 +208,18 @@ function TemplateSheet({
                               .join(' · ')}{' '}
                             ·{' '}
                             {food.nutrition.kind === 'fixedCalories'
-                              ? `${food.nutrition.calories} kcal / serving`
-                              : `${food.nutrition.kcalPer100} kcal/100 ${food.nutrition.kind === 'byVolume' ? 'ml' : 'g'}`}
+                              ? t.kcalPerServing(
+                                  formatAmount(food.nutrition.calories, locale),
+                                )
+                              : t.kcalPer100(
+                                  formatAmount(
+                                    food.nutrition.kcalPer100,
+                                    locale,
+                                  ),
+                                  food.nutrition.kind === 'byVolume'
+                                    ? 'ml'
+                                    : 'g',
+                                )}
                           </option>
                         ))}
                       </select>
@@ -212,7 +238,7 @@ function TemplateSheet({
                           })
                         }
                       />
-                      Remove {item.name}
+                      {t.remove(item.name)}
                     </label>
                   </div>
                 </li>
@@ -225,28 +251,27 @@ function TemplateSheet({
               variant="ghost"
               onClick={() => foods.loadMore(20)}
             >
-              Load more replacement foods
+              {t.loadMoreReplacements}
             </Button>
           ) : null}
           {conflict ? (
             <p role="alert" className="type-subhead text-destructive">
-              This template changed. Close and reopen it to use the latest
-              version.
+              {t.conflict}
             </p>
           ) : null}
         </fieldset>
         <SheetFooter>
           <ActionsMenu
-            label={`More actions for ${template.name}`}
+            label={t.moreActions(template.name)}
             disabled={actions.isRunning}
             actions={[
               {
-                label: 'Delete template',
+                label: t.delete,
                 destructive: true,
                 onSelect: () =>
                   actions.confirmAndRunAction(
-                    `Delete “${template.name}”? Logged meals will keep their recorded nutrition.`,
-                    'Template deleted.',
+                    t.confirmDelete(template.name),
+                    t.deleted,
                     async () => {
                       await update({
                         input: {
@@ -276,7 +301,7 @@ function TemplateSheet({
               )
             }
             onClick={() =>
-              void actions.runAction('Template updated.', async () => {
+              void actions.runAction(t.updated, async () => {
                 const items = frozen.flatMap<Template['items'][number]>(
                   (item, index) => {
                     if (draft.removed[index]) return []
@@ -336,7 +361,7 @@ function TemplateSheet({
               })
             }
           >
-            Save template
+            {t.save}
           </Button>
         </SheetFooter>
       </div>
@@ -352,6 +377,7 @@ function TemplateSheet({
 }
 
 export function MealTemplates() {
+  const t = useMessages(messages)
   const [search, setSearch] = useState('')
   const [openId, setOpenId] = useState<Template['_id'] | null>(null)
   const templates = usePaginatedQuery(
@@ -361,30 +387,27 @@ export function MealTemplates() {
   )
   const open = templates.results.find((template) => template._id === openId)
   return (
-    <section aria-label="Meal templates" className="space-y-3">
-      <p className="type-subhead text-muted-foreground">
-        Your AI assistant saves templates from logged meals. Editing one never
-        changes past meals.
-      </p>
+    <section aria-label={t.section} className="space-y-3">
+      <p className="type-subhead text-muted-foreground">{t.intro}</p>
       <ListToolbar
         search={{
-          label: 'Search meal templates',
+          label: t.search,
           maxLength: 100,
           value: search,
           onValueChange: setSearch,
         }}
       />
       <RecordList
-        label="Meal templates"
+        label={t.section}
         loading={templates.status === 'LoadingFirstPage'}
-        empty="No meal templates found."
+        empty={t.empty}
       >
         {templates.results.map((template) => (
           <RecordRow
             key={template._id}
-            verb="Edit"
+            verb={t.edit}
             title={template.name}
-            detail={`${template.items.length} ${template.items.length === 1 ? 'food' : 'foods'}`}
+            detail={t.foodCount(template.items.length)}
             onOpen={() => setOpenId(template._id)}
           />
         ))}
@@ -395,7 +418,7 @@ export function MealTemplates() {
           loading={templates.status === 'LoadingMore'}
           onClick={() => templates.loadMore(20)}
         >
-          Load more templates
+          {t.loadMore}
         </LoadMoreButton>
       ) : null}
       {open ? (

@@ -1,10 +1,13 @@
 import { Show, UserButton } from '@clerk/react'
 import { isClerkConfigured } from './config'
+import { messages } from './header-user.messages'
+import { useMessages } from '@/i18n/messages'
 import { isE2eMockMode } from '@/testing/e2e/config'
 
 /** The account control: an avatar in the desktop bar, or avatar and name in
  * the phone Settings list (`row`). */
 export default function HeaderUser({ row = false }: { row?: boolean }) {
+  const t = useMessages(messages)
   if (isE2eMockMode) {
     return (
       <p
@@ -14,17 +17,13 @@ export default function HeaderUser({ row = false }: { row?: boolean }) {
             : 'text-xs text-muted-foreground'
         }
       >
-        Mock test session
+        {t.mockSession}
       </p>
     )
   }
 
   if (!isClerkConfigured) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Add `VITE_CLERK_PUBLISHABLE_KEY` to enable auth.
-      </p>
-    )
+    return <p className="text-xs text-muted-foreground">{t.authSetup}</p>
   }
 
   return (

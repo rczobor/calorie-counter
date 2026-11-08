@@ -1,6 +1,6 @@
 import type { Id } from '../../../convex/_generated/dataModel'
 import {
-  NUTRITION_UNIT_OPTIONS,
+  NUTRITION_UNITS,
   toTimestampFromDate,
   type NutritionUnit,
   type NutritionProvenance,
@@ -93,7 +93,7 @@ function isOptionalString(value: unknown) {
 }
 
 function isNutritionUnit(value: unknown) {
-  return NUTRITION_UNIT_OPTIONS.some((option) => option.value === value)
+  return NUTRITION_UNITS.some((unit) => unit === value)
 }
 
 function isMealItem(value: unknown): value is DraftMealItem {

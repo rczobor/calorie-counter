@@ -10,9 +10,18 @@ import {
   type DayButton,
   type Locale,
 } from 'react-day-picker'
+import { hu } from 'react-day-picker/locale/hu'
 
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { intlLocale, useLocale, type Locale as AppLocale } from '@/i18n/locale'
+
+// Hungarian brings month and weekday names, a Monday week start and navigation
+// labels. English keeps DayPicker's built-in default.
+const DAY_PICKER_LOCALES = { en: undefined, hu } satisfies Record<
+  AppLocale,
+  Locale | undefined
+>
 
 function Calendar({
   className,
@@ -27,6 +36,8 @@ function Calendar({
 }: ComponentProps<typeof DayPicker> & {
   buttonVariant?: ComponentProps<typeof Button>['variant']
 }) {
+  const appLocale = useLocale()
+  const dayPickerLocale = locale ?? DAY_PICKER_LOCALES[appLocale]
   const defaultClassNames = getDefaultClassNames()
 
   return (
@@ -39,10 +50,12 @@ function Calendar({
         className,
       )}
       captionLayout={captionLayout}
-      locale={locale}
+      locale={dayPickerLocale}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString(locale?.code, { month: 'short' }),
+          date.toLocaleString(dayPickerLocale?.code ?? intlLocale(appLocale), {
+            month: 'short',
+          }),
         ...formatters,
       }}
       classNames={{
@@ -169,7 +182,7 @@ function Calendar({
           )
         },
         DayButton: ({ ...props }) => (
-          <CalendarDayButton locale={locale} {...props} />
+          <CalendarDayButton locale={dayPickerLocale} {...props} />
         ),
         WeekNumber: ({ children, ...props }) => {
           return (
