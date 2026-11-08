@@ -26,8 +26,8 @@ type PersonDisclosureProps = {
 
 // The name says what the control does and includes the visible name, so
 // voice control users can say what they see.
-const accessibleName = (name: string | undefined) =>
-  name ? `Switch person, ${name}` : 'Switch person'
+const accessibleName = (visible: string | undefined) =>
+  visible ? `Switch person, ${visible}` : 'Switch person'
 
 /**
  * The one person picker: the chip token with a person icon, the current
@@ -51,7 +51,7 @@ export function PersonPicker<Value extends string>(
         value={props.value}
         onValueChange={props.onValueChange}
         placeholder={props.placeholder ?? 'Select person'}
-        ariaLabel={accessibleName(name)}
+        ariaLabel={accessibleName(name ?? props.placeholder ?? 'Select person')}
         disabled={props.disabled}
       />
     )
@@ -62,7 +62,7 @@ export function PersonPicker<Value extends string>(
       ref={ref}
       type="button"
       className={cn(chipClass, 'max-w-full')}
-      aria-label={accessibleName(name)}
+      aria-label={accessibleName(name ?? placeholder)}
       aria-expanded={expanded}
       aria-controls={controls}
       onClick={onToggle}

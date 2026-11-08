@@ -55,7 +55,8 @@ export default function ThemeSelector({ row = false }: { row?: boolean }) {
             <Button variant="ghost" size="icon-sm" />
           )
         }
-        aria-label={`Theme: ${selectedOption.label}`}
+        // The row's name starts with its visible label, for voice control.
+        aria-label={`${row ? 'Appearance' : 'Theme'}: ${selectedOption.label}`}
         title={row ? undefined : `Theme: ${selectedOption.label}`}
       >
         {row ? (

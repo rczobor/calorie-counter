@@ -133,7 +133,11 @@ export function SavedFoods({
               <p className="text-foreground tabular-nums">
                 <span className="type-title">{energy(open).value}</span>{' '}
                 <span className="text-muted-foreground">
-                  {energy(open).unit}
+                  {/* A per-100 rate names its basis, so it never reads as a
+                      fixed portion. */}
+                  {[energy(open).unit, energy(open).basis]
+                    .filter(Boolean)
+                    .join(' ')}
                 </span>
               </p>
               <p className="text-muted-foreground">
