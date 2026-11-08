@@ -29,7 +29,11 @@ import {
   reuseSuggestions,
   weightHistoryResult,
   weightRecordResult,
+  goalStatusResult,
+  goalChangePreview,
+  goalChangeResult,
 } from './mcpValidators'
+import { formulaMaintenance, goalForPlan, shiftDay } from './lib/energy'
 import {
   createConvexTest,
   asTestUser,
@@ -2589,6 +2593,267 @@ describe('MCP weight tools', () => {
         content: [{ text: expect.stringContaining('Person not found.') }],
       },
     })
+    expect(mcp.lint()).toEqual([])
+  })
+})
+
+describe('MCP goal tools', () => {
+  // Goals apply from today, so the tests use the clock's date.
+  const today = new Date().toISOString().slice(0, 10)
+  const profile = {
+    sex: 'female',
+    birthYear: 1988,
+    heightCm: 170,
+    activity: 'lowActive',
+  } as const
+
+  async function goalFixture() {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const preview = async (input: Record<string, unknown>) =>
+      call(t, own.token, 'preview_goal_change', {
+        input: { personId, effectiveDate: today, ...input },
+      })
+    return { t, personId, own, preview }
+  }
+
+  it('sets a stated goal after a preview and keeps it in goal history', async () => {
+    const { t, personId, own, preview } = await goalFixture()
+    const before = await output(
+      await call(t, own.token, 'get_goal', { personId, localDate: today }),
+      goalStatusResult,
+    )
+    expect(before).toMatchObject({
+      person: 'Alex',
+      currentGoalKcal: 2000,
+      editRevision: 0,
+      checkIn: { status: 'learning', loggedDays: 0, requiredLoggedDays: 14 },
+    })
+
+    const previewed = await output(
+      await preview({ expectedEditRevision: 0, goalKcal: 1900 }),
+      goalChangePreview,
+    )
+    expect(previewed).toMatchObject({
+      basis: 'stated',
+      before: { goalKcal: 2000 },
+      after: { goalKcal: 1900 },
+      input: { goalKcal: 1900, reason: 'Set through an AI assistant' },
+      warnings: [],
+    })
+    // Previewing saves nothing.
+    expect(
+      (await t.run((ctx) => ctx.db.get(personId)))?.currentDailyGoalKcal,
+    ).toBe(2000)
+
+    const save = () =>
+      call(t, own.token, 'set_goal', { input: previewed.input })
+    expect(await output(await save(), goalChangeResult)).toMatchObject({
+      change: 'updated',
+      previous: { goalKcal: 2000 },
+      current: { goalKcal: 1900 },
+      editRevision: 1,
+      effectiveDate: today,
+    })
+    // A retried save finds its state in place instead of failing on the revision.
+    expect(await output(await save(), goalChangeResult)).toMatchObject({
+      change: 'unchanged',
+      editRevision: 1,
+    })
+    const after = await output(
+      await call(t, own.token, 'get_goal', { personId, localDate: today }),
+      goalStatusResult,
+    )
+    expect(after).toMatchObject({
+      currentGoalKcal: 1900,
+      editRevision: 1,
+      history: [
+        {
+          effectiveDate: today,
+          goalKcal: 1900,
+          reason: 'Set through an AI assistant',
+        },
+      ],
+    })
+
+    // A save from a stale read fails rather than overwriting.
+    expect(
+      await (
+        await call(t, own.token, 'set_goal', {
+          input: { ...previewed.input, goalKcal: 1800 },
+        })
+      ).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          { text: expect.stringContaining('Person changed since editing') },
+        ],
+      },
+    })
+  })
+
+  it('calculates a goal for a plan, saves the plan and clears it again', async () => {
+    const { t, personId, own, preview } = await goalFixture()
+    // A plan needs a weight to calculate from.
+    expect(
+      await (
+        await preview({
+          expectedEditRevision: 0,
+          energyProfile: profile,
+          goalPlan: { direction: 'lose', percentPerWeek: 0.5 },
+        })
+      ).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ text: expect.stringContaining('record_weight') }],
+      },
+    })
+    await call(t, own.token, 'record_weight', {
+      personId,
+      measuredOn: today,
+      weightKg: 82.4,
+    })
+    const plan = {
+      direction: 'lose',
+      percentPerWeek: 0.5,
+      targetWeightKg: 75,
+    } as const
+    const previewed = await output(
+      await preview({
+        expectedEditRevision: 0,
+        energyProfile: profile,
+        goalPlan: plan,
+      }),
+      goalChangePreview,
+    )
+    const maintenance = formulaMaintenance(profile, 82.4, today)
+    const expected = goalForPlan({
+      maintenanceKcal: maintenance.kcal,
+      weightKg: 82.4,
+      sex: 'female',
+      plan,
+    })
+    expect(previewed).toMatchObject({
+      basis: 'formula',
+      after: { goalKcal: expected.goalKcal, goalPlan: plan },
+      working: {
+        maintenanceKcal: Math.round(maintenance.kcal / 10) * 10,
+        adjustmentKcal: -450,
+        confidence: 'a rough estimate',
+      },
+      targetProjection: { targetWeightKg: 75, weeks: 19 },
+      input: {
+        goalKcal: expected.goalKcal,
+        energyProfile: profile,
+        goalPlan: plan,
+        reason: 'Calculator: lose 0.5% a week',
+      },
+      warnings: [expect.stringContaining('A starting estimate')],
+    })
+    await call(t, own.token, 'set_goal', { input: previewed.input })
+    const saved = await output(
+      await call(t, own.token, 'get_goal', { personId, localDate: today }),
+      goalStatusResult,
+    )
+    expect(saved).toMatchObject({
+      currentGoalKcal: expected.goalKcal,
+      energyProfile: profile,
+      goalPlan: plan,
+      checkIn: { formulaKcal: Math.round(maintenance.kcal / 10) * 10 },
+    })
+
+    // A stated goal with a null plan clears the plan and keeps the profile.
+    const cleared = await output(
+      await preview({
+        expectedEditRevision: 1,
+        goalKcal: 2100,
+        goalPlan: null,
+      }),
+      goalChangePreview,
+    )
+    expect(cleared.after).toEqual({ goalKcal: 2100, energyProfile: profile })
+    await call(t, own.token, 'set_goal', { input: cleared.input })
+    const person = await t.run((ctx) => ctx.db.get(personId))
+    expect(person?.goalPlan).toBeUndefined()
+    expect(person?.energyProfile).toEqual(profile)
+  })
+
+  it('refuses backdated changes, unsafe plans, missing scopes and other households', async () => {
+    const { t, personId, preview } = await goalFixture()
+    const error = async (response: Response) =>
+      (
+        (await response.json()) as {
+          result: { content: Array<{ text: string }> }
+        }
+      ).result.content[0].text
+    expect(
+      await error(
+        await preview({
+          expectedEditRevision: 0,
+          goalKcal: 1900,
+          effectiveDate: shiftDay(today, -7),
+        }),
+      ),
+    ).toContain('Effective date must be today.')
+    expect(
+      await error(
+        await preview({
+          expectedEditRevision: 0,
+          energyProfile: { ...profile, birthYear: 2012 },
+          goalPlan: { direction: 'maintain' },
+        }),
+      ),
+    ).toContain('Goal plans are for adults.')
+    // A very low stated goal is allowed, with a warning to show the user.
+    expect(
+      await output(
+        await preview({ expectedEditRevision: 0, goalKcal: 1000 }),
+        goalChangePreview,
+      ),
+    ).toMatchObject({ warnings: [expect.stringContaining('Below 1200 kcal')] })
+
+    const reader = await credential(t, TEST_TOKEN_IDENTIFIER, [
+      'nutrition:read',
+    ])
+    expect(
+      (
+        await call(t, reader.token, 'preview_goal_change', {
+          input: {
+            personId,
+            expectedEditRevision: 0,
+            effectiveDate: today,
+            goalKcal: 1900,
+          },
+        })
+      ).status,
+    ).toBe(200)
+    expect(
+      (
+        await call(t, reader.token, 'set_goal', {
+          input: {
+            personId,
+            expectedEditRevision: 0,
+            effectiveDate: today,
+            goalKcal: 1900,
+          },
+        })
+      ).status,
+    ).toBe(403)
+    const stranger = await credential(t, 'user-2|token')
+    expect(
+      await error(
+        await call(t, stranger.token, 'get_goal', {
+          personId,
+          localDate: today,
+        }),
+      ),
+    ).toContain('Person not found.')
+    expect(
+      (await t.run((ctx) => ctx.db.get(personId)))?.currentDailyGoalKcal,
+    ).toBe(2000)
     expect(mcp.lint()).toEqual([])
   })
 })

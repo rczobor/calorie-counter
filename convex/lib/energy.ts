@@ -170,6 +170,19 @@ export function weeksToTarget(plan: GoalPlan, weightKg: number) {
   return Math.log(target / weightKg) / Math.log(factor)
 }
 
+/** The goal history reason for a goal the calculator set. */
+export function calculatorReason(plan: GoalPlan) {
+  if (plan.direction === 'maintain') return 'Calculator: keep weight steady'
+  return `Calculator: ${plan.direction} ${plan.percentPerWeek}% a week`
+}
+
+/** How tight a likely range is, in words. */
+export function closeness(uncertaintyKcal: number) {
+  if (uncertaintyKcal <= 100) return 'a close estimate'
+  if (uncertaintyKcal <= 200) return 'a fair estimate'
+  return 'a rough estimate'
+}
+
 /**
  * Why a profile or plan cannot be used, or null. The server enforces this; the
  * calculator shows the same message in place.

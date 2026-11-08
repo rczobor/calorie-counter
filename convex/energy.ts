@@ -1,7 +1,12 @@
 import { v } from 'convex/values'
 
-import { query } from './_generated/server'
-import { assertOwnedOrThrow, requireAuthenticatedHousehold } from './lib/auth'
+import type { Id } from './_generated/dataModel'
+import { query, type QueryCtx } from './_generated/server'
+import {
+  assertOwnedOrThrow,
+  requireAuthenticatedHousehold,
+  type AuthenticatedOwner,
+} from './lib/auth'
 import { buildCheckIn, CHECK_IN_LOOKBACK_DAYS, shiftDay } from './lib/energy'
 import { normalizeRequiredDate } from './lib/validation'
 import { weightEntriesForPerson } from './weight'
@@ -45,6 +50,49 @@ const checkInDto = v.object({
 })
 
 /**
+ * The logged days and weigh-ins a check-in for `today` reads. The app's query
+ * and the MCP server build their check-ins from the same reads.
+ */
+export async function readCheckInData(
+  ctx: Pick<QueryCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  personId: Id<'people'>,
+  today: string,
+) {
+  const firstDay = shiftDay(today, -CHECK_IN_LOOKBACK_DAYS)
+  // One summary and at most one weight per day, so the ranges bound the reads.
+  const summaries = await ctx.db
+    .query('dailySummaries')
+    .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
+      q
+        .eq('householdId', owner.householdId)
+        .eq('personId', personId)
+        .gte('eatenOn', firstDay)
+        .lt('eatenOn', today),
+    )
+    .take(CHECK_IN_LOOKBACK_DAYS)
+  const weighIns = await weightEntriesForPerson(ctx, owner, personId, {
+    startDate: firstDay,
+    endDate: today,
+  }).take(CHECK_IN_LOOKBACK_DAYS + 1)
+  const latest = await weightEntriesForPerson(ctx, owner, personId, {
+    endDate: today,
+  })
+    .order('desc')
+    .first()
+  return {
+    intake: summaries
+      .filter((day) => day.mealCount > 0)
+      .map((day) => ({ date: day.eatenOn, kcal: day.consumedCalories })),
+    weights: weighIns.map((entry) => ({
+      date: entry.measuredOn,
+      kg: entry.weightKg,
+    })),
+    latestWeightKg: latest?.weightKg ?? null,
+  }
+}
+
+/**
  * A person's maintenance calories measured from their last four weeks of logs
  * and weigh-ins, and the goal that keeps their plan on pace. Suggests only:
  * the goal changes when someone accepts it.
@@ -65,38 +113,9 @@ export const checkIn = query({
       'Person not found.',
     )
     const today = normalizeRequiredDate(args.today, 'Today')
-    const firstDay = shiftDay(today, -CHECK_IN_LOOKBACK_DAYS)
-    // One summary and at most one weight per day, so the ranges bound the reads.
-    const summaries = await ctx.db
-      .query('dailySummaries')
-      .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
-        q
-          .eq('householdId', owner.householdId)
-          .eq('personId', person._id)
-          .gte('eatenOn', firstDay)
-          .lt('eatenOn', today),
-      )
-      .take(CHECK_IN_LOOKBACK_DAYS)
-    const weighIns = await weightEntriesForPerson(ctx, owner, person._id, {
-      startDate: firstDay,
-      endDate: today,
-    }).take(CHECK_IN_LOOKBACK_DAYS + 1)
-    const latest = await weightEntriesForPerson(ctx, owner, person._id, {
-      endDate: today,
-    })
-      .order('desc')
-      .first()
-
     return buildCheckIn({
       today,
-      intake: summaries
-        .filter((day) => day.mealCount > 0)
-        .map((day) => ({ date: day.eatenOn, kcal: day.consumedCalories })),
-      weights: weighIns.map((entry) => ({
-        date: entry.measuredOn,
-        kg: entry.weightKg,
-      })),
-      latestWeightKg: latest?.weightKg ?? null,
+      ...(await readCheckInData(ctx, owner, person._id, today)),
       profile: person.energyProfile,
       plan: person.goalPlan,
     })

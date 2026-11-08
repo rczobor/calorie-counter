@@ -3,6 +3,9 @@ import { format } from 'date-fns'
 import type { ActivityLevel, GoalPlan } from '../../../convex/lib/energy'
 import { DEFAULT_PACE } from '../../../convex/lib/energy'
 
+// Shared with the MCP server, so its goal history and wording match the app's.
+export { calculatorReason, closeness } from '../../../convex/lib/energy'
+
 export const ACTIVITY_COPY: Record<
   ActivityLevel,
   { title: string; description: string }
@@ -40,12 +43,6 @@ export function describePlan(plan: GoalPlan) {
   return `${plan.direction === 'lose' ? 'Losing' : 'Gaining'} ${plan.percentPerWeek}% a week`
 }
 
-/** The goal history reason for a goal the calculator set. */
-export function calculatorReason(plan: GoalPlan) {
-  if (plan.direction === 'maintain') return 'Calculator: keep weight steady'
-  return `Calculator: ${plan.direction} ${plan.percentPerWeek}% a week`
-}
-
 /** "0.41", "1.2": kilograms with two decimals under one. */
 export function formatKgPerWeek(kg: number) {
   const abs = Math.abs(kg)
@@ -61,13 +58,6 @@ export function signedKg(kg: number) {
 /** "−450", "+210", with a true minus sign. */
 export function signedKcal(kcal: number) {
   return `${kcal < 0 ? '−' : '+'}${Math.abs(kcal)}`
-}
-
-/** How tight a likely range is, in words. */
-export function closeness(uncertaintyKcal: number) {
-  if (uncertaintyKcal <= 100) return 'a close estimate'
-  if (uncertaintyKcal <= 200) return 'a fair estimate'
-  return 'a rough estimate'
 }
 
 /** "Current goal 2000 (−270)": the goal in force and how far a suggestion moves it. */

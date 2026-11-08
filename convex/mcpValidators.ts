@@ -6,6 +6,8 @@ import {
   mealEvidenceFields,
   foodIdentityValidator,
   historicalMealItemInput,
+  energyProfileValidator,
+  goalPlanValidator,
 } from './validators'
 
 const notes = {
@@ -504,6 +506,112 @@ export const weightRecordResult = v.object({
     v.literal('unchanged'),
   ),
   previousWeightKg: v.optional(v.number()),
+  path: v.string(),
+  url: v.string(),
+})
+
+// Daily goals: a person's goal, the plan it serves and the check-in.
+const kcalRange = v.object({ low: v.number(), high: v.number() })
+
+const goalCheckIn = v.object({
+  status: v.union(v.literal('learning'), v.literal('ready')),
+  loggedDays: v.number(),
+  requiredLoggedDays: v.number(),
+  weighIns: v.number(),
+  requiredWeighIns: v.number(),
+  skippedIncompleteDays: v.array(
+    v.object({ date: v.string(), kcal: v.number() }),
+  ),
+  formulaKcal: v.optional(v.number()),
+  maintenanceKcal: v.optional(v.number()),
+  likelyRangeKcal: v.optional(kcalRange),
+  confidence: v.optional(v.string()),
+  averageLoggedKcal: v.optional(v.number()),
+  weightTrendKgPerWeek: v.optional(v.number()),
+  suggestion: v.optional(
+    v.object({
+      goalKcal: v.number(),
+      plannedKgPerWeek: v.number(),
+      heldAtMinimum: v.boolean(),
+      targetReached: v.boolean(),
+    }),
+  ),
+})
+
+const goalState = v.object({
+  goalKcal: v.number(),
+  energyProfile: v.optional(energyProfileValidator),
+  goalPlan: v.optional(goalPlanValidator),
+})
+
+export const goalStatusResult = v.object({
+  householdId: v.id('households'),
+  personId: v.id('people'),
+  person: v.string(),
+  editRevision: v.number(),
+  currentGoalKcal: v.number(),
+  energyProfile: v.optional(energyProfileValidator),
+  goalPlan: v.optional(goalPlanValidator),
+  history: v.array(
+    v.object({
+      effectiveDate: v.string(),
+      goalKcal: v.number(),
+      reason: v.optional(v.string()),
+    }),
+  ),
+  checkIn: goalCheckIn,
+  path: v.string(),
+  url: v.string(),
+})
+
+export const goalChangeInput = v.object({
+  personId: v.id('people'),
+  expectedEditRevision: v.number(),
+  effectiveDate: v.string(),
+  goalKcal: v.optional(v.number()),
+  energyProfile: v.optional(energyProfileValidator),
+  // Omitted keeps the saved plan; null clears it.
+  goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
+  reason: v.optional(v.string()),
+})
+
+export const goalChangePreview = v.object({
+  householdId: v.id('households'),
+  personId: v.id('people'),
+  person: v.string(),
+  input: goalChangeInput,
+  before: goalState,
+  after: goalState,
+  basis: v.union(
+    v.literal('stated'),
+    v.literal('checkIn'),
+    v.literal('formula'),
+  ),
+  working: v.optional(
+    v.object({
+      maintenanceKcal: v.number(),
+      likelyRangeKcal: kcalRange,
+      confidence: v.string(),
+      adjustmentKcal: v.number(),
+      plannedKgPerWeek: v.number(),
+      heldAtMinimum: v.boolean(),
+    }),
+  ),
+  targetProjection: v.optional(
+    v.object({ targetWeightKg: v.number(), weeks: v.number() }),
+  ),
+  warnings: v.array(v.string()),
+})
+
+export const goalChangeResult = v.object({
+  householdId: v.id('households'),
+  personId: v.id('people'),
+  person: v.string(),
+  change: v.union(v.literal('updated'), v.literal('unchanged')),
+  previous: goalState,
+  current: goalState,
+  editRevision: v.number(),
+  effectiveDate: v.string(),
   path: v.string(),
   url: v.string(),
 })

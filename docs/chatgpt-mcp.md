@@ -62,7 +62,8 @@ Sign in to Calorie Counter when redirected. The consent screen shows the client
 name as unverified, its return address, and the requested permissions. Approve
 only a connection you started. Clerk sign-in stays on the current consent URL.
 
-Permissions are `nutrition:read`, `meals:write`, and `cooking:write`. Writing also
+Permissions are `nutrition:read`, `meals:write`, and `cooking:write`.
+`meals:write` also covers body weights and daily goals. Writing also
 requires read access. A client requesting only `nutrition:read` can preview and
 read but cannot save. Scope selection depends on the client's OAuth settings;
 the consent page approves or denies the scope set the client requested.
@@ -111,6 +112,21 @@ creation or device-code flow is exposed in this release.
   deleted only in the app, on the Weight page. Both tools use existing scopes
   (`nutrition:read` to read, `meals:write` to record), so a connection only
   needs a metadata refresh to see them.
+- Read and change a person's daily calorie goal. `get_goal` returns the
+  current goal and its `editRevision`, the saved calculator details
+  (`energyProfile`) and goal plan, the last 10 goal changes, and the
+  maintenance check-in the Weight page shows. `preview_goal_change` takes a
+  goal the user states (`goalKcal`), or calculates one for a `goalPlan` (lose,
+  maintain or gain at an offered weekly pace, with an optional target weight):
+  from the check-in once it is ready, otherwise from the National Academies
+  2023 equations and the latest weigh-in. `goalPlan: null` clears the plan.
+  `set_goal` saves the exact previewed input after approval. A change applies
+  from today, so earlier days keep their goals, and the previous goal stays in
+  goal history. Saving a state already in place changes nothing, so an
+  uncertain save can be retried; a stale `expectedEditRevision` fails instead
+  of overwriting. Plans are for adults only, and a stated goal under
+  1200 / 1500 kcal comes with a warning. Reading uses `nutrition:read` and
+  saving `meals:write`, so a connection only needs a metadata refresh.
 - Read `suggest_reusable_foods` for a logged meal. It offers at most five
   identifiable repeats supported by up to 50 matching item records per food,
   considering the first ten foods and the same person. It never saves anything;
@@ -292,7 +308,9 @@ evaluation and must be recorded as run or not run.
    frontend: the `buildCommand` in `vercel.json` runs `convex deploy`. Confirm
    the production deployment finished before relying on the live MCP backend.
    Version 1.2.0 adds tables and optional fields; it does not require a data
-   backfill or credential replacement.
+   backfill or credential replacement. Version 1.7.0 adds `get_goal`,
+   `preview_goal_change` and `set_goal` on existing scopes; it needs only a
+   metadata refresh.
 2. For each separately created personal ChatGPT connection, open **Plugins**,
    select the existing Calorie Counter connection, and choose **Refresh**. Verify
    that `set_logging_preferences` and `save_food_from_meal` are advertised.
