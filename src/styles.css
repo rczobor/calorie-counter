@@ -41,6 +41,10 @@
   --sidebar-accent-foreground: oklch(0.23 0.035 175);
   --sidebar-border: oklch(0.9 0.008 250);
   --sidebar-ring: oklch(0.68 0.18 42);
+  --glass: oklch(0.99 0.002 240 / 50%);
+  --glass-edge: oklch(0.16 0.015 250 / 12%);
+  --glass-highlight: oklch(1 0 0 / 70%);
+  --glass-shadow: oklch(0.16 0.015 250 / 10%);
 }
 
 .dark {
@@ -76,6 +80,26 @@
   --sidebar-accent-foreground: oklch(0.93 0.01 75);
   --sidebar-border: oklch(1 0.01 55 / 12%);
   --sidebar-ring: oklch(0.78 0.15 55);
+  --glass: oklch(0.26 0.014 55 / 50%);
+  --glass-edge: oklch(1 0.01 55 / 12%);
+  --glass-highlight: oklch(1 0.01 55 / 16%);
+  --glass-shadow: oklch(0 0 0 / 50%);
+}
+
+/* A floating "liquid glass" surface: content shows through it, blurred. It
+   turns opaque when the user asks for reduced transparency. */
+@utility glass {
+  background-color: var(--glass);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    inset 0 1px 0 var(--glass-highlight),
+    0 10px 30px -10px var(--glass-shadow),
+    0 2px 8px -2px var(--glass-shadow);
+  backdrop-filter: blur(8px) saturate(1.8);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--background);
+    backdrop-filter: none;
+  }
 }
 
 @theme inline {

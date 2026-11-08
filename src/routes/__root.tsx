@@ -208,7 +208,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <InstallProvider>
                   {/* Phones reserve room for the fixed bottom navigation and keep
                       landscape content clear of the notch. */}
-                  <div className="flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pb-[calc(4.5rem+env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] md:pb-0">
+                  <div className="flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pb-[calc(4rem+max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem))] pl-[env(safe-area-inset-left)] md:pb-0">
                     <Header />
                     <AuthGate>
                       <HouseholdProvider accountPage={accountPage}>
