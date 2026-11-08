@@ -7,6 +7,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -24,7 +25,13 @@ import {
 } from '@/components/ui/segmented'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
-import { usePaginatedQuery, useQuery } from '@/features/households/convex-hooks'
+import { GoalCalculator } from '@/features/energy/goal-calculator'
+import { MaintenanceCard } from '@/features/energy/maintenance-card'
+import {
+  useMutation,
+  usePaginatedQuery,
+  useQuery,
+} from '@/features/households/convex-hooks'
 import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import {
@@ -102,6 +109,8 @@ function WeightContent() {
   )
   const [rangeDays, setRangeDays] = useState<number>(90)
   const [dialog, setDialog] = useState<WeightDialogRequest | null>(null)
+  const [calculating, setCalculating] = useState(false)
+  const updatePerson = useMutation(api.nutrition.updatePerson)
   const people = usePaginatedQuery(
     api.people.list,
     { archived: false },
@@ -151,6 +160,16 @@ function WeightContent() {
   // Until the first weigh-in, the range, chart and list would only repeat "none".
   // A future-dated entry has no latest weight yet, but must stay editable.
   const hasWeights = latest !== null || entries.results.length > 0
+  // The check-in follows the trend; before any weigh-in it shows only for a
+  // person who has started a plan, as the way back to it.
+  const maintenance =
+    person && !person.archived ? (
+      <MaintenanceCard
+        person={person}
+        today={today}
+        onOpenCalculator={() => setCalculating(true)}
+      />
+    ) : null
 
   return (
     <PageShell
@@ -254,6 +273,8 @@ function WeightContent() {
               </div>
             </section>
 
+            {maintenance}
+
             <section aria-labelledby="weight-entries-heading">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 id="weight-entries-heading" className="type-title">
@@ -302,6 +323,8 @@ function WeightContent() {
               ) : null}
             </section>
           </>
+        ) : person?.energyProfile || person?.goalPlan ? (
+          maintenance
         ) : null}
       </div>
       {dialog && person ? (
@@ -311,6 +334,37 @@ function WeightContent() {
           today={today}
           request={dialog}
           onClose={() => setDialog(null)}
+        />
+      ) : null}
+      {calculating && person && latest !== undefined ? (
+        <GoalCalculator
+          personName={person.name}
+          profile={person.energyProfile}
+          plan={person.goalPlan}
+          latestWeight={
+            latest ? { kg: latest.weightKg, date: latest.measuredOn } : null
+          }
+          currentGoalKcal={person.currentDailyGoalKcal}
+          today={today}
+          onClose={() => setCalculating(false)}
+          onUse={async (choice) => {
+            try {
+              await updatePerson({
+                personId: person._id,
+                expectedEditRevision: person.editRevision,
+                name: person.name,
+                goalKcal: choice.goalKcal,
+                effectiveDate: today,
+                reason: choice.reason,
+                energyProfile: choice.energyProfile,
+                goalPlan: choice.goalPlan,
+              })
+              toast.success('Goal updated.')
+              setCalculating(false)
+            } catch (failure) {
+              toast.error(toErrorMessage(failure))
+            }
+          }}
         />
       ) : null}
     </PageShell>

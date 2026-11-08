@@ -10,11 +10,13 @@
 
 import type * as catalog from "../catalog.js";
 import type * as cooking from "../cooking.js";
+import type * as energy from "../energy.js";
 import type * as history from "../history.js";
 import type * as households from "../households.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dayNutrition from "../lib/dayNutrition.js";
+import type * as lib_energy from "../lib/energy.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpContext from "../mcpContext.js";
@@ -42,11 +44,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   catalog: typeof catalog;
   cooking: typeof cooking;
+  energy: typeof energy;
   history: typeof history;
   households: typeof households;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/dayNutrition": typeof lib_dayNutrition;
+  "lib/energy": typeof lib_energy;
   "lib/validation": typeof lib_validation;
   mcp: typeof mcp;
   mcpContext: typeof mcpContext;

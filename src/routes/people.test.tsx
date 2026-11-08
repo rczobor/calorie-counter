@@ -56,8 +56,15 @@ vi.mock('convex/react', () => ({
       getFunctionName(reference as Parameters<typeof getFunctionName>[0]),
       args,
     ),
-  useQuery: (_reference: unknown, args: unknown) =>
-    args === 'skip' ? undefined : alex,
+  useQuery: (
+    reference: Parameters<typeof getFunctionName>[0],
+    args: unknown,
+  ) =>
+    args === 'skip'
+      ? undefined
+      : getFunctionName(reference) === 'weight:latestOnOrBefore'
+        ? { weightKg: 82.4, measuredOn: '2026-11-01' }
+        : alex,
   usePaginatedQuery: (
     reference: Parameters<typeof getFunctionName>[0],
     args: { archived?: boolean } | 'skip',
@@ -104,6 +111,56 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('People settings', () => {
+  it('fills the goal from the calculator and saves the plan with it', async () => {
+    show()
+    openAlex()
+    fireEvent.click(screen.getByRole('button', { name: 'Help me choose' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Female' }))
+    fireEvent.change(screen.getByLabelText('Year of birth'), {
+      target: { value: '1988' },
+    })
+    fireEvent.change(screen.getByLabelText('Height'), {
+      target: { value: '170' },
+    })
+    // The latest weigh-in fills the weight.
+    expect((screen.getByLabelText('Weight') as HTMLInputElement).value).toBe(
+      '82.4',
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Lightly active/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Lose' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Use goal' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Use goal' })).toBeNull(),
+    )
+    const goal = (
+      screen.getByLabelText('Daily calorie goal') as HTMLInputElement
+    ).value
+    expect(Number(goal)).toBeLessThan(2000.5)
+    expect(
+      (screen.getByLabelText('Goal change reason') as HTMLInputElement).value,
+    ).toBe('Calculator: lose 0.5% a week')
+    expect(
+      screen.getByText('Losing 0.5% a week. Saved with the goal.'),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        'nutrition:updatePerson',
+        expect.objectContaining({
+          goalKcal: Number(goal),
+          reason: 'Calculator: lose 0.5% a week',
+          energyProfile: {
+            sex: 'female',
+            birthYear: 1988,
+            heightCm: 170,
+            activity: 'lowActive',
+          },
+          goalPlan: { direction: 'lose', percentPerWeek: 0.5 },
+        }),
+      ),
+    )
+  })
   it('starts with a person list and opens goal history without a creation form', async () => {
     show()
     expect(screen.queryByLabelText('Person name')).toBeNull()

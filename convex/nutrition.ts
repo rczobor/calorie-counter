@@ -14,6 +14,8 @@ import {
   nutritionUnitValidator,
   nutritionProvenanceValidator,
   expectedNutritionSnapshotValidator,
+  energyProfileValidator,
+  goalPlanValidator,
 } from './validators'
 import {
   assertOwnedOrThrow,
@@ -28,6 +30,7 @@ import {
   assertNonNegative,
   assertPositive,
   assertSafeTimestamp,
+  DomainError,
   MAX_CHILD_ROWS,
   MAX_DESCRIPTION_LENGTH,
   MAX_INSTRUCTIONS_LENGTH,
@@ -41,6 +44,11 @@ import {
   type NutritionUnit,
 } from './lib/validation'
 import { weightEntriesForPerson } from './weight'
+import {
+  energyPlanProblem,
+  type EnergyProfile,
+  type GoalPlan,
+} from './lib/energy'
 
 const optionalNullableStringValidator = v.optional(
   v.union(v.string(), v.null()),
@@ -1918,6 +1926,32 @@ async function deleteCookedFoodWithChildren(
   return cookedFood.cookSessionId
 }
 
+/**
+ * Rejects a profile or plan the goal calculator would not offer. A plan needs
+ * a profile, either in this write or already saved.
+ */
+function assertEnergyPlan(input: {
+  profile: EnergyProfile | undefined
+  plan: GoalPlan | undefined
+  effectiveDate: string
+  weightKg: number | undefined
+}) {
+  if (!input.profile) {
+    if (input.plan)
+      throw new DomainError(
+        'Add sex, year of birth, height and activity before a goal plan.',
+      )
+    return
+  }
+  const problem = energyPlanProblem({
+    profile: input.profile,
+    plan: input.plan,
+    date: input.effectiveDate,
+    weightKg: input.weightKg,
+  })
+  if (problem) throw new DomainError(problem)
+}
+
 export const createPerson = mutation({
   args: {
     householdId: v.optional(v.id('households')),
@@ -1925,18 +1959,34 @@ export const createPerson = mutation({
     currentDailyGoalKcal: v.number(),
     notes: v.optional(v.string()),
     effectiveDate: v.string(),
+    energyProfile: v.optional(energyProfileValidator),
+    goalPlan: v.optional(goalPlanValidator),
+    reason: v.optional(v.string()),
   },
   returns: v.id('people'),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertNonEmpty(args.name, 'Name')
     assertPositive(args.currentDailyGoalKcal, 'Daily goal')
+    const effectiveDate = normalizeRequiredDate(
+      args.effectiveDate,
+      'Effective date',
+    )
+    // A new person has no weigh-ins, so the plan is checked without a weight.
+    assertEnergyPlan({
+      profile: args.energyProfile,
+      plan: args.goalPlan,
+      effectiveDate,
+      weightKg: undefined,
+    })
     const now = Date.now()
     const personId = await ctx.db.insert('people', {
       ...ownerFields(owner),
       name: args.name.trim(),
       notes: normalizeOptionalText(args.notes, 'Notes', MAX_NOTES_LENGTH),
       currentDailyGoalKcal: args.currentDailyGoalKcal,
+      energyProfile: args.energyProfile,
+      goalPlan: args.goalPlan,
       editRevision: 0,
       archived: false,
       createdAt: now,
@@ -1944,12 +1994,14 @@ export const createPerson = mutation({
     await ctx.db.insert('personGoalHistory', {
       ...ownerFields(owner),
       personId,
-      effectiveDate: normalizeRequiredDate(
-        args.effectiveDate,
-        'Effective date',
-      ),
+      effectiveDate,
       goalKcal: args.currentDailyGoalKcal,
-      reason: 'Initial goal',
+      reason:
+        normalizeOptionalText(
+          args.reason,
+          'Goal reason',
+          MAX_DESCRIPTION_LENGTH,
+        ) ?? 'Initial goal',
       createdAt: now,
     })
     return personId
@@ -1966,6 +2018,9 @@ export const updatePerson = mutation({
     goalKcal: v.optional(v.number()),
     effectiveDate: v.string(),
     reason: v.optional(v.string()),
+    // Omitted keeps the saved value; a null plan clears it.
+    energyProfile: v.optional(energyProfileValidator),
+    goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1983,6 +2038,30 @@ export const updatePerson = mutation({
     }
     if (args.notes !== undefined) {
       personPatch.notes = normalizeNullableText(args.notes)
+    }
+    if (args.energyProfile !== undefined || args.goalPlan !== undefined) {
+      const effectiveDate = normalizeRequiredDate(
+        args.effectiveDate,
+        'Effective date',
+      )
+      const latest = await weightEntriesForPerson(ctx, owner, person._id, {
+        endDate: effectiveDate,
+      })
+        .order('desc')
+        .first()
+      assertEnergyPlan({
+        profile: args.energyProfile ?? person.energyProfile,
+        plan:
+          args.goalPlan === undefined
+            ? person.goalPlan
+            : (args.goalPlan ?? undefined),
+        effectiveDate,
+        weightKg: latest?.weightKg,
+      })
+      if (args.energyProfile !== undefined)
+        personPatch.energyProfile = args.energyProfile
+      if (args.goalPlan !== undefined)
+        personPatch.goalPlan = args.goalPlan ?? undefined
     }
     const goalChanged =
       args.goalKcal !== undefined &&

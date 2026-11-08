@@ -14,6 +14,7 @@ import {
   normalizeSearch,
   normalizeRequiredDate,
 } from './lib/validation'
+import { energyProfileValidator, goalPlanValidator } from './validators'
 
 const personDto = v.object({
   _id: v.id('people'),
@@ -21,6 +22,8 @@ const personDto = v.object({
   name: v.string(),
   notes: v.optional(v.string()),
   currentDailyGoalKcal: v.number(),
+  energyProfile: v.optional(energyProfileValidator),
+  goalPlan: v.optional(goalPlanValidator),
   archived: v.boolean(),
   editRevision: v.number(),
   createdAt: v.number(),

@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { Calculator } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
@@ -18,6 +19,11 @@ import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { describePlan } from '@/features/energy/energy-format'
+import {
+  GoalCalculator,
+  type CalculatorChoice,
+} from '@/features/energy/goal-calculator'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { formatDate } from '@/lib/dates'
@@ -41,6 +47,13 @@ function PeopleContent() {
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
   const [reason, setReason] = useState('')
+  // The local date the calculator opened on, while it is open.
+  const [calculatingOn, setCalculatingOn] = useState<string | null>(null)
+  // A calculator result waits in the form and saves with the goal.
+  const [plan, setPlan] = useState<Pick<
+    CalculatorChoice,
+    'energyProfile' | 'goalPlan'
+  > | null>(null)
   const active = usePaginatedQuery(
     api.people.list,
     { archived: false },
@@ -68,6 +81,12 @@ function PeopleContent() {
     editing && selected !== null ? { personId: editing._id } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
+  const latestWeight = useQuery(
+    api.weight.latestOnOrBefore,
+    calculatingOn && editing
+      ? { personId: editing._id, date: calculatingOn }
+      : 'skip',
+  )
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
   const setArchived = useMutation(api.nutrition.setPersonArchived)
@@ -87,13 +106,15 @@ function PeopleContent() {
     editing !== undefined &&
     (name !== (editing?.name ?? '') ||
       goal !== String(editing?.currentDailyGoalKcal ?? 2200) ||
-      reason !== '')
+      reason !== '' ||
+      plan !== null)
 
   function beginEdit(person: Person | null) {
     setEditing(person)
     setName(person?.name ?? '')
     setGoal(String(person?.currentDailyGoalKcal ?? 2200))
     setReason('')
+    setPlan(null)
   }
   function closeEditor() {
     if (dirty)
@@ -133,6 +154,9 @@ function PeopleContent() {
               key={person._id}
               verb="Edit"
               title={person.name}
+              detail={
+                person.goalPlan ? describePlan(person.goalPlan) : undefined
+              }
               value={person.currentDailyGoalKcal.toFixed(0)}
               unit="kcal / day"
               archived={person.archived}
@@ -184,12 +208,15 @@ function PeopleContent() {
                       goalKcal: Number(goal),
                       reason: reason.trim() || undefined,
                       effectiveDate,
+                      ...plan,
                     })
                   else
                     await createPerson({
                       name,
                       currentDailyGoalKcal: Number(goal),
                       effectiveDate,
+                      reason: reason.trim() || undefined,
+                      ...plan,
                     })
                   setEditing(undefined)
                 },
@@ -209,7 +236,11 @@ function PeopleContent() {
               <Field
                 label="Daily calorie goal"
                 htmlFor="person-goal"
-                hint="Applies from today. Earlier goals stay in history."
+                hint={
+                  plan
+                    ? `${describePlan(plan.goalPlan)}. Saved with the goal.`
+                    : 'Applies from today. Earlier goals stay in history.'
+                }
               >
                 <UnitInput
                   id="person-goal"
@@ -222,6 +253,15 @@ function PeopleContent() {
                   required
                 />
               </Field>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalculatingOn(toLocalDateString(Date.now()))}
+              >
+                <Calculator />
+                Help me choose
+              </Button>
               {editing ? (
                 <Field label="Reason for a goal change" htmlFor="goal-reason">
                   <Input
@@ -323,6 +363,33 @@ function PeopleContent() {
             description={pendingConfirmation?.message}
           />
         </EditorDialog>
+      ) : null}
+      {calculatingOn &&
+      editing !== undefined &&
+      // A new person has no weigh-ins, so nothing to wait for.
+      (editing === null || latestWeight !== undefined) ? (
+        <GoalCalculator
+          personName={name}
+          profile={plan?.energyProfile ?? editing?.energyProfile}
+          plan={plan?.goalPlan ?? editing?.goalPlan}
+          latestWeight={
+            editing && latestWeight
+              ? { kg: latestWeight.weightKg, date: latestWeight.measuredOn }
+              : null
+          }
+          currentGoalKcal={editing?.currentDailyGoalKcal}
+          today={calculatingOn}
+          onClose={() => setCalculatingOn(null)}
+          onUse={(choice) => {
+            setGoal(String(choice.goalKcal))
+            setReason(choice.reason)
+            setPlan({
+              energyProfile: choice.energyProfile,
+              goalPlan: choice.goalPlan,
+            })
+            setCalculatingOn(null)
+          }}
+        />
       ) : null}
     </PageShell>
   )

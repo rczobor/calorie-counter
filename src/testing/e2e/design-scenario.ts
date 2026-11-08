@@ -341,8 +341,8 @@ const meals = {
 type MealKey = keyof typeof meals
 
 // Days ago → meals. Alex's goal is 2000 kcal: today is in progress and under
-// goal, seven of the eight days before it end over goal, and nothing was
-// logged before that.
+// goal, seven of the eight days before it end over goal, and the two days
+// before those have nothing logged. Older days follow below.
 const alexDays: Record<number, MealKey[]> = {
   0: ['oats', 'coffee', 'chili'],
   1: ['cafeBreakfast', 'eggPlate', 'cookie', 'lasagna', 'lasagnaExtra'],
@@ -371,6 +371,24 @@ const alexDays: Record<number, MealKey[]> = {
   ],
   7: ['oats', 'cafeLunch', 'traybake', 'shake', 'chocolate', 'applePb'],
   8: ['eggPlate', 'soup', 'banana', 'traybake', 'coffee', 'cookie', 'shake'],
+}
+
+// Five weeks before that, Alex logged a little under goal most days, so the
+// Weight page's check-in has four weeks of data. A few days have no log, and
+// one has only a coffee and a banana: an unfinished day the check-in skips.
+const olderAlexDays: MealKey[][] = [
+  ['oats', 'cafeLunch', 'dahl', 'banana', 'applePb'],
+  ['eggPlate', 'coffee', 'soup', 'tikka', 'cookie'],
+  ['yogurtBowl', 'chili', 'coffee', 'traybake', 'banana', 'applePb'],
+  ['cafeBreakfast', 'soup', 'chili', 'shake', 'cookie'],
+  ['oats', 'coffee', 'lasagna', 'applePb', 'chocolate', 'banana', 'shake'],
+]
+for (let daysAgo = 11; daysAgo <= 44; daysAgo++) {
+  if ([13, 20, 26, 33, 38].includes(daysAgo)) continue
+  alexDays[daysAgo] =
+    daysAgo === 17
+      ? ['coffee', 'banana']
+      : olderAlexDays[daysAgo % olderAlexDays.length]
 }
 
 // Viki's goal is 1500 kcal; one day ends over goal.
@@ -619,6 +637,7 @@ export function createDesignData(
     _id: Id<'people'>,
     name: string,
     goal: number,
+    energy: Pick<Doc<'people'>, 'energyProfile' | 'goalPlan'>,
   ): Doc<'people'> => ({
     _id,
     _creationTime: at(9).getTime(),
@@ -626,6 +645,7 @@ export function createDesignData(
     householdId,
     name,
     currentDailyGoalKcal: goal,
+    ...energy,
     archived: false,
     editRevision: 0,
     createdAt: at(9).getTime(),
@@ -633,7 +653,32 @@ export function createDesignData(
 
   return {
     dashboard: {
-      people: [person(alexId, 'Alex', 2000), person(vikiId, 'Viki', 1500)],
+      people: [
+        // Alex used the goal calculator to lose 0.5% a week.
+        person(alexId, 'Alex', 2000, {
+          energyProfile: {
+            sex: 'female',
+            birthYear: 1988,
+            heightCm: 170,
+            activity: 'lowActive',
+          },
+          goalPlan: {
+            direction: 'lose',
+            percentPerWeek: 0.5,
+            targetWeightKg: 75,
+          },
+        }),
+        // Viki keeps weight steady and has never weighed in here.
+        person(vikiId, 'Viki', 1500, {
+          energyProfile: {
+            sex: 'female',
+            birthYear: 1994,
+            heightCm: 163,
+            activity: 'inactive',
+          },
+          goalPlan: { direction: 'maintain' },
+        }),
+      ],
       ingredients: ingredientDocs,
       cookSessions: sessionDocs,
       cookedFoods: cookedDocs,

@@ -58,11 +58,36 @@ const ownerFields = {
   householdId: v.id('households'),
 }
 
+// What the goal calculator needs about a person (see lib/energy.ts).
+export const energyProfileValidator = v.object({
+  sex: v.union(v.literal('female'), v.literal('male')),
+  birthYear: v.number(),
+  heightCm: v.number(),
+  activity: v.union(
+    v.literal('inactive'),
+    v.literal('lowActive'),
+    v.literal('active'),
+    v.literal('veryActive'),
+  ),
+})
+
+// The weight change a person's goal aims for; check-ins keep the goal on it.
+export const goalPlanValidator = v.union(
+  v.object({ direction: v.literal('maintain') }),
+  v.object({
+    direction: v.union(v.literal('lose'), v.literal('gain')),
+    percentPerWeek: v.number(),
+    targetWeightKg: v.optional(v.number()),
+  }),
+)
+
 export const peopleFields = {
   ...ownerFields,
   name: v.string(),
   notes: v.optional(v.string()),
   currentDailyGoalKcal: v.number(),
+  energyProfile: v.optional(energyProfileValidator),
+  goalPlan: v.optional(goalPlanValidator),
   editRevision: v.optional(v.number()),
   archived: v.boolean(),
   createdAt: v.number(),
