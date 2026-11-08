@@ -41,7 +41,7 @@ export default defineConfig({
         // This adapter is test-only infrastructure exercised by Playwright.
         'src/testing/e2e/**',
         // Generated shadcn primitives are exercised through their consumers.
-        // Bespoke primitives (data-table and searchable-picker) stay in scope.
+        // Bespoke primitives (searchable-picker, segmented) stay in scope.
         'src/components/ui/alert-dialog.tsx',
         'src/components/ui/button.tsx',
         'src/components/ui/breadcrumb.tsx',
@@ -57,10 +57,8 @@ export default defineConfig({
         'src/components/ui/sonner.tsx',
         'src/components/ui/spinner.tsx',
         'src/components/ui/switch.tsx',
-        'src/components/ui/table.tsx',
         'src/components/ui/tabs.tsx',
         'src/components/ui/textarea.tsx',
-        'src/components/ui/toggle.tsx',
         '**/*.test.ts',
         '**/*.test.tsx',
       ],

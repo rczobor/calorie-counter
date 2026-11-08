@@ -43,27 +43,24 @@ describe('browse-first route shells', () => {
     expect(
       screen.getByRole('heading', { name: 'People & goals', level: 1 }),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Add person' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'New person' })).toBeTruthy()
     expect(screen.queryByLabelText('Person name')).toBeNull()
   })
-  it('opens the food library on reusable foods', () => {
+  it('opens the food library on its list of sections', () => {
+    vi.spyOn(Catalog, 'useSearch').mockReturnValue({})
     const Page = Catalog.options.component as ComponentType
     render(<Page />)
     expect(
       screen.getByRole('heading', { name: 'Food library', level: 1 }),
     ).toBeTruthy()
-    expect(
-      screen
-        .getByRole('tab', { name: 'Reusable foods' })
-        .getAttribute('aria-selected'),
-    ).toBe('true')
-    expect(screen.queryByLabelText('Ingredient name')).toBeNull()
+    expect(screen.getByRole('link', { name: /^Reusable foods/ })).toBeTruthy()
+    expect(screen.queryByLabelText('Search reusable foods')).toBeNull()
   })
   it('opens cooked batches without the retired workspace', () => {
     const Page = Cooking.options.component as ComponentType
     render(<Page />)
     expect(
-      screen.getByRole('heading', { name: 'Cooked batches', level: 1 }),
+      screen.getByRole('heading', { name: 'Cooking', level: 1 }),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Start cooking' })).toBeNull()
     expect(

@@ -4,14 +4,17 @@ import { useState } from 'react'
 
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+import { Value } from '@/components/nutrition/value'
+import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@/features/households/convex-hooks'
+import { cn } from '@/lib/utils'
 import { RecordWeightDialog } from './record-weight-dialog'
 import { datedLabel, formatKg } from './weight-format'
 
 /**
- * One quiet line under Today's calorie summary: the viewed day's weight, or a
+ * One quiet cell under Today's calorie summary: the viewed day's weight, or a
  * Record action while that day has none.
  * The label opens the weight page, which shows the same person: the person
  * selection is shared.
@@ -37,25 +40,20 @@ export function WeightGlance({
   const canRecord = day !== undefined && !entry
 
   return (
-    <div className="flex min-h-12 items-center gap-3 border-b border-border/60">
+    <div className="flex items-center inset-group">
       <Link
         to="/weight"
-        className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 text-sm hover:text-primary"
+        className={cn(LIST_ROW_CLASS, 'min-w-0 flex-1', canRecord && 'pr-3')}
       >
-        <span className="font-medium">Weight</span>{' '}
+        <span className="flex-1">Weight</span>
         {day === undefined ? (
-          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-20" />
         ) : entry ? (
-          <span className="ml-auto font-medium tabular-nums">
-            {formatKg(entry.weightKg)}{' '}
-            <span className="text-xs font-normal text-muted-foreground">
-              kg
-            </span>
-          </span>
+          <Value value={formatKg(entry.weightKg)} unit="kg" />
         ) : (
           // Like the calorie card, this means the day in the page title. An
           // earlier day's weight here would read as this day's.
-          <span className="ml-auto min-w-0 truncate text-muted-foreground">
+          <span className="min-w-0 truncate text-muted-foreground">
             Not recorded
           </span>
         )}
@@ -66,10 +64,13 @@ export function WeightGlance({
           />
         )}
       </Link>
+      {/* A row that holds a button has no chevron: the label opens the page
+          and the button is the only other target. */}
       {canRecord ? (
         <Button
-          variant="ghost"
-          className="-mr-3 h-11 px-3"
+          variant="outline"
+          size="sm"
+          className="mr-3.5"
           aria-label={`Record ${personName}’s weight for ${datedLabel(date, today)}`}
           onClick={() => setRecording(true)}
         >

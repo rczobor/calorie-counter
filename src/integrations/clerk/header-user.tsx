@@ -2,9 +2,21 @@ import { Show, UserButton } from '@clerk/react'
 import { isClerkConfigured } from './config'
 import { isE2eMockMode } from '@/testing/e2e/config'
 
-export default function HeaderUser() {
+/** The account control: an avatar in the desktop bar, or avatar and name in
+ * the phone Settings list (`row`). */
+export default function HeaderUser({ row = false }: { row?: boolean }) {
   if (isE2eMockMode) {
-    return <p className="text-xs text-muted-foreground">Mock test session</p>
+    return (
+      <p
+        className={
+          row
+            ? 'text-base text-muted-foreground'
+            : 'text-xs text-muted-foreground'
+        }
+      >
+        Mock test session
+      </p>
+    )
   }
 
   if (!isClerkConfigured) {
@@ -17,7 +29,7 @@ export default function HeaderUser() {
 
   return (
     <Show when="signed-in">
-      <UserButton />
+      <UserButton showName={row} />
     </Show>
   )
 }

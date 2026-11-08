@@ -6,12 +6,12 @@ import { toast } from 'sonner'
 
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+import { Field, UnitInput } from '@/components/list/field'
+import { SheetFooter } from '@/components/list/sheet-footer'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { toErrorMessage } from '@/lib/nutrition'
 import {
@@ -39,7 +39,7 @@ function weightError(text: string) {
 
 /**
  * Records or corrects one day's weight. A compact bottom sheet on phones and a
- * small centred dialog from `md` up.
+ * small centred dialog from `md` up, with the footer every editor sheet has.
  */
 export function RecordWeightDialog({
   personId,
@@ -92,131 +92,117 @@ export function RecordWeightDialog({
       onClose={onClose}
       pending={pending}
       initialFocus={inputRef}
-      className="max-h-[92dvh] pb-[max(1rem,env(safe-area-inset-bottom))] md:max-w-md md:pb-5"
+      className="max-h-[92dvh] md:max-w-md"
     >
-      {/* The popup's overshoot fill would add scroll height, so scroll here. */}
-      <div className="min-h-0 overflow-y-auto">
-        <div className="flex items-start justify-between gap-4 px-5 pt-2 md:pt-5">
-          <div>
-            <Drawer.Title className="text-lg font-semibold">
-              {editing ? 'Edit weight' : 'Record weight'}
-            </Drawer.Title>
-            <Drawer.Description className="text-sm text-muted-foreground">
-              {editing
-                ? `${personName} · ${datedLabel(editing.measuredOn, today)}`
-                : personName}
-            </Drawer.Description>
-          </div>
-          <Drawer.Close
-            disabled={pending}
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className="-mr-2 size-10"
-                aria-label="Close"
-              />
-            }
-          >
-            <X />
-          </Drawer.Close>
+      {/* The sheet header, as every sheet has it: the title tier on the left,
+          what it is about under it, and a quiet close. */}
+      <div className="flex shrink-0 items-start justify-between gap-2 pt-1 pr-2 pb-2 pl-4 md:pt-3">
+        <div className="min-w-0 pt-2">
+          <Drawer.Title className="truncate type-title">
+            {editing ? 'Edit weight' : 'Record weight'}
+          </Drawer.Title>
+          <Drawer.Description className="mt-0.5 truncate type-subhead text-muted-foreground">
+            {editing
+              ? `${personName} · ${datedLabel(editing.measuredOn, today)}`
+              : personName}
+          </Drawer.Description>
         </div>
-        <form
-          className="mt-4 space-y-4 px-5"
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (error) {
-              setShowError(true)
-              inputRef.current?.focus()
-              return
-            }
-            const weightKg = parseWeightInput(text)
-            if (weightKg === null) return
-            void run(editing ? 'Weight updated.' : 'Weight saved.', () =>
-              record({
-                personId,
-                measuredOn: date,
-                weightKg,
-                expectedEditRevision: existing?.editRevision,
-              }),
-            )
-          }}
+        <Drawer.Close
+          disabled={pending}
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              aria-label="Close"
+            />
+          }
         >
-          <fieldset disabled={pending} className="min-w-0 space-y-4">
-            {editing ? null : (
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <DatePicker
-                  value={date}
-                  onChange={setDate}
-                  ariaLabel="Weight date"
-                  label={datedLabel(date, today)}
-                  className="h-10 rounded-full"
-                />
-              </div>
-            )}
-            {!editing && existing ? (
-              // Said before the field, so nobody replaces a weight unawares.
-              <p className="text-sm" role="status">
-                This day already has {formatKg(existing.weightKg)} kg. Saving
-                replaces it.
+          <X />
+        </Drawer.Close>
+      </div>
+      {/* The popup's overshoot fill would add scroll height, so scroll here. */}
+      <form
+        className="flex min-h-0 flex-col overflow-y-auto px-4"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (error) {
+            setShowError(true)
+            inputRef.current?.focus()
+            return
+          }
+          const weightKg = parseWeightInput(text)
+          if (weightKg === null) return
+          void run(editing ? 'Weight updated.' : 'Weight saved.', () =>
+            record({
+              personId,
+              measuredOn: date,
+              weightKg,
+              expectedEditRevision: existing?.editRevision,
+            }),
+          )
+        }}
+      >
+        <fieldset disabled={pending} className="min-w-0 space-y-4 pt-2 pb-5">
+          {editing ? null : (
+            <Field label="Date">
+              <DatePicker
+                value={date}
+                onChange={setDate}
+                ariaLabel="Weight date"
+                label={datedLabel(date, today)}
+                className="w-full"
+              />
+            </Field>
+          )}
+          {!editing && existing ? (
+            // Said before the field, so nobody replaces a weight unawares.
+            <p className="px-4 type-subhead text-foreground" role="status">
+              This day already has {formatKg(existing.weightKg)} kg. Saving
+              replaces it.
+            </p>
+          ) : null}
+          <Field label="Weight" htmlFor="weight-kg">
+            <UnitInput
+              id="weight-kg"
+              ref={inputRef}
+              unit="kg"
+              // Text, not a number field: comma-decimal phones type "82,4".
+              type="text"
+              autoComplete="off"
+              enterKeyHint="done"
+              className="font-semibold"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              aria-invalid={showError && error ? true : undefined}
+              aria-describedby={showError && error ? errorId : undefined}
+            />
+            {showError && error ? (
+              <p id={errorId} className="px-4 type-footnote text-destructive">
+                {error}
               </p>
             ) : null}
-            <div className="space-y-2">
-              <Label htmlFor="weight-kg">Weight</Label>
-              <div className="relative">
-                <Input
-                  id="weight-kg"
-                  ref={inputRef}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  enterKeyHint="done"
-                  className="h-12 pr-12 text-2xl font-semibold tabular-nums md:text-2xl"
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  aria-invalid={showError && error ? true : undefined}
-                  aria-describedby={showError && error ? errorId : undefined}
-                />
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-muted-foreground"
-                >
-                  kg
-                </span>
-              </div>
-              {showError && error ? (
-                <p id={errorId} className="text-sm text-destructive">
-                  {error}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              {editing ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="-ml-2.5 text-destructive hover:text-destructive"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  <Trash2 />
-                  Delete
-                </Button>
-              ) : (
-                <span />
-              )}
-              <Button
-                type="submit"
-                size="lg"
-                className="h-11"
-                disabled={!text.trim()}
-              >
-                Save weight
-              </Button>
-            </div>
-          </fieldset>
-        </form>
-      </div>
+          </Field>
+        </fieldset>
+        <SheetFooter>
+          {editing ? (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={pending}
+              className="mr-auto -ml-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 />
+              Delete
+            </Button>
+          ) : null}
+          <Button type="submit" size="lg" disabled={pending || !text.trim()}>
+            Save weight
+          </Button>
+        </SheetFooter>
+      </form>
       {editing ? (
         <ConfirmDestructiveDialog
           open={confirmDelete}

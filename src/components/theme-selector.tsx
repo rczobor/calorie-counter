@@ -1,10 +1,11 @@
 import { Select as SelectPrimitive } from '@base-ui/react/select'
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { ChevronRight, Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useSyncExternalStore } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { SelectContent, SelectItem } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 const THEME_OPTIONS = [
   { label: 'Light', value: 'light', icon: Sun },
@@ -14,7 +15,11 @@ const THEME_OPTIONS = [
 
 const subscribeNoop = () => () => {}
 
-export default function ThemeSelector() {
+/**
+ * The theme menu: an icon button in the desktop bar, or a full-width
+ * "Appearance" row in a Settings list (`row`).
+ */
+export default function ThemeSelector({ row = false }: { row?: boolean }) {
   const { theme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
     subscribeNoop,
@@ -23,7 +28,7 @@ export default function ThemeSelector() {
   )
 
   if (!mounted) {
-    return <div aria-hidden className="size-9 rounded-md" />
+    return <div aria-hidden className={row ? 'h-12' : 'size-10 rounded-full'} />
   }
 
   const selectedOption =
@@ -38,11 +43,37 @@ export default function ThemeSelector() {
       }}
     >
       <SelectPrimitive.Trigger
-        render={<Button variant="ghost" size="icon" />}
+        render={
+          row ? (
+            <button
+              type="button"
+              className={cn(
+                'flex min-h-12 w-full items-center justify-between gap-3 py-2 pr-3.5 pl-4 text-left text-base transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+              )}
+            />
+          ) : (
+            <Button variant="ghost" size="icon-sm" />
+          )
+        }
         aria-label={`Theme: ${selectedOption.label}`}
-        title={`Theme: ${selectedOption.label}`}
+        title={row ? undefined : `Theme: ${selectedOption.label}`}
       >
-        <Icon aria-hidden="true" />
+        {row ? (
+          <>
+            <span>Appearance</span>
+            {/* The current value reads as content; the row ends on the same
+                muted chevron as every other row that opens something. */}
+            <span className="flex items-center gap-2 text-foreground">
+              {selectedOption.label}
+              <ChevronRight
+                aria-hidden="true"
+                className="size-4 shrink-0 text-muted-foreground"
+              />
+            </span>
+          </>
+        ) : (
+          <Icon aria-hidden="true" />
+        )}
       </SelectPrimitive.Trigger>
       <SelectContent align="end" alignItemWithTrigger={false}>
         {THEME_OPTIONS.map((option) => (

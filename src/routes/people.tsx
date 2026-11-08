@@ -1,11 +1,8 @@
-import { LoadingRows } from '@/components/page/loading-content'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
-import { ChevronRight } from 'lucide-react'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { api } from '../../convex/_generated/api'
-import type { Id } from '../../convex/_generated/dataModel'
 import {
   useMutation,
   usePaginatedQuery,
@@ -14,11 +11,16 @@ import {
 import { PageShell } from '@/components/page/page-shell'
 import { ConfigMissingState } from '@/components/page/page-states'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { EditorDialog } from '@/components/page/editor-dialog'
+import { Field, UnitInput } from '@/components/list/field'
+import { ListToolbar, LoadMoreButton } from '@/components/list/list-toolbar'
+import { RecordList, RecordRow } from '@/components/list/record-list'
+import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { isConvexConfigured } from '@/integrations/convex/config'
+import { formatDate } from '@/lib/dates'
 import { toLocalDateString } from '@/lib/nutrition'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
@@ -34,9 +36,7 @@ function PeoplePage() {
 
 function PeopleContent() {
   const [showArchived, setShowArchived] = useState(false)
-  const [selectedPersonId, setSelectedPersonId] = useState<Id<'people'> | null>(
-    null,
-  )
+  // undefined: no sheet; null: a new person; a person: editing them.
   const [editing, setEditing] = useState<Person | null>()
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
@@ -60,13 +60,12 @@ function PeopleContent() {
   )
   const selected = useQuery(
     api.people.get,
-    selectedPersonId ? { personId: selectedPersonId } : 'skip',
+    editing ? { personId: editing._id } : 'skip',
   )
+  // A person removed elsewhere has no goal history to load.
   const history = usePaginatedQuery(
     api.people.listGoalHistory,
-    selectedPersonId && selected !== null
-      ? { personId: selectedPersonId }
-      : 'skip',
+    editing && selected !== null ? { personId: editing._id } : 'skip',
     { initialNumItems: PAGE_SIZE },
   )
   const createPerson = useMutation(api.nutrition.createPerson)
@@ -82,6 +81,8 @@ function PeopleContent() {
     handleConfirmDialogOpenChange,
     confirmPendingAction,
   } = useConfirmableAction()
+  // Archive and Delete send the live revision, as the row buttons did.
+  const live = editing && selected !== null ? (selected ?? editing) : undefined
   const dirty =
     editing !== undefined &&
     (name !== (editing?.name ?? '') ||
@@ -89,19 +90,10 @@ function PeopleContent() {
       reason !== '')
 
   function beginEdit(person: Person | null) {
-    const open = () => {
-      setEditing(person)
-      setName(person?.name ?? '')
-      setGoal(String(person?.currentDailyGoalKcal ?? 2200))
-      setReason('')
-    }
-    if (dirty)
-      confirmAndRunAction(
-        'Discard unsaved person changes?',
-        'Editor opened.',
-        async () => open(),
-      )
-    else open()
+    setEditing(person)
+    setName(person?.name ?? '')
+    setGoal(String(person?.currentDailyGoalKcal ?? 2200))
+    setReason('')
   }
   function closeEditor() {
     if (dirty)
@@ -114,303 +106,224 @@ function PeopleContent() {
   }
 
   return (
-    <>
-      <PageShell
-        contentClassName="max-w-3xl"
-        title="People & goals"
-        breadcrumbs={<SettingsBreadcrumbs current="People & goals" />}
-        showArchived={showArchived}
-        onShowArchivedChange={setShowArchived}
-      >
-        <div className="mx-auto mt-4 max-w-3xl space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button
-              variant="outline"
+    <PageShell
+      contentClassName="max-w-3xl"
+      title="People & goals"
+      breadcrumbs={<SettingsBreadcrumbs current="People & goals" />}
+    >
+      <div className="mt-4 space-y-3">
+        <ListToolbar
+          create={{
+            noun: 'person',
+            disabled: isRunning,
+            onClick: () => beginEdit(null),
+          }}
+          archived={{
+            checked: showArchived,
+            onCheckedChange: setShowArchived,
+          }}
+        />
+        <RecordList
+          label="People"
+          loading={active.status === 'LoadingFirstPage'}
+          empty="No people found."
+        >
+          {people.map((person) => (
+            <RecordRow
+              key={person._id}
+              verb="Edit"
+              title={person.name}
+              value={person.currentDailyGoalKcal.toFixed(0)}
+              unit="kcal / day"
+              archived={person.archived}
               disabled={isRunning}
-              onClick={() => beginEdit(null)}
-            >
-              Add person
-            </Button>
-          </div>
-          {editing !== undefined ? (
-            <section
-              className="rounded-lg border border-border/60 bg-card p-4"
-              aria-label={editing ? `Edit ${editing.name}` : 'New person'}
-            >
-              <h2 className="text-sm font-semibold">
-                {editing ? 'Edit person' : 'Create person'}
-              </h2>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void runAction(
-                    editing ? 'Person updated.' : 'Person created.',
-                    async () => {
-                      const effectiveDate = toLocalDateString(Date.now())
-                      if (editing)
-                        await updatePerson({
-                          personId: editing._id,
-                          expectedEditRevision: editing.editRevision,
-                          name,
-                          goalKcal: Number(goal),
-                          reason: reason.trim() || undefined,
-                          effectiveDate,
-                        })
-                      else
-                        await createPerson({
-                          name,
-                          currentDailyGoalKcal: Number(goal),
-                          effectiveDate,
-                        })
-                      setEditing(undefined)
-                    },
-                  )
-                }}
+              onOpen={() => beginEdit(person)}
+            />
+          ))}
+        </RecordList>
+        {active.status === 'CanLoadMore' || active.status === 'LoadingMore' ? (
+          <LoadMoreButton
+            loading={active.status === 'LoadingMore'}
+            onClick={() => active.loadMore(PAGE_SIZE)}
+          >
+            Load more people
+          </LoadMoreButton>
+        ) : null}
+        {showArchived &&
+        (archived.status === 'CanLoadMore' ||
+          archived.status === 'LoadingMore') ? (
+          <LoadMoreButton
+            loading={archived.status === 'LoadingMore'}
+            onClick={() => archived.loadMore(PAGE_SIZE)}
+          >
+            Load more archived people
+          </LoadMoreButton>
+        ) : null}
+      </div>
+      {editing !== undefined ? (
+        <EditorDialog
+          title={editing ? 'Edit person' : 'New person'}
+          description="A goal change applies from today. Earlier goals stay in history."
+          pending={isRunning}
+          onClose={closeEditor}
+        >
+          <form
+            className="flex flex-1 flex-col"
+            aria-label={editing ? `Edit ${editing.name}` : 'New person'}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void runAction(
+                editing ? 'Person updated.' : 'Person created.',
+                async () => {
+                  const effectiveDate = toLocalDateString(Date.now())
+                  if (editing)
+                    await updatePerson({
+                      personId: editing._id,
+                      expectedEditRevision: editing.editRevision,
+                      name,
+                      goalKcal: Number(goal),
+                      reason: reason.trim() || undefined,
+                      effectiveDate,
+                    })
+                  else
+                    await createPerson({
+                      name,
+                      currentDailyGoalKcal: Number(goal),
+                      effectiveDate,
+                    })
+                  setEditing(undefined)
+                },
+              )
+            }}
+          >
+            <fieldset disabled={isRunning} className="min-w-0 space-y-4 pb-5">
+              <Field label="Name" htmlFor="person-name">
+                <Input
+                  id="person-name"
+                  aria-label="Person name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                />
+              </Field>
+              <Field
+                label="Daily calorie goal"
+                htmlFor="person-goal"
+                hint="Applies from today. Earlier goals stay in history."
               >
-                <fieldset
-                  disabled={isRunning}
-                  className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="person-name">Name</Label>
-                    <Input
-                      id="person-name"
-                      aria-label="Person name"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Applies from today. Earlier goals stay in history.
-                    </p>
-                    <Label htmlFor="person-goal">Daily calorie goal</Label>
-                    <Input
-                      id="person-goal"
-                      aria-label="Daily calorie goal"
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={goal}
-                      onChange={(event) => setGoal(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="goal-reason">
-                      Goal change reason (optional)
-                    </Label>
-                    <Input
-                      id="goal-reason"
-                      aria-label="Goal change reason"
-                      value={reason}
-                      onChange={(event) => setReason(event.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2 sm:col-span-2">
-                    <Button
-                      type="submit"
-                      disabled={
-                        !name.trim() ||
-                        !Number.isFinite(Number(goal)) ||
-                        Number(goal) <= 0
-                      }
-                    >
-                      {editing ? 'Save changes' : 'Create person'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={closeEditor}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </fieldset>
-              </form>
-            </section>
-          ) : null}
-          <div className="divide-y border-y border-border/60">
-            {active.status === 'LoadingFirstPage' ? (
-              <LoadingRows label="Loading people" />
-            ) : people.length === 0 ? (
-              <p className="py-6 text-sm text-muted-foreground">
-                No people found.
-              </p>
-            ) : (
-              people.map((person) => (
-                <div key={person._id} className="relative">
-                  <details
-                    className="group py-4"
-                    open={selectedPersonId === person._id && selected !== null}
-                    onToggle={(event) => {
-                      const open = event.currentTarget.open
-                      setSelectedPersonId((current) =>
-                        open
-                          ? person._id
-                          : current === person._id
-                            ? null
-                            : current,
-                      )
-                    }}
+                <UnitInput
+                  id="person-goal"
+                  unit="kcal"
+                  aria-label="Daily calorie goal"
+                  min="0.01"
+                  step="any"
+                  value={goal}
+                  onChange={(event) => setGoal(event.target.value)}
+                  required
+                />
+              </Field>
+              {editing ? (
+                <Field label="Reason for a goal change" htmlFor="goal-reason">
+                  <Input
+                    id="goal-reason"
+                    aria-label="Goal change reason"
+                    placeholder="Optional"
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                </Field>
+              ) : null}
+              {editing && selected !== null ? (
+                <section aria-labelledby="goal-history-title" className="pt-1">
+                  <h3 id="goal-history-title" className="group-label">
+                    Goal history
+                  </h3>
+                  <RecordList
+                    label="Goal history"
+                    loading={history.status === 'LoadingFirstPage'}
+                    empty="No goal history found."
                   >
-                    <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 pr-16 text-sm">
-                      <span className="min-w-0 break-words font-medium">
-                        {person.name}
-                        {person.archived ? ' · Archived' : ''}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums">
-                        {person.currentDailyGoalKcal.toFixed(0)} kcal / day
-                        <ChevronRight
-                          className="size-3.5 group-open:rotate-90"
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </summary>
-                    <div className="mt-4 space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isRunning}
-                          onClick={() =>
-                            void runAction(
-                              person.archived
-                                ? 'Person restored.'
-                                : 'Person archived.',
-                              () =>
-                                setArchived({
-                                  personId: person._id,
-                                  expectedEditRevision: person.editRevision,
-                                  archived: !person.archived,
-                                }),
-                            )
-                          }
-                        >
-                          {person.archived ? 'Restore' : 'Archive'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={isRunning}
-                          onClick={() =>
-                            confirmAndRunAction(
-                              'Delete this person permanently?',
-                              'Person deleted.',
-                              async () => {
-                                await deletePerson({
-                                  personId: person._id,
-                                  expectedEditRevision: person.editRevision,
-                                })
-                                if (editing?._id === person._id)
-                                  setEditing(undefined)
-                                if (selectedPersonId === person._id)
-                                  setSelectedPersonId(null)
-                              },
-                            )
-                          }
-                        >
-                          Delete person
-                        </Button>
-                      </div>
-                      {selectedPersonId === person._id && selected !== null ? (
-                        <section aria-label={`Goal history for ${person.name}`}>
-                          <h3 className="text-xs font-medium text-muted-foreground">
-                            Goal history
-                          </h3>
-                          {history.status === 'LoadingFirstPage' ? (
-                            <LoadingRows
-                              label="Loading goal history"
-                              rows={2}
-                            />
-                          ) : history.results.length === 0 ? (
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              No goal history found.
-                            </p>
-                          ) : (
-                            <ul className="mt-2 space-y-2">
-                              {history.results.map((entry) => (
-                                <li
-                                  key={entry._id}
-                                  className="flex flex-wrap justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 text-sm"
-                                >
-                                  <span>
-                                    {entry.effectiveDate}
-                                    {entry.reason ? (
-                                      <span className="ml-2 text-xs text-muted-foreground">
-                                        {entry.reason}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                  <span>{entry.goalKcal.toFixed(0)} kcal</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {history.status === 'CanLoadMore' ||
-                          history.status === 'LoadingMore' ? (
-                            <Button
-                              className="mt-3"
-                              size="sm"
-                              variant="outline"
-                              disabled={history.status === 'LoadingMore'}
-                              aria-busy={history.status === 'LoadingMore'}
-                              onClick={() => history.loadMore(PAGE_SIZE)}
-                            >
-                              Load more goal history
-                            </Button>
-                          ) : null}
-                        </section>
-                      ) : null}
-                    </div>
-                  </details>
-                  <Button
-                    className="absolute top-4 right-0"
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`Edit ${person.name}`}
-                    disabled={isRunning}
-                    onClick={() => beginEdit(person)}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-          {active.status === 'CanLoadMore' ||
-          active.status === 'LoadingMore' ? (
-            <Button
-              variant="outline"
-              disabled={active.status === 'LoadingMore'}
-              aria-busy={active.status === 'LoadingMore'}
-              onClick={() => active.loadMore(PAGE_SIZE)}
-            >
-              Load more people
-            </Button>
-          ) : null}
-          {showArchived &&
-          (archived.status === 'CanLoadMore' ||
-            archived.status === 'LoadingMore') ? (
-            <Button
-              variant="outline"
-              disabled={archived.status === 'LoadingMore'}
-              aria-busy={archived.status === 'LoadingMore'}
-              onClick={() => archived.loadMore(PAGE_SIZE)}
-            >
-              Load more archived people
-            </Button>
-          ) : null}
-        </div>
-      </PageShell>
-      <ConfirmDestructiveDialog
-        open={isConfirmDialogOpen}
-        onOpenChange={handleConfirmDialogOpenChange}
-        onConfirm={confirmPendingAction}
-        disabled={isRunning}
-        description={pendingConfirmation?.message}
-      />
-    </>
+                    {history.results.map((entry) => (
+                      <RecordRow
+                        key={entry._id}
+                        title={formatDate(entry.effectiveDate)}
+                        detail={entry.reason}
+                        value={entry.goalKcal.toFixed(0)}
+                        unit="kcal / day"
+                      />
+                    ))}
+                  </RecordList>
+                  {history.status === 'CanLoadMore' ||
+                  history.status === 'LoadingMore' ? (
+                    <LoadMoreButton
+                      loading={history.status === 'LoadingMore'}
+                      onClick={() => history.loadMore(PAGE_SIZE)}
+                    >
+                      Load more goal history
+                    </LoadMoreButton>
+                  ) : null}
+                </section>
+              ) : null}
+            </fieldset>
+            <SheetFooter>
+              {live ? (
+                <ArchiveActions
+                  name={live.name}
+                  archived={live.archived}
+                  // Both close the sheet, so unsaved edits are saved or
+                  // cancelled first rather than silently dropped.
+                  disabled={isRunning || dirty}
+                  onArchive={() =>
+                    void runAction(
+                      live.archived ? 'Person restored.' : 'Person archived.',
+                      async () => {
+                        await setArchived({
+                          personId: live._id,
+                          expectedEditRevision: live.editRevision,
+                          archived: !live.archived,
+                        })
+                        setEditing(undefined)
+                      },
+                    )
+                  }
+                  onDelete={() =>
+                    confirmAndRunAction(
+                      'Delete this person permanently?',
+                      'Person deleted.',
+                      async () => {
+                        await deletePerson({
+                          personId: live._id,
+                          expectedEditRevision: live.editRevision,
+                        })
+                        setEditing(undefined)
+                      },
+                    )
+                  }
+                />
+              ) : null}
+              <Button
+                type="submit"
+                size="lg"
+                disabled={
+                  isRunning ||
+                  !name.trim() ||
+                  !Number.isFinite(Number(goal)) ||
+                  Number(goal) <= 0
+                }
+              >
+                {editing ? 'Save changes' : 'Create person'}
+              </Button>
+            </SheetFooter>
+          </form>
+          <ConfirmDestructiveDialog
+            open={isConfirmDialogOpen}
+            onOpenChange={handleConfirmDialogOpenChange}
+            onConfirm={confirmPendingAction}
+            disabled={isRunning}
+            description={pendingConfirmation?.message}
+          />
+        </EditorDialog>
+      ) : null}
+    </PageShell>
   )
 }

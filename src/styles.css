@@ -1,89 +1,198 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/inter';
+/* Inter with its optical-size axis: Display cuts take over at large sizes. */
+@import '@fontsource-variable/inter/opsz.css';
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * "Native": an iOS-style system. Both themes share one cool neutral family
+ * (hue 286, the iOS system greys): light is a grey grouped background with
+ * white cells, dark is a black grouped background with elevated grey cells.
+ * Contrast ratios are WCAG 2.x, measured with the design brief's contrast.mjs.
+ */
 :root {
-  --background: oklch(0.99 0.002 240);
-  --foreground: oklch(0.16 0.015 250);
+  /* Grouped background (#f2f2f7) and its cells (white). */
+  --background: oklch(0.963 0.0066 286.3);
+  --foreground: oklch(0.17 0.004 286); /* 17.2:1 on background */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.015 250);
+  --card-foreground: oklch(0.17 0.004 286);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0.015 250);
-  /* 4.8:1 with white text and as text on white (WCAG AA); 0.68 was 3.1:1. */
-  --primary: oklch(0.57 0.18 42);
-  --primary-foreground: oklch(0.995 0 0);
-  /* Estimate notes: a hue apart from primary so caution never reads as a link (5.6:1 on white). */
-  --caution: oklch(0.52 0.11 80);
-  --secondary: oklch(0.955 0.012 250);
-  --secondary-foreground: oklch(0.25 0.018 250);
-  --muted: oklch(0.96 0.006 250);
-  --muted-foreground: oklch(0.48 0.018 250);
-  --accent: oklch(0.94 0.025 165);
-  --accent-foreground: oklch(0.23 0.035 175);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.9 0.008 250);
-  --input: oklch(0.9 0.008 250);
-  --ring: oklch(0.68 0.18 42);
-  --chart-1: oklch(0.68 0.18 42);
-  --chart-2: oklch(0.62 0.13 170);
-  --chart-3: oklch(0.58 0.13 245);
-  --chart-4: oklch(0.72 0.12 95);
-  --chart-5: oklch(0.58 0.11 325);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.003 250);
-  --sidebar-foreground: oklch(0.16 0.015 250);
-  --sidebar-primary: oklch(0.68 0.18 42);
-  --sidebar-primary-foreground: oklch(0.995 0 0);
-  --sidebar-accent: oklch(0.94 0.025 165);
-  --sidebar-accent-foreground: oklch(0.23 0.035 175);
-  --sidebar-border: oklch(0.9 0.008 250);
-  --sidebar-ring: oklch(0.68 0.18 42);
-  --glass: oklch(0.99 0.002 240 / 50%);
-  --glass-edge: oklch(0.16 0.015 250 / 12%);
-  --glass-highlight: oklch(1 0 0 / 70%);
-  --glass-shadow: oklch(0.16 0.015 250 / 10%);
+  --popover-foreground: oklch(0.17 0.004 286);
+  /* Tint. White text on it 5.2:1; as text 5.3:1 on white, 4.7:1 on background,
+     4.5:1 inside a primary/10 pill on white. Tinted-text-on-tint stays ≤ /10. */
+  --primary: oklch(0.55 0.18 42);
+  --primary-foreground: oklch(1 0 0);
+  /* Estimate notes: an ochre well clear of the tint's hue (5.6:1 on white,
+     5.0:1 on background). */
+  --caution: oklch(0.52 0.11 85);
+  /* One fill for secondary buttons, tracks and skeletons (iOS tertiary fill). */
+  --secondary: oklch(0.925 0.006 286);
+  --secondary-foreground: oklch(0.17 0.004 286);
+  --muted: oklch(0.925 0.006 286);
+  /* Secondary label: 6.8:1 on white, 6.1:1 on background, 5.5:1 on muted. */
+  --muted-foreground: oklch(0.47 0.008 286);
+  --accent: oklch(0.945 0.005 286);
+  --accent-foreground: oklch(0.17 0.004 286);
+  /* 5.4:1 on white, 4.9:1 on background. */
+  --destructive: oklch(0.55 0.21 27);
+  /* Hairline separators (decorative, like iOS). */
+  --border: oklch(0.885 0.005 286);
+  /* Field outlines are meaningful boundaries: 3.5:1 on white, 3.1:1 on background. */
+  --input: oklch(0.63 0.008 286);
+  --ring: oklch(0.55 0.18 42);
+  /* A disabled primary is a button that is off: a neutral grey (iOS #d1d1d6)
+     a clear step below its surface (1.37:1 under the grey sheet, 1.52:1
+     under a white cell), with the muted label at 4.5:1 on it. The white
+     selected segment sits 1.52:1 above it and above, not below, its track. */
+  --disabled: oklch(0.862 0.007 286);
+  --disabled-foreground: oklch(0.47 0.008 286);
+  /* Selected segment of a segmented control: a white cell raised off the
+     muted track by a hairline and a soft shadow. */
+  --segment: oklch(1 0 0);
+  --segment-shadow:
+    0 0 0 1px oklch(0.17 0.004 286 / 9%), 0 1px 2px oklch(0 0 0 / 8%),
+    0 3px 8px oklch(0 0 0 / 10%);
+
+  /* Nutrition state. Text 5.7:1 (left) and 6.5:1 (over) on white; ≥ 5:1 on
+     their own surfaces. Bars are ≥ 3:1 against the empty track. */
+  --left: oklch(0.5 0.09 192);
+  --left-surface: oklch(0.95 0.03 192);
+  --left-bar: oklch(0.58 0.1 192);
+  --over: oklch(0.5 0.13 5);
+  --over-surface: oklch(0.95 0.025 5);
+  --over-bar: oklch(0.6 0.11 5);
+  /* An over-goal bar up to its goal: a light berry, never the track's grey.
+     1.65:1 against the empty track, 2.0:1 against the solid overage; the
+     foreground goal mark is 9.3:1 on it and 4.6:1 on the overage. */
+  --over-base: oklch(0.78 0.07 5);
+  /* The empty part of a progress bar and a day without meals in a chart:
+     one track for Today's bar and the History chart (1.25:1 on white). */
+  --track: oklch(0.925 0.006 286);
+  /* A quiet well inside a cell, such as an opened meal's foods: a shade
+     below white (1.09:1), with muted text 6.3:1 and caution 5.1:1 on it. */
+  --recessed: oklch(0.97 0.005 286);
+
+  --chart-1: oklch(0.55 0.18 42);
+  --chart-2: oklch(0.58 0.1 192);
+  --chart-3: oklch(0.56 0.15 255);
+  --chart-4: oklch(0.72 0.13 80);
+  --chart-5: oklch(0.55 0.13 310);
+  --radius: 1.125rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.17 0.004 286);
+  --sidebar-primary: oklch(0.55 0.18 42);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.945 0.005 286);
+  --sidebar-accent-foreground: oklch(0.17 0.004 286);
+  --sidebar-border: oklch(0.885 0.005 286);
+  --sidebar-ring: oklch(0.55 0.18 42);
+
+  /* White glass over the grey page: the rim carries the edge, the shadow stays faint. */
+  --glass: oklch(1 0 0 / 50%);
+  --glass-edge: oklch(0.17 0.004 286 / 10%);
+  --glass-highlight: oklch(1 0 0 / 85%);
+  --glass-shadow: oklch(0.17 0.004 286 / 10%);
 }
 
 .dark {
-  --background: oklch(0.16 0.01 55);
-  --foreground: oklch(0.93 0.01 75);
-  --card: oklch(0.2 0.012 55);
-  --card-foreground: oklch(0.93 0.01 75);
-  --popover: oklch(0.2 0.012 55);
-  --popover-foreground: oklch(0.93 0.01 75);
-  --primary: oklch(0.78 0.15 55);
-  --primary-foreground: oklch(0.15 0.02 55);
-  --caution: oklch(0.83 0.15 84);
-  --secondary: oklch(0.27 0.015 55);
-  --secondary-foreground: oklch(0.93 0.01 75);
-  --muted: oklch(0.27 0.015 55);
-  --muted-foreground: oklch(0.65 0.03 65);
-  --accent: oklch(0.32 0.03 55);
-  --accent-foreground: oklch(0.93 0.01 75);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0.01 55 / 12%);
-  --input: oklch(1 0.01 55 / 15%);
-  --ring: oklch(0.78 0.15 55);
-  --chart-1: oklch(0.78 0.15 55);
-  --chart-2: oklch(0.68 0.12 45);
-  --chart-3: oklch(0.58 0.1 35);
-  --chart-4: oklch(0.72 0.1 140);
-  --chart-5: oklch(0.62 0.08 200);
-  --sidebar: oklch(0.2 0.012 55);
-  --sidebar-foreground: oklch(0.93 0.01 75);
-  --sidebar-primary: oklch(0.78 0.15 55);
-  --sidebar-primary-foreground: oklch(0.15 0.02 55);
-  --sidebar-accent: oklch(0.32 0.03 55);
-  --sidebar-accent-foreground: oklch(0.93 0.01 75);
-  --sidebar-border: oklch(1 0.01 55 / 12%);
-  --sidebar-ring: oklch(0.78 0.15 55);
-  --glass: oklch(0.26 0.014 55 / 50%);
-  --glass-edge: oklch(1 0.01 55 / 12%);
-  --glass-highlight: oklch(1 0.01 55 / 16%);
-  --glass-shadow: oklch(0 0 0 / 50%);
+  /* Black grouped background with elevated grey cells (#1c1c1e, #2c2c2e). */
+  --background: oklch(0 0 0);
+  --foreground: oklch(
+    0.98 0.002 286
+  ); /* 19.6:1 on background, 16.6:1 on card */
+  --card: oklch(0.227 0.0038 286);
+  --card-foreground: oklch(0.98 0.002 286);
+  --popover: oklch(0.294 0.0036 286);
+  --popover-foreground: oklch(0.98 0.002 286);
+  /* Dark ink on it 7.9:1; as text 7.0:1 on card, 5.7:1 on popover. */
+  --primary: oklch(0.74 0.16 48);
+  --primary-foreground: oklch(0.17 0.01 48);
+  /* Leans yellow, so "Estimated" never sits beside an orange of the same
+     warmth: 10.8:1 on card, 8.8:1 on an elevated cell. */
+  --caution: oklch(0.85 0.13 92);
+  --secondary: oklch(0.294 0.0036 286);
+  --secondary-foreground: oklch(0.98 0.002 286);
+  --muted: oklch(0.294 0.0036 286);
+  /* 9.4:1 on background, 7.6:1 on card, 6.3:1 on muted, 5.1:1 on the
+     elevated muted fill. */
+  --muted-foreground: oklch(0.75 0.008 286);
+  --accent: oklch(0.32 0.004 286);
+  --accent-foreground: oklch(0.98 0.002 286);
+  --destructive: oklch(0.7 0.18 22); /* 5.9:1 on card */
+  --border: oklch(0.34 0.0034 286);
+  --input: oklch(0.56 0.006 286); /* 3.7:1 on card, 4.5:1 on background */
+  --ring: oklch(0.74 0.16 48);
+  /* A disabled primary is iOS's grey fill: translucent, so it always sits one
+     step above its surface (about 1.3:1 on the page, the sheet and a sheet's
+     cells) and never vanishes into one. A recessed well read as a hole and an
+     outline as the secondary style. Its label is dimmer than secondary text
+     (3.5:1 on the sheet footer, 2.9:1 inside a cell; disabled controls are
+     exempt from contrast minimums), so it never reads available. */
+  --disabled: oklch(0.57 0.012 286 / 24%);
+  --disabled-foreground: oklch(0.62 0.006 286);
+  /* The lightest grey in the system, raised by a top highlight and a soft
+     drop shadow. As light as white text on it allows (foreground 4.55:1):
+     2.9:1 against the track, 2.4:1 against the sheet's lifted muted fill. */
+  --segment: oklch(0.552 0.004 286);
+  --segment-shadow:
+    inset 0 0.5px 0 oklch(1 0 0 / 26%), 0 0 0 0.5px oklch(0 0 0 / 45%),
+    0 1px 2px oklch(0 0 0 / 45%), 0 4px 12px oklch(0 0 0 / 50%);
+
+  --left: oklch(0.8 0.11 188); /* 9.5:1 on card, 7.5:1 on its surface */
+  --left-surface: oklch(0.3 0.04 192);
+  --left-bar: oklch(0.72 0.11 190);
+  --over: oklch(0.8 0.085 5); /* 8.8:1 on card, 6.9:1 on its surface */
+  --over-surface: oklch(0.31 0.05 5);
+  /* The over pair mirrors light's steps, inverted for a dark page: the
+     overage is the brightest bar colour (8.7:1 on card, brighter than the
+     left bar's 7.2:1), and the tint up to the goal is a mid berry that holds
+     its own beside the left bar (3.8:1 on card, 2.5:1 against the empty
+     track), a clear step below the overage (2.3:1, ΔL 0.22; light 2.0:1,
+     ΔL 0.18). The goal mark is 4.2:1 on the tint. */
+  --over-bar: oklch(0.8 0.11 5);
+  --over-base: oklch(0.58 0.09 5);
+  /* One step above the cell fill (#3a3a3c, 1.5:1 on the #1c1c1e card), so
+     an empty bar reads as a track rather than a gap. */
+  --track: oklch(0.349 0.0034 286);
+  /* A shade below the cell (1.10:1), muted text 8.3:1 on it. */
+  --recessed: oklch(0.185 0.0035 286);
+
+  --chart-1: oklch(0.74 0.16 48);
+  --chart-2: oklch(0.72 0.11 190);
+  --chart-3: oklch(0.7 0.13 255);
+  --chart-4: oklch(0.82 0.13 80);
+  --chart-5: oklch(0.7 0.12 310);
+  --sidebar: oklch(0.227 0.0038 286);
+  --sidebar-foreground: oklch(0.98 0.002 286);
+  --sidebar-primary: oklch(0.74 0.16 48);
+  --sidebar-primary-foreground: oklch(0.17 0.01 48);
+  --sidebar-accent: oklch(0.32 0.004 286);
+  --sidebar-accent-foreground: oklch(0.98 0.002 286);
+  --sidebar-border: oklch(0.34 0.0034 286);
+  --sidebar-ring: oklch(0.74 0.16 48);
+
+  /* Grey glass that still lifts off a black page; a bright rim defines it. */
+  --glass: oklch(0.34 0.004 286 / 50%);
+  --glass-edge: oklch(1 0 0 / 14%);
+  --glass-highlight: oklch(1 0 0 / 18%);
+  --glass-shadow: oklch(0 0 0 / 60%);
+}
+
+/* Sheets and dialogs sit one level up in dark mode, as on iOS: grey sheet,
+   lighter cells. Light mode keeps the page's grey and white. */
+.dark .elevated {
+  --background: oklch(0.227 0.0038 286);
+  --card: oklch(0.294 0.0036 286);
+  --muted: oklch(0.349 0.0034 286);
+  --secondary: oklch(0.349 0.0034 286);
+  --accent: oklch(0.38 0.004 286);
+  --border: oklch(0.39 0.0034 286);
+  --popover: oklch(0.349 0.0034 286);
+  /* Field and switch outlines stay meaningful on the lighter cells: 3.5:1 on
+     a cell, 4.3:1 on the sheet. */
+  --input: oklch(0.6 0.006 286);
 }
 
 /* A floating "liquid glass" surface: content shows through it, blurred. It
@@ -97,14 +206,146 @@
     0 2px 8px -2px var(--glass-shadow);
   backdrop-filter: blur(16px) saturate(1.8);
   @media (prefers-reduced-transparency: reduce) {
-    background-color: var(--background);
+    background-color: var(--card);
     backdrop-filter: none;
   }
 }
 
+/* An inset grouped list: white cells on the grey page, large corners. Rows
+   draw an inset focus ring, since the group clips anything outside it. */
+@utility inset-group {
+  background-color: var(--card);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+/* Hairlines between rows that start at the content inset, like iOS lists.
+   Set --row-inset on the list to line them up with a leading icon. */
+@utility inset-rows {
+  & > * + * {
+    background-image: linear-gradient(var(--border), var(--border));
+    background-size: calc(100% - var(--row-inset, 1rem)) 1px;
+    background-position: right top;
+    background-repeat: no-repeat;
+  }
+}
+
+/* The heading above a grouped list, aligned with the cells' text. */
+@utility group-label {
+  @apply px-4 pb-1.5 text-footnote font-medium text-muted-foreground;
+}
+
+/* The iOS type scale as utilities. They are named type-* rather than text-*
+   so tailwind-merge (cn) never mistakes a size for a colour and drops it. */
+@utility type-caption {
+  @apply text-caption;
+}
+@utility type-footnote {
+  @apply text-footnote;
+}
+@utility type-subhead {
+  @apply text-subhead;
+}
+@utility type-callout {
+  @apply text-callout;
+}
+@utility type-body {
+  @apply text-body;
+}
+@utility type-headline {
+  @apply text-headline;
+}
+@utility type-title {
+  @apply text-title;
+}
+@utility type-large-title {
+  @apply text-large-title;
+}
+/* The day summary's numeral: Inter Display, heavy and tabular. */
+@utility type-display {
+  @apply text-display tabular-nums;
+}
+
+/* iOS type scale. Small labels and captions (13px and under) keep normal
+   tracking, set explicitly so they never inherit body or title tightening.
+   From 15px text tightens slightly with size, as Inter's metrics suggest,
+   and titles most, where the Display cut takes over. Numbers use tabular
+   figures where they appear in columns. */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-caption--letter-spacing: 0em;
+  --text-footnote: 0.8125rem;
+  --text-footnote--line-height: 1.125rem;
+  --text-footnote--letter-spacing: 0em;
+  --text-subhead: 0.9375rem;
+  --text-subhead--line-height: 1.25rem;
+  --text-subhead--letter-spacing: -0.006em;
+  --text-callout: 1rem;
+  --text-callout--line-height: 1.3125rem;
+  --text-callout--letter-spacing: -0.009em;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.375rem;
+  --text-body--letter-spacing: -0.011em;
+  --text-headline: 1.0625rem;
+  --text-headline--line-height: 1.375rem;
+  --text-headline--letter-spacing: -0.011em;
+  --text-headline--font-weight: 600;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--letter-spacing: -0.016em;
+  --text-title--font-weight: 700;
+  --text-large-title: 2.125rem;
+  --text-large-title--line-height: 2.5625rem;
+  --text-large-title--letter-spacing: -0.02em;
+  --text-large-title--font-weight: 700;
+  --text-display: 3.5rem;
+  --text-display--line-height: 1;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 700;
+
+  /* Tailwind's own steps land on the same scale, so every page inherits it:
+     xs = footnote, sm = subhead, base = body, xl = title, 3xl = large title. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-xs--letter-spacing: 0em;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.25rem;
+  --text-sm--letter-spacing: -0.006em;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.375rem;
+  --text-base--letter-spacing: -0.011em;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.5625rem;
+  --text-lg--letter-spacing: -0.014em;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: -0.016em;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-2xl--letter-spacing: -0.018em;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 2.5625rem;
+  --text-3xl--letter-spacing: -0.02em;
+}
+
 @theme inline {
   --color-caution: var(--caution);
-  --font-sans: 'Inter Variable', sans-serif;
+  --color-segment: var(--segment);
+  --color-disabled: var(--disabled);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-track: var(--track);
+  --color-recessed: var(--recessed);
+  /* Prefixed so `text-kcal-left` never collides with `text-left` alignment. */
+  --color-kcal-left: var(--left);
+  --color-kcal-left-surface: var(--left-surface);
+  --color-kcal-left-bar: var(--left-bar);
+  --color-kcal-over: var(--over);
+  --color-kcal-over-surface: var(--over-surface);
+  --color-kcal-over-bar: var(--over-bar);
+  --color-kcal-over-base: var(--over-base);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -136,13 +377,17 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* One radius scale: badges 8, menu rows 10, notes 12, cells, cards and
+     textareas 18, menus and dialogs 22, the sheet 28. Buttons, chips and
+     single-line fields (inputs, select triggers, search) are capsules. */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: var(--radius);
+  --radius-2xl: 1.375rem;
+  --radius-3xl: 1.75rem;
+  --radius-4xl: 2.25rem;
 }
 
 @layer base {
@@ -152,9 +397,10 @@
 
   html {
     @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-base text-foreground antialiased;
   }
 }

@@ -176,9 +176,8 @@ describe('MCP connection UI', () => {
     render(<ConnectedAgents />)
     const permission = screen.getByText('nutrition:read')
     expect(permission.closest('details')?.open).toBe(false)
-    fireEvent.click(screen.getByText('Permissions'))
+    // Plain permissions are always visible; the summary reveals scope names.
+    fireEvent.click(screen.getByText('Read nutrition · Log meals'))
     expect(permission.closest('details')?.open).toBe(true)
-    expect(screen.getByText('Read nutrition')).toBeTruthy()
-    expect(screen.getByText('Log meals')).toBeTruthy()
   })
 })

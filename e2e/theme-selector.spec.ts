@@ -1,8 +1,14 @@
 import { expect, test } from '@playwright/test'
 
-for (const viewport of [
-  { width: 1440, height: 1000 },
-  { width: 390, height: 844 },
+// Desktop keeps the theme menu in the top bar; phones have no top bar, so the
+// control is the Appearance row in Settings.
+for (const { viewport, path, heading } of [
+  { viewport: { width: 1440, height: 1000 }, path: '/', heading: 'Today' },
+  {
+    viewport: { width: 390, height: 844 },
+    path: '/settings',
+    heading: 'Settings',
+  },
 ]) {
   test.describe(`${viewport.width}px theme selector`, () => {
     test.use({ viewport, colorScheme: 'dark' })
@@ -10,9 +16,9 @@ for (const viewport of [
     test('keeps choices closed and persists an override and a return to System', async ({
       page,
     }) => {
-      await page.goto('/')
+      await page.goto(path)
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Today' }),
+        page.getByRole('heading', { level: 1, name: heading }),
       ).toBeVisible()
 
       const trigger = page.getByRole('combobox', { name: 'Theme: System' })

@@ -33,7 +33,7 @@ test('device selections and unsaved meals stay with their household after switch
     exact: true,
   })
   await expect(household).toHaveCount(0)
-  await page.getByRole('button', { name: 'Household intake' }).click()
+  await page.getByRole('button', { name: 'Switch person' }).click()
   await page.getByRole('button', { name: /^Viki/ }).click()
   await page.getByRole('button', { name: 'Log meal', exact: true }).click()
   await page.getByLabel('Meal name').fill('Home draft')
@@ -45,11 +45,15 @@ test('device selections and unsaved meals stay with their household after switch
   await page.goto('/')
   await page.getByRole('button', { name: 'Log meal', exact: true }).click()
   await expect(page.getByLabel('Meal name')).toHaveValue('')
-  await expect(page.getByLabel('Select person')).toContainText('Alex')
+  await expect(
+    page.getByRole('combobox', { name: /^Switch person/ }),
+  ).toContainText('Alex')
   await page.getByLabel('Meal name').fill('Shared draft')
   await page.reload()
   await page.getByRole('button', { name: 'Continue draft' }).click()
-  await expect(page.getByLabel('Select person')).toContainText('Alex')
+  await expect(
+    page.getByRole('combobox', { name: /^Switch person/ }),
+  ).toContainText('Alex')
   await expect(page.getByLabel('Meal name')).toHaveValue('Shared draft')
   await page.goto('/household')
   await household.click()
@@ -57,8 +61,12 @@ test('device selections and unsaved meals stay with their household after switch
   await page.goto('/')
   await page.getByRole('button', { name: 'Continue draft' }).click()
   await expect(page.getByLabel('Meal name')).toHaveValue('Home draft')
-  await expect(page.getByLabel('Select person')).toContainText('Viki')
+  await expect(
+    page.getByRole('combobox', { name: /^Switch person/ }),
+  ).toContainText('Viki')
   await page.reload()
   await page.getByRole('button', { name: 'Continue draft' }).click()
-  await expect(page.getByLabel('Select person')).toContainText('Viki')
+  await expect(
+    page.getByRole('combobox', { name: /^Switch person/ }),
+  ).toContainText('Viki')
 })

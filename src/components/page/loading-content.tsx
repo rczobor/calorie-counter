@@ -16,7 +16,7 @@ export function LoadingRows({
         <div
           key={index}
           aria-hidden="true"
-          className="flex h-24 items-center justify-between gap-4"
+          className="flex h-16 items-center justify-between gap-4"
         >
           <div className="space-y-2">
             <Skeleton className="h-4 w-36" />

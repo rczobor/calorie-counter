@@ -6,11 +6,13 @@ import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
 
 /**
- * The meal editor's sheet. On phones it has a fixed height, so its header stays
- * put while the content changes. The body scrolls on its own, so content can
- * keep a `sticky bottom-0` footer in reach. The body has no bottom padding: a
- * sticky element stops at the padding edge, which would let content show
- * through below the footer.
+ * The editors' sheet (see `Sheet`). On phones it has a fixed height, so its
+ * header stays put while the content changes. The body scrolls on its own, so
+ * content can keep a `sticky bottom-0` footer in reach. The body has no bottom
+ * padding: a sticky element stops at the padding edge, which would let content
+ * show through below the footer. The title is left-aligned in the page title
+ * family, so a sheet reads as a page of the same app, with a quiet ghost close
+ * beside it.
  */
 export function EditorDialog({
   title,
@@ -31,8 +33,10 @@ export function EditorDialog({
       pending={pending}
       className="h-[88dvh] max-h-[92dvh] md:h-auto md:max-h-[calc(100dvh-2rem)] md:max-w-2xl"
     >
-      <div className="flex shrink-0 items-center justify-between gap-4 px-5 pt-2 pb-3 md:pt-5">
-        <Drawer.Title className="text-lg font-semibold">{title}</Drawer.Title>
+      <div className="flex shrink-0 items-center justify-between gap-2 pt-1 pr-2 pb-2 pl-4 md:pt-3">
+        <Drawer.Title className="min-w-0 truncate type-title">
+          {title}
+        </Drawer.Title>
         <Drawer.Description className="sr-only">
           {description ??
             'Changes are saved only when you choose Save. Closing keeps your meal draft in this tab.'}
@@ -43,7 +47,7 @@ export function EditorDialog({
             <Button
               variant="ghost"
               size="icon"
-              className="size-10"
+              className="text-muted-foreground"
               aria-label="Close editor"
             />
           }
@@ -51,7 +55,7 @@ export function EditorDialog({
           <X />
         </Drawer.Close>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4">
         {children}
       </div>
     </Sheet>

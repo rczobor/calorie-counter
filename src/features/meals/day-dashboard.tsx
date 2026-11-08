@@ -28,6 +28,7 @@ import {
   useQuery,
   useMutation,
 } from '@/features/households/convex-hooks'
+import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { readMealDraft, writeMealDraft } from '@/features/meals/meal-draft'
@@ -35,13 +36,14 @@ import { subscribeLogMeal } from '@/features/meals/log-meal-request'
 import { WeightGlance } from '@/features/weight/weight-glance'
 import { InstallEntry } from '@/features/install/install-entry'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
+import { IntakeBar } from '@/features/meals/intake-bar'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { EditorDialog } from '@/components/page/editor-dialog'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
+import { Balance, Value } from '@/components/nutrition/value'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -52,6 +54,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { toLocalDateString, toTimestampFromDate } from '@/lib/nutrition'
 
@@ -76,11 +79,7 @@ function dayHeading(date: string, today: string) {
   if (days === -1) return 'Yesterday'
   if (days === 1) return 'Tomorrow'
   // A bare weekday would read as this week, so other days name their date.
-  return new Date(toTimestampFromDate(date)).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatDate(date)
 }
 
 function readLinkedDate() {
@@ -230,52 +229,65 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         header={
           archived ? undefined : (
             <div className="w-full">
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                {dayHeading(date, today)}
-              </h1>
-              {/* The date pill and the day controls share one row and one height. */}
-              <div className="mt-2 flex items-center justify-between gap-2">
+              {/* The title row holds the person picker, as History's does. */}
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="min-w-0 type-large-title text-foreground">
+                  {dayHeading(date, today)}
+                </h1>
+                {people.status === 'LoadingFirstPage' ? (
+                  <Skeleton
+                    className="h-10 w-28 rounded-full"
+                    role="status"
+                    aria-label="Loading people"
+                  />
+                ) : visiblePeople.length > 0 ? (
+                  <PersonPicker
+                    ref={householdButton}
+                    name={selected?.name}
+                    placeholder="Choose a person"
+                    expanded={showHousehold}
+                    controls="household-intake"
+                    onToggle={() => setShowHousehold(!showHousehold)}
+                  />
+                ) : null}
+              </div>
+              {/* The date pill and the day controls share one row and one
+                  height: the pill on the left, Today and the arrows on the
+                  right. Text capsules padded 12px and 6px gaps fit the
+                  widest pill ("Wed, May 20, 2026") beside Today at 390px; a
+                  narrower phone wraps the controls under the pill instead of
+                  scrolling sideways. */}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5">
                 <DatePicker
+                  variant="chip"
                   value={date}
                   onChange={selectDay}
                   ariaLabel="Day"
-                  label={
-                    <>
-                      {new Date(toTimestampFromDate(date)).toLocaleDateString(
-                        undefined,
-                        { month: 'short', day: 'numeric', year: 'numeric' },
-                      )}
-                      <ChevronDown
-                        aria-hidden="true"
-                        className="size-3.5 text-muted-foreground"
-                      />
-                    </>
-                  }
-                  className="h-10 gap-1.5 rounded-full px-3 text-sm"
+                  label={formatDate(date, { year: 'always' })}
                 />
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                  {/* Today appears before the arrows, so they never move. */}
                   {date !== today ? (
                     <Button
                       variant="outline"
-                      className="h-10 rounded-full px-4"
+                      size="sm"
+                      className="px-3"
                       onClick={() => selectDay(toLocalDateString(Date.now()))}
                     >
                       Today
                     </Button>
                   ) : null}
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     variant="outline"
-                    className="size-10 rounded-full"
                     aria-label="Previous day"
                     onClick={() => shiftDay(-1)}
                   >
                     <ChevronLeft />
                   </Button>
                   <Button
-                    size="icon"
+                    size="icon-sm"
                     variant="outline"
-                    className="size-10 rounded-full"
                     aria-label="Next day"
                     onClick={() => shiftDay(1)}
                   >
@@ -290,19 +302,24 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
       >
         {archived ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
-                size="icon"
-                variant="ghost"
+                size="icon-sm"
+                variant="outline"
                 aria-label="Previous day"
                 onClick={() => shiftDay(-1)}
               >
                 <ChevronLeft />
               </Button>
-              <DatePicker value={date} onChange={selectDay} ariaLabel="Day" />
+              <DatePicker
+                variant="chip"
+                value={date}
+                onChange={selectDay}
+                ariaLabel="Day"
+              />
               <Button
-                size="icon"
-                variant="ghost"
+                size="icon-sm"
+                variant="outline"
                 aria-label="Next day"
                 onClick={() => shiftDay(1)}
               >
@@ -310,7 +327,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </Button>
               {date !== today ? (
                 <Button
-                  variant="ghost"
+                  variant="outline"
+                  size="sm"
+                  className="px-3"
                   onClick={() => selectDay(toLocalDateString(Date.now()))}
                 >
                   Today
@@ -318,8 +337,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                ariaLabel="Person"
+              <PersonPicker
                 placeholder={
                   loadingPerson ? 'Loading people' : 'Choose a person'
                 }
@@ -351,69 +369,125 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           </div>
         ) : null}
         {archived && !loadingPerson && !selected ? (
-          <p role="status" className="mt-4 text-sm text-muted-foreground">
+          <p role="status" className="mt-4 type-subhead text-muted-foreground">
             {selectedPersonId
               ? 'This person is unavailable. Choose another person.'
               : 'No active people.'}
           </p>
         ) : null}
+        {!archived && showHousehold ? (
+          <section
+            id="household-intake"
+            aria-label="Household intake"
+            className="mt-5"
+          >
+            {people.status === 'LoadingFirstPage' ? (
+              <LoadingRows
+                label="Loading household intake"
+                className="inset-group px-4"
+              />
+            ) : (
+              // A picker list: the checkmark and tinted row mark whose intake
+              // is in focus, apart from the nutrition colours.
+              <div className="inset-group inset-rows [--row-inset:3rem]">
+                {visiblePeople.map((p) => (
+                  <button
+                    key={p._id}
+                    type="button"
+                    aria-pressed={p._id === selectedPersonId}
+                    aria-label={`${p.name}: ${p.consumedCalories.toFixed(0)} of ${p.goalKcal.toFixed(0)} kcal logged, ${p.remainingCalories === 0 ? 'goal reached' : `${Math.abs(p.remainingCalories).toFixed(0)} kcal ${p.remainingCalories < 0 ? 'over' : 'left'}`}`}
+                    onClick={() => {
+                      setSelectedPersonId(p._id)
+                      setOpenMealId(null)
+                      setShowHousehold(false)
+                      householdButton.current?.focus()
+                    }}
+                    className={cn(
+                      'flex min-h-15 w-full items-center gap-3 py-2.5 pr-4 pl-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                      p._id === selectedPersonId &&
+                        'bg-accent shadow-[inset_0_0_0_1.5px_color-mix(in_oklab,var(--foreground)_45%,transparent)]',
+                    )}
+                  >
+                    <span className="flex size-6 shrink-0 items-center justify-center text-foreground">
+                      {p._id === selectedPersonId ? (
+                        <Check
+                          aria-hidden="true"
+                          className="size-5"
+                          strokeWidth={2.5}
+                        />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-base">
+                      {p.name}
+                    </span>
+                    <span className="text-right type-footnote text-muted-foreground tabular-nums">
+                      <Balance
+                        remaining={p.remainingCalories}
+                        className="type-subhead"
+                      />
+                      <span className="mt-0.5 block">
+                        <span className="font-semibold text-foreground">
+                          {p.consumedCalories.toFixed(0)}
+                        </span>{' '}
+                        /{' '}
+                        <span className="font-semibold text-foreground">
+                          {p.goalKcal.toFixed(0)}
+                        </span>{' '}
+                        kcal logged
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
+              Choose whose intake to focus on. Your choice stays on this device.
+            </p>
+            {people.status === 'CanLoadMore' ||
+            people.status === 'LoadingMore' ? (
+              <Button
+                className="mt-2"
+                variant="ghost"
+                size="sm"
+                disabled={people.status === 'LoadingMore'}
+                aria-busy={people.status === 'LoadingMore'}
+                onClick={() => people.loadMore(PAGE_SIZE)}
+              >
+                Load more people
+              </Button>
+            ) : null}
+          </section>
+        ) : null}
         {!archived ? (
           <section
-            className="mt-5 rounded-xl border bg-card p-5 sm:p-6"
+            className="mt-5 inset-group px-4 pt-4 pb-4"
             aria-label={focused ? `${focused.name}’s intake` : 'Daily intake'}
             aria-busy={loadingPerson}
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-semibold">
-                {selected?.name ??
-                  (loadingPerson ? (
-                    <Skeleton className="h-5 w-28" />
-                  ) : (
-                    'Choose a person'
-                  ))}
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                ref={householdButton}
-                aria-expanded={showHousehold}
-                aria-controls="household-intake"
-                onClick={() => setShowHousehold(!showHousehold)}
-              >
-                Household intake{' '}
-                <ChevronDown
-                  className={cn(
-                    'size-4 transition-transform motion-reduce:transition-none',
-                    showHousehold && 'rotate-180',
-                  )}
-                />
-              </Button>
-            </div>
             {focused ? (
+              // The balance, the bar, then the logged line, at every width.
               <>
                 <p
                   className={cn(
-                    'mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 tabular-nums',
-                    overGoal
-                      ? 'text-[#a0445a] dark:text-[#e4a5b4]'
-                      : 'text-teal-700 dark:text-teal-300',
+                    'flex flex-wrap items-center gap-x-3 gap-y-2 tabular-nums',
+                    overGoal ? 'text-kcal-over' : 'text-kcal-left',
                   )}
                 >
-                  <span className="text-5xl font-semibold tracking-tight sm:text-6xl">
+                  <span className="type-display">
                     {overGoal ? '+' : ''}
                     {Math.abs(focused.remainingCalories).toFixed(0)}
                     {atGoal ? (
-                      <span className="ml-2 text-base font-normal tracking-normal">
+                      <span className="ml-1.5 type-title font-semibold tracking-normal">
                         kcal
                       </span>
                     ) : null}
                   </span>{' '}
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium',
+                      'inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-2.5 type-subhead font-semibold',
                       overGoal
-                        ? 'bg-[#a0445a]/10 dark:bg-[#e4a5b4]/10'
-                        : 'bg-teal-600/10 dark:bg-teal-400/10',
+                        ? 'bg-kcal-over-surface'
+                        : 'bg-kcal-left-surface',
                     )}
                   >
                     {overGoal ? (
@@ -428,42 +502,39 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                       : `kcal ${overGoal ? 'over' : 'left'}`}
                   </span>
                 </p>
-                <p className="mt-3 text-sm text-muted-foreground tabular-nums">
-                  {focused.consumedCalories.toFixed(0)} /{' '}
-                  {focused.goalKcal.toFixed(0)} kcal logged
+                <IntakeBar
+                  consumed={focused.consumedCalories}
+                  goal={focused.goalKcal}
+                  className="mt-4"
+                />
+                <p className="mt-2.5 type-subhead text-muted-foreground tabular-nums">
+                  <span className="font-semibold text-foreground">
+                    {focused.consumedCalories.toFixed(0)}
+                  </span>{' '}
+                  /{' '}
+                  <span className="font-semibold text-foreground">
+                    {focused.goalKcal.toFixed(0)}
+                  </span>{' '}
+                  kcal logged
                 </p>
-                <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn(
-                      'h-full rounded-full',
-                      overGoal
-                        ? 'bg-[#b96d81] dark:bg-[#bd7488]'
-                        : 'bg-teal-600 dark:bg-teal-400',
-                    )}
-                    style={{
-                      width: `${Math.min(100, focused.goalKcal > 0 ? (focused.consumedCalories / focused.goalKcal) * 100 : 0)}%`,
-                    }}
-                  />
-                </div>
               </>
             ) : loadingPerson ? (
-              <div
-                role="status"
-                aria-label="Loading daily intake"
-                className="mt-4"
-              >
-                <Skeleton className="h-12 w-56 sm:h-15" />
-                <Skeleton className="mt-3 h-5 w-44" />
-                <Skeleton className="mt-5 h-2 w-full" />
+              <div role="status" aria-label="Loading daily intake">
+                <Skeleton className="h-14 w-56" />
+                <Skeleton className="mt-4 h-2 w-full" />
+                <Skeleton className="mt-2.5 h-5 w-44" />
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">
+              <p className="type-subhead text-muted-foreground">
                 {selectedPersonId ? (
-                  'The selected person is unavailable. Choose another person in Household intake.'
+                  'The selected person is unavailable. Use Switch person to choose another.'
                 ) : (
                   <>
                     No active people.{' '}
-                    <Link to="/people" className="underline">
+                    <Link
+                      to="/people"
+                      className="font-medium text-foreground underline underline-offset-4"
+                    >
                       Add a person and goal
                     </Link>{' '}
                     to start tracking.
@@ -474,7 +545,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           </section>
         ) : null}
         {!archived && selected && !loadingPerson ? (
-          <div className="mt-1">
+          <div className="mt-3">
             <WeightGlance
               personId={selected._id}
               personName={selected.name}
@@ -483,98 +554,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             />
           </div>
         ) : null}
-        {!archived && showHousehold ? (
-          <section
-            id="household-intake"
-            aria-label="Household intake"
-            className="mt-3 rounded-xl border p-4"
-          >
-            <p className="mb-3 text-xs text-muted-foreground">
-              Choose whose intake to focus on. Your choice stays on this device.
-            </p>
-            {people.status === 'LoadingFirstPage' ? (
-              <LoadingRows label="Loading household intake" />
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {visiblePeople.map((p) => (
-                  <button
-                    key={p._id}
-                    type="button"
-                    aria-pressed={p._id === selectedPersonId}
-                    aria-label={`${p.name}: ${p.consumedCalories.toFixed(0)} of ${p.goalKcal.toFixed(0)} kcal logged, ${p.remainingCalories === 0 ? 'goal reached' : `${Math.abs(p.remainingCalories).toFixed(0)} kcal ${p.remainingCalories < 0 ? 'over' : 'left'}`}`}
-                    onClick={() => {
-                      setSelectedPersonId(p._id)
-                      setOpenMealId(null)
-                      setShowHousehold(false)
-                      householdButton.current?.focus()
-                    }}
-                    className={cn(
-                      'flex items-center justify-between gap-3 rounded-lg border p-3 text-left hover:bg-muted/30 focus-visible:outline-2 focus-visible:outline-ring',
-                      p._id === selectedPersonId && 'border-primary',
-                    )}
-                  >
-                    <span className="flex min-w-0 items-center gap-2 font-medium">
-                      {p.name}
-                      {p._id === selectedPersonId ? (
-                        <Check aria-hidden="true" className="size-4 shrink-0" />
-                      ) : null}
-                    </span>
-                    <span className="text-right text-xs text-muted-foreground tabular-nums">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 font-medium',
-                          p.remainingCalories < 0
-                            ? 'text-[#a0445a] dark:text-[#e4a5b4]'
-                            : 'text-teal-700 dark:text-teal-300',
-                        )}
-                      >
-                        {p.remainingCalories < 0 ? (
-                          <ArrowUpRight
-                            aria-hidden="true"
-                            className="size-3.5"
-                          />
-                        ) : p.remainingCalories === 0 ? (
-                          <Check aria-hidden="true" className="size-3.5" />
-                        ) : (
-                          <ArrowDownRight
-                            aria-hidden="true"
-                            className="size-3.5"
-                          />
-                        )}
-                        {p.remainingCalories < 0 ? '+' : ''}
-                        {Math.abs(p.remainingCalories).toFixed(0)} kcal{' '}
-                        {p.remainingCalories < 0
-                          ? 'over'
-                          : p.remainingCalories === 0
-                            ? '· Goal reached'
-                            : 'left'}
-                      </span>
-                      <span className="mt-1 block">
-                        {p.consumedCalories.toFixed(0)} /{' '}
-                        {p.goalKcal.toFixed(0)} logged
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {people.status === 'CanLoadMore' ||
-            people.status === 'LoadingMore' ? (
-              <Button
-                className="mt-3"
-                variant="ghost"
-                disabled={people.status === 'LoadingMore'}
-                aria-busy={people.status === 'LoadingMore'}
-                onClick={() => people.loadMore(PAGE_SIZE)}
-              >
-                Load more people
-              </Button>
-            ) : null}
-          </section>
-        ) : null}
         {!archived && draft && !editor ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
-            <p className="text-sm" role="status">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4">
+            <p className="type-subhead" role="status">
               {draftConflict
                 ? 'Continue or discard your existing draft before starting another meal.'
                 : 'You have an unsaved meal draft in this tab.'}
@@ -618,7 +600,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           }
         />
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold">
+          <h2 className="type-title">
             {selected
               ? `${selected.name}’s ${archived ? 'archived ' : ''}meals`
               : 'Meals'}
@@ -626,14 +608,14 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           {!archived ? (
             // Phones log from the bottom navigation instead.
             <Button
-              variant="outline"
+              size="sm"
               className="hidden md:inline-flex"
               disabled={!selected}
               onClick={() =>
                 openEditor({ personId: selected?._id ?? '', date })
               }
             >
-              <Plus className="h-4 w-4" />
+              <Plus aria-hidden="true" />
               Log meal
             </Button>
           ) : null}
@@ -643,23 +625,35 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         !loadingPerson &&
         meals.status !== 'LoadingFirstPage' &&
         meals.results.length === 0 ? (
-          // Phones have no inline Log meal, so an empty day offers the action in place.
-          <Button
-            variant="outline"
-            className="mt-3 h-11 w-full md:hidden"
-            onClick={() => openEditor({ personId: selected._id, date })}
-          >
-            <Plus />
-            Log meal
-          </Button>
+          // Phones have no inline Log meal, so an empty day offers the action in
+          // place: an "add" row in the tint, as in an iOS list.
+          <div className="mt-3 inset-group md:hidden">
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left text-base font-medium text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+              onClick={() => openEditor({ personId: selected._id, date })}
+            >
+              <Plus aria-hidden="true" className="size-5" strokeWidth={2.25} />
+              Log meal
+            </button>
+          </div>
+        ) : null}
+        {archived &&
+        selected &&
+        !loadingPerson &&
+        meals.status !== 'LoadingFirstPage' &&
+        meals.results.length === 0 ? (
+          <p className="mt-3 inset-group px-4 py-3.5 type-subhead text-muted-foreground">
+            No archived meals on this day.
+          </p>
         ) : null}
         <div
           className={cn(
-            'mt-3 divide-y',
+            'mt-3',
             (meals.results.length > 0 ||
               loadingPerson ||
               (selected && meals.status === 'LoadingFirstPage')) &&
-              'min-h-24 border-y',
+              'inset-group inset-rows',
           )}
           aria-busy={
             loadingPerson ||
@@ -670,28 +664,26 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             <div key={meal._id}>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-4 py-5 text-left focus-visible:outline-2 focus-visible:outline-ring"
+                className="flex min-h-15 w-full items-center gap-3 py-3 pr-3.5 pl-4 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                 aria-expanded={openMealId === meal._id}
                 onClick={() =>
                   setOpenMealId(openMealId === meal._id ? null : meal._id)
                 }
               >
-                <span className="min-w-0">
-                  <span className="block font-medium">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base">
                     {meal.name?.trim() || 'Meal'}
                   </span>
-                  <span className="mt-1 block text-xs text-muted-foreground">
+                  <span className="mt-0.5 block type-footnote text-muted-foreground">
                     {meal.itemCount} food{meal.itemCount === 1 ? '' : 's'}
                   </span>
                 </span>
-                <span className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm tabular-nums">
-                    {meal.totalCalories.toFixed(0)}{' '}
-                    <span className="text-xs text-muted-foreground">kcal</span>
-                  </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <Value value={meal.totalCalories.toFixed(0)} />
                   <ChevronDown
+                    aria-hidden="true"
                     className={cn(
-                      'h-4 w-4 text-muted-foreground',
+                      'size-4 text-muted-foreground transition-transform motion-reduce:transition-none',
                       openMealId === meal._id && 'rotate-180',
                     )}
                   />
@@ -716,6 +708,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             <LoadingRows
               label="Loading meals"
               rows={focused ? Math.min(3, Math.max(1, focused.mealCount)) : 1}
+              className="px-4"
             />
           ) : null}
         </div>
@@ -723,6 +716,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           <Button
             className="mt-3"
             variant="outline"
+            size="sm"
             disabled={meals.status === 'LoadingMore'}
             aria-busy={meals.status === 'LoadingMore'}
             onClick={() => meals.loadMore(PAGE_SIZE)}
@@ -770,6 +764,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   )
 }
 
+// An opened meal's foods: a recessed well inset within the meal's cell, from
+// the meal name's left edge to its chevron's right edge.
+const foodGroupClass = 'mr-3.5 ml-4 rounded-xl bg-recessed [--row-inset:1rem]'
+
 function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
   const detail = useQuery(api.meals.getDetail, { mealId: meal._id })
   const archive = useMutation(api.nutrition.setMealArchived)
@@ -788,40 +786,43 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
       <LoadingRows
         label="Loading meal details"
         rows={Math.min(3, Math.max(1, meal.itemCount))}
-        className="pb-5"
+        className={cn(foodGroupClass, 'pr-5.5 pl-4')}
       />
     )
   if (!detail)
     return (
-      <p className="pb-5 text-sm text-muted-foreground">
+      <p className="px-4 pb-4 type-subhead text-muted-foreground">
         This meal is no longer available.
       </p>
     )
+  // The foods nest under the meal in a quiet recessed group, then the
+  // meal's actions. The kcal column and the action group end where the meal
+  // row's kcal does (its chevron column, 14 + 16 + 6px, from the cell edge).
   return (
-    <div className="pb-5">
-      <div className="divide-y overflow-hidden rounded-lg bg-card">
+    <div className="pb-0.5">
+      <div className={cn(foodGroupClass, 'inset-rows')}>
         {detail.items.map((item) => (
           <div
             key={item._id}
-            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 p-3"
+            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5 py-2.5 pr-5.5 pl-4"
           >
-            <p className="text-sm font-medium">{item.nameSnapshot}</p>
-            <p className="text-sm tabular-nums">
-              {item.caloriesSnapshot.toFixed(0)} kcal
+            <p className="type-subhead">{item.nameSnapshot}</p>
+            <p className="text-right">
+              <Value size="child" value={item.caloriesSnapshot.toFixed(0)} />
             </p>
             {item.sourceType !== 'fixedCalories' ? (
-              <p className="text-xs text-muted-foreground">
-                {`${item.consumedWeightGrams} g · ${item.kcalPer100Snapshot} kcal / 100 ${item.kcalBasisUnitSnapshot}`}
+              <p className="type-footnote text-muted-foreground tabular-nums">
+                {`${item.consumedWeightGrams} g · ${item.kcalPer100Snapshot} kcal/100 ${item.kcalBasisUnitSnapshot}`}
               </p>
             ) : item.foodIdentity?.servingLabel ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="type-footnote text-muted-foreground tabular-nums">
                 {`${item.servingCount ?? 1} ${item.foodIdentity.servingLabel}`}
               </p>
             ) : null}
-            <div className="col-span-full">
+            <div className="col-span-full empty:hidden">
               <EstimateNotice provenance={item.nutritionProvenance} />
               {item.notes ? (
-                <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                <p className="mt-1 whitespace-pre-wrap type-footnote text-muted-foreground">
                   {item.notes}
                 </p>
               ) : null}
@@ -830,22 +831,26 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
         ))}
       </div>
       {detail.meal.notes ? (
-        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+        <p className="py-2.5 pr-4 pl-8 type-subhead whitespace-pre-wrap text-muted-foreground">
           {detail.meal.notes}
         </p>
       ) : null}
       <fieldset
         disabled={isRunning}
-        className="mt-3 flex flex-wrap items-center justify-end gap-2"
+        className="flex flex-wrap items-center justify-end gap-2 py-2.5 pr-9 pl-8"
       >
-        {/* One right-aligned group: overflow, then Archive, then Edit meal. */}
+        {/* One tight right-aligned group: overflow, then Archive, then Edit
+            meal, ending on the foods' kcal column. The ghost actions trim
+            their side padding (the overflow overlaps the gap), so the visible
+            gaps match the 8px one before Edit meal instead of spreading the
+            group across the row. */}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
-                size="icon"
+                size="icon-sm"
                 variant="ghost"
-                className="size-10 text-muted-foreground"
+                className="-mr-2 text-muted-foreground"
                 aria-label="More meal actions"
               />
             }
@@ -873,7 +878,8 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
         </DropdownMenu>
         <Button
           variant="ghost"
-          className="h-10 text-muted-foreground"
+          size="sm"
+          className="px-2.5 text-muted-foreground"
           onClick={() =>
             void runAction(
               meal.archived ? 'Meal restored.' : 'Meal archived.',
@@ -889,7 +895,7 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
           <Archive />
           {meal.archived ? 'Restore' : 'Archive'}
         </Button>
-        <Button variant="secondary" className="h-10" onClick={onEdit}>
+        <Button variant="outline" size="sm" onClick={onEdit}>
           <Pencil />
           Edit meal
         </Button>

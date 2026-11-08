@@ -1,5 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { ChevronRight, Download, Share, SquarePlus, X } from 'lucide-react'
+import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useInstall } from './install-provider'
@@ -42,11 +43,11 @@ export function InstallEntry({
           <button
             ref={trigger}
             type="button"
-            className="flex min-h-14 w-full items-center justify-between gap-4 py-5 text-left text-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+            className={LIST_ROW_CLASS}
             onClick={() => void activate()}
             disabled={install.pending}
           >
-            <span className="font-medium">Add to your device</span>
+            <span className="min-w-0 flex-1">Add to your device</span>
             <ChevronRight
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
@@ -55,24 +56,22 @@ export function InstallEntry({
         ) : (
           <section
             aria-label="Add Calorie Counter to your device"
-            className="mt-6 rounded-lg border border-border/60 p-4"
+            className="mt-6 inset-group p-4"
           >
             <div className="flex items-start gap-3">
               <Download
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                 aria-hidden="true"
+                className="mt-0.5 size-5 shrink-0 text-muted-foreground"
               />
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-medium">
-                  Keep Calorie Counter handy
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <h2 className="type-headline">Keep Calorie Counter handy</h2>
+                <p className="mt-1 type-subhead text-muted-foreground">
                   Add it to your home screen for quicker meal logging.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     ref={trigger}
-                    variant="outline"
+                    size="sm"
                     onClick={() => void activate()}
                     disabled={install.pending}
                   >
@@ -84,6 +83,7 @@ export function InstallEntry({
                   </Button>
                   <Button
                     variant="ghost"
+                    size="sm"
                     onClick={install.dismiss}
                     disabled={install.pending}
                   >
@@ -96,17 +96,17 @@ export function InstallEntry({
         )
       ) : null}
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm" />
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40 dark:bg-black/75" />
         <Dialog.Popup
           finalFocus={trigger}
-          className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-background p-5 shadow-xl outline-none"
+          className="elevated fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl bg-background p-5 shadow-[0_20px_60px_-12px_oklch(0_0_0/0.35)] outline-none"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <Dialog.Title className="text-lg font-semibold">
+              <Dialog.Title className="type-title">
                 Add to your device
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+              <Dialog.Description className="mt-1 type-subhead text-muted-foreground">
                 Open Calorie Counter like an app next time.
               </Dialog.Description>
             </div>
@@ -115,6 +115,7 @@ export function InstallEntry({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="-mt-2 -mr-2 text-muted-foreground"
                   aria-label="Close installation steps"
                 />
               }

@@ -187,7 +187,7 @@ describe('Today intake dashboard', () => {
       )
       expect(intake.getByText(number)).toBeTruthy()
       expect(intake.getByText(label)).toBeTruthy()
-      fireEvent.click(screen.getByRole('button', { name: 'Household intake' }))
+      fireEvent.click(screen.getByRole('button', { name: /^Switch person/ }))
       expect(
         screen.getByRole('button', {
           name: `Alex: ${logged} of 2200 kcal logged, ${accessible}`,
@@ -198,7 +198,14 @@ describe('Today intake dashboard', () => {
   it('shows server totals independently of loaded meals without mounting entry dependencies', () => {
     show()
     expect(screen.getAllByText('950')).toHaveLength(1)
-    expect(screen.getAllByText('1250 / 2200 kcal logged')).toHaveLength(1)
+    // The figures are styled apart from the label, so match the whole line.
+    expect(
+      screen.getAllByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent === '1250 / 2200 kcal logged',
+      ),
+    ).toHaveLength(1)
     expect(screen.queryByRole('button', { name: /^Sam/ })).toBeNull()
     expect(screen.queryByRole('link', { name: 'View history' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Archived meals' })).toBeNull()
@@ -227,7 +234,7 @@ describe('Today intake dashboard', () => {
     show()
     expect(screen.getByRole('region', { name: 'Sam’s intake' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /^Alex/ })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Household intake' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Switch person/ }))
     expect(
       screen.getByRole('button', { name: /^Sam/ }).getAttribute('aria-pressed'),
     ).toBe('true')
@@ -340,7 +347,7 @@ describe('Today intake dashboard', () => {
     expect(screen.queryByRole('button', { name: 'Log meal' })).toBeNull()
     expect(screen.queryByRole('region', { name: 'Alex’s intake' })).toBeNull()
     expect(
-      screen.getByRole('combobox', { name: 'Person' }).textContent,
+      screen.getByRole('combobox', { name: /^Switch person/ }).textContent,
     ).toContain('Alex')
     expect(
       mocks.page.mock.calls.some(

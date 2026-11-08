@@ -17,9 +17,6 @@ type PageShellProps = {
   subtitle?: string
   eyebrow?: string
   maxWidth?: keyof typeof WIDTH_CLASS_MAP
-  showArchived?: boolean
-  onShowArchivedChange?: (checked: boolean) => void
-  showArchivedLabel?: string
   children: ReactNode
   contentClassName?: string
   headerClassName?: string
@@ -31,18 +28,16 @@ export function PageShell({
   breadcrumbs,
   subtitle,
   maxWidth = '7xl',
-  showArchived,
-  onShowArchivedChange,
-  showArchivedLabel = 'Show archived',
   children,
   contentClassName,
   headerClassName,
 }: PageShellProps) {
   return (
     <main className={SHELL_BACKGROUND_CLASS}>
+      {/* Phones have no app bar, so a page opens on its large title. */}
       <section
         className={cn(
-          'mx-auto w-full px-4 py-5 sm:px-6 sm:py-6',
+          'mx-auto w-full px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-6 sm:px-6 md:pt-8',
           WIDTH_CLASS_MAP[maxWidth],
           contentClassName,
         )}
@@ -56,25 +51,14 @@ export function PageShell({
         >
           {header ?? (
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                {title}
-              </h1>
+              <h1 className="type-large-title text-foreground">{title}</h1>
               {subtitle ? (
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
+                <p className="mt-1 type-subhead text-muted-foreground">
+                  {subtitle}
+                </p>
               ) : null}
             </div>
           )}
-          {typeof showArchived === 'boolean' && onShowArchivedChange ? (
-            <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(event) => onShowArchivedChange(event.target.checked)}
-                className="accent-primary"
-              />
-              {showArchivedLabel}
-            </label>
-          ) : null}
         </div>
 
         {children}

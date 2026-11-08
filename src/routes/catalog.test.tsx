@@ -5,7 +5,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from '@testing-library/react'
 import { getFunctionName } from 'convex/server'
 import type { ComponentType } from 'react'
@@ -91,6 +90,16 @@ const fractionalIngredient = {
   _id: 'ingredient-fractional' as Id<'ingredients'>,
   name: 'Oat milk',
   kcalPer100: 52.5,
+}
+
+const notCountedIngredient = {
+  ...ingredient,
+  _id: 'ingredient-not-counted' as Id<'ingredients'>,
+  name: 'Black coffee',
+  brand: undefined,
+  kcalPer100: 2,
+  kcalBasisUnit: 'ml' as const,
+  ignoreCalories: true,
 }
 
 const recipe = {
@@ -213,6 +222,7 @@ vi.mock('convex/react', () => ({
           ingredientWithUnloadedActiveGroup,
           ingredientPerPiece,
           fractionalIngredient,
+          notCountedIngredient,
         ],
         paginationStatus,
         ingredientLoadMore,
@@ -253,8 +263,14 @@ vi.mock('convex/react', () => ({
 
 import { Route as CatalogRoute } from '@/routes/catalog'
 
+// These tests cover the sections themselves; catalog-sections.test.tsx
+// covers reaching them through the router.
+let section: 'ingredients' | 'recipes' = 'ingredients'
+
 beforeEach(() => {
   vi.clearAllMocks()
+  section = 'ingredients'
+  vi.spyOn(CatalogRoute, 'useSearch').mockImplementation(() => ({ section }))
   queryCalls.length = 0
   mutationCalls.length = 0
   paginationStatus = 'CanLoadMore'
@@ -272,11 +288,12 @@ describe('Catalog route', () => {
       screen.getByRole('button', { name: 'Load more ingredients' }),
     )
     expect(ingredientLoadMore).toHaveBeenCalledWith(20)
-    fireEvent.click(screen.getByText('Add ingredient', { selector: 'summary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New ingredient' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Load more ingredient groups' }),
     )
     expect(groupLoadMore).toHaveBeenCalledWith(20)
+    fireEvent.click(screen.getByRole('button', { name: 'Close editor' }))
 
     fireEvent.change(screen.getByLabelText('Search ingredients'), {
       target: { value: 'quinoa' },
@@ -292,6 +309,7 @@ describe('Catalog route', () => {
   })
 
   it('loads only the selected recipe detail and hydrates its draft once', async () => {
+    section = 'recipes'
     const view = renderCatalogRoute()
 
     expect(
@@ -300,11 +318,8 @@ describe('Catalog route', () => {
       ),
     ).toBe(false)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
-    const recipeRow = screen.getByText('Overnight oats').closest('tr')
-    expect(recipeRow).not.toBeNull()
     recipeDetailResult = undefined
-    fireEvent.click(within(recipeRow!).getByRole('button', { name: 'Edit' }))
+    openRecord('Overnight oats')
 
     expect(
       (screen.getByRole('button', { name: 'Save recipe' }) as HTMLButtonElement)
@@ -330,15 +345,12 @@ describe('Catalog route', () => {
       (screen.getByRole('button', { name: 'Save recipe' }) as HTMLButtonElement)
         .disabled,
     ).toBe(false)
-    const editingButton = screen.getByRole('button', { name: 'Editing' })
-    expect((editingButton as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(editingButton)
     expect(
       (screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement)
         .value,
     ).toBe('Chill overnight.')
     expect(screen.getByDisplayValue('80')).toBeTruthy()
-    expect(screen.getAllByText('370 kcal / 100 g').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('370 kcal/100 g').length).toBeGreaterThan(0)
     expect(queryCalls).toContainEqual({
       name: 'recipes:getCurrent',
       args: { recipeId: recipe._id },
@@ -382,11 +394,9 @@ describe('Catalog route', () => {
   })
 
   it('preserves recipe version ingredient identities on an instructions-only save', async () => {
+    section = 'recipes'
     renderCatalogRoute()
-    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
-    const recipeRow = screen.getByText('Overnight oats').closest('tr')
-    expect(recipeRow).not.toBeNull()
-    fireEvent.click(within(recipeRow!).getByRole('button', { name: 'Edit' }))
+    openRecord('Overnight oats')
     await waitFor(() =>
       expect(
         (screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement)
@@ -421,11 +431,9 @@ describe('Catalog route', () => {
   })
 
   it('preserves local recipe edits when a newer live version arrives', async () => {
+    section = 'recipes'
     const view = renderCatalogRoute()
-    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
-    const recipeRow = screen.getByText('Overnight oats').closest('tr')
-    expect(recipeRow).not.toBeNull()
-    fireEvent.click(within(recipeRow!).getByRole('button', { name: 'Edit' }))
+    openRecord('Overnight oats')
     await waitFor(() =>
       expect(
         (screen.getByLabelText('Recipe instructions') as HTMLTextAreaElement)
@@ -465,16 +473,16 @@ describe('Catalog route', () => {
   })
 
   it('retains a server-search ingredient after the search changes', async () => {
+    section = 'recipes'
     renderCatalogRoute()
-    fireEvent.click(screen.getByRole('tab', { name: 'Recipes' }))
-    fireEvent.click(screen.getByText('Create recipe', { selector: 'summary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New recipe' }))
     fireEvent.change(screen.getByLabelText('Search recipe ingredients'), {
       target: { value: 'quinoa' },
     })
 
-    const quinoaRow = (await screen.findByText('Quinoa')).closest('tr')
-    expect(quinoaRow).not.toBeNull()
-    fireEvent.click(within(quinoaRow!).getByRole('button', { name: 'Use' }))
+    const quinoaRow = await screen.findByRole('button', { name: /^Quinoa/ })
+    fireEvent.click(quinoaRow)
+    expect(quinoaRow.getAttribute('aria-pressed')).toBe('true')
     fireEvent.change(screen.getByLabelText('Search recipe ingredients'), {
       target: { value: '' },
     })
@@ -517,14 +525,14 @@ describe('Catalog route', () => {
   it('offers only the current archived group while editing its ingredient', async () => {
     renderCatalogRoute()
 
-    const groupSelect = screen.getByLabelText('Ingredient group')
-    expect(groupSelect.textContent).not.toContain('Legacy staples')
-
-    const ingredientRow = screen.getByText('Millet').closest('tr')
-    expect(ingredientRow).not.toBeNull()
-    fireEvent.click(
-      within(ingredientRow!).getByRole('button', { name: 'Edit' }),
+    fireEvent.click(screen.getByRole('button', { name: 'New ingredient' }))
+    expect(screen.getByLabelText('Ingredient group').textContent).not.toContain(
+      'Legacy staples',
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Close editor' }))
+
+    openRecord('Millet')
+    const groupSelect = screen.getByLabelText('Ingredient group')
 
     await waitFor(() =>
       expect(groupSelect.textContent).toContain('Legacy staples (archived)'),
@@ -540,20 +548,14 @@ describe('Catalog route', () => {
         }),
       }),
     )
-    expect(groupSelect.textContent).not.toContain('Legacy staples')
+    expect(screen.queryByLabelText('Ingredient group')).toBeNull()
   })
 
   it('keeps an unloaded active current group visible while editing', async () => {
     renderCatalogRoute()
 
+    openRecord('Barley')
     const groupSelect = screen.getByLabelText('Ingredient group')
-    expect(groupSelect.textContent).not.toContain('Later-page staples')
-
-    const ingredientRow = screen.getByText('Barley').closest('tr')
-    expect(ingredientRow).not.toBeNull()
-    fireEvent.click(
-      within(ingredientRow!).getByRole('button', { name: 'Edit' }),
-    )
 
     await waitFor(() =>
       expect(groupSelect.textContent).toContain('Later-page staples'),
@@ -577,12 +579,12 @@ describe('Catalog route', () => {
   it('shows and preserves a non-gram ingredient kcal basis while editing', async () => {
     renderCatalogRoute()
 
-    expect(screen.getByText('155 kcal / 100 piece')).toBeTruthy()
-    const ingredientRow = screen.getByText('Egg').closest('tr')
-    expect(ingredientRow).not.toBeNull()
-    fireEvent.click(
-      within(ingredientRow!).getByRole('button', { name: 'Edit' }),
-    )
+    expect(
+      screen.getByRole('button', {
+        name: /^Edit Egg .*per 100 piece 155 kcal$/,
+      }),
+    ).toBeTruthy()
+    openRecord('Egg')
 
     const basisSelect = screen.getByLabelText('Ingredient kcal basis')
     expect(basisSelect.textContent).toContain('piece')
@@ -598,14 +600,23 @@ describe('Catalog route', () => {
       }),
     )
   })
+  it('says when an ingredient is not counted', () => {
+    renderCatalogRoute()
+
+    expect(
+      screen.getByRole('button', {
+        name: /^Edit Black coffee Not counted · Staples · per 100 ml 2 kcal$/,
+      }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: /^Edit Oats Mill · Staples / }),
+    ).toBeTruthy()
+  })
+
   it('keeps fractional kcal/100 when an ingredient is edited', async () => {
     renderCatalogRoute()
 
-    const ingredientRow = screen.getByText('Oat milk').closest('tr')
-    expect(ingredientRow).not.toBeNull()
-    fireEvent.click(
-      within(ingredientRow!).getByRole('button', { name: 'Edit' }),
-    )
+    openRecord('Oat milk')
     fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
 
     await waitFor(() =>
@@ -628,11 +639,15 @@ function paginated(
   return { results, status, isLoading: false, loadMore }
 }
 
+function openRecord(name: string) {
+  fireEvent.click(
+    screen.getByRole('button', { name: new RegExp(`^Edit ${name}\\b`) }),
+  )
+}
+
 function renderCatalogRoute() {
   const Component = CatalogRoute.options.component as ComponentType
-  const view = render(<Component />)
-  fireEvent.click(screen.getByRole('tab', { name: 'Ingredients' }))
-  return view
+  return render(<Component />)
 }
 
 type PaginationStatus =

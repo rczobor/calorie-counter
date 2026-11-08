@@ -56,16 +56,17 @@ afterEach(cleanup)
 
 describe('Reusable food library', () => {
   it('explains the stored portion and nutrition source without a nutrition editor', () => {
-    render(<SavedFoods showArchived={false} />)
-    expect(screen.getByText('14 kcal / saved portion')).toBeTruthy()
-    fireEvent.click(screen.getByText('Vitamins', { selector: 'summary' }))
+    render(<SavedFoods showArchived={false} onShowArchivedChange={vi.fn()} />)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Vitamins 14 kcal / saved portion' }),
+    )
     expect(screen.getByText(/entire originally logged item/)).toBeTruthy()
     expect(screen.getByText('Nutrition source')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
   })
   it('archives or restores the selected reusable food and keeps pagination explicit', async () => {
-    render(<SavedFoods showArchived />)
-    fireEvent.click(screen.getByText('Vitamins', { selector: 'summary' }))
+    render(<SavedFoods showArchived onShowArchivedChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Vitamins/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
     await waitFor(() =>
       expect(archive).toHaveBeenCalledWith({
@@ -74,7 +75,7 @@ describe('Reusable food library', () => {
       }),
     )
     fireEvent.click(
-      screen.getByText('Older vitamins · Archived', { selector: 'summary' }),
+      screen.getByRole('button', { name: /^Older vitamins Archived/ }),
     )
     fireEvent.click(screen.getByRole('button', { name: 'Restore' }))
     await waitFor(() =>

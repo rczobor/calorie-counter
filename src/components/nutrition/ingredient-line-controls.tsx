@@ -1,5 +1,9 @@
 import { Switch } from '@/components/ui/switch'
-import { Toggle } from '@/components/ui/toggle'
+import {
+  SEGMENT_CLASS,
+  SEGMENT_LIST_CLASS,
+  SegmentedTrack,
+} from '@/components/ui/segmented'
 import { cn } from '@/lib/utils'
 
 type IngredientLineMode = 'ingredient' | 'custom'
@@ -20,34 +24,26 @@ export function IngredientLineModeToggle({
   className,
 }: IngredientLineModeToggleProps) {
   return (
-    <div
-      className={cn(
-        'inline-flex rounded-xl border border-border/80 bg-muted/35 p-1',
-        className,
-      )}
-    >
-      {(
-        [
-          ['ingredient', existingLabel],
-          ['custom', customLabel],
-        ] as const
-      ).map(([mode, label]) => (
-        <Toggle
-          key={mode}
-          variant="default"
-          size="lg"
-          pressed={value === mode}
-          onPressedChange={(pressed) => {
-            if (pressed) {
-              onValueChange(mode)
-            }
-          }}
-          className="h-8 rounded-lg px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-xs"
-        >
-          {label}
-        </Toggle>
-      ))}
-    </div>
+    <SegmentedTrack className={cn('w-fit', className)}>
+      <div className={SEGMENT_LIST_CLASS}>
+        {(
+          [
+            ['ingredient', existingLabel],
+            ['custom', customLabel],
+          ] as const
+        ).map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={value === mode}
+            className={SEGMENT_CLASS}
+            onClick={() => onValueChange(mode)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </SegmentedTrack>
   )
 }
 
@@ -69,11 +65,11 @@ export function CustomIngredientSwitchRow({
   return (
     <div
       className={cn(
-        'col-span-full flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground',
+        'col-span-full flex flex-wrap items-center gap-x-5 gap-y-1 type-subhead text-foreground',
         className,
       )}
     >
-      <label className="inline-flex items-center gap-2">
+      <label className="inline-flex min-h-10 items-center gap-2.5">
         <span>Ignore calories</span>
         <Switch
           size="sm"
@@ -83,7 +79,7 @@ export function CustomIngredientSwitchRow({
           }
         />
       </label>
-      <label className="inline-flex items-center gap-2">
+      <label className="inline-flex min-h-10 items-center gap-2.5">
         <span>Save to ingredient catalog</span>
         <Switch
           size="sm"

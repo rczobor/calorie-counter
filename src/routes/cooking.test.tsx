@@ -187,7 +187,7 @@ afterEach(() => {
 describe('cooked batches', () => {
   it('starts with inspection, avoiding catalog queries and manual creation controls', () => {
     render(<Page />)
-    expect(screen.getByRole('heading', { name: 'Cooked batches' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Cooking' })).toBeTruthy()
     expect(screen.queryByText('Food editor')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Start cooking' })).toBeNull()
     expect(
@@ -205,6 +205,14 @@ describe('cooked batches', () => {
           args !== 'skip',
       ),
     ).toBe(false)
+  })
+  it('leads a cooked food row with plain kcal and puts the basis in its subtitle', () => {
+    render(<Page />)
+    expect(
+      screen.getByRole('button', {
+        name: 'Chili 1000 g cooked · per 100 g 120 kcal',
+      }),
+    ).toBeTruthy()
   })
   it('loads only opened food details and reveals historical nutrition and source notes', async () => {
     render(<Page />)
@@ -340,9 +348,10 @@ describe('cooked batches', () => {
   })
   it('preserves the original timestamp and local search date on a label-only batch edit', async () => {
     render(<Page />)
-    fireEvent.click(screen.getByRole('button', { name: 'Batches' }))
-    fireEvent.click(screen.getByText('Manage'))
-    fireEvent.click(screen.getByRole('button', { name: 'Edit batch' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Batches' }))
+    fireEvent.click(screen.getByRole('button', { name: /Weekend cooking/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Batch actions' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit batch' }))
     fireEvent.change(screen.getByLabelText('Batch label'), {
       target: { value: 'Updated label' },
     })

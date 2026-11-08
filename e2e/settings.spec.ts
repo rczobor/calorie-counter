@@ -50,7 +50,7 @@ for (const width of [390, 1440]) {
       } else {
         await expect(search).toBeVisible()
         await expect(
-          page.getByRole('heading', { name: 'Cooked batches', level: 1 }),
+          page.getByRole('heading', { name: 'Cooking', level: 1 }),
         ).toBeVisible()
       }
       await expect(
@@ -73,7 +73,7 @@ for (const width of [390, 1440]) {
       await page.keyboard.press('Escape')
       await page
         .getByRole('navigation', { name: 'breadcrumb' })
-        .getByRole('button', { name: 'Cooked batches' })
+        .getByRole('button', { name: 'Cooking' })
         .click()
       await expect(details).toHaveCount(0)
       await expect(food).toBeFocused()
@@ -91,7 +91,7 @@ for (const width of [390, 1440]) {
         ).toBeVisible()
         if (route === '/people')
           await expect(
-            page.getByRole('button', { name: 'Edit Alex', exact: true }),
+            page.getByRole('button', { name: /^Edit Alex\b/ }),
           ).toBeVisible()
         if (route === '/household')
           await expect(page.getByLabel('Household name')).toBeVisible()

@@ -137,17 +137,23 @@ describe('Meal editor', () => {
     window.localStorage.setItem('calorie-counter:person:meal-user', viki._id)
     configureMutationMocks()
     const view = renderMealsRoute()
-    expect(screen.getByLabelText('Select person').textContent).toContain('Viki')
+    expect(screen.getByLabelText(/^Switch person/).textContent).toContain(
+      'Viki',
+    )
     expect(
       window.localStorage.getItem('calorie-counter:person:meal-user'),
     ).toBe(viki._id)
     view.unmount()
     const restored = renderMealsRoute()
-    expect(screen.getByLabelText('Select person').textContent).toContain('Viki')
+    expect(screen.getByLabelText(/^Switch person/).textContent).toContain(
+      'Viki',
+    )
     restored.unmount()
     mockDraftIdentity = { isLoaded: true, userId: 'another-account' }
     renderMealsRoute()
-    expect(screen.getByLabelText('Select person').textContent).toContain('Alex')
+    expect(screen.getByLabelText(/^Switch person/).textContent).toContain(
+      'Alex',
+    )
   })
 
   it('requires an explicit replacement for an unavailable saved person', () => {
@@ -158,7 +164,7 @@ describe('Meal editor', () => {
     configureMutationMocks()
     renderMealsRoute()
     expect(screen.getByText(/selected person is unavailable/)).toBeTruthy()
-    expect(screen.getByLabelText('Select person').textContent).toContain(
+    expect(screen.getByLabelText(/^Switch person/).textContent).toContain(
       'Select person',
     )
     expect(screen.getByRole('button', { name: 'Save meal' })).toHaveProperty(
@@ -638,7 +644,9 @@ describe('Meal editor', () => {
     })
     expect(screen.getByText('150 kcal')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Update' }))
-    expect(mealItemText('Rice')).toContain('150 g · 150 kcal')
+    // Grams are the secondary line; kcal sits in the row's right column.
+    expect(mealItemText('Rice')).toContain('150 g')
+    expect(mealItemText('Rice')).toContain('150 kcal')
   })
 
   it('retains the complete original item set when replacing every meal item', async () => {
@@ -922,7 +930,7 @@ describe('Meal editor', () => {
     expect(results()[8].textContent).toContain('Apr 9')
     // No session yet: no date, never the entry date.
     expect(results()[0].textContent).toBe(
-      'LasagnaCooked batch · 300 kcal / 100 g',
+      'LasagnaCooked batch · 300 kcal/100 g',
     )
     // A new search starts short again.
     searchFoods('lasagn')
@@ -1007,7 +1015,8 @@ describe('Meal editor', () => {
     searchFoods('café')
     pickResult(/^Café stop/)
     expect(mealItemText('Almond croissant')).toContain('420 kcal')
-    expect(mealItemText('Oat milk')).toContain('200 g · 90 kcal')
+    expect(mealItemText('Oat milk')).toContain('200 g')
+    expect(mealItemText('Oat milk')).toContain('90 kcal')
     expect(screen.getByLabelText('Meal name')).toHaveProperty(
       'value',
       'Café stop',
