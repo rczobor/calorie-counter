@@ -11,7 +11,7 @@ bounded domain queries as production (`people:list`, `catalog:listIngredients`,
 `meals:listForDay`, `meals:getDaySummary`, and `meals:getDetail`). It also serves
 the date-aware `people:listForDay` and `meals:getDayNutrition` reads, history,
 reusable-food archive/restore, account logging defaults, focused cooking edits,
-and meal correction. It serves two synthetic households and people, household membership
+meal correction, and recording, correcting and deleting weights. It serves two synthetic households and people, household membership
 settings, and the bootstrap mutation. It supports `nutrition:createMeal` for
 the browser flow. Household tests verify device selections and draft isolation
 across switching and refresh; backend tests cover actual membership and data

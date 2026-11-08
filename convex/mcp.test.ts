@@ -27,6 +27,8 @@ import {
   templateResult,
   templateSearchResult,
   reuseSuggestions,
+  weightHistoryResult,
+  weightRecordResult,
 } from './mcpValidators'
 import {
   createConvexTest,
@@ -2500,6 +2502,93 @@ describe('MCP reuse tool protocol', () => {
         })
       ).status,
     ).toBe(403)
+    expect(mcp.lint()).toEqual([])
+  })
+})
+
+describe('MCP weight tools', () => {
+  it('records a stated weight, guards replacements and pages history', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const own = await credential(t)
+    const record = (weightKg: number, expectedEditRevision?: number) =>
+      call(t, own.token, 'record_weight', {
+        personId,
+        measuredOn: '2026-11-08',
+        weightKg,
+        expectedEditRevision,
+      })
+
+    const created = await output(await record(82.4), weightRecordResult)
+    expect(created).toMatchObject({
+      change: 'created',
+      person: 'Alex',
+      entry: { measuredOn: '2026-11-08', weightKg: 82.4, editRevision: 0 },
+      url: `https://app.example.test/weight?householdId=${created.householdId}&personId=${personId}`,
+    })
+    // An uncertain save retried with the same input is harmless.
+    expect(await output(await record(82.4), weightRecordResult)).toMatchObject({
+      change: 'unchanged',
+      entry: { entryId: created.entry.entryId },
+    })
+    expect(await (await record(81.9)).json()).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            text: expect.stringContaining(
+              'already recorded as 82.4 kg (edit revision 0)',
+            ),
+          },
+        ],
+      },
+    })
+    expect(
+      await output(await record(81.9, 0), weightRecordResult),
+    ).toMatchObject({
+      change: 'updated',
+      previousWeightKg: 82.4,
+      entry: { editRevision: 1 },
+    })
+
+    await call(t, own.token, 'record_weight', {
+      personId,
+      measuredOn: '2026-11-01',
+      weightKg: 83,
+    })
+    const history = await output(
+      await call(t, own.token, 'get_weight_history', {
+        personId,
+        startDate: '2026-11-02',
+      }),
+      weightHistoryResult,
+    )
+    expect(history).toMatchObject({ person: 'Alex', cursor: null })
+    expect(history.entries.map((entry) => entry.weightKg)).toEqual([81.9])
+
+    const reader = await credential(t, TEST_TOKEN_IDENTIFIER, [
+      'nutrition:read',
+    ])
+    expect(
+      (
+        await call(t, reader.token, 'record_weight', {
+          personId,
+          measuredOn: '2026-11-09',
+          weightKg: 80,
+        })
+      ).status,
+    ).toBe(403)
+    const stranger = await credential(t, 'user-2|token')
+    expect(
+      await (
+        await call(t, stranger.token, 'get_weight_history', { personId })
+      ).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ text: expect.stringContaining('Person not found.') }],
+      },
+    })
     expect(mcp.lint()).toEqual([])
   })
 })

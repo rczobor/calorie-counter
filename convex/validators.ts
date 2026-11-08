@@ -77,6 +77,17 @@ export const personGoalHistoryFields = {
   createdAt: v.number(),
 }
 
+// One body weight per person per local calendar day, in kilograms.
+export const weightEntriesFields = {
+  ...ownerFields,
+  personId: v.id('people'),
+  measuredOn: v.string(),
+  weightKg: v.number(),
+  editRevision: v.number(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+}
+
 export const foodGroupsFields = {
   ...ownerFields,
   name: v.string(),

@@ -24,6 +24,7 @@ function SettingsPage() {
       <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
       <div className="mt-6 divide-y border-y border-border/60">
         <SettingsLink to="/people" title="People & goals" />
+        <SettingsLink to="/weight" title="Weight" />
         <SettingsLink to="/settings/integrations" title="AI assistants" />
         <SettingsLink to="/household" title="Household" />
         <InstallEntry variant="settings" />
@@ -45,6 +46,7 @@ function SettingsLink({
 }: {
   to:
     | '/people'
+    | '/weight'
     | '/settings/integrations'
     | '/household'
     | '/catalog'

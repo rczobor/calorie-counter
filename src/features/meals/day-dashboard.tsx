@@ -32,6 +32,7 @@ import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import { readMealDraft, writeMealDraft } from '@/features/meals/meal-draft'
 import { subscribeLogMeal } from '@/features/meals/log-meal-request'
+import { WeightGlance } from '@/features/weight/weight-glance'
 import { InstallEntry } from '@/features/install/install-entry'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
@@ -471,6 +472,16 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </p>
             )}
           </section>
+        ) : null}
+        {!archived && selected && !loadingPerson ? (
+          <div className="mt-1">
+            <WeightGlance
+              personId={selected._id}
+              personName={selected.name}
+              date={date}
+              today={today}
+            />
+          </div>
         ) : null}
         {!archived && showHousehold ? (
           <section

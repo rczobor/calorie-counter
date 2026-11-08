@@ -301,7 +301,7 @@ describe('nutrition people mutations', () => {
         expectedEditRevision: await readEditRevision(t, personId),
       }),
     ).rejects.toThrowError(
-      'Cannot delete person with meal/cooking history. Archive instead.',
+      'Cannot delete person with meal, cooking or weight history. Archive instead.',
     )
   })
 
@@ -321,7 +321,7 @@ describe('nutrition people mutations', () => {
         expectedEditRevision: await readEditRevision(t, personId),
       }),
     ).rejects.toThrowError(
-      'Cannot delete person with meal/cooking history. Archive instead.',
+      'Cannot delete person with meal, cooking or weight history. Archive instead.',
     )
   })
 

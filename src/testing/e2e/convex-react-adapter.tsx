@@ -74,6 +74,7 @@ export type MockState = {
   savedFoodArchived: boolean
   preferences: FunctionReturnType<typeof api.mcpPreferences.get>
   connected: boolean
+  weights: Array<Doc<'weightEntries'>>
 }
 
 const ownerTokenIdentifier = 'e2e-user|mock-token'
@@ -227,6 +228,7 @@ function createInitialState(): MockState {
     savedFoodArchived: false,
     preferences: initialPreferences,
     connected: true,
+    weights: [],
   }
 }
 
@@ -394,6 +396,22 @@ function createMeal(args: CreateMealArgs) {
     nextId: state.nextId + 1,
   })
   return mealId
+}
+
+function weightDto(entry: Doc<'weightEntries'>) {
+  return {
+    _id: entry._id,
+    personId: entry.personId,
+    measuredOn: entry.measuredOn,
+    weightKg: entry.weightKg,
+    editRevision: entry.editRevision,
+  }
+}
+
+function weightsFor(snapshot: MockState, personId: Id<'people'>) {
+  return snapshot.weights
+    .filter((entry) => entry.personId === personId)
+    .sort((a, b) => a.measuredOn.localeCompare(b.measuredOn))
 }
 
 function withoutOwner<T extends { ownerTokenIdentifier: string }>(document: T) {
@@ -567,6 +585,9 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
           food.cookSessionId === cookSessionId && food.archived === archived,
       )
       .map(withoutOwner)
+  } else if (functionName === 'weight:list') {
+    const { personId } = args as { personId: Id<'people'> }
+    results = weightsFor(snapshot, personId).reverse().map(weightDto)
   } else if (functionName === 'meals:listForDay') {
     const { archived, eatenOn, personId } = args as {
       archived?: boolean
@@ -683,6 +704,25 @@ export function useQuery<Query extends FunctionReference<'query'>>(
         : null
     ) as FunctionReturnType<Query>
   }
+  if (functionName === 'weight:listRange') {
+    const { personId, startDate, endDate } = args as {
+      personId: Id<'people'>
+      startDate: string
+      endDate: string
+    }
+    return weightsFor(snapshot, personId)
+      .filter(
+        (entry) => entry.measuredOn >= startDate && entry.measuredOn <= endDate,
+      )
+      .map(weightDto) as FunctionReturnType<Query>
+  }
+  if (functionName === 'weight:latestOnOrBefore') {
+    const { personId, date } = args as { personId: Id<'people'>; date: string }
+    const latest = weightsFor(snapshot, personId)
+      .filter((entry) => entry.measuredOn <= date)
+      .at(-1)
+    return (latest ? weightDto(latest) : null) as FunctionReturnType<Query>
+  }
   if (functionName === 'mcp:getAuthRequest')
     return null as FunctionReturnType<Query>
   if (functionName === 'people:get') {
@@ -750,6 +790,58 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
     async (args: FunctionArgs<Mutation>) => {
       if (functionName === 'households:ensurePersonal')
         return 'e2e-household' as FunctionReturnType<Mutation>
+      if (functionName === 'weight:record') {
+        const input = args as FunctionArgs<typeof api.weight.record>
+        const existing = state.weights.find(
+          (entry) =>
+            entry.personId === input.personId &&
+            entry.measuredOn === input.measuredOn,
+        )
+        if (existing && existing.weightKg !== input.weightKg) {
+          if (input.expectedEditRevision !== existing.editRevision)
+            throw new Error('Weight changed since it was read.')
+          publish({
+            ...state,
+            weights: state.weights.map((entry) =>
+              entry === existing
+                ? {
+                    ...entry,
+                    weightKg: input.weightKg,
+                    editRevision: entry.editRevision + 1,
+                  }
+                : entry,
+            ),
+          })
+        }
+        if (existing) return existing._id as FunctionReturnType<Mutation>
+        const now = Date.now()
+        const entry: Doc<'weightEntries'> = {
+          _id: `e2e-weight-${state.nextId}` as Id<'weightEntries'>,
+          _creationTime: now,
+          ownerTokenIdentifier,
+          householdId,
+          personId: input.personId,
+          measuredOn: input.measuredOn,
+          weightKg: input.weightKg,
+          editRevision: 0,
+          createdAt: now,
+          updatedAt: now,
+        }
+        publish({
+          ...state,
+          nextId: state.nextId + 1,
+          weights: [...state.weights, entry],
+        })
+        return entry._id as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'weight:remove') {
+        const { entryId } = args as FunctionArgs<typeof api.weight.remove>
+        publish({
+          ...state,
+          weights: state.weights.filter((entry) => entry._id !== entryId),
+        })
+        return null as FunctionReturnType<Mutation>
+      }
       if (functionName === 'savedFoods:setArchived') {
         const savedFoodArchived = (
           args as FunctionArgs<typeof api.savedFoods.setArchived>

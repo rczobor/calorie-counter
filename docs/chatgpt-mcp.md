@@ -101,6 +101,16 @@ creation or device-code flow is exposed in this release.
   delete using `save_meal_template` with `action: edit|delete`, the current
   `expectedEditRevision`, and a new operation key. Catalog's **Meal templates**
   tab also manages names, quantities, product replacements and deletion.
+- Record a body weight the user states with `record_weight`: kilograms, one per
+  person per date, saved without a preview. Saving the weight already recorded
+  changes nothing, so an uncertain save can be retried. A different weight for
+  a date that already has one fails and names the recorded value; after the
+  user confirms, call again with that entry's `editRevision` as
+  `expectedEditRevision`. `get_weight_history` reads weights newest first, 30
+  per page, with optional inclusive `startDate` and `endDate`. Weights are
+  deleted only in the app, on the Weight page. Both tools use existing scopes
+  (`nutrition:read` to read, `meals:write` to record), so a connection only
+  needs a metadata refresh to see them.
 - Read `suggest_reusable_foods` for a logged meal. It offers at most five
   identifiable repeats supported by up to 50 matching item records per food,
   considering the first ten foods and the same person. It never saves anything;
@@ -197,7 +207,7 @@ editing. Corrected items keep their IDs. Concurrent changes require a fresh prev
 Retries reuse the exact input and operation key, even after a successful edit.
 
 MCP cannot add, remove, or replace foods within an existing meal, archive/delete
-meals, change goals, alter recipes, or save new catalog entries. Use the app for
+meals, delete weights, change goals, alter recipes, or save new catalog entries. Use the app for
 those changes and catalog management. Nutrition
 sources stated by an assistant are claims, not verified database lookups.
 

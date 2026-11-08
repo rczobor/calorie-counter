@@ -26,6 +26,7 @@ function usePathname() {
 }
 
 function isActive(pathname: string, to: (typeof NAV_ITEMS)[number]['to']) {
+  if (to === '/') return pathname === '/' || pathname === '/weight'
   if (to !== '/settings') return pathname === to
   return (
     ['/people', '/household', '/catalog', '/cooking'].includes(pathname) ||

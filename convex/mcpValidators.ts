@@ -479,3 +479,31 @@ export const reuseSuggestions = v.object({
     }),
   ),
 })
+
+export const weightEntry = v.object({
+  entryId: v.id('weightEntries'),
+  measuredOn: v.string(),
+  weightKg: v.number(),
+  editRevision: v.number(),
+})
+export const weightHistoryResult = v.object({
+  householdId: v.id('households'),
+  personId: v.id('people'),
+  person: v.string(),
+  entries: v.array(weightEntry),
+  cursor: v.union(v.string(), v.null()),
+})
+export const weightRecordResult = v.object({
+  householdId: v.id('households'),
+  personId: v.id('people'),
+  person: v.string(),
+  entry: weightEntry,
+  change: v.union(
+    v.literal('created'),
+    v.literal('updated'),
+    v.literal('unchanged'),
+  ),
+  previousWeightKg: v.optional(v.number()),
+  path: v.string(),
+  url: v.string(),
+})

@@ -22,6 +22,7 @@ import {
   peopleFields,
   personGoalHistoryFields,
   recipesFields,
+  weightEntriesFields,
   recipeVersionIngredientRecordValidator,
   recipeVersionsFields,
   nutritionProvenanceValidator,
@@ -148,6 +149,10 @@ export default defineSchema({
       'personId',
       'effectiveDate',
     ]),
+  weightEntries: defineTable(weightEntriesFields).index(
+    'by_householdId_and_personId_and_measuredOn',
+    ['householdId', 'personId', 'measuredOn'],
+  ),
   foodGroups: defineTable(foodGroupsFields)
     .index('by_householdId_and_archived_and_name', [
       'householdId',
