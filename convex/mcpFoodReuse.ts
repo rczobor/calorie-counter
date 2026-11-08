@@ -2,7 +2,12 @@ import { vMcpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import { internalMutation, type MutationCtx } from './_generated/server'
-import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
+import {
+  assertOwnedOrThrow,
+  ownerFields,
+  withoutOwner,
+  type AuthenticatedOwner,
+} from './lib/auth'
 import {
   assertArrayLimit,
   assertPositive,
@@ -485,12 +490,7 @@ export const searchMealTemplates = internalMutation({
         maximumRowsRead: 100,
       })
       return {
-        templates: page.page.map(
-          ({ householdId, ownerTokenIdentifier, ...template }) => {
-            void [householdId, ownerTokenIdentifier]
-            return template
-          },
-        ),
+        templates: page.page.map(withoutOwner),
         cursor: page.isDone ? null : page.continueCursor,
       }
     }),
@@ -530,7 +530,7 @@ export async function changeTemplate(
     const templateId =
       duplicate?._id ??
       (await ctx.db.insert('mealTemplates', {
-        ...owner,
+        ...ownerFields(owner),
         name,
         sourceMealId: input.mealId,
         sourceItemIds: items.map((item) => item._id),
@@ -594,12 +594,12 @@ export const manageMealTemplate = internalMutation({
         throw new ConvexError('Operation result is unavailable.')
       }
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const result = await changeTemplate(ctx, owner, args.input)
       await ctx.db.insert('mcpOperations', {
-        ...owner,
+        ...ownerFields(owner),
         connectionId: args.user.connectionId,
         operation: 'template',
         key: `template:${args.operationKey}`,
@@ -1073,7 +1073,7 @@ export const saveFoodFromMeal = internalMutation({
         servingCount: sourceServings,
       })
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const identityKey = savedFoodIdentityKey(
@@ -1121,7 +1121,7 @@ export const saveFoodFromMeal = internalMutation({
       const foodId: Id<'mcpSavedFoods'> =
         active?._id ??
         (await ctx.db.insert('mcpSavedFoods', {
-          ...owner,
+          ...ownerFields(owner),
           name,
           identityKey,
           foodIdentity,
@@ -1133,7 +1133,7 @@ export const saveFoodFromMeal = internalMutation({
         }))
       const result = { foodId, name, householdId: owner.householdId }
       await ctx.db.insert('mcpOperations', {
-        ...owner,
+        ...ownerFields(owner),
         connectionId: args.user.connectionId,
         operation: 'savedFood',
         key: `savedFood:${args.operationKey}`,

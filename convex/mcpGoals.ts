@@ -60,7 +60,7 @@ async function requireToday(
 ) {
   const day = normalizeRequiredDate(date, field)
   const now = Date.now()
-  const preferences = await getPreferences(ctx, owner.ownerTokenIdentifier)
+  const preferences = await getPreferences(ctx, owner)
   // get_logging_context uses the saved zone only for its own household.
   const timeZone =
     preferences?.householdId === owner.householdId
@@ -472,7 +472,7 @@ export const setGoal = internalMutation({
           editRevision: person.editRevision ?? 0,
         }
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const { previous, editRevision } = await updatePersonForOwner(

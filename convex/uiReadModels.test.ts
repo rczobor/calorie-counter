@@ -7,6 +7,7 @@ import {
   createConvexTest,
   testHouseholdId,
   TEST_TOKEN_IDENTIFIER,
+  testUserId,
 } from '../src/tests/convex-test-utils'
 
 const paginationOpts = { numItems: 20, cursor: null }
@@ -153,13 +154,12 @@ describe('account logging preference controls', () => {
         confirmationMode: 'always',
       },
     })
+    const userId = await testUserId(t)
     await t.run(async (ctx) => {
       const member = await ctx.db
         .query('householdMembers')
-        .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-          q
-            .eq('tokenIdentifier', TEST_TOKEN_IDENTIFIER)
-            .eq('householdId', householdId),
+        .withIndex('by_userId_and_householdId', (q) =>
+          q.eq('userId', userId).eq('householdId', householdId),
         )
         .unique()
       if (!member) throw new Error('Expected test membership.')

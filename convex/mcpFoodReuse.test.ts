@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import rateLimiterTest from '@convex-dev/rate-limiter/test'
 import { api, internal } from './_generated/api'
 import { resolveCookedIngredient, resolveSavedMealItem } from './mcpFoodReuse'
+import { ownerFields, requireHouseholdForAccount } from './lib/auth'
 import {
   asTestUser,
   asTestUserWithToken,
@@ -41,10 +42,9 @@ async function fixture() {
       },
     ],
   })
-  const owner = {
-    householdId: testHouseholdId(t),
-    ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
-  }
+  const owner = await t.run((ctx) =>
+    requireHouseholdForAccount(ctx, TEST_TOKEN_IDENTIFIER),
+  )
   const user = {
     userId: TEST_TOKEN_IDENTIFIER,
     connectionId: 'test-food-reuse',
@@ -348,7 +348,7 @@ describe('MCP cooked batches used in cooking', () => {
     await t.run(async (ctx) => {
       for (let index = 0; index < 20; index++) {
         await ctx.db.insert('cookedFoodIngredients', {
-          ...owner,
+          ...ownerFields(owner),
           cookedFoodId,
           sourceType: 'custom',
           ingredientNameSnapshot: `Ingredient ${index} ${'long name '.repeat(9)}`,

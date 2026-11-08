@@ -3,12 +3,8 @@ import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { ensurePersonalHousehold } from './households'
+import { ensureAccount, ownerFields, type AuthenticatedOwner } from './lib/auth'
 import { normalizeRequiredDate } from './lib/validation'
-
-type SeedOwner = {
-  householdId: Id<'households'>
-  ownerTokenIdentifier: string
-}
 
 type SeedSummary = {
   people: number
@@ -52,20 +48,13 @@ function toSearchDateString(timestamp: number) {
   return new Date(timestamp).toISOString().slice(0, 10)
 }
 
-function ownerFields(owner: SeedOwner) {
-  return {
-    householdId: owner.householdId,
-    ownerTokenIdentifier: owner.ownerTokenIdentifier,
-  }
-}
-
 async function resolveSeedOwner(
   ctx: MutationCtx,
   args: {
     ownerUserId?: string
     ownerTokenIdentifier?: string
   },
-): Promise<SeedOwner> {
+): Promise<AuthenticatedOwner> {
   const identity = await ctx.auth.getUserIdentity()
   const ownerUserId =
     normalizeOptionalString(args.ownerUserId) ??
@@ -99,9 +88,10 @@ async function resolveSeedOwner(
     throw new Error('Seed owner user id must match the token subject.')
   }
 
+  const tokenIdentifier = `${issuer}|${subject}`
   return {
-    householdId: await ensurePersonalHousehold(ctx, `${issuer}|${subject}`),
-    ownerTokenIdentifier: `${issuer}|${subject}`,
+    householdId: await ensurePersonalHousehold(ctx, tokenIdentifier),
+    ...(await ensureAccount(ctx, tokenIdentifier)),
   }
 }
 

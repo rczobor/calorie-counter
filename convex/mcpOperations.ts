@@ -15,7 +15,14 @@ export { domainResult, requireMcpOwner } from './mcpContext'
 import { resolveCookedIngredient, resolveSavedMealItem } from './mcpFoodReuse'
 import { savedFoodQuery } from './savedFoods'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
-import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
+import {
+  assertOwnedOrThrow,
+  isPersonalOwner,
+  listMemberships,
+  ensureAccount,
+  ownerFields,
+  type AuthenticatedOwner,
+} from './lib/auth'
 import {
   assertArrayLimit,
   assertSafeTimestamp,
@@ -96,22 +103,36 @@ export async function findReceipt(
   normalizeRequiredText(operationKey, 'Operation key', 100)
   if (operationKey.length > 100)
     throw new ConvexError('Operation key cannot exceed 100 characters.')
-  const receipt = await ctx.db
-    .query('mcpOperations')
-    .withIndex('by_ownerTokenIdentifier_and_connectionId_and_key', (q) =>
-      q
-        .eq('ownerTokenIdentifier', user.userId)
-        .eq('connectionId', user.connectionId)
-        .eq('key', `${operation}:${operationKey}`),
-    )
-    .unique()
+  const key = `${operation}:${operationKey}`
+  const { userId } = owner
+  const receipt =
+    (userId
+      ? await ctx.db
+          .query('mcpOperations')
+          .withIndex('by_ownerUserId_and_connectionId_and_key', (q) =>
+            q
+              .eq('ownerUserId', userId)
+              .eq('connectionId', user.connectionId)
+              .eq('key', key),
+          )
+          .unique()
+      : null) ??
+    (await ctx.db
+      .query('mcpOperations')
+      .withIndex('by_ownerTokenIdentifier_and_connectionId_and_key', (q) =>
+        q
+          .eq('ownerTokenIdentifier', owner.tokenIdentifier)
+          .eq('connectionId', user.connectionId)
+          .eq('key', key),
+      )
+      .unique())
   if (receipt && receipt.householdId !== owner.householdId) {
     // Old receipts belong only to this account's original household, never a shared one.
     const originalHousehold =
       receipt.householdId === undefined
         ? await ctx.db.get(owner.householdId)
         : null
-    if (originalHousehold?.personalOwnerTokenIdentifier !== user.userId)
+    if (!isPersonalOwner(originalHousehold, owner))
       throw new ConvexError(
         'This operation key belongs to a different household. Retry it in its original household.',
       )
@@ -381,7 +402,7 @@ export const logMeal = internalMutation({
       requireSnapshots(args.input.items)
       const { preview, writeInput } = await prepareMeal(ctx, owner, args.input)
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const mealId = await createMealForOwner(ctx, owner, writeInput)
@@ -403,7 +424,7 @@ export const logMeal = internalMutation({
         ),
       }
       await ctx.db.insert('mcpOperations', {
-        ...owner,
+        ...ownerFields(owner),
         connectionId: args.user.connectionId,
         operation: 'meal',
         key: `meal:${args.operationKey}`,
@@ -644,7 +665,7 @@ export const correctCookedFoodWeight = internalMutation({
         throw new ConvexError('Operation result is unavailable.')
       }
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const { food, kcalPer100 } = await correctCookedFoodWeightForOwner(
@@ -668,7 +689,7 @@ export const correctCookedFoodWeight = internalMutation({
         url: appUrl(path),
       }
       await ctx.db.insert('mcpOperations', {
-        ...owner,
+        ...ownerFields(owner),
         connectionId: args.user.connectionId,
         operation: 'cookedFoodWeightCorrection',
         key: `cookedFoodWeightCorrection:${args.operationKey}`,
@@ -726,7 +747,7 @@ export const logCooking = internalMutation({
         args.input,
       )
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const sessionId =
@@ -757,7 +778,7 @@ export const logCooking = internalMutation({
         ),
       }
       await ctx.db.insert('mcpOperations', {
-        ...owner,
+        ...ownerFields(owner),
         connectionId: args.user.connectionId,
         operation: 'cooking',
         key: `cooking:${args.operationKey}`,
@@ -1233,12 +1254,11 @@ export const listHouseholds = internalMutation({
         'This connection does not have permission for this operation.',
       )
     await ensurePersonalHousehold(ctx, args.user.userId)
-    const memberships = await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q.eq('tokenIdentifier', args.user.userId),
-      )
-      .take(10)
+    const memberships = await listMemberships(
+      ctx,
+      await ensureAccount(ctx, args.user.userId),
+      10,
+    )
     const result = []
     for (const membership of memberships) {
       const household = await ctx.db.get(membership.householdId)

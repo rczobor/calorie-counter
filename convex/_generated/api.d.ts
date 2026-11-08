@@ -28,6 +28,7 @@ import type * as mcpPreferences from "../mcpPreferences.js";
 import type * as mcpValidators from "../mcpValidators.js";
 import type * as mcpWeight from "../mcpWeight.js";
 import type * as meals from "../meals.js";
+import type * as migrations from "../migrations.js";
 import type * as nutrition from "../nutrition.js";
 import type * as people from "../people.js";
 import type * as recipes from "../recipes.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   mcpValidators: typeof mcpValidators;
   mcpWeight: typeof mcpWeight;
   meals: typeof meals;
+  migrations: typeof migrations;
   nutrition: typeof nutrition;
   people: typeof people;
   recipes: typeof recipes;

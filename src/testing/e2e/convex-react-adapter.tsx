@@ -441,10 +441,13 @@ function weightsFor(snapshot: MockState, personId: Id<'people'>) {
     .sort((a, b) => a.measuredOn.localeCompare(b.measuredOn))
 }
 
-function withoutOwner<T extends { ownerTokenIdentifier: string }>(document: T) {
+function withoutOwner<
+  T extends { ownerTokenIdentifier?: string; ownerUserId?: string },
+>(document: T) {
   const copy: Partial<T> = { ...document }
   delete copy.ownerTokenIdentifier
-  return copy as Omit<T, 'ownerTokenIdentifier'>
+  delete copy.ownerUserId
+  return copy as Omit<T, 'ownerTokenIdentifier' | 'ownerUserId'>
 }
 
 function dayNutrition(
