@@ -2008,89 +2008,103 @@ export const createPerson = mutation({
   },
 })
 
+const updatePersonInput = v.object({
+  personId: v.id('people'),
+  expectedEditRevision: v.number(),
+  name: v.string(),
+  notes: optionalNullableStringValidator,
+  goalKcal: v.optional(v.number()),
+  effectiveDate: v.string(),
+  reason: v.optional(v.string()),
+  // Omitted keeps the saved value; a null plan clears it.
+  energyProfile: v.optional(energyProfileValidator),
+  goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
+})
+
+/**
+ * Edits a person's name, notes, goal, profile and plan at the revision the
+ * caller read. A changed goal adds a goal history row dated `effectiveDate`.
+ * The app and the MCP server both save through here.
+ */
+export async function updatePersonForOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  args: Infer<typeof updatePersonInput>,
+) {
+  const person = assertOwnedOrThrow(
+    await ctx.db.get(args.personId),
+    owner,
+    'Person not found.',
+  )
+  assertExpectedEditRevision(person, args.expectedEditRevision, 'Person')
+  assertNonEmpty(args.name, 'Name')
+  const effectiveDate = normalizeRequiredDate(
+    args.effectiveDate,
+    'Effective date',
+  )
+  const personPatch: Partial<Doc<'people'>> = {
+    name: args.name.trim(),
+    editRevision: nextEditRevision(person, 'Person'),
+  }
+  if (args.notes !== undefined) {
+    personPatch.notes = normalizeNullableText(args.notes)
+  }
+  if (args.energyProfile !== undefined || args.goalPlan !== undefined) {
+    const latest = await weightEntriesForPerson(ctx, owner, person._id, {
+      endDate: effectiveDate,
+    })
+      .order('desc')
+      .first()
+    assertEnergyPlan({
+      profile: args.energyProfile ?? person.energyProfile,
+      plan:
+        args.goalPlan === undefined
+          ? person.goalPlan
+          : (args.goalPlan ?? undefined),
+      effectiveDate,
+      weightKg: latest?.weightKg,
+    })
+    if (args.energyProfile !== undefined)
+      personPatch.energyProfile = args.energyProfile
+    if (args.goalPlan !== undefined)
+      personPatch.goalPlan = args.goalPlan ?? undefined
+  }
+  const goalChanged =
+    args.goalKcal !== undefined && args.goalKcal !== person.currentDailyGoalKcal
+  if (args.goalKcal !== undefined) {
+    assertPositive(args.goalKcal, 'Goal')
+    if (goalChanged) {
+      personPatch.currentDailyGoalKcal = args.goalKcal
+    }
+  }
+  await ctx.db.patch(args.personId, personPatch)
+  if (goalChanged && args.goalKcal !== undefined) {
+    await ctx.db.insert('personGoalHistory', {
+      ...ownerFields(owner),
+      personId: args.personId,
+      effectiveDate,
+      goalKcal: args.goalKcal,
+      reason: normalizeOptionalText(
+        args.reason,
+        'Goal reason',
+        MAX_DESCRIPTION_LENGTH,
+      ),
+      createdAt: Date.now(),
+    })
+  }
+  return { previous: person, editRevision: personPatch.editRevision ?? 0 }
+}
+
 export const updatePerson = mutation({
   args: {
     householdId: v.optional(v.id('households')),
-    personId: v.id('people'),
-    expectedEditRevision: v.number(),
-    name: v.string(),
-    notes: optionalNullableStringValidator,
-    goalKcal: v.optional(v.number()),
-    effectiveDate: v.string(),
-    reason: v.optional(v.string()),
-    // Omitted keeps the saved value; a null plan clears it.
-    energyProfile: v.optional(energyProfileValidator),
-    goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
+    ...updatePersonInput.fields,
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
-    const person = assertOwnedOrThrow(
-      await ctx.db.get(args.personId),
-      owner,
-      'Person not found.',
-    )
-    assertExpectedEditRevision(person, args.expectedEditRevision, 'Person')
-    assertNonEmpty(args.name, 'Name')
-    const personPatch: Partial<Doc<'people'>> = {
-      name: args.name.trim(),
-      editRevision: nextEditRevision(person, 'Person'),
-    }
-    if (args.notes !== undefined) {
-      personPatch.notes = normalizeNullableText(args.notes)
-    }
-    if (args.energyProfile !== undefined || args.goalPlan !== undefined) {
-      const effectiveDate = normalizeRequiredDate(
-        args.effectiveDate,
-        'Effective date',
-      )
-      const latest = await weightEntriesForPerson(ctx, owner, person._id, {
-        endDate: effectiveDate,
-      })
-        .order('desc')
-        .first()
-      assertEnergyPlan({
-        profile: args.energyProfile ?? person.energyProfile,
-        plan:
-          args.goalPlan === undefined
-            ? person.goalPlan
-            : (args.goalPlan ?? undefined),
-        effectiveDate,
-        weightKg: latest?.weightKg,
-      })
-      if (args.energyProfile !== undefined)
-        personPatch.energyProfile = args.energyProfile
-      if (args.goalPlan !== undefined)
-        personPatch.goalPlan = args.goalPlan ?? undefined
-    }
-    const goalChanged =
-      args.goalKcal !== undefined &&
-      args.goalKcal !== person.currentDailyGoalKcal
-    if (args.goalKcal !== undefined) {
-      assertPositive(args.goalKcal, 'Goal')
-      if (goalChanged) {
-        personPatch.currentDailyGoalKcal = args.goalKcal
-      }
-    }
-    await ctx.db.patch(args.personId, personPatch)
-    if (goalChanged && args.goalKcal !== undefined) {
-      const now = Date.now()
-      await ctx.db.insert('personGoalHistory', {
-        ...ownerFields(owner),
-        personId: args.personId,
-        effectiveDate: normalizeRequiredDate(
-          args.effectiveDate,
-          'Effective date',
-        ),
-        goalKcal: args.goalKcal,
-        reason: normalizeOptionalText(
-          args.reason,
-          'Goal reason',
-          MAX_DESCRIPTION_LENGTH,
-        ),
-        createdAt: now,
-      })
-    }
+  handler: async (ctx, { householdId, ...input }) => {
+    const owner = await requireAuthenticatedHousehold(ctx, householdId)
+    await updatePersonForOwner(ctx, owner, input)
+    return null
   },
 })
 

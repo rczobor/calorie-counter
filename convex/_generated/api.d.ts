@@ -21,6 +21,7 @@ import type * as lib_validation from "../lib/validation.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpContext from "../mcpContext.js";
 import type * as mcpFoodReuse from "../mcpFoodReuse.js";
+import type * as mcpGoals from "../mcpGoals.js";
 import type * as mcpMealCorrections from "../mcpMealCorrections.js";
 import type * as mcpOperations from "../mcpOperations.js";
 import type * as mcpPreferences from "../mcpPreferences.js";
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   mcp: typeof mcp;
   mcpContext: typeof mcpContext;
   mcpFoodReuse: typeof mcpFoodReuse;
+  mcpGoals: typeof mcpGoals;
   mcpMealCorrections: typeof mcpMealCorrections;
   mcpOperations: typeof mcpOperations;
   mcpPreferences: typeof mcpPreferences;
