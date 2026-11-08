@@ -288,11 +288,11 @@ evaluation and must be recorded as run or not run.
 
 ### Release and refresh existing ChatGPT connections
 
-1. Deploy the merged Convex schema/functions to the intended deployment through
-   the approved release process. Merge alone does not prove that the live MCP
-   backend has been updated. Version 1.2.0 adds tables and optional fields; it
-   does not require a data backfill or credential replacement. Deploy the
-   frontend too so supplied nutrition receives the updated source label.
+1. Merging to `main` deploys the Convex schema and functions with the
+   frontend: the `buildCommand` in `vercel.json` runs `convex deploy`. Confirm
+   the production deployment finished before relying on the live MCP backend.
+   Version 1.2.0 adds tables and optional fields; it does not require a data
+   backfill or credential replacement.
 2. For each separately created personal ChatGPT connection, open **Plugins**,
    select the existing Calorie Counter connection, and choose **Refresh**. Verify
    that `set_logging_preferences` and `save_food_from_meal` are advertised.

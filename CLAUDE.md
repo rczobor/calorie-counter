@@ -61,9 +61,11 @@ Follow the same batch snapshot and single-writer Renovate takeover rules.
 
 ### Schema Migrations (expand-migrate-contract)
 
-1. **Expand**: Deploy compatibility code (`pnpm exec convex deploy`)
+Merging to `main` builds the frontend, pushes Convex, then publishes the frontend (`buildCommand` in `vercel.json`). Split a breaking schema change across pull requests:
+
+1. **Expand**: Merge compatibility code; the merge deploys it
 2. **Migrate**: Run one-off `internalMutation`/`internalAction` on prod (`pnpm exec convex run --prod <module:function> '{}'`)
-3. **Contract**: Remove migration code and redeploy
+3. **Contract**: Remove migration code in a later pull request
 
 ## Environment Variables
 

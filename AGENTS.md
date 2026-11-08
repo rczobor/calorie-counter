@@ -141,18 +141,32 @@ state and presentation, not trust-boundary rules.
 Never hand-edit generated files under `convex/_generated/*` or
 `src/routeTree.gen.ts`.
 
-## Convex migrations
+## Releases and Convex migrations
+
+Merging to `main` releases the backend and the frontend together. The
+`buildCommand` in `vercel.json` runs `convex deploy --cmd 'pnpm run build'`:
+it builds the frontend against the production deployment's URL, then pushes the
+Convex functions and schema, and Vercel publishes the frontend after that. If
+the build or the push fails, Vercel publishes nothing. Pull request previews
+that Vercel builds get their own Convex preview deployment, seeded by
+`seed:defaults`; `ignoreCommand` skips Renovate previews. There is no separate
+deploy step.
+
+- Backend changes must keep working with the frontend already in production.
+  The new backend is live before Vercel publishes the new frontend, and stays
+  live if publishing fails.
+- Vercel's instant rollback restores only the frontend, not Convex functions
+  or schema.
 
 When a schema or validator change may conflict with existing documents, use
-expand-migrate-contract:
+expand-migrate-contract across separate pull requests:
 
-1. **Expand.** Deploy compatibility code first with
-   `pnpm exec convex deploy`.
+1. **Expand.** Merge compatibility code. The merge deploys it.
 2. **Migrate.** Run the one-off production migration, for example
    `pnpm exec convex run --prod <module:function> '{}'`. New migration
    functions are not callable until the expand deploy finishes.
-3. **Contract.** Remove compatibility code and the one-off migration, then
-   deploy again.
+3. **Contract.** Remove compatibility code and the one-off migration in a later
+   pull request.
 
 Prefer `internalMutation` or `internalAction` for one-off migrations, make them
 idempotent when practical, and remove them after successful execution. Rehearse
