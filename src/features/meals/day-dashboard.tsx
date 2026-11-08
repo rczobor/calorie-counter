@@ -59,7 +59,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { formatDate } from '@/lib/dates'
+import { formatDate, linkedDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { toLocalDateString, toTimestampFromDate } from '@/lib/nutrition'
 import { formatAmount } from '@/i18n/format'
@@ -96,17 +96,12 @@ const figure = (kcal: number) => (
   <span className="font-semibold text-foreground">{kcal.toFixed(0)}</span>
 )
 
+// Invalid links use today.
 function readLinkedDate() {
-  const value = new URLSearchParams(window.location.search).get('date')
-  if (value) {
-    try {
-      toTimestampFromDate(value)
-      return value
-    } catch {
-      /* Invalid links use today. */
-    }
-  }
-  return toLocalDateString(Date.now())
+  return (
+    linkedDate(new URLSearchParams(window.location.search).get('date')) ??
+    toLocalDateString(Date.now())
+  )
 }
 
 export function DayDashboard({ archived = false }: { archived?: boolean }) {

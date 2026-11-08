@@ -6,7 +6,12 @@ import {
   Plus,
   UserRound,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 
 import { SkeletonRows } from '@/components/page/loading-content'
 import { buttonVariants, chipClass } from '@/components/ui/button'
@@ -21,7 +26,7 @@ import { messages as todayMessages } from '@/features/meals/day-dashboard.messag
 import { messages as weightMessages } from '@/features/weight/weight-glance.messages'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
-import { formatDate } from '@/lib/dates'
+import { formatDate, linkedDate } from '@/lib/dates'
 import { messages as historyMessages } from '@/routes/history.messages'
 import { toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
@@ -52,6 +57,27 @@ export function PagePlaceholder({ label }: { label?: string }) {
   )
 }
 
+// How many placeholders are mounted. Handing a wait from one gate to the next
+// (session, household, route code) mounts the next placeholder in the same
+// commit that removes the last. While it renders, the last one is still in the
+// document, so the new one picks up its fade where it was instead of starting
+// over: a quick handoff stays invisible and a slow one never blinks.
+let mounted = 0
+const REVEAL_MS = 160 + 240 // `loading-reveal`: delay plus fade
+
+// Time since the wait began. A placeholder that continued one runs its own
+// fade with a shifted delay, so its clock starts `160 - delay` into the wait.
+function revealElapsed() {
+  const fade = document
+    .querySelector('[data-page-placeholder]')
+    ?.getAnimations?.()[0]
+  const time = fade?.currentTime
+  if (typeof time !== 'number') return REVEAL_MS
+  const delay = Number(fade?.effect?.getTiming().delay ?? 160)
+  return Math.min(time + 160 - delay, REVEAL_MS)
+}
+const subscribeNoop = () => () => {}
+
 export function PagePlaceholderView({
   label,
   pathname,
@@ -61,9 +87,18 @@ export function PagePlaceholderView({
   pathname: string
   searchStr: string
 }) {
+  const [elapsed] = useState(() => (mounted > 0 ? revealElapsed() : null))
+  useEffect(() => {
+    mounted++
+    return () => {
+      mounted--
+    }
+  }, [])
   const body =
     pathname === '/' ? (
-      <TodayPlaceholder date={new URLSearchParams(searchStr).get('date')} />
+      <TodayPlaceholder
+        date={linkedDate(new URLSearchParams(searchStr).get('date'))}
+      />
     ) : pathname === '/history' ? (
       <HistoryPlaceholder />
     ) : (
@@ -79,7 +114,13 @@ export function PagePlaceholderView({
       <section
         role="status"
         aria-label={label}
+        data-page-placeholder=""
         className="mx-auto w-full max-w-3xl loading-reveal px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-6 sm:px-6 md:pt-8"
+        style={
+          elapsed === null
+            ? undefined
+            : { animationDelay: `${160 - elapsed}ms` }
+        }
       >
         <div aria-hidden="true">{body}</div>
       </section>
@@ -136,9 +177,17 @@ function TodayPlaceholder({ date }: { date: string | null }) {
   const locale = useLocale()
   const t = todayMessages[locale]
   const [today] = useState(() => toLocalDateString(Date.now()))
+  // The prerendered shell cannot know the visitor's day, so the date shows
+  // once hydrated, as a bar before that.
+  const hydrated = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  )
+  const day = date ?? today
   return (
     <>
-      <TitleRow title={date ? undefined : t.today} picker />
+      <TitleRow title={day === today ? t.today : undefined} picker />
       <div className="mt-3 flex items-center justify-between gap-1.5">
         <span
           className={cn(
@@ -146,7 +195,11 @@ function TodayPlaceholder({ date }: { date: string | null }) {
             'pointer-events-none pl-3 proportional-nums',
           )}
         >
-          {formatDate(date ?? today, locale, { year: 'always' })}
+          {hydrated ? (
+            formatDate(day, locale, { year: 'always' })
+          ) : (
+            <Skeleton className="h-3.5 w-28" />
+          )}
           <ChevronDown className="text-muted-foreground" />
         </span>
         <div className="flex items-center gap-1.5">
