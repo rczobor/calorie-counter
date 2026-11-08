@@ -40,6 +40,7 @@ import {
   normalizeRequiredText,
   type NutritionUnit,
 } from './lib/validation'
+import { weightEntriesForPerson } from './weight'
 
 const optionalNullableStringValidator = v.optional(
   v.union(v.string(), v.null()),
@@ -2100,7 +2101,7 @@ export const deletePerson = mutation({
       'Person not found.',
     )
     assertExpectedEditRevision(person, args.expectedEditRevision, 'Person')
-    const [mealRefs, cookingRefs] = await Promise.all([
+    const [mealRefs, cookingRefs, weightRefs] = await Promise.all([
       ctx.db
         .query('meals')
         .withIndex('by_householdId_and_personId_and_eatenOn', (q) =>
@@ -2115,10 +2116,11 @@ export const deletePerson = mutation({
             .eq('cookedByPersonId', args.personId),
         )
         .first(),
+      weightEntriesForPerson(ctx, owner, args.personId).first(),
     ])
-    if (mealRefs || cookingRefs) {
+    if (mealRefs || cookingRefs || weightRefs) {
       throw new Error(
-        'Cannot delete person with meal/cooking history. Archive instead.',
+        'Cannot delete person with meal, cooking or weight history. Archive instead.',
       )
     }
     const goalRows = await ctx.db

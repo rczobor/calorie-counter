@@ -417,7 +417,7 @@ export function createDesignData(
   householdId: Id<'households'>,
 ): Pick<
   MockState,
-  'dashboard' | 'mealDetails' | 'templates' | 'savedFoodArchived'
+  'dashboard' | 'mealDetails' | 'templates' | 'savedFoodArchived' | 'weights'
 > {
   const today = new Date(now)
   const at = (daysAgo: number, time = '12:00') => {
@@ -588,6 +588,33 @@ export function createDesignData(
   // An assistant logged dinner twice; the duplicate was archived.
   addMeal(alexId, 2, 'tikka', true)
 
+  // Alex weighs in most mornings and is slowly losing weight; Viki never has.
+  // A ten-day holiday a month and a half ago left a gap.
+  const weights: Array<Doc<'weightEntries'>> = []
+  const wobble = (daysAgo: number) =>
+    0.35 * Math.sin(daysAgo * 1.7) + 0.2 * Math.sin(daysAgo * 0.45)
+  for (let daysAgo = 120; daysAgo >= 0; daysAgo--) {
+    const skipped =
+      daysAgo > 1 &&
+      ([3, 5].includes(daysAgo % 7) || (daysAgo >= 40 && daysAgo <= 49))
+    if (skipped) continue
+    const weightKg =
+      Math.round((82.4 + daysAgo * 0.03 + wobble(daysAgo) - wobble(0)) * 10) /
+      10
+    const measuredAt = at(daysAgo, '07:15').getTime()
+    weights.push({
+      _id: `design-weight-a-${daysAgo}` as Id<'weightEntries'>,
+      _creationTime: measuredAt,
+      ...owner,
+      personId: alexId,
+      measuredOn: dateKey(at(daysAgo)),
+      weightKg,
+      editRevision: 0,
+      createdAt: measuredAt,
+      updatedAt: measuredAt,
+    })
+  }
+
   const person = (
     _id: Id<'people'>,
     name: string,
@@ -667,5 +694,6 @@ export function createDesignData(
     ],
     // Real households had no reusable foods yet; the adapter's only one is archived.
     savedFoodArchived: true,
+    weights,
   }
 }

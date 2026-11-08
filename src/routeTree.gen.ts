@@ -17,6 +17,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as PeopleRouteImport } from './routes/people'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as WeightRouteImport } from './routes/weight'
 import { Route as SettingsArchivedMealsRouteImport } from './routes/settings.archived-meals'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 
@@ -60,6 +61,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WeightRoute = WeightRouteImport.update({
+  id: '/weight',
+  path: '/weight',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsArchivedMealsRoute = SettingsArchivedMealsRouteImport.update({
   id: '/archived-meals',
   path: '/archived-meals',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/weight': typeof WeightRoute
   '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/weight': typeof WeightRoute
   '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/household': typeof HouseholdRoute
   '/people': typeof PeopleRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/weight': typeof WeightRoute
   '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/household'
     | '/people'
     | '/settings'
+    | '/weight'
     | '/settings/archived-meals'
     | '/settings/integrations'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/household'
     | '/people'
     | '/settings'
+    | '/weight'
     | '/settings/archived-meals'
     | '/settings/integrations'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/household'
     | '/people'
     | '/settings'
+    | '/weight'
     | '/settings/archived-meals'
     | '/settings/integrations'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   HouseholdRoute: typeof HouseholdRoute
   PeopleRoute: typeof PeopleRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  WeightRoute: typeof WeightRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -216,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/weight': {
+      id: '/weight'
+      path: '/weight'
+      fullPath: '/weight'
+      preLoaderRoute: typeof WeightRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/archived-meals': {
       id: '/settings/archived-meals'
       path: '/archived-meals'
@@ -256,6 +276,7 @@ const rootRouteChildren: RootRouteChildren = {
   HouseholdRoute: HouseholdRoute,
   PeopleRoute: PeopleRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  WeightRoute: WeightRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
