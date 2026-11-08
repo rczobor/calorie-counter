@@ -260,6 +260,14 @@ let state: MockState =
     : createInitialState()
 const listeners = new Set<() => void>()
 
+// `?e2eHold=session|household|data` freezes one loading layer so design
+// captures can photograph it: session keeps auth pending, household keeps the
+// household list pending, and data keeps every other read pending.
+const hold =
+  typeof window === 'undefined'
+    ? null
+    : new URLSearchParams(window.location.search).get('e2eHold')
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)
@@ -486,6 +494,13 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
       loadMore,
     }
   }
+  if (hold === 'data') {
+    return {
+      results: [] as PaginatedItem<Query>[],
+      status: 'LoadingFirstPage' as const,
+      loadMore,
+    }
+  }
 
   const functionName = getFunctionName(query)
   let results: unknown[] = []
@@ -640,6 +655,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
 
   const functionName = getFunctionName(query)
+  if (
+    functionName === 'households:list' ? hold === 'household' : hold === 'data'
+  )
+    return undefined
   if (functionName === 'households:list')
     return [
       { _id: 'e2e-household', name: 'My household', role: 'admin' },
@@ -1151,7 +1170,7 @@ export function useAction<Action extends FunctionReference<'action'>>(
 }
 
 export function useConvexAuth() {
-  return { isLoading: false, isAuthenticated: true }
+  return { isLoading: hold === 'session', isAuthenticated: hold !== 'session' }
 }
 
 export class ConvexReactClient {

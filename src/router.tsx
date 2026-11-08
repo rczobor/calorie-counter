@@ -1,13 +1,13 @@
 import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
-import { AppPending } from './components/app-pending'
+import { PagePlaceholder } from './components/page/page-placeholder'
 import { RouteErrorState } from './components/page/page-states'
 
 export function getRouter() {
   const router = createRouter({
     routeTree,
     scrollRestoration: true,
-    defaultPendingComponent: AppPending,
+    defaultPendingComponent: PagePlaceholder,
     defaultErrorComponent: RouteErrorState,
     defaultPendingMs: 350,
     defaultPendingMinMs: 250,

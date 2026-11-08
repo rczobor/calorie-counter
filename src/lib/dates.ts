@@ -43,3 +43,14 @@ export function formatDate(
     year === 'always' || date.getFullYear() !== new Date().getFullYear(),
   ).format(date)
 }
+
+/** A `?date=` link's value when it names a real calendar date, else null. */
+export function linkedDate(value: string | null) {
+  if (!value) return null
+  try {
+    toTimestampFromDate(value)
+    return value
+  } catch {
+    return null
+  }
+}

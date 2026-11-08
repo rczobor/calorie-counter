@@ -37,6 +37,18 @@ vi.mock('convex/react', () => ({
   usePaginatedQuery: (...args: unknown[]) => paginated(...args),
   useConvex: () => ({ query: clientQuery }),
 }))
+// The provider's loading placeholder reads the location; the app always
+// renders it under the router.
+vi.mock('@tanstack/react-router', async (original) => ({
+  ...(await original<typeof import('@tanstack/react-router')>()),
+  useRouterState: ({
+    select,
+  }: {
+    select: (state: {
+      location: { pathname: string; searchStr: string }
+    }) => unknown
+  }) => select({ location: { pathname: '/', searchStr: '' } }),
+}))
 const first = asId<'households'>('household-a')
 const second = asId<'households'>('household-b')
 let households = [
