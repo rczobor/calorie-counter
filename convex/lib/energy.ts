@@ -449,17 +449,24 @@ export function buildCheckIn({
       (plan.direction === 'lose'
         ? estimate.trendWeightKg <= plan.targetWeightKg
         : estimate.trendWeightKg >= plan.targetWeightKg)
+    // Saving refuses a loss plan below a healthy BMI; one saved earlier, or
+    // without a target, stops here too.
+    const belowHealthyWeight =
+      plan.direction === 'lose' &&
+      bmi(latestWeightKg, profile.heightCm) < MIN_HEALTHY_BMI
     const goal = goalForPlan({
       maintenanceKcal: estimate.maintenance.kcal,
       weightKg: latestWeightKg,
       sex: profile.sex,
-      plan: targetReached ? { direction: 'maintain' } : plan,
+      plan:
+        targetReached || belowHealthyWeight ? { direction: 'maintain' } : plan,
     })
     suggestion = {
       goalKcal: goal.goalKcal,
       kgPerWeek: goal.kgPerWeek,
       heldAtMinimum: goal.heldAtMinimum,
       targetReached,
+      belowHealthyWeight,
     }
   }
 

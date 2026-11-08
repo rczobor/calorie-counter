@@ -283,11 +283,13 @@ function Ready({
   )
   const plan = person.goalPlan
   const current = Math.round(person.currentDailyGoalKcal)
-  // A reached target always offers the update, since it also ends the plan.
+  // A plan that has to stop always offers the update, since it ends the plan.
+  const endsPlan = Boolean(
+    suggestion?.targetReached || suggestion?.belowHealthyWeight,
+  )
   const change =
     suggestion &&
-    (suggestion.targetReached ||
-      Math.abs(suggestion.goalKcal - current) >= SUGGEST_FROM_KCAL)
+    (endsPlan || Math.abs(suggestion.goalKcal - current) >= SUGGEST_FROM_KCAL)
   const skipped = estimate.incompleteDays
 
   async function update() {
@@ -301,8 +303,8 @@ function Ready({
         effectiveDate: today,
         reason: `Check-in: maintenance ≈ ${maintenance} kcal`,
       }
-      // A reached target ends the plan too, so the card and People say so.
-      if (suggestion.targetReached)
+      // Ending a plan updates it too, so the card and People say so.
+      if (endsPlan)
         await updatePerson({
           ...goalChange,
           name: person.name,
@@ -390,6 +392,7 @@ function Ready({
                   name: person.name,
                   plan,
                   targetReached: suggestion.targetReached,
+                  belowHealthyWeight: suggestion.belowHealthyWeight,
                   plannedKgPerWeek: suggestion.kgPerWeek,
                   trendKgPerWeek: estimate.trendKgPerWeek,
                   maintenanceKcal: maintenance,
@@ -440,6 +443,7 @@ function suggestionReason({
   name,
   plan,
   targetReached,
+  belowHealthyWeight,
   plannedKgPerWeek,
   trendKgPerWeek,
   maintenanceKcal,
@@ -448,6 +452,7 @@ function suggestionReason({
   name: string
   plan: NonNullable<Person['goalPlan']>
   targetReached: boolean
+  belowHealthyWeight: boolean
   plannedKgPerWeek: number
   trendKgPerWeek: number
   maintenanceKcal: number
@@ -455,6 +460,8 @@ function suggestionReason({
 }) {
   if (targetReached && plan.direction !== 'maintain')
     return `${name} reached ${plan.targetWeightKg} kg, so this keeps weight steady.`
+  if (belowHealthyWeight)
+    return `${name} is below a healthy weight for their height, so this keeps weight steady.`
   const gap = trendKgPerWeek - plannedKgPerWeek
   const step = goalKcal - maintenanceKcal
   // The working, as in the calculator: maintenance plus or minus the plan.

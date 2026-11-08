@@ -62,6 +62,7 @@ const ready: CheckIn = {
     kgPerWeek: -0.412,
     heldAtMinimum: false,
     targetReached: false,
+    belowHealthyWeight: false,
   },
 }
 
@@ -121,6 +122,7 @@ describe('MaintenanceCard', () => {
         kgPerWeek: 0,
         heldAtMinimum: false,
         targetReached: true,
+        belowHealthyWeight: false,
       },
     }
     show({ ...alex, goalPlan: { ...alex.goalPlan, targetWeightKg: 83 } })
@@ -135,6 +137,30 @@ describe('MaintenanceCard', () => {
         name: 'Alex',
         goalPlan: { direction: 'maintain' },
       }),
+    )
+  })
+
+  it('ends a loss plan below a healthy weight', () => {
+    checkIn.current = {
+      ...ready,
+      suggestion: {
+        goalKcal: 1700,
+        kgPerWeek: 0,
+        heldAtMinimum: false,
+        targetReached: false,
+        belowHealthyWeight: true,
+      },
+    }
+    show()
+    expect(
+      screen.getByText(
+        /Alex is below a healthy weight for their height, so this keeps weight steady\./,
+      ),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Update goal' }))
+    expect(mutate).toHaveBeenCalledWith(
+      'nutrition:updatePerson',
+      expect.objectContaining({ goalPlan: { direction: 'maintain' } }),
     )
   })
 

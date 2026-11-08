@@ -39,6 +39,7 @@ const checkInDto = v.object({
       kgPerWeek: v.number(),
       heldAtMinimum: v.boolean(),
       targetReached: v.boolean(),
+      belowHealthyWeight: v.boolean(),
     }),
   ),
 })

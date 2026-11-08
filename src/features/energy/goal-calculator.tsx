@@ -224,11 +224,13 @@ export function GoalCalculator({
 
   function chooseDirection(next: Direction) {
     setDirection(next)
-    if (
-      next !== 'maintain' &&
-      !(PACES[next] as readonly number[]).includes(pace)
+    // A new direction starts at its saved pace, or the suggested one.
+    if (next === 'maintain' || next === direction) return
+    setPace(
+      plan && plan.direction === next
+        ? plan.percentPerWeek
+        : DEFAULT_PACE[next],
     )
-      setPace(DEFAULT_PACE[next])
   }
 
   async function use() {

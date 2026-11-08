@@ -79,6 +79,13 @@ describe('GoalCalculator', () => {
       screen.getByText('Used for this estimate only, not saved as a weigh-in.'),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /^Active/ }))
+    // A first gain starts at its suggested pace, not the default loss pace.
+    fireEvent.click(screen.getByRole('button', { name: 'Gain' }))
+    expect(
+      screen
+        .getByRole('button', { name: /^Slow/ })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: 'Maintain' }))
     expect(screen.getByText('Keeps weight steady')).toBeTruthy()
     fireEvent.click(use)

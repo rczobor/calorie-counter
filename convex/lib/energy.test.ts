@@ -277,4 +277,23 @@ describe('check-in suggestion', () => {
       }).suggestion,
     ).toMatchObject({ targetReached: true, kgPerWeek: 0 })
   })
+
+  it('stops a loss plan without a target below a healthy BMI', () => {
+    const { days, weights } = steadyWeeks()
+    // 150 cm, about 41 kg: a BMI near 18.
+    const light = weights.map((entry) => ({ ...entry, kg: entry.kg - 43 }))
+    const checkIn = buildCheckIn({
+      today: '2026-11-08',
+      intake: days,
+      weights: light,
+      latestWeightKg: 40.9,
+      profile: { ...alex, heightCm: 150 },
+      plan: { direction: 'lose', percentPerWeek: 0.5 },
+    })
+    expect(checkIn.suggestion).toMatchObject({
+      belowHealthyWeight: true,
+      targetReached: false,
+      kgPerWeek: 0,
+    })
+  })
 })
