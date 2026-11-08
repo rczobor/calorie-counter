@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+import { useLocale } from '@/i18n/locale'
 import { toErrorMessage } from '@/lib/nutrition'
 
 export type PendingConfirmation = {
@@ -10,6 +11,7 @@ export type PendingConfirmation = {
 }
 
 export function useConfirmableAction() {
+  const locale = useLocale()
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation | null>(null)
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
@@ -28,14 +30,14 @@ export function useConfirmableAction() {
         toast.success(successText)
         return true
       } catch (error) {
-        toast.error(toErrorMessage(error))
+        toast.error(toErrorMessage(error, locale))
         return false
       } finally {
         isRunningRef.current = false
         setIsRunning(false)
       }
     },
-    [],
+    [locale],
   )
 
   const confirmAndRunAction = useCallback(

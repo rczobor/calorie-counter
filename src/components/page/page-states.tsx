@@ -1,7 +1,10 @@
 import type { ErrorComponentProps } from '@tanstack/react-router'
 import { PageShell } from '@/components/page/page-shell'
 import { Button } from '@/components/ui/button'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { toErrorMessage } from '@/lib/nutrition'
+import { messages } from './page-states.messages'
 
 type ConfigMissingStateProps = {
   title?: string
@@ -9,13 +12,16 @@ type ConfigMissingStateProps = {
 }
 
 export function ConfigMissingState({
-  title = 'Connect Convex First',
-  description = 'Add VITE_CONVEX_URL and CONVEX_DEPLOYMENT in .env.local, then reload.',
+  title,
+  description,
 }: ConfigMissingStateProps) {
+  const t = useMessages(messages)
   return (
-    <PageShell title={title} maxWidth="6xl">
+    <PageShell title={title ?? t.configMissingTitle} maxWidth="6xl">
       <div className="mt-4">
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-sm text-muted-foreground">
+          {description ?? t.configMissingDescription}
+        </p>
       </div>
     </PageShell>
   )
@@ -38,13 +44,15 @@ export function EmptyState({ title, description }: EmptyStateProps) {
 // Default route error screen. Keeps the app shell and navigation usable when a
 // page's query throws.
 export function RouteErrorState({ error, reset }: ErrorComponentProps) {
+  const locale = useLocale()
+  const t = messages[locale]
   return (
-    <PageShell title="Something went wrong">
+    <PageShell title={t.errorTitle}>
       <p role="alert" className="mt-4 text-sm text-destructive">
-        This page could not be loaded: {toErrorMessage(error)}
+        {t.pageLoadFailed(toErrorMessage(error, locale))}
       </p>
       <Button className="mt-3" variant="outline" onClick={reset}>
-        Retry
+        {t.retry}
       </Button>
     </PageShell>
   )

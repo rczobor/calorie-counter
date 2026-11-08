@@ -4,6 +4,12 @@ import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useInstall } from './install-provider'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './install-entry.messages'
+
+function strong(label: string) {
+  return <strong>{label}</strong>
+}
 
 export function InstallEntry({
   variant,
@@ -12,6 +18,7 @@ export function InstallEntry({
   variant: 'suggestion' | 'settings'
   eligible?: boolean
 }) {
+  const t = useMessages(messages)
   const install = useInstall()
   const trigger = useRef<HTMLButtonElement>(null)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -47,7 +54,7 @@ export function InstallEntry({
             onClick={() => void activate()}
             disabled={install.pending}
           >
-            <span className="min-w-0 flex-1">Add to your device</span>
+            <span className="min-w-0 flex-1">{t.addToDevice}</span>
             <ChevronRight
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
@@ -55,7 +62,7 @@ export function InstallEntry({
           </button>
         ) : (
           <section
-            aria-label="Add Calorie Counter to your device"
+            aria-label={t.suggestionLabel}
             className="mt-6 inset-group p-4"
           >
             <div className="flex items-start gap-3">
@@ -64,9 +71,9 @@ export function InstallEntry({
                 className="mt-0.5 size-5 shrink-0 text-muted-foreground"
               />
               <div className="min-w-0 flex-1">
-                <h2 className="type-headline">Keep Calorie Counter handy</h2>
+                <h2 className="type-headline">{t.suggestionTitle}</h2>
                 <p className="mt-1 type-subhead text-muted-foreground">
-                  Add it to your home screen for quicker meal logging.
+                  {t.suggestionDescription}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
@@ -76,10 +83,10 @@ export function InstallEntry({
                     disabled={install.pending}
                   >
                     {install.pending
-                      ? 'Opening installation…'
+                      ? t.opening
                       : install.canPrompt
-                        ? 'Install app'
-                        : 'Show me how'}
+                        ? t.install
+                        : t.showHow}
                   </Button>
                   <Button
                     variant="ghost"
@@ -87,7 +94,7 @@ export function InstallEntry({
                     onClick={install.dismiss}
                     disabled={install.pending}
                   >
-                    Dismiss
+                    {t.dismiss}
                   </Button>
                 </div>
               </div>
@@ -104,10 +111,10 @@ export function InstallEntry({
           <div className="flex items-start justify-between gap-4">
             <div>
               <Dialog.Title className="type-title">
-                Add to your device
+                {t.addToDevice}
               </Dialog.Title>
               <Dialog.Description className="mt-1 type-subhead text-muted-foreground">
-                Open Calorie Counter like an app next time.
+                {t.helpDescription}
               </Dialog.Description>
             </div>
             <Dialog.Close
@@ -116,7 +123,7 @@ export function InstallEntry({
                   variant="ghost"
                   size="icon"
                   className="-mt-2 -mr-2 text-muted-foreground"
-                  aria-label="Close installation steps"
+                  aria-label={t.closeHelp}
                 />
               }
             >
@@ -125,69 +132,50 @@ export function InstallEntry({
           </div>
           {failed ? (
             <p role="alert" className="mt-4 text-sm">
-              The install dialog couldn’t open. Try these browser steps instead.
+              {t.promptFailed}
             </p>
           ) : null}
           {install.platform === 'ios' ? (
             <ol className="mt-5 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
+              <li>{t.iosOpenSafari(strong)}</li>
               <li>
-                Open this page in <strong>Safari</strong>.
+                {t.iosShare(
+                  strong,
+                  <Share
+                    className="mx-1 inline size-4 align-text-bottom"
+                    aria-hidden="true"
+                  />,
+                )}
               </li>
               <li>
-                Tap{' '}
-                <Share
-                  className="mx-1 inline size-4 align-text-bottom"
-                  aria-hidden="true"
-                />
-                <strong>Share</strong> in the browser menu or toolbar.
+                {t.iosAddToHomeScreen(
+                  strong,
+                  <SquarePlus
+                    className="mx-1 inline size-4 align-text-bottom"
+                    aria-hidden="true"
+                  />,
+                )}
               </li>
-              <li>
-                Scroll down and tap{' '}
-                <SquarePlus
-                  className="mx-1 inline size-4 align-text-bottom"
-                  aria-hidden="true"
-                />
-                <strong>Add to Home Screen</strong>.
-              </li>
-              <li>
-                If shown, turn on <strong>Open as Web App</strong>, then tap{' '}
-                <strong>Add</strong>.
-              </li>
+              <li>{t.iosWebApp(strong)}</li>
             </ol>
           ) : install.platform === 'safari' ? (
             <p className="mt-5 text-sm leading-relaxed">
-              In Safari, choose <strong>File → Add to Dock</strong>, then click{' '}
-              <strong>Add</strong>. If that option is missing, try Chrome or
-              Edge.
+              {t.safariDock(strong)}
             </p>
           ) : (
             <div className="mt-5 space-y-3 text-sm leading-relaxed">
               <p>
-                Open your browser’s menu and look for{' '}
-                <strong>Install app</strong>
-                {install.platform === 'android' ? (
-                  <>
-                    {' '}
-                    or <strong>Add to Home Screen</strong>
-                  </>
-                ) : (
-                  <> or an option to install this page as an app</>
-                )}
-                .
+                {install.platform === 'android'
+                  ? t.androidMenu(strong)
+                  : t.browserMenu(strong)}
               </p>
-              {install.platform !== 'android' ? (
-                <p>You may also see an install icon in the address bar.</p>
-              ) : null}
-              <p className="text-muted-foreground">
-                If no installation option appears, try opening this page in
-                Chrome or Edge. You can keep using Calorie Counter in your
-                browser.
-              </p>
+              {install.platform !== 'android' ? <p>{t.addressBar}</p> : null}
+              <p className="text-muted-foreground">{t.fallback}</p>
             </div>
           )}
           <div className="mt-6 flex justify-end">
             <Dialog.Close render={<Button variant="outline" />}>
-              Done
+              {t.done}
             </Dialog.Close>
           </div>
         </Dialog.Popup>

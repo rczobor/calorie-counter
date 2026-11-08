@@ -11,6 +11,10 @@ import { ListToolbar, LoadMoreButton } from '@/components/list/list-toolbar'
 import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { formatAmount } from '@/i18n/format'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './saved-foods.messages'
 
 const PAGE_SIZE = 20
 
@@ -18,16 +22,19 @@ type SavedFood = FunctionReturnType<typeof api.savedFoods.list>['page'][number]
 
 /** A per-100 rate leads in plain kcal with its basis in the subtitle, as
  * ingredients do; a fixed portion keeps its portion beside the figure. */
-function energy(food: SavedFood) {
+function energy(food: SavedFood, locale: Locale) {
+  const t = messages[locale]
   return food.nutrition.kind === 'fixedCalories'
     ? {
-        value: food.nutrition.calories,
-        unit: `kcal / ${food.foodIdentity?.servingLabel ?? 'saved portion'}`,
+        value: formatAmount(food.nutrition.calories, locale),
+        unit: t.kcalPerPortion(
+          food.foodIdentity?.servingLabel ?? t.savedPortion,
+        ),
       }
     : {
-        value: food.nutrition.kcalPer100,
+        value: formatAmount(food.nutrition.kcalPer100, locale),
         unit: 'kcal',
-        basis: `per 100 ${food.nutrition.kind === 'byVolume' ? 'ml' : 'g'}`,
+        basis: t.per100(food.nutrition.kind === 'byVolume' ? 'ml' : 'g'),
       }
 }
 
@@ -44,6 +51,8 @@ export function SavedFoods({
   showArchived: boolean
   onShowArchivedChange: (showArchived: boolean) => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [search, setSearch] = useState('')
   const [openId, setOpenId] = useState<SavedFood['_id'] | null>(null)
   const term = search.trim().slice(0, 100)
@@ -67,10 +76,10 @@ export function SavedFoods({
   const open = foods.find((food) => food._id === openId)
 
   return (
-    <section className="space-y-3" aria-label="Reusable foods">
+    <section className="space-y-3" aria-label={t.section}>
       <ListToolbar
         search={{
-          label: 'Search reusable foods',
+          label: t.search,
           maxLength: 100,
           value: search,
           onValueChange: setSearch,
@@ -80,13 +89,9 @@ export function SavedFoods({
           onCheckedChange: onShowArchivedChange,
         }}
       />
-      <RecordList
-        label="Reusable foods"
-        loading={loading}
-        empty="No reusable foods found. Ask your AI assistant to remember a logged food to save it here."
-      >
+      <RecordList label={t.section} loading={loading} empty={t.empty}>
         {foods.map((food) => {
-          const { value, unit, basis } = energy(food)
+          const { value, unit, basis } = energy(food, locale)
           return (
             <RecordRow
               key={food._id}
@@ -105,7 +110,7 @@ export function SavedFoods({
           loading={active.status === 'LoadingMore'}
           onClick={() => active.loadMore(PAGE_SIZE)}
         >
-          Load more reusable foods
+          {t.loadMore}
         </LoadMoreButton>
       ) : null}
       {showArchived &&
@@ -115,13 +120,13 @@ export function SavedFoods({
           loading={archived.status === 'LoadingMore'}
           onClick={() => archived.loadMore(PAGE_SIZE)}
         >
-          Load more archived foods
+          {t.loadMoreArchived}
         </LoadMoreButton>
       ) : null}
       {open ? (
         <EditorDialog
           title={open.name}
-          description="A reusable food keeps the nutrition it was saved with."
+          description={t.hint}
           pending={isRunning}
           onClose={() => setOpenId(null)}
         >
@@ -131,11 +136,11 @@ export function SavedFoods({
                 <p className="text-muted-foreground">{identity(open)}</p>
               ) : null}
               <p className="text-foreground tabular-nums">
-                <span className="type-title">{energy(open).value}</span>{' '}
+                <span className="type-title">{energy(open, locale).value}</span>{' '}
                 <span className="text-muted-foreground">
                   {/* A per-100 rate names its basis, so it never reads as a
                       fixed portion. */}
-                  {[energy(open).unit, energy(open).basis]
+                  {[energy(open, locale).unit, energy(open, locale).basis]
                     .filter(Boolean)
                     .join(' ')}
                 </span>
@@ -143,9 +148,9 @@ export function SavedFoods({
               <p className="text-muted-foreground">
                 {open.nutrition.kind === 'fixedCalories'
                   ? open.foodIdentity?.servingLabel
-                    ? `One serving means one ${open.foodIdentity.servingLabel}.`
-                    : 'One saved portion is the entire originally logged item. It may include several package servings.'
-                  : `Reuse this food with a measured portion in ${open.nutrition.kind === 'byVolume' ? 'millilitres' : 'grams'}.`}
+                    ? t.oneServingMeans(open.foodIdentity.servingLabel)
+                    : t.wholeLoggedItem
+                  : t.measuredPortion(open.nutrition.kind === 'byVolume')}
               </p>
               <EstimateNotice provenance={open.nutritionProvenance} />
             </div>
@@ -156,9 +161,7 @@ export function SavedFoods({
                 disabled={isRunning}
                 onArchive={() =>
                   void runAction(
-                    open.archivedAt !== undefined
-                      ? 'Reusable food restored.'
-                      : 'Reusable food archived.',
+                    open.archivedAt !== undefined ? t.restored : t.archived,
                     async () => {
                       await setArchived({
                         foodId: open._id,

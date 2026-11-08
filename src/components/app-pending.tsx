@@ -1,8 +1,11 @@
 import { Flame } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './app-pending.messages'
 
 export function AppPending() {
+  const t = useMessages(messages)
   return (
     <main
       role="status"
@@ -15,9 +18,9 @@ export function AppPending() {
             <Flame aria-hidden="true" className="size-5" />
           </span>
           <div>
-            <p className="type-footnote text-muted-foreground">Loading</p>
+            <p className="type-footnote text-muted-foreground">{t.loading}</p>
             <h1 className="type-title text-foreground">
-              Preparing your dashboard
+              {t.preparingDashboard}
             </h1>
           </div>
           <Spinner className="ml-auto size-5 text-muted-foreground" />

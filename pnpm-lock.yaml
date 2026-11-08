@@ -174,6 +174,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.9.0
         version: 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@clerk/localizations':
+        specifier: 4.24.6
+        version: 4.24.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@clerk/react':
         specifier: 6.18.5
         version: 6.18.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -503,6 +506,10 @@ packages:
 
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
+
+  '@clerk/localizations@4.24.6':
+    resolution: {integrity: sha512-U9WKVMI3a2K8jCKKE0iVECV43haDAyQ/vNFWx61Ry5JZhh6icceujDe4RAfjp1pqEA5JJ46xGdO5XrjXu5sCpg==}
+    engines: {node: '>=20.9.0'}
 
   '@clerk/react@6.18.5':
     resolution: {integrity: sha512-zljTeKwyo27xmFPEmUB7mG2TC9GmtaSy8CxnwUTzG3Awu6iaMS3HPw1Qk7yJh1HySfTTsOuIP8XqkDJ/vELNMA==}
@@ -4181,6 +4188,13 @@ snapshots:
     dependencies:
       hashery: 1.5.1
       keyv: 5.6.0
+
+  '@clerk/localizations@4.24.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@clerk/shared': 4.44.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@clerk/react@6.18.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:

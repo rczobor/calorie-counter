@@ -1,9 +1,12 @@
-import { differenceInCalendarDays, format, parseISO } from 'date-fns'
+import { differenceInCalendarDays, parseISO } from 'date-fns'
 
+import { intlLocale, useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { toTimestampFromDate } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 import type { WeightEntry } from './record-weight-dialog'
-import { dayLabel, formatKg } from './weight-format'
+import { messages } from './weight-chart.messages'
+import { dayLabel, formatKg, formatMonthDay } from './weight-format'
 
 // Past this many points, dots would merge into a thick line.
 const MAX_DOTS = 45
@@ -27,10 +30,12 @@ export function WeightChart({
   endDate: string
   today: string
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   if (entries.length === 0)
     return (
       <p className="flex h-32 items-center justify-center text-center type-subhead text-muted-foreground md:h-40">
-        No weights in this range.
+        {t.empty}
       </p>
     )
   // The axis starts at the first weigh-in, the same anchor as "since <date>".
@@ -69,20 +74,27 @@ export function WeightChart({
       runs.push([entry])
     }
   }
-  const on = (date: string) => format(parseISO(date), 'MMM d, yyyy')
+  const on = (date: string) =>
+    parseISO(date).toLocaleDateString(intlLocale(locale), {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
   const label =
     entries.length === 1
-      ? `Weight ${formatKg(last.weightKg)} kg on ${on(last.measuredOn)}`
-      : `Weight from ${formatKg(first.weightKg)} kg on ${on(first.measuredOn)} to ${formatKg(last.weightKg)} kg on ${on(last.measuredOn)}, ${entries.length} weigh-ins`
+      ? t.single(formatKg(last.weightKg, locale), on(last.measuredOn))
+      : t.range(
+          formatKg(first.weightKg, locale),
+          on(first.measuredOn),
+          formatKg(last.weightKg, locale),
+          on(last.measuredOn),
+          entries.length,
+        )
 
   return (
     <figure
       role="img"
-      aria-label={
-        gaps.length > 0
-          ? `${label}. Dashed where there were no weigh-ins for over a week.`
-          : label
-      }
+      aria-label={gaps.length > 0 ? t.withGaps(label) : label}
       className="select-none"
     >
       <div className="relative h-32 py-2 pr-12 md:h-40">
@@ -154,7 +166,7 @@ export function WeightChart({
             // Same inset as the plot (py-2), so each label sits on its line.
             style={{ top: `calc(0.5rem + (100% - 1rem) * ${y(kg) / 100})` }}
           >
-            {Number.isInteger(kg) ? kg : kg.toFixed(1)}
+            {Number.isInteger(kg) ? kg : formatKg(kg, locale)}
             {kg === high ? (
               <span className="font-normal text-muted-foreground"> kg</span>
             ) : null}
@@ -165,11 +177,11 @@ export function WeightChart({
         aria-hidden="true"
         className="mt-1 flex justify-between pr-12 type-caption text-muted-foreground"
       >
-        <span>{format(parseISO(first.measuredOn), 'MMM d')}</span>
+        <span>{formatMonthDay(parseISO(first.measuredOn), locale)}</span>
         {span >= 4 * 86_400_000 ? (
-          <span>{format(start + span / 2, 'MMM d')}</span>
+          <span>{formatMonthDay(start + span / 2, locale)}</span>
         ) : null}
-        <span>{dayLabel(endDate, today)}</span>
+        <span>{dayLabel(endDate, today, locale)}</span>
       </div>
       {gaps.length > 0 ? (
         <figcaption
@@ -177,7 +189,7 @@ export function WeightChart({
           className="mt-2.5 flex items-center gap-1.5 type-footnote text-muted-foreground"
         >
           <span className="w-3 border-t-[1.5px] border-dashed border-muted-foreground/70" />
-          No weigh-ins for over a week
+          {t.gapCaption}
         </figcaption>
       ) : null}
     </figure>

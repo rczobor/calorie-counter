@@ -6,6 +6,9 @@ import type { Id } from '../../../convex/_generated/dataModel'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toErrorMessage } from '@/lib/nutrition'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './household-invitation.messages'
 
 function readInvitationToken() {
   return typeof window === 'undefined'
@@ -19,6 +22,8 @@ export function HouseholdInvitation({
 }: {
   onJoined?: (id: Id<'households'>) => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const [token, setToken] = useState(readInvitationToken)
   useEffect(() => {
     const updateToken = () => setToken(readInvitationToken())
@@ -47,7 +52,7 @@ export function HouseholdInvitation({
       setToken('')
       onJoined?.(id)
     } catch (error) {
-      setError(toErrorMessage(error))
+      setError(toErrorMessage(error, locale))
     } finally {
       setPending(false)
     }
@@ -56,7 +61,7 @@ export function HouseholdInvitation({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Household invitation</CardTitle>
+        <CardTitle>{t.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {error ? (
@@ -65,21 +70,15 @@ export function HouseholdInvitation({
           </p>
         ) : null}
         {invitation === undefined ? (
-          <LoadingRows label="Loading invitation" rows={1} />
+          <LoadingRows label={t.loading} rows={1} />
         ) : !invitation ? (
-          <p>This invitation has expired, was revoked, or was already used.</p>
+          <p>{t.unavailable}</p>
         ) : (
           <>
-            <p>
-              Join <strong>{invitation.name}</strong>?
-            </p>
-            <p>
-              Joining gives you access to all of this household’s nutrition
-              data, including everyone’s past meals and goals. Members can
-              manage the shared data. Your existing household stays separate.
-            </p>
+            <p>{t.joinPrompt(<strong>{invitation.name}</strong>)}</p>
+            <p>{t.access}</p>
             <Button disabled={pending} onClick={() => void join()}>
-              Join household
+              {t.join}
             </Button>
           </>
         )}

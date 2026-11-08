@@ -3,16 +3,13 @@ import { useHousehold } from '@/features/households/household-context'
 import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
-import { createFileRoute } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  type ErrorComponentProps,
+} from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
 import { usePaginatedQuery, useQuery } from '@/features/households/convex-hooks'
-import {
-  addDays,
-  differenceInCalendarDays,
-  format,
-  isValid,
-  parseISO,
-} from 'date-fns'
+import { addDays, differenceInCalendarDays, isValid, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -29,6 +26,8 @@ import {
   SEGMENT_LIST_CLASS,
   SegmentedTrack,
 } from '@/components/ui/segmented'
+import { intlLocale, useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import {
   toErrorMessage,
@@ -37,21 +36,28 @@ import {
 } from '@/lib/nutrition'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { messages } from './history.messages'
 
 export const Route = createFileRoute('/history')({
   ssr: false,
   component: HistoryPage,
-  errorComponent: ({ error, reset }) => (
-    <PageShell title="History">
+  errorComponent: HistoryError,
+})
+
+function HistoryError({ error, reset }: ErrorComponentProps) {
+  const t = useMessages(messages)
+  const locale = useLocale()
+  return (
+    <PageShell title={t.title}>
       <p role="alert" className="mt-4 text-sm text-destructive">
-        History could not be loaded: {toErrorMessage(error)}
+        {t.loadFailed(toErrorMessage(error, locale))}
       </p>
       <Button className="mt-3" variant="outline" onClick={reset}>
-        Retry
+        {t.retry}
       </Button>
     </PageShell>
-  ),
-})
+  )
+}
 
 type DayRow = {
   date: string
@@ -78,6 +84,8 @@ function HistoryPage() {
 }
 
 function HistoryPageContent() {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const { userId } = useDraftPersistenceIdentity()
   const { householdId } = useHousehold()
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -260,16 +268,16 @@ function HistoryPageContent() {
       contentClassName="max-w-3xl"
       header={
         <>
-          <h1 className="type-large-title text-foreground">History</h1>
+          <h1 className="type-large-title text-foreground">{t.title}</h1>
           {peopleStatus === 'LoadingFirstPage' ? (
             <Skeleton
               className="h-10 w-28 rounded-full"
               role="status"
-              aria-label="Loading people"
+              aria-label={t.loadingPeople}
             />
           ) : people.length === 0 ? (
             <p className="type-subhead text-muted-foreground">
-              No active people.
+              {t.noActivePeople}
             </p>
           ) : (
             <PersonPicker
@@ -297,12 +305,12 @@ function HistoryPageContent() {
               aria-busy={peopleStatus === 'LoadingMore'}
               onClick={() => loadMorePeople(PEOPLE_PAGE_SIZE)}
             >
-              Load more people
+              {t.loadMorePeople}
             </Button>
           ) : null}
           {/* One segmented control of peer ranges; the dates show only for a custom range. */}
           <p id="history-range-label" className="sr-only">
-            Range
+            {t.range}
           </p>
           <SegmentedTrack>
             <div
@@ -318,7 +326,7 @@ function HistoryPageContent() {
                   className={SEGMENT_CLASS}
                   onClick={() => setPresetDays(days)}
                 >
-                  {days} days
+                  {t.days(days)}
                 </button>
               ))}
               <button
@@ -327,7 +335,7 @@ function HistoryPageContent() {
                 className={SEGMENT_CLASS}
                 onClick={() => setCustomRangeOpen(true)}
               >
-                Custom range
+                {t.customRange}
               </button>
             </div>
           </SegmentedTrack>
@@ -337,7 +345,7 @@ function HistoryPageContent() {
                 variant="chip"
                 value={startDate}
                 onChange={setStartDate}
-                ariaLabel="History start date"
+                ariaLabel={t.startDate}
               />
               <span aria-hidden="true" className="text-muted-foreground">
                 –
@@ -346,7 +354,7 @@ function HistoryPageContent() {
                 variant="chip"
                 value={endDate}
                 onChange={setEndDate}
-                ariaLabel="History end date"
+                ariaLabel={t.endDate}
               />
             </div>
           ) : null}
@@ -358,14 +366,14 @@ function HistoryPageContent() {
             className="inset-group bg-[color-mix(in_oklab,var(--destructive)_8%,var(--card))] px-4 py-3 type-subhead text-destructive"
           >
             {isDateRangeOrdered
-              ? `History ranges can include at most ${MAX_HISTORY_DAYS} days.`
-              : 'The start date must be on or before the end date.'}
+              ? t.rangeTooLong(MAX_HISTORY_DAYS)
+              : t.rangeReversed}
           </div>
         ) : isInitialLoading ||
           (Boolean(effectiveSelectedPersonId) && !isHistoryComplete) ? (
           <div
             role="status"
-            aria-label="Loading the complete date range"
+            aria-label={t.loadingRange}
             className="min-h-96 space-y-6"
           >
             <Skeleton className="h-20 w-full rounded-xl" />
@@ -378,7 +386,7 @@ function HistoryPageContent() {
               <div className="grid grid-cols-2">
                 <div className="px-4 py-3">
                   <p className="type-footnote text-muted-foreground">
-                    Daily average
+                    {t.dailyAverage}
                   </p>
                   <p className="mt-0.5">
                     {loggedDays > 0 ? (
@@ -390,13 +398,13 @@ function HistoryPageContent() {
                 </div>
                 <div className="border-l px-4 py-3">
                   <p className="type-footnote text-muted-foreground">
-                    Days with meals
+                    {t.daysWithMeals}
                   </p>
                   <p className="mt-0.5">
                     <Value
                       size="stat"
                       value={loggedDays}
-                      unit={`of ${rows.length}`}
+                      unit={t.ofDays(rows.length)}
                     />
                   </p>
                 </div>
@@ -404,7 +412,7 @@ function HistoryPageContent() {
               {/* The caption sits inside the card it explains. A day with a
                   logged zero-calorie meal still counts. */}
               <p className="border-t px-4 py-2.5 type-footnote text-muted-foreground">
-                Average skips days with no meals logged.
+                {t.averageNote}
               </p>
             </div>
 
@@ -416,7 +424,7 @@ function HistoryPageContent() {
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <h2 id="history-chart-title" className="type-headline">
-                      Daily calories
+                      {t.dailyCalories}
                     </h2>
                     <ChartLegend rows={rows} />
                   </div>
@@ -430,7 +438,7 @@ function HistoryPageContent() {
                   {selectedDay ? (
                     <div className="-mx-4 mt-1 flex items-center justify-between gap-3 border-t px-4 py-2.5">
                       <p className="min-w-0 truncate type-headline">
-                        {formatDate(selectedDay.date)}
+                        {formatDate(selectedDay.date, locale)}
                       </p>
                       <a
                         href={dayHref(selectedDay.date)}
@@ -439,7 +447,7 @@ function HistoryPageContent() {
                           'pr-3',
                         )}
                       >
-                        View day
+                        {t.viewDay}
                         <ChevronRight
                           aria-hidden="true"
                           className="text-muted-foreground"
@@ -451,11 +459,11 @@ function HistoryPageContent() {
 
                 <section aria-labelledby="history-days">
                   <h2 id="history-days" className="type-title">
-                    Days
+                    {t.daysHeading}
                   </h2>
                   {rows.length === 0 ? (
                     <p className="mt-3 inset-group px-4 py-3 type-subhead text-muted-foreground">
-                      No data for the selected range.
+                      {t.noData}
                     </p>
                   ) : (
                     <ul className="mt-3 inset-group inset-rows">
@@ -479,7 +487,8 @@ function HistoryPageContent() {
 /** A day's logged total against its goal in the value style: foreground
  * tabular figures and one muted unit, like Today's summary line. */
 function DayTotals({ row }: { row: DayRow }) {
-  if (!row.mealCount) return 'No meals logged'
+  const t = useMessages(messages)
+  if (!row.mealCount) return t.noMealsLogged
   return (
     <>
       <span className="font-semibold text-foreground">
@@ -501,13 +510,14 @@ function DayTotals({ row }: { row: DayRow }) {
 /** One day in the range: the date, what was logged against the goal, and
  * the balance in its state colour with a sign and arrow. Opens that day. */
 function DayLink({ row, href }: { row: DayRow; href: string }) {
+  const locale = useLocale()
   return (
     <a
       href={href}
       className="flex min-h-15 items-center gap-3 py-2.5 pr-3.5 pl-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-base">{formatDate(row.date)}</span>
+        <span className="block text-base">{formatDate(row.date, locale)}</span>
         <span className="mt-0.5 block type-footnote text-muted-foreground tabular-nums">
           <DayTotals row={row} />
         </span>
@@ -528,6 +538,7 @@ function DayLink({ row, href }: { row: DayRow; href: string }) {
 /** The legend in the app's words. The goal line names its value, or the
  * range of values when the goal changed within the range. */
 function ChartLegend({ rows }: { rows: DayRow[] }) {
+  const t = useMessages(messages)
   const goals = rows.map((row) => Math.round(row.goal)).filter((g) => g > 0)
   const low = Math.min(...goals)
   const high = Math.max(...goals)
@@ -535,7 +546,7 @@ function ChartLegend({ rows }: { rows: DayRow[] }) {
     <div className="flex items-center gap-3 type-footnote text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
         <span className="size-2.5 rounded-[3px] bg-kcal-left-bar" />
-        Left
+        {t.legendLeft}
       </span>
       <span className="inline-flex items-center gap-1.5">
         {/* The whole over mark, as the bars draw it: the tint up to the
@@ -544,11 +555,11 @@ function ChartLegend({ rows }: { rows: DayRow[] }) {
           <span className="h-1 bg-kcal-over-bar" />
           <span className="flex-1 bg-kcal-over-base" />
         </span>
-        Over
+        {t.legendOver}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span className="h-0.5 w-3 rounded-full bg-muted-foreground/70" />
-        Goal
+        {t.legendGoal}
         {goals.length ? (
           <span className="font-semibold text-foreground tabular-nums">
             {low === high ? low : `${low}–${high}`}
@@ -581,6 +592,8 @@ function HistoryChart({
   selectedDate?: string
   onSelect: (date: string) => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const chronologicalRows = [...rows].reverse()
   const maxValue =
     Math.max(
@@ -593,7 +606,7 @@ function HistoryChart({
   if (chronologicalRows.length === 0) {
     return (
       <p className="py-8 text-center type-subhead text-muted-foreground">
-        No chart data for the selected range.
+        {t.noChartData}
       </p>
     )
   }
@@ -635,7 +648,15 @@ function HistoryChart({
           <button
             type="button"
             key={row.date}
-            aria-label={`${row.date}: ${row.mealCount ? `${Math.round(row.consumed)} kcal, goal ${Math.round(row.goal)} kcal` : 'No meals logged'}`}
+            aria-label={
+              row.mealCount
+                ? t.barLabel(
+                    row.date,
+                    Math.round(row.consumed),
+                    Math.round(row.goal),
+                  )
+                : t.emptyBarLabel(row.date)
+            }
             aria-pressed={selected}
             onClick={() => onSelect(row.date)}
             className={cn(
@@ -707,7 +728,10 @@ function HistoryChart({
                 !showLabel && 'invisible',
               )}
             >
-              {format(parseISO(row.date), rows.length <= 7 ? 'EEE' : 'd')}
+              {parseISO(row.date).toLocaleDateString(
+                intlLocale(locale),
+                rows.length <= 7 ? { weekday: 'short' } : { day: 'numeric' },
+              )}
             </span>
           </button>
         )

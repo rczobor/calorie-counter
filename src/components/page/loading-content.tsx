@@ -1,5 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './loading-content.messages'
 
 export function LoadingRows({
   label,
@@ -30,10 +32,11 @@ export function LoadingRows({
 }
 
 export function EditorSkeleton() {
+  const t = useMessages(messages)
   return (
     <div
       role="status"
-      aria-label="Loading editor"
+      aria-label={t.loadingEditor}
       className="min-h-96 space-y-6 py-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
@@ -44,7 +47,7 @@ export function EditorSkeleton() {
           </div>
         ))}
       </div>
-      <LoadingRows label="Loading foods" rows={2} />
+      <LoadingRows label={t.loadingFoods} rows={2} />
     </div>
   )
 }

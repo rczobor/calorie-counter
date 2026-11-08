@@ -3,7 +3,9 @@ import { useRef, type ComponentProps } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './search-field.messages'
 
 type SearchFieldProps = Omit<
   ComponentProps<'input'>,
@@ -29,6 +31,7 @@ export function SearchField({
   className,
   ...props
 }: SearchFieldProps) {
+  const t = useMessages(messages)
   const inputRef = useRef<HTMLInputElement>(null)
   return (
     <div className={cn('relative min-w-0', className)}>
@@ -40,7 +43,7 @@ export function SearchField({
         {...props}
         ref={inputRef}
         aria-label={label}
-        placeholder={placeholder ?? 'Search'}
+        placeholder={placeholder ?? t.placeholder}
         enterKeyHint="search"
         className={cn('rounded-full pl-10', value ? 'pr-11' : 'pr-3.5')}
         value={value}
@@ -51,7 +54,7 @@ export function SearchField({
           size="icon-xs"
           variant="ghost"
           className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
-          aria-label="Clear search"
+          aria-label={t.clear}
           onClick={() => {
             onValueChange('')
             inputRef.current?.focus()

@@ -5,7 +5,9 @@ import { LoadingRows } from '@/components/page/loading-content'
 import { StatusBadge } from '@/components/page/status-badge'
 import { Value } from '@/components/nutrition/value'
 import { Button } from '@/components/ui/button'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './record-list.messages'
 
 /**
  * One list that works at every width: rows instead of table columns, so phones
@@ -27,10 +29,11 @@ export function RecordList({
   children?: ReactNode
   className?: string
 }) {
+  const t = useMessages(messages)
   if (loading)
     return (
       <LoadingRows
-        label={`Loading ${label.toLowerCase()}`}
+        label={t.loading(label)}
         className={cn('inset-group px-4', className)}
       />
     )

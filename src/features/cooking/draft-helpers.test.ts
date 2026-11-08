@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  amountUnitLabel,
   createCookingDraft,
   createDraftId,
   createDraftFromCookedFood,
@@ -45,6 +46,12 @@ describe('cooking draft helpers', () => {
     expect(shouldAutoFillReferenceFields('g')).toBe(true)
     expect(shouldAutoFillReferenceFields('ml')).toBe(true)
     expect(shouldAutoFillReferenceFields('piece')).toBe(false)
+  })
+
+  it('names amount units in the reader’s language', () => {
+    expect(amountUnitLabel('g', 'hu')).toBe('g')
+    expect(amountUnitLabel('tablespoon', 'en')).toBe('tablespoon')
+    expect(amountUnitLabel('tablespoon', 'hu')).toBe('evőkanál')
   })
 
   it('uses UUIDs for collision-resistant draft identifiers', () => {

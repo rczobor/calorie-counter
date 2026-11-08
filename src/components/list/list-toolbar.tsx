@@ -5,6 +5,8 @@ import { SearchField } from '@/components/list/search-field'
 import { Button } from '@/components/ui/button'
 import { Select, type SelectOption } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './list-toolbar.messages'
 
 export type ArchivedToggle = {
   checked: boolean
@@ -43,6 +45,7 @@ export function ListToolbar<Sort extends string = string>({
   create?: { noun: string; onClick: () => void; disabled?: boolean }
   archived?: ArchivedToggle
 }) {
+  const t = useMessages(messages)
   const crowded = Boolean(search && sort && archived && !create)
   const secondRow = Boolean(create) || crowded || !search
   const sortControl = sort ? (
@@ -61,7 +64,7 @@ export function ListToolbar<Sort extends string = string>({
   ) : null
   const archivedControl = archived ? (
     <label className="ml-auto inline-flex min-h-11 cursor-pointer items-center gap-2.5 type-subhead text-foreground">
-      Show archived
+      {t.showArchived}
       <Switch
         checked={archived.checked}
         disabled={archived.disabled}
@@ -98,7 +101,7 @@ export function ListToolbar<Sort extends string = string>({
               {/* The neutral secondary capsule: the tint is reserved for Log
                   meal, filled saves, the selected tab and focus. */}
               <Plus aria-hidden="true" />
-              New {create.noun}
+              {t.create(create.noun)}
             </Button>
           ) : null}
           {crowded ? sortControl : null}

@@ -1,4 +1,6 @@
+import type { Locale } from '@/i18n/locale'
 import type { CookingDraft } from './draft-helpers'
+import { messages } from './use-persisted-cooking-drafts.messages'
 
 const STORAGE_VERSION = 2
 const LEGACY_STORAGE_VERSION = 1
@@ -280,15 +282,18 @@ export function readLegacyCookingDrafts(userId: string | null) {
   }
 }
 
-export function removeLegacyCookingDraft(userId: string, draft: CookingDraft) {
+// The caller shows the thrown message, so it is in the reader's language.
+export function removeLegacyCookingDraft(
+  userId: string,
+  draft: CookingDraft,
+  locale: Locale,
+) {
   const key = getStorageKey(userId)
   const serialized = window.localStorage.getItem(key)
   const current = parsePersistedDraftState(serialized)
   const saved = current.drafts.find((item) => item.draftId === draft.draftId)
   if (!saved || JSON.stringify(saved) !== JSON.stringify(draft)) {
-    throw new Error(
-      'This recovered draft changed in another tab. Reload its latest copy before removing it.',
-    )
+    throw new Error(messages[locale].draftChanged)
   }
   const drafts = current.drafts.filter((item) => item.draftId !== draft.draftId)
   // A tombstone prevents an old workspace tab from bringing back the removed draft.

@@ -57,7 +57,7 @@ describe('retired cooking workspace recovery', () => {
         drafts: [draft, other],
       }),
     )
-    removeLegacyCookingDraft(user, draft)
+    removeLegacyCookingDraft(user, draft, 'en')
     expect(readLegacyCookingDrafts(user).drafts).toEqual([other])
     expect(
       JSON.parse(window.localStorage.getItem(key) ?? '{}').tombstones,
@@ -67,7 +67,7 @@ describe('retired cooking workspace recovery', () => {
     const original = makeDraft(),
       edited = { ...original, name: 'Newer soup', updatedAt: 200 }
     window.localStorage.setItem(key, serialize(edited))
-    expect(() => removeLegacyCookingDraft(user, original)).toThrow(
+    expect(() => removeLegacyCookingDraft(user, original, 'en')).toThrow(
       'changed in another tab',
     )
     expect(readLegacyCookingDrafts(user).drafts).toEqual([edited])

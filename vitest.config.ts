@@ -59,6 +59,9 @@ export default defineConfig({
         'src/components/ui/switch.tsx',
         'src/components/ui/tabs.tsx',
         'src/components/ui/textarea.tsx',
+        // Interface text tables. Type checking keeps every language complete,
+        // and the components that show them carry the behavioural coverage.
+        '**/*.messages.ts',
         '**/*.test.ts',
         '**/*.test.tsx',
       ],

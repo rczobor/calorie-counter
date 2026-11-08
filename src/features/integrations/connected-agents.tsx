@@ -13,21 +13,29 @@ import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-
 import { toErrorMessage } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './connected-agents.messages'
 
-function scopeLabel(scope: string) {
+function scopeLabel(
+  scope: string,
+  labels: (typeof messages)[Locale]['scopes'],
+) {
   switch (scope) {
     case 'nutrition:read':
-      return 'Read nutrition'
+      return labels.nutritionRead
     case 'meals:write':
-      return 'Log meals'
+      return labels.mealsWrite
     case 'cooking:write':
-      return 'Record cooking'
+      return labels.cookingWrite
     default:
       return scope
   }
 }
 
 export function ConnectedAgents() {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const configuration = useQuery(api.mcp.getConfiguration, {})
   const connections = useQuery(
     api.mcp.listConnections,
@@ -46,7 +54,7 @@ export function ConnectedAgents() {
     try {
       await revoke({ id })
     } catch (error) {
-      setError(toErrorMessage(error))
+      setError(toErrorMessage(error, locale))
     } finally {
       setPending(null)
       setDisconnecting(null)
@@ -54,25 +62,25 @@ export function ConnectedAgents() {
   }
   return (
     <PageShell
-      title="AI assistants"
-      subtitle="Log meals and cooking by chatting with ChatGPT or Claude."
-      breadcrumbs={<SettingsBreadcrumbs current="AI assistants" />}
+      title={t.title}
+      subtitle={t.intro}
+      breadcrumbs={<SettingsBreadcrumbs current={t.title} />}
       contentClassName="max-w-3xl"
     >
       <div className="mt-6 space-y-8">
         {configuration === undefined || configuration.enabled ? (
           <section aria-labelledby="connections-title">
             <h2 id="connections-title" className="group-label">
-              Connections
+              {t.connections}
             </h2>
             {connections === undefined ? (
               <LoadingRows
-                label="Loading connected agents"
+                label={t.loadingConnections}
                 rows={1}
                 className="inset-group px-4"
               />
             ) : (
-              <RecordList label="Connections" empty="No assistants connected.">
+              <RecordList label={t.connections} empty={t.noConnections}>
                 {connections.map((connection) => (
                   <RecordRow
                     key={connection.id}
@@ -81,7 +89,9 @@ export function ConnectedAgents() {
                       // Plain permissions stay visible; exact scope names are on demand.
                       <details className="group">
                         <summary className="inline-flex min-h-6 cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
-                          {connection.scopes.map(scopeLabel).join(' · ')}
+                          {connection.scopes
+                            .map((scope) => scopeLabel(scope, t.scopes))
+                            .join(' · ')}
                           <ChevronDown
                             aria-hidden="true"
                             className="size-3.5 transition-transform group-open:rotate-180"
@@ -106,8 +116,8 @@ export function ConnectedAgents() {
                         onClick={() => setDisconnecting(connection)}
                       >
                         {pending === connection.id
-                          ? 'Disconnecting…'
-                          : 'Disconnect'}
+                          ? t.disconnecting
+                          : t.disconnect}
                       </Button>
                     }
                   />
@@ -135,7 +145,7 @@ export function ConnectedAgents() {
               'cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden',
             )}
           >
-            Connection setup
+            {t.setup}
             <ChevronDown
               aria-hidden="true"
               className="size-4 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
@@ -143,78 +153,40 @@ export function ConnectedAgents() {
           </summary>
           <div className="space-y-4 border-t px-4 pt-3 pb-4 type-subhead">
             {configuration === undefined ? (
-              <LoadingRows label="Loading integration settings" rows={2} />
+              <LoadingRows label={t.loadingSetup} rows={2} />
             ) : !configuration.enabled ? (
-              <p>
-                AI assistant connections have not been enabled for this
-                deployment.
-              </p>
+              <p>{t.disabled}</p>
             ) : (
               <>
                 <p
                   className="break-all rounded-lg bg-muted px-3.5 py-2.5 font-mono type-footnote"
-                  aria-label="MCP server URL"
+                  aria-label={t.serverUrl}
                 >
                   {configuration.url}
                 </p>
                 <Tabs defaultValue="chatgpt">
-                  <TabsList aria-label="Assistant">
+                  <TabsList aria-label={t.assistant}>
                     <TabsTrigger value="chatgpt">ChatGPT</TabsTrigger>
                     <TabsTrigger value="claude">Claude</TabsTrigger>
                   </TabsList>
                   <TabsContent value="chatgpt" className="space-y-4 pt-2">
                     <ol className="list-decimal space-y-2 pl-5">
-                      <li>In ChatGPT Plugins, choose Add custom MCP server.</li>
-                      <li>Paste this URL and select OAuth authentication.</li>
-                      <li>
-                        Choose permissions, sign in to Calorie Counter, and
-                        review the connection request.
-                      </li>
-                      <li>
-                        Enable the integration in a conversation and describe
-                        your meal or cooking.
-                      </li>
+                      {t.chatgptSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
                     </ol>
-                    <p className="text-muted-foreground">
-                      Availability depends on your ChatGPT account and workspace
-                      settings. To connect with read-only access, request only
-                      nutrition:read. Recording meals or cooking also requires
-                      its write permission.
-                    </p>
+                    <p className="text-muted-foreground">{t.chatgptNote}</p>
                   </TabsContent>
                   <TabsContent value="claude" className="space-y-4 pt-2">
                     <ol className="list-decimal space-y-2 pl-5">
-                      <li>
-                        In Claude, open Customize, then Connectors, and choose
-                        Add custom connector.
-                      </li>
-                      <li>
-                        Paste this URL, keep the default sign-in settings, and
-                        add the connector.
-                      </li>
-                      <li>
-                        Select Connect, sign in to Calorie Counter, and review
-                        the connection request.
-                      </li>
-                      <li>
-                        In a conversation, turn the connector on from the + menu
-                        under Connectors, then describe your meal or cooking.
-                      </li>
+                      {t.claudeSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
                     </ol>
-                    <p className="text-muted-foreground">
-                      On Team and Enterprise plans, an organization Owner first
-                      adds the connector in Organization settings, then
-                      Connectors. Each member then connects it from Customize,
-                      then Connectors.
-                    </p>
+                    <p className="text-muted-foreground">{t.claudeNote}</p>
                   </TabsContent>
                 </Tabs>
-                <p className="text-muted-foreground">
-                  Food names, portions, and nutrition data returned by the tools
-                  are shared with the assistant you connect. Review estimates
-                  and portions before saving or correcting a meal. Use Calorie
-                  Counter to replace or remove foods.
-                </p>
+                <p className="text-muted-foreground">{t.dataSharing}</p>
               </>
             )}
           </div>
@@ -224,9 +196,9 @@ export function ConnectedAgents() {
           onOpenChange={(open) => {
             if (!open && !pending) setDisconnecting(null)
           }}
-          title={`Disconnect ${disconnecting?.name ?? 'connection'}?`}
-          description="This connection will lose access. Recorded meals and cooking will remain."
-          confirmLabel="Disconnect"
+          title={t.disconnectTitle(disconnecting?.name)}
+          description={t.disconnectDescription}
+          confirmLabel={t.disconnect}
           disabled={pending !== null}
           onConfirm={() => {
             if (disconnecting) void disconnect(disconnecting.id)

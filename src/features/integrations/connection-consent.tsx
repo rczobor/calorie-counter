@@ -11,8 +11,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { toErrorMessage } from '@/lib/nutrition'
+import { useLocale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './connection-consent.messages'
 
 export function ConnectionConsent({ requestId }: { requestId: string }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const request = useQuery(
     api.mcp.getAuthRequest,
     requestId ? { requestId } : 'skip',
@@ -31,7 +36,7 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
       if (result.redirectUrl) window.location.assign(result.redirectUrl)
       else setFinished(true)
     } catch (error) {
-      setError(toErrorMessage(error))
+      setError(toErrorMessage(error, locale))
       setPending(false)
     }
   }
@@ -40,85 +45,61 @@ export function ConnectionConsent({ requestId }: { requestId: string }) {
     <main className="mx-auto max-w-xl px-4 py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Connect an AI assistant</CardTitle>
-          <CardDescription>
-            Grant access to the households your Calorie Counter account belongs
-            to.
-          </CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {framed ? (
-            <p>Open this page directly to approve a connection.</p>
+            <p>{t.framed}</p>
           ) : finished ? (
-            <p>You can return to your assistant.</p>
+            <p>{t.finished}</p>
           ) : !requestId ? (
-            <p>
-              Start the connection from your assistant using the MCP URL in
-              Settings, AI assistants.
-            </p>
+            <p>{t.noRequest}</p>
           ) : request === undefined ? (
-            <LoadingRows label="Loading connection request" rows={2} />
+            <LoadingRows label={t.loading} rows={2} />
           ) : !request || request.status !== 'pending' ? (
-            <p>
-              This request has expired or was already handled. Start again from
-              your assistant.
-            </p>
+            <p>{t.expired}</p>
           ) : request.kind !== 'redirect' ? (
-            <p>
-              This connection method is not enabled. Start a browser OAuth
-              connection from your assistant.
-            </p>
+            <p>{t.unsupported}</p>
           ) : (
             <>
               <p>
-                Client name (unverified): <strong>{request.clientName}</strong>
+                {t.clientName} <strong>{request.clientName}</strong>
               </p>
-              <p className="text-sm text-muted-foreground">
-                Approve only a connection you started. The client supplies its
-                name; it has not been verified by Calorie Counter.
-              </p>
+              <p className="text-sm text-muted-foreground">{t.clientWarning}</p>
               {request.redirectUri ? (
                 <div className="break-all text-sm">
                   <p>
-                    Return to:{' '}
+                    {t.returnTo}{' '}
                     <strong>{new URL(request.redirectUri).host}</strong>
                   </p>
                   <details>
-                    <summary>Full return address</summary>
+                    <summary>{t.fullReturnAddress}</summary>
                     {request.redirectUri}
                   </details>
                   {['localhost', '127.0.0.1', '[::1]'].includes(
                     new URL(request.redirectUri).hostname,
                   ) ? (
-                    <p>
-                      A local application will receive this connection. Approve
-                      only if you started it.
-                    </p>
+                    <p>{t.localApplication}</p>
                   ) : null}
                 </div>
               ) : null}
               <ul className="list-disc space-y-1 pl-5">
                 {request.scopes.map((scope) => (
-                  <li key={scope.name}>{scope.description}</li>
+                  <li key={scope.name}>{t.scopeDescription(scope)}</li>
                 ))}
               </ul>
-              <p className="text-sm text-muted-foreground">
-                The assistant can access people, meals, goals, history, catalog,
-                and cooking in all households you belong to, including
-                households you join later, within the permissions above. It
-                chooses the household explicitly for each request. You can
-                disconnect it in Settings, AI assistants.
-              </p>
+              <p className="text-sm text-muted-foreground">{t.accessSummary}</p>
               <div className="flex gap-2">
                 <Button disabled={pending} onClick={() => void decide(true)}>
-                  Allow access
+                  {t.allow}
                 </Button>
                 <Button
                   variant="outline"
                   disabled={pending}
                   onClick={() => void decide(false)}
                 >
-                  Deny
+                  {t.deny}
                 </Button>
               </div>
             </>

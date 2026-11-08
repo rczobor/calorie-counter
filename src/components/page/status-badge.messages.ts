@@ -1,0 +1,6 @@
+import { defineMessages } from '@/i18n/messages'
+
+export const messages = defineMessages({
+  en: { Active: 'Active', Archived: 'Archived' },
+  hu: { Active: 'Aktív', Archived: 'Archivált' },
+})

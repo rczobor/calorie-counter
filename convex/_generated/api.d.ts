@@ -33,6 +33,7 @@ import type * as people from "../people.js";
 import type * as recipes from "../recipes.js";
 import type * as savedFoods from "../savedFoods.js";
 import type * as seed from "../seed.js";
+import type * as userPreferences from "../userPreferences.js";
 import type * as validators from "../validators.js";
 import type * as weight from "../weight.js";
 
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   recipes: typeof recipes;
   savedFoods: typeof savedFoods;
   seed: typeof seed;
+  userPreferences: typeof userPreferences;
   validators: typeof validators;
   weight: typeof weight;
 }>;

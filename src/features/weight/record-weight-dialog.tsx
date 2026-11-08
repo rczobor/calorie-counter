@@ -13,7 +13,10 @@ import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { toErrorMessage } from '@/lib/nutrition'
+import { messages } from './record-weight-dialog.messages'
 import {
   datedLabel,
   formatKg,
@@ -29,11 +32,12 @@ export type WeightEntry = FunctionReturnType<
 export type WeightDialogRequest =
   { kind: 'new'; date: string } | { kind: 'edit'; entry: WeightEntry }
 
-function weightError(text: string) {
+function weightError(text: string, locale: Locale) {
+  const t = messages[locale]
   const weight = parseWeightInput(text)
-  if (weight === null) return 'Enter a weight in kilograms, like 82.4.'
+  if (weight === null) return t.invalidWeight
   if (weight < MIN_WEIGHT_KG || weight > MAX_WEIGHT_KG)
-    return `Weight must be between ${MIN_WEIGHT_KG} and ${MAX_WEIGHT_KG} kg.`
+    return t.outOfRange(MIN_WEIGHT_KG, MAX_WEIGHT_KG)
   return null
 }
 
@@ -54,6 +58,8 @@ export function RecordWeightDialog({
   request: WeightDialogRequest
   onClose: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const editing = request.kind === 'edit' ? request.entry : null
   const [date, setDate] = useState(
     request.kind === 'edit' ? request.entry.measuredOn : request.date,
@@ -73,7 +79,7 @@ export function RecordWeightDialog({
   const existing = editing ?? sameDay?.[0]
   const record = useMutation(api.weight.record)
   const remove = useMutation(api.weight.remove)
-  const error = weightError(text)
+  const error = weightError(text, locale)
 
   async function run(success: string, action: () => Promise<unknown>) {
     setPending(true)
@@ -82,7 +88,7 @@ export function RecordWeightDialog({
       toast.success(success)
       onClose()
     } catch (failure) {
-      toast.error(toErrorMessage(failure))
+      toast.error(toErrorMessage(failure, locale))
       setPending(false)
     }
   }
@@ -99,11 +105,11 @@ export function RecordWeightDialog({
       <div className="flex shrink-0 items-start justify-between gap-2 pt-1 pr-2 pb-2 pl-4 md:pt-3">
         <div className="min-w-0 pt-2">
           <Drawer.Title className="truncate type-title">
-            {editing ? 'Edit weight' : 'Record weight'}
+            {editing ? t.editTitle : t.recordTitle}
           </Drawer.Title>
           <Drawer.Description className="mt-0.5 truncate type-subhead text-muted-foreground">
             {editing
-              ? `${personName} · ${datedLabel(editing.measuredOn, today)}`
+              ? `${personName} · ${datedLabel(editing.measuredOn, today, locale)}`
               : personName}
           </Drawer.Description>
         </div>
@@ -114,7 +120,7 @@ export function RecordWeightDialog({
               variant="ghost"
               size="icon"
               className="text-muted-foreground"
-              aria-label="Close"
+              aria-label={t.close}
             />
           }
         >
@@ -134,7 +140,7 @@ export function RecordWeightDialog({
           }
           const weightKg = parseWeightInput(text)
           if (weightKg === null) return
-          void run(editing ? 'Weight updated.' : 'Weight saved.', () =>
+          void run(editing ? t.updated : t.saved, () =>
             record({
               personId,
               measuredOn: date,
@@ -146,12 +152,12 @@ export function RecordWeightDialog({
       >
         <fieldset disabled={pending} className="min-w-0 space-y-4 pt-2 pb-5">
           {editing ? null : (
-            <Field label="Date">
+            <Field label={t.date}>
               <DatePicker
                 value={date}
                 onChange={setDate}
-                ariaLabel="Weight date"
-                label={datedLabel(date, today)}
+                ariaLabel={t.dateLabel}
+                label={datedLabel(date, today, locale)}
                 className="w-full"
               />
             </Field>
@@ -159,11 +165,10 @@ export function RecordWeightDialog({
           {!editing && existing ? (
             // Said before the field, so nobody replaces a weight unawares.
             <p className="px-4 type-subhead text-foreground" role="status">
-              This day already has {formatKg(existing.weightKg)} kg. Saving
-              replaces it.
+              {t.replacesExisting(formatKg(existing.weightKg, locale))}
             </p>
           ) : null}
-          <Field label="Weight" htmlFor="weight-kg">
+          <Field label={t.weight} htmlFor="weight-kg">
             <UnitInput
               id="weight-kg"
               ref={inputRef}
@@ -195,11 +200,11 @@ export function RecordWeightDialog({
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 />
-              Delete
+              {t.delete}
             </Button>
           ) : null}
           <Button type="submit" size="lg" disabled={pending || !text.trim()}>
-            Save weight
+            {t.save}
           </Button>
         </SheetFooter>
       </form>
@@ -208,11 +213,14 @@ export function RecordWeightDialog({
           open={confirmDelete}
           onOpenChange={setConfirmDelete}
           disabled={pending}
-          title="Delete this weight?"
-          description={`${formatKg(editing.weightKg)} kg on ${datedLabel(editing.measuredOn, today)} will be removed.`}
+          title={t.confirmTitle}
+          description={t.confirmDescription(
+            formatKg(editing.weightKg, locale),
+            datedLabel(editing.measuredOn, today, locale),
+          )}
           onConfirm={() => {
             setConfirmDelete(false)
-            void run('Weight deleted.', () =>
+            void run(t.deleted, () =>
               remove({
                 entryId: editing._id,
                 expectedEditRevision: editing.editRevision,

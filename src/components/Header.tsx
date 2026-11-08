@@ -5,16 +5,18 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import { Button } from '@/components/ui/button'
 import { requestLogMeal } from '@/features/meals/log-meal-request'
+import { useMessages } from '@/i18n/messages'
 import { isClerkConfigured } from '@/integrations/clerk/config'
 import { cn } from '@/lib/utils'
 import { isE2eMockMode } from '@/testing/e2e/config'
+import { messages } from './Header.messages'
 
 const ThemeSelector = lazy(() => import('./theme-selector'))
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Today', icon: House },
-  { to: '/history', label: 'History', icon: Clock },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/', label: 'today', icon: House },
+  { to: '/history', label: 'history', icon: Clock },
+  { to: '/settings', label: 'settings', icon: Settings },
 ] as const
 // The selected link is the same tinted pill as the phone tab bar.
 const NAV_LINK_CLASS =
@@ -41,11 +43,12 @@ function SignedInOnly({ children }: { children: ReactNode }) {
 }
 
 function HeaderNavigation() {
+  const t = useMessages(messages)
   const pathname = usePathname()
   return (
     <SignedInOnly>
       <nav
-        aria-label="Primary navigation"
+        aria-label={t.primaryNavigation}
         className="hidden items-center gap-1 md:flex"
       >
         {NAV_ITEMS.map((item) => {
@@ -59,7 +62,7 @@ function HeaderNavigation() {
               className={active ? NAV_LINK_ACTIVE_CLASS : NAV_LINK_CLASS}
             >
               <item.icon aria-hidden="true" className="size-4" />
-              {item.label}
+              {t[item.label]}
             </Link>
           )
         })}
@@ -70,6 +73,7 @@ function HeaderNavigation() {
 
 /** Phone navigation: tabs within thumb reach and one action to log a meal from any tab. */
 export function BottomNavigation() {
+  const t = useMessages(messages)
   const pathname = usePathname()
   const navigate = useNavigate()
   const activeIndex = NAV_ITEMS.findIndex((item) => isActive(pathname, item.to))
@@ -79,7 +83,7 @@ export function BottomNavigation() {
           the home indicator, browsers keep a small gap. Only the glass itself
           blurs what is behind it. */}
       <nav
-        aria-label="Primary navigation"
+        aria-label={t.primaryNavigation}
         className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] md:hidden"
       >
         <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2">
@@ -105,7 +109,7 @@ export function BottomNavigation() {
                   to={item.to}
                   activeOptions={{ exact: true }}
                   aria-current={active ? 'page' : undefined}
-                  aria-label={item.label}
+                  aria-label={t[item.label]}
                   className={cn(
                     'relative flex h-11 flex-1 items-center justify-center rounded-full transition-[color,scale] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-90',
                     active
@@ -124,7 +128,7 @@ export function BottomNavigation() {
           </div>
           <Button
             size="icon"
-            aria-label="Log meal"
+            aria-label={t.logMeal}
             className="size-13 rounded-full shadow-[inset_0_1px_0_oklch(1_0_0/0.25),0_10px_30px_-10px_var(--glass-shadow),0_2px_8px_-2px_var(--glass-shadow)] hover:bg-primary motion-safe:active:scale-90 [&_svg:not([class*='size-'])]:size-6"
             onClick={() => {
               requestLogMeal()

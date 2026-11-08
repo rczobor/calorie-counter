@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns'
+import { parseISO } from 'date-fns'
 import type { FunctionReturnType } from 'convex/server'
 import { Check, Info } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -16,6 +16,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
+import { formatMonthDay } from '@/features/weight/weight-format'
+import { formatAmount } from '@/i18n/format'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
 import { toErrorMessage } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 import {
@@ -24,6 +28,7 @@ import {
   describePlan,
   signedKg,
 } from './energy-format'
+import { messages } from './maintenance-card.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
 type CheckIn = FunctionReturnType<typeof api.energy.checkIn>
@@ -45,6 +50,7 @@ export function MaintenanceCard({
   today: string
   onOpenCalculator: () => void
 }) {
+  const t = useMessages(messages)
   const checkIn = useQuery(api.energy.checkIn, {
     personId: person._id,
     today,
@@ -55,7 +61,7 @@ export function MaintenanceCard({
       className="inset-group px-4 py-4"
     >
       {checkIn === undefined ? (
-        <div role="status" aria-label="Loading maintenance">
+        <div role="status" aria-label={t.loading}>
           <Skeleton className="h-5 w-32" />
           <Skeleton className="mt-4 h-9 w-48" />
           <Skeleton className="mt-3 h-4 w-60" />
@@ -79,10 +85,11 @@ export function MaintenanceCard({
 }
 
 function Heading({ badge }: { badge: ReactNode }) {
+  const t = useMessages(messages)
   return (
     <div className="flex items-center justify-between gap-3">
       <h2 id="maintenance-heading" className="type-headline">
-        Maintenance
+        {t.heading}
       </h2>
       {badge}
     </div>
@@ -122,13 +129,14 @@ function Progress({
   value: number
   of: number
 }) {
+  const t = useMessages(messages)
   const shown = Math.min(value, of)
   return (
     <div>
       <div className="flex justify-between type-subhead">
         <span>{label}</span>
         <span className="font-medium tabular-nums">
-          {shown} of {of}
+          {t.progress(shown, of)}
         </span>
       </div>
       <div
@@ -157,31 +165,30 @@ function Learning({
   checkIn: CheckIn
   onOpenCalculator: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const { estimate, formula } = checkIn
   const countsMet =
     estimate.loggedDays >= MIN_LOGGED_DAYS && estimate.weighIns >= MIN_WEIGH_INS
   return (
     <>
-      <Heading badge={<Badge tone="quiet">Learning</Badge>} />
-      <p className="mt-2 type-subhead">
-        {person.name}’s measured maintenance appears after two weeks of logs and
-        six weigh-ins.
-      </p>
+      <Heading badge={<Badge tone="quiet">{t.learning}</Badge>} />
+      <p className="mt-2 type-subhead">{t.appearsAfter(person.name)}</p>
       <div className="mt-4 space-y-3">
         <Progress
-          label="Logged days"
+          label={t.loggedDays}
           value={estimate.loggedDays}
           of={MIN_LOGGED_DAYS}
         />
         <Progress
-          label="Weigh-ins"
+          label={t.weighIns}
           value={estimate.weighIns}
           of={MIN_WEIGH_INS}
         />
       </div>
       {countsMet && estimate.weighInSpanDays < MIN_WEIGH_IN_SPAN_DAYS ? (
         <p className="mt-3 type-footnote text-muted-foreground">
-          The weigh-ins need to span at least two weeks.
+          {t.spanTwoWeeks}
         </p>
       ) : null}
       <div className="mt-4 border-t border-border pt-4">
@@ -189,23 +196,21 @@ function Learning({
           <dl className="space-y-1.5 type-subhead tabular-nums">
             {formula ? (
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">
-                  Until then, the formula’s guess
-                </dt>
+                <dt className="text-muted-foreground">{t.formulaGuess}</dt>
                 <dd className="font-medium whitespace-nowrap">
-                  ≈ {roundKcal(formula.kcal)} kcal a day
+                  {t.approxPerDay(roundKcal(formula.kcal))}
                 </dd>
               </div>
             ) : null}
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">
-                Current goal
+                {t.currentGoal}
                 <span className="block type-footnote">
-                  {describePlan(person.goalPlan)}
+                  {describePlan(person.goalPlan, locale)}
                 </span>
               </dt>
               <dd className="font-medium whitespace-nowrap">
-                {Math.round(person.currentDailyGoalKcal)} kcal a day
+                {t.perDay(Math.round(person.currentDailyGoalKcal))}
               </dd>
             </div>
           </dl>
@@ -219,7 +224,7 @@ function Learning({
             className="mt-3"
             onClick={onOpenCalculator}
           >
-            Edit plan
+            {t.editPlan}
           </Button>
         ) : null}
       </div>
@@ -227,10 +232,8 @@ function Learning({
         <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
         <span>
           {/* With no weigh-ins, the card above already asks for one. */}
-          {checkIn.latestWeightKg === null
-            ? ''
-            : 'Weigh in most mornings, before eating. '}
-          Days without a log are left out, not counted as zero.
+          {checkIn.latestWeightKg === null ? '' : t.weighInTip}
+          {t.daysLeftOut}
         </span>
       </p>
     </>
@@ -244,15 +247,14 @@ function SetUpPlan({
   person: Person
   onOpenCalculator: () => void
 }) {
+  const t = useMessages(messages)
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="min-w-0 flex-1 type-subhead text-muted-foreground">
-        {person.energyProfile
-          ? 'Choose a pace to get a suggested goal.'
-          : 'Add height and activity for a starting estimate and a suggested goal.'}
+        {person.energyProfile ? t.choosePace : t.addDetails}
       </p>
       <Button variant="outline" size="sm" onClick={onOpenCalculator}>
-        Find a daily goal
+        {t.findGoal}
       </Button>
     </div>
   )
@@ -269,6 +271,8 @@ function Ready({
   today: string
   onOpenCalculator: () => void
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const { estimate, formula, suggestion, history } = checkIn
   const updateGoal = useMutation(api.nutrition.updatePersonGoal)
   const updatePerson = useMutation(api.nutrition.updatePerson)
@@ -301,7 +305,7 @@ function Ready({
         expectedEditRevision: person.editRevision,
         goalKcal: suggestion.goalKcal,
         effectiveDate: today,
-        reason: `Check-in: maintenance ≈ ${maintenance} kcal`,
+        reason: t.checkInReason(maintenance),
       }
       // Ending a plan updates it too, so the card and People say so.
       if (endsPlan)
@@ -311,9 +315,9 @@ function Ready({
           goalPlan: { direction: 'maintain' },
         })
       else await updateGoal(goalChange)
-      toast.success('Goal updated.')
+      toast.success(t.goalUpdated)
     } catch (failure) {
-      toast.error(toErrorMessage(failure))
+      toast.error(toErrorMessage(failure, locale))
     } finally {
       setPending(false)
     }
@@ -325,70 +329,77 @@ function Ready({
         badge={
           suggestion ? (
             change ? (
-              <Badge tone="ready">Check-in ready</Badge>
+              <Badge tone="ready">{t.checkInReady}</Badge>
             ) : (
-              <Badge tone="quiet">On track</Badge>
+              <Badge tone="quiet">{t.onTrack}</Badge>
             )
           ) : null
         }
       />
       <p className="mt-3 tabular-nums">
         <span className="type-title font-semibold">≈ {maintenance}</span>{' '}
-        <span className="type-subhead text-muted-foreground">kcal a day</span>
+        <span className="type-subhead text-muted-foreground">{t.kcalADay}</span>
       </p>
       <p className="mt-1 type-footnote text-muted-foreground tabular-nums">
-        Likely {low}–{high}: {closeness(estimate.maintenance.uncertaintyKcal)}.
-        {formula ? ` The formula guessed ${roundKcal(formula.kcal)}.` : ''}
+        {t.likely(
+          low,
+          high,
+          closeness(estimate.maintenance.uncertaintyKcal, locale),
+          formula ? roundKcal(formula.kcal) : null,
+        )}
       </p>
       {history.length > 1 ? (
         <EstimateChart history={history} formulaKcal={formula?.kcal} />
       ) : null}
       <dl className="mt-4 divide-y divide-border border-y border-border type-subhead tabular-nums">
         <Stat
-          label="Average logged intake"
-          value={`${Math.round(estimate.averageIntakeKcal)} kcal a day`}
+          label={t.averageIntake}
+          value={t.perDay(Math.round(estimate.averageIntakeKcal))}
         />
         <Stat
-          label="Weight trend"
-          value={`${signedKg(estimate.trendKgPerWeek)} a week`}
+          label={t.weightTrend}
+          value={t.perWeek(signedKg(estimate.trendKgPerWeek, locale))}
         />
         {plan && plan.direction !== 'maintain' && suggestion ? (
           <Stat
-            label="Plan"
-            value={`${signedKg(suggestion.kgPerWeek)} a week`}
+            label={t.plan}
+            value={t.perWeek(signedKg(suggestion.kgPerWeek, locale))}
           />
         ) : null}
       </dl>
       <p className="mt-3 type-footnote text-muted-foreground">
-        From {estimate.loggedDays} logged days and {estimate.weighIns} weigh-ins
-        in the last {CHECK_IN_DAYS / 7} weeks.
+        {t.basis(estimate.loggedDays, estimate.weighIns, CHECK_IN_DAYS / 7)}
         {skipped.length > 0
-          ? ` Skipped as incomplete: ${skipped
-              .slice(0, 3)
-              .map(
-                (day) =>
-                  `${format(parseISO(day.date), 'MMM d')} (${Math.round(day.kcal)} kcal)`,
-              )
-              .join(
-                ', ',
-              )}${skipped.length > 3 ? ` and ${skipped.length - 3} more` : ''}.`
+          ? t.skipped(
+              skipped
+                .slice(0, 3)
+                .map((day) =>
+                  t.skippedDay(
+                    formatMonthDay(parseISO(day.date), locale),
+                    Math.round(day.kcal),
+                  ),
+                )
+                .join(', '),
+              skipped.length - 3,
+            )
           : ''}
       </p>
       <div className="mt-4 border-t border-border pt-4">
         {suggestion && plan ? (
           <>
             <div className="-mx-2 rounded-xl bg-muted/70 px-3 py-3">
-              <h3 className="type-subhead font-semibold">Suggested goal</h3>
+              <h3 className="type-subhead font-semibold">{t.suggestedGoal}</h3>
               <p className="mt-0.5 tabular-nums">
                 <span className="type-title font-semibold">
                   {suggestion.goalKcal}
                 </span>{' '}
                 <span className="type-subhead text-muted-foreground">
-                  kcal a day
+                  {t.kcalADay}
                 </span>
               </p>
               <p className="type-footnote text-muted-foreground tabular-nums">
                 {suggestionReason({
+                  locale,
                   name: person.name,
                   plan,
                   targetReached: suggestion.targetReached,
@@ -398,12 +409,11 @@ function Ready({
                   maintenanceKcal: maintenance,
                   goalKcal: suggestion.goalKcal,
                 })}{' '}
-                {currentGoalLine(current, suggestion.goalKcal)}.
+                {currentGoalLine(current, suggestion.goalKcal, locale)}.
               </p>
               {suggestion.heldAtMinimum && person.energyProfile ? (
                 <p className="mt-1 type-footnote text-caution">
-                  Held at the {MIN_GOAL_KCAL[person.energyProfile.sex]} kcal
-                  minimum.
+                  {t.heldAtMinimum(MIN_GOAL_KCAL[person.energyProfile.sex])}
                 </p>
               ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -413,7 +423,7 @@ function Ready({
                     disabled={pending}
                     onClick={() => void update()}
                   >
-                    Update goal
+                    {t.updateGoal}
                   </Button>
                 ) : null}
                 <Button
@@ -422,7 +432,7 @@ function Ready({
                   disabled={pending}
                   onClick={onOpenCalculator}
                 >
-                  Edit plan
+                  {t.editPlan}
                 </Button>
               </div>
             </div>
@@ -440,6 +450,7 @@ const ON_PACE_KG_PER_WEEK = 0.05
 
 /** What the suggestion aims for, and how the trend compares with the plan. */
 function suggestionReason({
+  locale,
   name,
   plan,
   targetReached,
@@ -449,6 +460,7 @@ function suggestionReason({
   maintenanceKcal,
   goalKcal,
 }: {
+  locale: Locale
   name: string
   plan: NonNullable<Person['goalPlan']>
   targetReached: boolean
@@ -458,24 +470,31 @@ function suggestionReason({
   maintenanceKcal: number
   goalKcal: number
 }) {
-  if (targetReached && plan.direction !== 'maintain')
-    return `${name} reached ${plan.targetWeightKg} kg, so this keeps weight steady.`
-  if (belowHealthyWeight)
-    return `${name} is below a healthy weight for their height, so this keeps weight steady.`
+  const t = messages[locale]
+  if (
+    targetReached &&
+    plan.direction !== 'maintain' &&
+    plan.targetWeightKg !== undefined
+  )
+    return t.targetReached(name, formatAmount(plan.targetWeightKg, locale))
+  if (belowHealthyWeight) return t.belowHealthyWeight(name)
   const gap = trendKgPerWeek - plannedKgPerWeek
   const step = goalKcal - maintenanceKcal
   // The working, as in the calculator: maintenance plus or minus the plan.
   const aim =
     plan.direction === 'maintain'
-      ? 'Maintenance, to keep weight steady'
-      : `${maintenanceKcal} ${step < 0 ? '−' : '+'} ${Math.abs(step)} to ${plan.direction} ${plan.percentPerWeek}% a week`
-  if (Math.abs(gap) < ON_PACE_KG_PER_WEEK)
-    return `${aim}; the trend is on pace.`
-  if (plan.direction === 'maintain')
-    return `${aim}; weight is ${gap < 0 ? 'falling' : 'rising'}.`
+      ? t.aimMaintain
+      : t.aim(
+          maintenanceKcal,
+          `${step < 0 ? '−' : '+'} ${Math.abs(step)}`,
+          plan.direction,
+          formatAmount(plan.percentPerWeek, locale),
+        )
+  if (Math.abs(gap) < ON_PACE_KG_PER_WEEK) return t.onPace(aim)
+  if (plan.direction === 'maintain') return t.weightMoving(aim, gap < 0)
   // Losing: a trend above the (negative) plan is slower. Gaining: the reverse.
   const slower = plan.direction === 'lose' ? gap > 0 : gap < 0
-  return `${aim}; the trend is ${slower ? 'slower' : 'faster'} than planned.`
+  return t.trendPace(aim, slower)
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -498,6 +517,8 @@ function EstimateChart({
   history: CheckIn['history']
   formulaKcal?: number
 }) {
+  const t = useMessages(messages)
+  const locale = useLocale()
   const values = history.flatMap((point) => [
     point.kcal - point.uncertaintyKcal,
     point.kcal + point.uncertaintyKcal,
@@ -517,11 +538,15 @@ function EstimateChart({
     .reverse()
   const first = history[0]
   const last = history[history.length - 1]
-  const day = (date: string) => format(parseISO(date), 'MMM d')
+  const day = (date: string) => formatMonthDay(parseISO(date), locale)
   return (
     <figure
       role="img"
-      aria-label={`Estimate from ${roundKcal(first.kcal)} kcal on ${day(first.date)} to ${roundKcal(last.kcal)} kcal on ${day(last.date)}${formulaKcal !== undefined ? `, against the formula’s ${roundKcal(formulaKcal)}` : ''}`}
+      aria-label={t.chartLabel(
+        { kcal: roundKcal(first.kcal), day: day(first.date) },
+        { kcal: roundKcal(last.kcal), day: day(last.date) },
+        formulaKcal !== undefined ? roundKcal(formulaKcal) : null,
+      )}
       className="mt-4 select-none"
     >
       <div className="relative h-28 px-1 py-4">
@@ -603,7 +628,7 @@ function EstimateChart({
               )}
               style={{ top: `${y(formulaKcal)}%` }}
             >
-              Formula {roundKcal(formulaKcal)}
+              {t.formula(roundKcal(formulaKcal))}
             </span>
           ) : null}
         </div>
@@ -630,7 +655,7 @@ function EstimateChart({
         ))}
       </div>
       <figcaption className="mt-1 type-caption text-muted-foreground">
-        Weekly estimate; the shading is its likely range.
+        {t.chartCaption}
       </figcaption>
     </figure>
   )

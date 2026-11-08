@@ -1,29 +1,30 @@
 import type { Doc } from '../../convex/_generated/dataModel'
+import type { Locale } from '@/i18n/locale'
+import { messages } from './nutrition.messages'
 
 export type NutritionProvenance = NonNullable<
   Doc<'mealItems'>['nutritionProvenance']
 >
 
-export type NutritionUnit =
-  'pinch' | 'teaspoon' | 'tablespoon' | 'piece' | 'g' | 'ml'
+export const NUTRITION_UNITS = [
+  'pinch',
+  'teaspoon',
+  'tablespoon',
+  'piece',
+  'g',
+  'ml',
+] as const
+export type NutritionUnit = (typeof NUTRITION_UNITS)[number]
 
-export const NUTRITION_UNIT_OPTIONS: Array<{
-  value: NutritionUnit
-  label: string
-}> = [
-  { value: 'pinch', label: 'pinch' },
-  { value: 'teaspoon', label: 'teaspoon' },
-  { value: 'tablespoon', label: 'tablespoon' },
-  { value: 'piece', label: 'piece' },
-  { value: 'g', label: 'grams' },
-  { value: 'ml', label: 'ml' },
-]
+export function getNutritionUnitLabel(unit: NutritionUnit, locale: Locale) {
+  return messages[locale].units[unit]
+}
 
-export function getNutritionUnitLabel(unit: NutritionUnit) {
-  return (
-    NUTRITION_UNIT_OPTIONS.find((option) => option.value === unit)?.label ??
-    unit
-  )
+export function nutritionUnitOptions(locale: Locale) {
+  return NUTRITION_UNITS.map((value) => ({
+    value,
+    label: getNutritionUnitLabel(value, locale),
+  }))
 }
 
 export function toLocalDateString(timestamp: number) {
@@ -54,11 +55,11 @@ export function toTimestampFromDate(value: string) {
   return date.getTime()
 }
 
-export function toErrorMessage(error: unknown) {
+export function toErrorMessage(error: unknown, locale: Locale) {
   if (error instanceof Error) {
     return error.message
   }
-  return 'Request failed.'
+  return messages[locale].requestFailed
 }
 
 export function formatKcalPer100(value: number) {

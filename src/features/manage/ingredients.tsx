@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react'
 
+import { useMessages } from '@/i18n/messages'
+import { messages } from './ingredients.messages'
+
 type IngredientsSectionProps = {
   children: ReactNode
 }
 
 export function IngredientsSection({ children }: IngredientsSectionProps) {
+  const t = useMessages(messages)
   return (
     <section>
       <div className="sr-only">
-        <h2>Ingredients</h2>
+        <h2>{t.heading}</h2>
       </div>
       <div className="space-y-3">{children}</div>
     </section>

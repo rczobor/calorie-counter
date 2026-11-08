@@ -8,13 +8,18 @@ import {
 import { useTheme } from 'next-themes'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 
+import { useMessages } from '@/i18n/messages'
+import { messages } from './sonner.messages'
+
 const Toaster = ({ ...props }: ToasterProps) => {
+  const t = useMessages(messages)
   const { theme = 'system' } = useTheme()
 
   return (
     <Sonner
       theme={theme as ToasterProps['theme']}
       className="toaster group"
+      containerAriaLabel={t.notifications}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

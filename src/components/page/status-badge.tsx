@@ -1,4 +1,6 @@
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './status-badge.messages'
 
 type StatusBadgeProps = {
   status: 'Active' | 'Archived'
@@ -6,6 +8,7 @@ type StatusBadgeProps = {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  const t = useMessages(messages)
   return (
     <span
       className={cn(
@@ -16,7 +19,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
         className,
       )}
     >
-      {status}
+      {t[status]}
     </span>
   )
 }

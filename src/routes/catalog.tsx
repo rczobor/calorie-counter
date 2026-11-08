@@ -45,24 +45,18 @@ import {
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { createDraftId } from '@/lib/id'
 import {
-  NUTRITION_UNIT_OPTIONS,
   type NutritionUnit,
   formatKcalPer100,
+  nutritionUnitOptions,
 } from '@/lib/nutrition'
+import { useLocale, type Locale } from '@/i18n/locale'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './catalog.messages'
 
 const SEARCH_MAX_LENGTH = 100
 
-const GROUP_SCOPE_LABEL = {
-  ingredient: 'Ingredients',
-  cookedFood: 'Cooked foods',
-} as const
-
-const INGREDIENT_SORT_OPTIONS = [
-  { value: 'name', label: 'Name' },
-  { value: 'kcal-desc', label: 'Most kcal' },
-  { value: 'kcal-asc', label: 'Fewest kcal' },
-] as const
-type IngredientSort = (typeof INGREDIENT_SORT_OPTIONS)[number]['value']
+const INGREDIENT_SORTS = ['name', 'kcal-desc', 'kcal-asc'] as const
+type IngredientSort = (typeof INGREDIENT_SORTS)[number]
 
 type ExistingRecipeIngredientDraft = {
   draftId: string
@@ -101,31 +95,11 @@ type RecipeIngredientDraft =
  * down: a list of sections, each its own page at `?section=…`.
  */
 const LIBRARY_SECTIONS = [
-  {
-    id: 'foods',
-    title: 'Reusable foods',
-    description: 'Foods saved from logged meals',
-  },
-  {
-    id: 'templates',
-    title: 'Meal templates',
-    description: 'Saved meals to log again',
-  },
-  {
-    id: 'ingredients',
-    title: 'Ingredients',
-    description: 'Foods with calories per 100 g or ml',
-  },
-  {
-    id: 'recipes',
-    title: 'Recipes',
-    description: 'Dishes made from ingredients',
-  },
-  {
-    id: 'groups',
-    title: 'Groups',
-    description: 'Categories for ingredients and cooked foods',
-  },
+  'foods',
+  'templates',
+  'ingredients',
+  'recipes',
+  'groups',
 ] as const
 
 type LibrarySection = (typeof LIBRARY_SECTIONS)[number]
@@ -135,55 +109,53 @@ export const Route = createFileRoute('/catalog')({
   // An unknown section falls back to the section list.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { section?: LibrarySection['id'] } => {
-    const section = LIBRARY_SECTIONS.find(({ id }) => id === search.section)
-    return section ? { section: section.id } : {}
+  ): { section?: LibrarySection } => {
+    const section = LIBRARY_SECTIONS.find((id) => id === search.section)
+    return section ? { section } : {}
   },
   component: ManagePage,
 })
 
 function ManagePage() {
   const { section: sectionId } = Route.useSearch()
-  const section = LIBRARY_SECTIONS.find(({ id }) => id === sectionId)
+  const section = LIBRARY_SECTIONS.find((id) => id === sectionId)
   if (!isConvexConfigured) {
     return <ConfigMissingState />
   }
   if (!section) return <LibrarySections />
 
   // Keyed, so each section opens with fresh search, sheets and filters.
-  return <ManagePageContent key={section.id} section={section} />
+  return <ManagePageContent key={section} section={section} />
 }
 
 function LibrarySections() {
+  const t = useMessages(messages)
   return (
     <PageShell
-      title="Food library"
-      breadcrumbs={<SettingsBreadcrumbs current="Food library" />}
+      title={t.title}
+      breadcrumbs={<SettingsBreadcrumbs current={t.title} />}
       contentClassName="max-w-3xl"
     >
-      <ul
-        aria-label="Food library sections"
-        className="mt-6 inset-group inset-rows"
-      >
+      <ul aria-label={t.sectionsLabel} className="mt-6 inset-group inset-rows">
         {LIBRARY_SECTIONS.map((section) => (
-          <li key={section.id}>
+          <li key={section}>
             {/* Named by the section alone; the description is its hint. */}
             <Link
               to="/catalog"
-              search={{ section: section.id }}
-              aria-labelledby={`library-${section.id}`}
-              aria-describedby={`library-${section.id}-description`}
+              search={{ section }}
+              aria-labelledby={`library-${section}`}
+              aria-describedby={`library-${section}-description`}
               className={LIST_ROW_CLASS}
             >
               <span className="min-w-0 flex-1">
-                <span id={`library-${section.id}`} className="block">
-                  {section.title}
+                <span id={`library-${section}`} className="block">
+                  {t.sections[section].title}
                 </span>
                 <span
-                  id={`library-${section.id}-description`}
+                  id={`library-${section}-description`}
                   className="mt-0.5 block type-footnote text-muted-foreground"
                 >
-                  {section.description}
+                  {t.sections[section].description}
                 </span>
               </span>
               <ChevronRight
@@ -201,18 +173,21 @@ function LibrarySections() {
 /** An ingredient's rate as a list row says it: the figure leads in plain
  * kcal, and its basis ("per 100 g") joins the subtitle, so a name never
  * wraps beside a long unit. */
-function ingredientEnergy(ingredient: {
-  kcalPer100: number
-  kcalBasisUnit: NutritionUnit
-}) {
+function ingredientEnergy(
+  ingredient: { kcalPer100: number; kcalBasisUnit: NutritionUnit },
+  locale: Locale,
+) {
   return {
     value: formatKcalPer100(ingredient.kcalPer100),
-    basis: `per 100 ${ingredient.kcalBasisUnit}`,
+    basis: messages[locale].per100(ingredient.kcalBasisUnit),
   }
 }
 
 function ManagePageContent({ section }: { section: LibrarySection }) {
-  const activeTab = section.id
+  const t = useMessages(messages)
+  const locale = useLocale()
+  const unitOptions = nutritionUnitOptions(locale)
+  const activeTab = section
   const [ingredientEditorOpen, setIngredientEditorOpen] = useState(false)
   const [recipeEditorOpen, setRecipeEditorOpen] = useState(false)
   const [groupEditorOpen, setGroupEditorOpen] = useState(false)
@@ -372,13 +347,13 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     ) {
       options.push({
         value: editingIngredientGroup.id,
-        label: `${editingIngredientGroup.name}${
-          editingIngredientGroup.archived ? ' (archived)' : ''
-        }`,
+        label: editingIngredientGroup.archived
+          ? t.archivedGroupOption(editingIngredientGroup.name)
+          : editingIngredientGroup.name,
       })
     }
     return options
-  }, [catalogData.ingredientFoodGroups, editingIngredientGroup])
+  }, [catalogData.ingredientFoodGroups, editingIngredientGroup, t])
 
   const resetGroupForm = () => {
     setGroupEditorOpen(false)
@@ -568,7 +543,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
   const saveGroup = () =>
     void runAction(
-      editingGroupId ? 'Group updated.' : 'Group created.',
+      editingGroupId ? t.groupUpdated : t.groupCreated,
       async () => {
         if (editingGroupId) {
           await updateFoodGroup({
@@ -589,7 +564,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
   const saveIngredient = () =>
     void runAction(
-      editingIngredientId ? 'Ingredient updated.' : 'Ingredient created.',
+      editingIngredientId ? t.ingredientUpdated : t.ingredientCreated,
       async () => {
         const payload = {
           name: ingredientName,
@@ -615,7 +590,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
   const saveRecipe = () =>
     void runAction(
-      editingRecipeId ? 'Recipe updated.' : 'Recipe created.',
+      editingRecipeId ? t.recipeUpdated : t.recipeCreated,
       async () => {
         const ingredientLines = recipeIngredientLines.map((line) =>
           line.sourceType === 'ingredient'
@@ -866,11 +841,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
   return (
     <PageShell
-      title={section.title}
+      title={t.sections[section].title}
       breadcrumbs={
         <SettingsBreadcrumbs
-          current={section.title}
-          parent={{ label: 'Food library', link: <Link to="/catalog" /> }}
+          current={t.sections[section].title}
+          parent={{ label: t.title, link: <Link to="/catalog" /> }}
         />
       }
       contentClassName="max-w-3xl"
@@ -889,42 +864,45 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
           <IngredientsSection>
             <ListToolbar
               search={{
-                label: 'Search ingredients',
+                label: t.searchIngredients,
                 maxLength: SEARCH_MAX_LENGTH,
                 value: ingredientSearch,
                 onValueChange: setIngredientSearch,
               }}
               sort={{
-                label: 'Sort ingredients',
+                label: t.sortIngredients,
                 value: ingredientSort,
-                options: [...INGREDIENT_SORT_OPTIONS],
+                options: INGREDIENT_SORTS.map((value) => ({
+                  value,
+                  label: t.ingredientSorts[value],
+                })),
                 onValueChange: setIngredientSort,
               }}
               create={{
-                noun: 'ingredient',
+                noun: t.nouns.ingredient,
                 disabled: isRunning,
                 onClick: openNewIngredient,
               }}
               archived={archivedToggle}
             />
             <RecordList
-              label="Ingredients"
+              label={t.ingredients}
               loading={
                 catalogData.isLoading ||
                 catalogData.search.ingredients.isLoading
               }
-              empty="No ingredients found."
+              empty={t.noIngredients}
             >
               {sortedIngredients.map((ingredient) => {
-                const energy = ingredientEnergy(ingredient)
+                const energy = ingredientEnergy(ingredient, locale)
                 return (
                   <RecordRow
                     key={ingredient._id}
-                    verb="Edit"
+                    verb={t.edit}
                     title={ingredient.name}
                     // An excluded ingredient says so first, beside its kcal.
                     detail={[
-                      ingredient.ignoreCalories ? 'Not counted' : '',
+                      ingredient.ignoreCalories ? t.notCounted : '',
                       ingredient.brand,
                       ingredient.groupName,
                       energy.basis,
@@ -945,7 +923,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 loading={catalogData.paging.ingredients.isLoadingMore}
                 onClick={catalogData.paging.ingredients.loadMore}
               >
-                Load more ingredients
+                {t.loadMoreIngredients}
               </LoadMoreButton>
             ) : null}
           </IngredientsSection>
@@ -955,31 +933,31 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
           <RecipesSection>
             <ListToolbar
               search={{
-                label: 'Search recipes',
+                label: t.searchRecipes,
                 maxLength: SEARCH_MAX_LENGTH,
                 value: recipeSearch,
                 onValueChange: setRecipeSearch,
               }}
               create={{
-                noun: 'recipe',
+                noun: t.nouns.recipe,
                 disabled: isRunning,
                 onClick: openNewRecipe,
               }}
               archived={archivedToggle}
             />
             <RecordList
-              label="Recipes"
+              label={t.recipes}
               loading={
                 catalogData.isLoading || catalogData.search.recipes.isLoading
               }
-              empty="No recipes found."
+              empty={t.noRecipes}
             >
               {recipes.map((recipe) => (
                 <RecordRow
                   key={recipe._id}
-                  verb="Edit"
+                  verb={t.edit}
                   title={recipe.name}
-                  detail={`Version ${recipe.latestVersionNumber}`}
+                  detail={t.version(recipe.latestVersionNumber)}
                   archived={recipe.archived}
                   disabled={isRunning}
                   onOpen={() => openRecipe(recipe)}
@@ -992,7 +970,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 loading={catalogData.paging.recipes.isLoadingMore}
                 onClick={catalogData.paging.recipes.loadMore}
               >
-                Load more recipes
+                {t.loadMoreRecipes}
               </LoadMoreButton>
             ) : null}
           </RecipesSection>
@@ -1002,38 +980,38 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
           <FoodGroupsSection>
             <ListToolbar
               search={{
-                label: 'Search food groups',
+                label: t.searchFoodGroups,
                 maxLength: SEARCH_MAX_LENGTH,
                 value: foodGroupSearch,
                 onValueChange: setFoodGroupSearch,
               }}
               create={{
-                noun: 'group',
+                noun: t.nouns.group,
                 disabled: isRunning,
                 onClick: openNewGroup,
               }}
               archived={archivedToggle}
             />
             <RecordList
-              label="Food groups"
+              label={t.foodGroups}
               loading={
                 catalogData.isLoading || catalogData.search.foodGroups.isLoading
               }
               empty={
                 <>
                   <p className="font-medium text-foreground">
-                    No food groups yet.
+                    {t.noFoodGroups}
                   </p>
-                  <p>Groups are optional. Add them when filtering helps.</p>
+                  <p>{t.groupsOptional}</p>
                 </>
               }
             >
               {groups.map((group) => (
                 <RecordRow
                   key={group._id}
-                  verb="Edit"
+                  verb={t.edit}
                   title={group.name}
-                  detail={GROUP_SCOPE_LABEL[group.appliesTo]}
+                  detail={t.groupScopes[group.appliesTo]}
                   archived={group.archived}
                   disabled={isRunning}
                   onOpen={() => openGroup(group)}
@@ -1046,7 +1024,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 loading={catalogData.paging.foodGroups.isLoadingMore}
                 onClick={catalogData.paging.foodGroups.loadMore}
               >
-                Load more food groups
+                {t.loadMoreFoodGroups}
               </LoadMoreButton>
             ) : null}
           </FoodGroupsSection>
@@ -1055,8 +1033,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
       {ingredientEditorOpen ? (
         <EditorDialog
-          title={editingIngredientId ? 'Edit ingredient' : 'New ingredient'}
-          description="Changes are saved only when you choose Save."
+          title={editingIngredientId ? t.editIngredient : t.newIngredient}
+          description={t.saveHint}
           pending={isRunning}
           onClose={resetIngredientForm}
         >
@@ -1068,36 +1046,36 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
             }}
           >
             <fieldset className="min-w-0 space-y-4 pb-5" disabled={isRunning}>
-              <Field label="Name" htmlFor="ingredient-name">
+              <Field label={t.name} htmlFor="ingredient-name">
                 <Input
                   id="ingredient-name"
-                  aria-label="Ingredient name"
+                  aria-label={t.ingredientName}
                   value={ingredientName}
                   onChange={(event) => setIngredientName(event.target.value)}
                 />
               </Field>
-              <Field label="Brand" htmlFor="ingredient-brand">
+              <Field label={t.brand} htmlFor="ingredient-brand">
                 <Input
                   id="ingredient-brand"
-                  aria-label="Ingredient brand"
-                  placeholder="Optional"
+                  aria-label={t.ingredientBrand}
+                  placeholder={t.optional}
                   value={ingredientBrand}
                   onChange={(event) => setIngredientBrand(event.target.value)}
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Calories" htmlFor="ingredient-kcal">
+                <Field label={t.calories} htmlFor="ingredient-kcal">
                   <UnitInput
                     id="ingredient-kcal"
                     unit="kcal"
-                    aria-label="Ingredient kcal per 100"
+                    aria-label={t.ingredientKcal}
                     value={ingredientKcal}
                     onChange={(event) => setIngredientKcal(event.target.value)}
                   />
                 </Field>
-                <Field label="Per 100">
+                <Field label={t.per100Label}>
                   <Select
-                    ariaLabel="Ingredient kcal basis"
+                    ariaLabel={t.ingredientKcalBasis}
                     className="w-full"
                     value={ingredientKcalBasisUnit}
                     onValueChange={(value) =>
@@ -1105,13 +1083,13 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                         (value as NutritionUnit | null) ?? 'g',
                       )
                     }
-                    options={NUTRITION_UNIT_OPTIONS}
+                    options={unitOptions}
                   />
                 </Field>
               </div>
-              <Field label="Group">
+              <Field label={t.group}>
                 <Select
-                  ariaLabel="Ingredient group"
+                  ariaLabel={t.ingredientGroup}
                   className="w-full"
                   value={ingredientGroupId}
                   onValueChange={(value) =>
@@ -1119,9 +1097,9 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                       (value as Id<'foodGroups'> | '' | null) ?? '',
                     )
                   }
-                  placeholder="Group (optional)"
+                  placeholder={t.groupOptional}
                   options={[
-                    { value: '', label: 'No group' },
+                    { value: '', label: t.noGroup },
                     ...ingredientGroupOptions,
                   ]}
                 />
@@ -1135,13 +1113,13 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                     aria-busy={catalogData.paging.foodGroups.isLoadingMore}
                     onClick={catalogData.paging.foodGroups.loadMore}
                   >
-                    Load more ingredient groups
+                    {t.loadMoreIngredientGroups}
                   </Button>
                 ) : null}
               </Field>
               {/* A switch is a settings-style cell: label and switch on the content edges. */}
               <label className="flex min-h-12 items-center justify-between gap-3 inset-group px-4 py-2 text-base">
-                Ignore calories
+                {t.ignoreCalories}
                 <Switch
                   checked={ingredientIgnoreCalories}
                   onCheckedChange={(checked) =>
@@ -1149,11 +1127,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   }
                 />
               </label>
-              <Field label="Notes" htmlFor="ingredient-notes">
+              <Field label={t.notes} htmlFor="ingredient-notes">
                 <Textarea
                   id="ingredient-notes"
-                  aria-label="Ingredient notes"
-                  placeholder="Optional"
+                  aria-label={t.ingredientNotes}
+                  placeholder={t.optional}
                   value={ingredientNotes}
                   onChange={(event) => setIngredientNotes(event.target.value)}
                 />
@@ -1168,8 +1146,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   onArchive={() =>
                     void runAction(
                       editingIngredient.archived
-                        ? 'Ingredient restored.'
-                        : 'Ingredient archived.',
+                        ? t.ingredientRestored
+                        : t.ingredientArchived,
                       async () => {
                         await setIngredientArchived({
                           ingredientId: editingIngredient._id,
@@ -1182,8 +1160,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   }
                   onDelete={() =>
                     confirmAndRunAction(
-                      'Delete this ingredient permanently?',
-                      'Ingredient deleted.',
+                      t.confirmDeleteIngredient,
+                      t.ingredientDeleted,
                       async () => {
                         await deleteIngredient({
                           ingredientId: editingIngredient._id,
@@ -1196,7 +1174,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 />
               ) : null}
               <Button type="submit" size="lg" disabled={isRunning}>
-                {editingIngredientId ? 'Save ingredient' : 'Create ingredient'}
+                {editingIngredientId ? t.saveIngredient : t.createIngredient}
               </Button>
             </SheetFooter>
           </form>
@@ -1206,38 +1184,37 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
       {recipeEditorOpen ? (
         <EditorDialog
-          title={editingRecipeId ? 'Edit recipe' : 'New recipe'}
-          description="Saving an edited recipe records a new version. Earlier versions stay with past meals."
+          title={editingRecipeId ? t.editRecipe : t.newRecipe}
+          description={t.recipeHint}
           pending={isRunning}
           onClose={resetRecipeForm}
         >
           <div className="flex flex-1 flex-col">
             {editingRecipeId && !isEditingRecipeHydrated ? (
-              <LoadingRows label="Loading recipe details" rows={2} />
+              <LoadingRows label={t.loadingRecipe} rows={2} />
             ) : null}
             {editingRecipeId && recipeVersionConflict ? (
               <p className="mb-3 text-sm text-destructive" role="alert">
-                This recipe changed elsewhere. Close and reopen it before saving
-                your edits.
+                {t.recipeConflict}
               </p>
             ) : null}
             <fieldset
               className="min-w-0 space-y-5 pb-5"
               disabled={isRunning || !isEditingRecipeHydrated}
             >
-              <Field label="Name" htmlFor="recipe-name">
+              <Field label={t.name} htmlFor="recipe-name">
                 <Input
                   id="recipe-name"
-                  aria-label="Recipe name"
+                  aria-label={t.recipeName}
                   value={recipeName}
                   onChange={(event) => setRecipeName(event.target.value)}
                 />
               </Field>
-              <Field label="Instructions" htmlFor="recipe-instructions">
+              <Field label={t.instructions} htmlFor="recipe-instructions">
                 <Textarea
                   id="recipe-instructions"
-                  aria-label="Recipe instructions"
-                  placeholder="Optional"
+                  aria-label={t.recipeInstructions}
+                  placeholder={t.optional}
                   value={recipeInstructions}
                   onChange={(event) =>
                     setRecipeInstructions(event.target.value)
@@ -1247,32 +1224,31 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
               <section aria-labelledby="recipe-lines-title">
                 <div className="flex items-baseline justify-between gap-3 group-label">
-                  <h3 id="recipe-lines-title">Ingredients</h3>
+                  <h3 id="recipe-lines-title">{t.ingredients}</h3>
                   <p className="tabular-nums">
-                    {recipeIngredientLines.length} line
-                    {recipeIngredientLines.length === 1 ? '' : 's'}
+                    {t.lineCount(recipeIngredientLines.length)}
                   </p>
                 </div>
                 {recipeIngredientLines.length === 0 ? (
                   <p className="inset-group px-4 py-3.5 type-subhead text-muted-foreground">
-                    Add at least one ingredient line.
+                    {t.addAtLeastOneLine}
                   </p>
                 ) : (
                   <ul
-                    aria-label="Recipe ingredient lines"
+                    aria-label={t.recipeLines}
                     className="inset-group inset-rows"
                   >
                     {recipeIngredientLines.map((line) => {
                       const label = line.name
-                      const customLabel = label || 'Custom ingredient'
+                      const customLabel = label || t.customIngredient
                       return (
                         <li key={line.draftId} className="space-y-2 px-4 py-3">
                           <div className="flex items-start gap-2">
                             <div className="min-w-0 flex-1">
                               {line.sourceType === 'custom' ? (
                                 <Input
-                                  aria-label={`${customLabel} name`}
-                                  placeholder="Ingredient"
+                                  aria-label={t.lineName(customLabel)}
+                                  placeholder={t.ingredient}
                                   value={line.name}
                                   onChange={(event) =>
                                     updateCustomRecipeIngredientLine(
@@ -1291,8 +1267,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                   </p>
                                   <p className="type-footnote text-muted-foreground tabular-nums">
                                     {line.ignoreCalories
-                                      ? 'Calories not counted'
-                                      : `${formatKcalPer100(line.kcalPer100)} kcal/100 ${line.kcalBasisUnit}`}
+                                      ? t.caloriesNotCounted
+                                      : t.kcalPer100(
+                                          formatKcalPer100(line.kcalPer100),
+                                          line.kcalBasisUnit,
+                                        )}
                                   </p>
                                 </>
                               )}
@@ -1300,7 +1279,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                             {/* Centred on the name's line, its glyph on the content edge. */}
                             <RowRemoveButton
                               className="-my-2.5 -mr-3.5 shrink-0"
-                              label={`Remove ${customLabel}`}
+                              label={t.remove(customLabel)}
                               onClick={() =>
                                 removeRecipeIngredientLine(line.draftId)
                               }
@@ -1314,7 +1293,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                 unit="kcal"
                                 min={line.ignoreCalories ? '0' : '1'}
                                 step="1"
-                                aria-label={`${customLabel} kcal per 100`}
+                                aria-label={t.lineKcal(customLabel)}
                                 disabled={line.ignoreCalories}
                                 value={
                                   recipeLineKcalDraftById[line.draftId] ??
@@ -1332,7 +1311,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                 onKeyDown={blurOnEnter}
                               />
                               <Select
-                                ariaLabel={`${customLabel} kcal basis`}
+                                ariaLabel={t.lineKcalBasis(customLabel)}
                                 className="w-full"
                                 value={line.kcalBasisUnit}
                                 onValueChange={(value) =>
@@ -1345,7 +1324,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                     }),
                                   )
                                 }
-                                options={NUTRITION_UNIT_OPTIONS}
+                                options={unitOptions}
                               />
                             </div>
                           ) : null}
@@ -1355,8 +1334,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                               inputMode="decimal"
                               min="0.01"
                               step="0.01"
-                              aria-label={`${label} amount`}
-                              placeholder="Amount"
+                              aria-label={t.lineAmount(label)}
+                              placeholder={t.amount}
                               className="tabular-nums"
                               value={
                                 recipeLineAmountDraftById[line.draftId] ??
@@ -1374,7 +1353,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                               onKeyDown={blurOnEnter}
                             />
                             <Select
-                              ariaLabel={`${label} unit`}
+                              ariaLabel={t.lineUnit(label)}
                               className="w-full"
                               value={line.referenceUnit}
                               onValueChange={(value) =>
@@ -1387,16 +1366,16 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                   }),
                                 )
                               }
-                              options={NUTRITION_UNIT_OPTIONS}
+                              options={unitOptions}
                             />
                           </div>
                           {line.sourceType === 'custom' ? (
                             <div className="flex flex-wrap gap-x-5 gap-y-1 type-subhead">
                               <label className="inline-flex min-h-9 items-center gap-2">
-                                Ignore calories
+                                {t.ignoreCalories}
                                 <Switch
                                   size="sm"
-                                  aria-label={`${customLabel} ignore calories`}
+                                  aria-label={t.lineIgnoreCalories(customLabel)}
                                   checked={line.ignoreCalories}
                                   onCheckedChange={(checked) =>
                                     updateCustomRecipeIngredientLine(
@@ -1410,10 +1389,10 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                 />
                               </label>
                               <label className="inline-flex min-h-9 items-center gap-2">
-                                Save to ingredients
+                                {t.saveToIngredients}
                                 <Switch
                                   size="sm"
-                                  aria-label={`${customLabel} save to ingredient catalog`}
+                                  aria-label={t.lineSaveToCatalog(customLabel)}
                                   checked={line.saveToCatalog}
                                   onCheckedChange={(checked) =>
                                     updateCustomRecipeIngredientLine(
@@ -1441,7 +1420,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 id="recipe-add-line-title" className="type-headline">
-                    Add ingredient line
+                    {t.addIngredientLine}
                   </h3>
                   <IngredientLineModeToggle
                     value={recipeLineMode}
@@ -1452,22 +1431,22 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 {recipeLineMode === 'ingredient' ? (
                   <>
                     <SearchField
-                      label="Search recipe ingredients"
-                      placeholder="Search ingredients"
+                      label={t.searchRecipeIngredients}
+                      placeholder={t.searchIngredients}
                       maxLength={SEARCH_MAX_LENGTH}
                       value={recipeIngredientSearch}
                       onValueChange={setRecipeIngredientSearch}
                     />
                     <RecordList
-                      label="Ingredients to add"
+                      label={t.ingredientsToAdd}
                       empty={
                         catalogData.search.recipeIngredients.isLoading
-                          ? 'Searching ingredients…'
-                          : 'No ingredients found.'
+                          ? t.searchingIngredients
+                          : t.noIngredients
                       }
                     >
                       {recipePickerIngredients.map((ingredient) => {
-                        const energy = ingredientEnergy(ingredient)
+                        const energy = ingredientEnergy(ingredient, locale)
                         return (
                           <RecordRow
                             key={ingredient._id}
@@ -1497,43 +1476,43 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                         }
                         onClick={catalogData.paging.recipeIngredients.loadMore}
                       >
-                        Load more recipe ingredients
+                        {t.loadMoreRecipeIngredients}
                       </LoadMoreButton>
                     ) : null}
                     <Field
-                      label="Selected"
+                      label={t.selected}
                       htmlFor="recipe-selected-ingredient"
                     >
                       <Input
                         id="recipe-selected-ingredient"
-                        aria-label="Selected recipe ingredient"
+                        aria-label={t.selectedRecipeIngredient}
                         value={
                           recipeLineIngredientId
                             ? selectedRecipeLineIngredient
-                              ? `${selectedRecipeLineIngredient.name} · ${formatKcalPer100(selectedRecipeLineIngredient.kcalPer100)} kcal/100 ${selectedRecipeLineIngredient.kcalBasisUnit}`
-                              : 'Unknown ingredient'
+                              ? `${selectedRecipeLineIngredient.name} · ${t.kcalPer100(formatKcalPer100(selectedRecipeLineIngredient.kcalPer100), selectedRecipeLineIngredient.kcalBasisUnit)}`
+                              : t.unknownIngredient
                             : ''
                         }
-                        placeholder="Pick an ingredient above"
+                        placeholder={t.pickIngredient}
                         readOnly
                       />
                     </Field>
                     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
-                      <Field label="Amount" htmlFor="recipe-line-amount">
+                      <Field label={t.amount} htmlFor="recipe-line-amount">
                         <Input
                           id="recipe-line-amount"
                           type="number"
                           inputMode="decimal"
-                          aria-label="Recipe reference amount"
+                          aria-label={t.recipeReferenceAmount}
                           value={recipeLineAmount}
                           onChange={(event) =>
                             setRecipeLineAmount(event.target.value)
                           }
                         />
                       </Field>
-                      <Field label="Unit">
+                      <Field label={t.unit}>
                         <Select
-                          ariaLabel="Recipe reference unit"
+                          ariaLabel={t.recipeReferenceUnit}
                           className="w-full"
                           value={recipeLineUnit}
                           onValueChange={(value) =>
@@ -1541,7 +1520,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                               (value as NutritionUnit | null) ?? 'g',
                             )
                           }
-                          options={NUTRITION_UNIT_OPTIONS}
+                          options={unitOptions}
                         />
                       </Field>
                       <Button
@@ -1554,17 +1533,17 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                         }
                         onClick={addRecipeIngredientLine}
                       >
-                        Add
+                        {t.add}
                       </Button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <Field label="Name" htmlFor="recipe-custom-name">
+                    <Field label={t.name} htmlFor="recipe-custom-name">
                       <Input
                         id="recipe-custom-name"
-                        aria-label="Recipe custom ingredient name"
-                        placeholder="Ingredient"
+                        aria-label={t.customIngredientName}
+                        placeholder={t.ingredient}
                         value={recipeLineCustomName}
                         onChange={(event) =>
                           setRecipeLineCustomName(event.target.value)
@@ -1573,11 +1552,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                     </Field>
                     <div className="grid grid-cols-2 gap-2">
                       {recipeLineCustomIgnoreCalories ? null : (
-                        <Field label="Calories" htmlFor="recipe-custom-kcal">
+                        <Field label={t.calories} htmlFor="recipe-custom-kcal">
                           <UnitInput
                             id="recipe-custom-kcal"
                             unit="kcal"
-                            aria-label="Recipe custom kcal per 100"
+                            aria-label={t.customKcal}
                             value={recipeLineCustomKcal}
                             onChange={(event) =>
                               setRecipeLineCustomKcal(event.target.value)
@@ -1585,9 +1564,9 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                           />
                         </Field>
                       )}
-                      <Field label="Per 100">
+                      <Field label={t.per100Label}>
                         <Select
-                          ariaLabel="Recipe custom kcal basis"
+                          ariaLabel={t.customKcalBasis}
                           className="w-full"
                           value={recipeLineCustomBasisUnit}
                           onValueChange={(value) =>
@@ -1595,26 +1574,26 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                               (value as NutritionUnit | null) ?? 'g',
                             )
                           }
-                          options={NUTRITION_UNIT_OPTIONS}
+                          options={unitOptions}
                         />
                       </Field>
                     </div>
                     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
-                      <Field label="Amount" htmlFor="recipe-custom-amount">
+                      <Field label={t.amount} htmlFor="recipe-custom-amount">
                         <Input
                           id="recipe-custom-amount"
                           type="number"
                           inputMode="decimal"
-                          aria-label="Recipe custom reference amount"
+                          aria-label={t.customReferenceAmount}
                           value={recipeLineAmount}
                           onChange={(event) =>
                             setRecipeLineAmount(event.target.value)
                           }
                         />
                       </Field>
-                      <Field label="Unit">
+                      <Field label={t.unit}>
                         <Select
-                          ariaLabel="Recipe custom reference unit"
+                          ariaLabel={t.customReferenceUnit}
                           className="w-full"
                           value={recipeLineUnit}
                           onValueChange={(value) =>
@@ -1622,7 +1601,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                               (value as NutritionUnit | null) ?? 'g',
                             )
                           }
-                          options={NUTRITION_UNIT_OPTIONS}
+                          options={unitOptions}
                         />
                       </Field>
                       <Button
@@ -1630,7 +1609,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                         variant="outline"
                         onClick={addRecipeIngredientLine}
                       >
-                        Add
+                        {t.add}
                       </Button>
                     </div>
                     <CustomIngredientSwitchRow
@@ -1652,8 +1631,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   onArchive={() =>
                     void runAction(
                       editingRecipe.archived
-                        ? 'Recipe restored.'
-                        : 'Recipe archived.',
+                        ? t.recipeRestored
+                        : t.recipeArchived,
                       async () => {
                         await setRecipeArchived({
                           recipeId: editingRecipe._id,
@@ -1666,8 +1645,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   }
                   onDelete={() =>
                     confirmAndRunAction(
-                      'Delete this recipe permanently?',
-                      'Recipe deleted.',
+                      t.confirmDeleteRecipe,
+                      t.recipeDeleted,
                       async () => {
                         await deleteRecipe({
                           recipeId: editingRecipe._id,
@@ -1687,7 +1666,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 }
                 onClick={saveRecipe}
               >
-                {editingRecipeId ? 'Save recipe' : 'Create recipe'}
+                {editingRecipeId ? t.saveRecipe : t.createRecipe}
               </Button>
             </SheetFooter>
           </div>
@@ -1697,8 +1676,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
 
       {groupEditorOpen ? (
         <EditorDialog
-          title={editingGroupId ? 'Edit group' : 'New group'}
-          description="Changes are saved only when you choose Save."
+          title={editingGroupId ? t.editGroup : t.newGroup}
+          description={t.saveHint}
           pending={isRunning}
           onClose={resetGroupForm}
         >
@@ -1710,17 +1689,17 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
             }}
           >
             <fieldset className="min-w-0 space-y-4 pb-5" disabled={isRunning}>
-              <Field label="Name" htmlFor="group-name">
+              <Field label={t.name} htmlFor="group-name">
                 <Input
                   id="group-name"
-                  aria-label="Group name"
+                  aria-label={t.groupName}
                   value={groupName}
                   onChange={(event) => setGroupName(event.target.value)}
                 />
               </Field>
-              <Field label="Used for">
+              <Field label={t.usedFor}>
                 <Select
-                  ariaLabel="Group scope"
+                  ariaLabel={t.groupScope}
                   className="w-full"
                   value={groupScope}
                   onValueChange={(value) =>
@@ -1732,11 +1711,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   options={[
                     {
                       value: 'ingredient',
-                      label: GROUP_SCOPE_LABEL.ingredient,
+                      label: t.groupScopes.ingredient,
                     },
                     {
                       value: 'cookedFood',
-                      label: GROUP_SCOPE_LABEL.cookedFood,
+                      label: t.groupScopes.cookedFood,
                     },
                   ]}
                 />
@@ -1750,9 +1729,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   disabled={isRunning}
                   onArchive={() =>
                     void runAction(
-                      editingGroup.archived
-                        ? 'Group restored.'
-                        : 'Group archived.',
+                      editingGroup.archived ? t.groupRestored : t.groupArchived,
                       async () => {
                         await setFoodGroupArchived({
                           groupId: editingGroup._id,
@@ -1765,8 +1742,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   }
                   onDelete={() =>
                     confirmAndRunAction(
-                      'Delete this group permanently?',
-                      'Group deleted.',
+                      t.confirmDeleteGroup,
+                      t.groupDeleted,
                       async () => {
                         await deleteFoodGroup({
                           groupId: editingGroup._id,
@@ -1779,7 +1756,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 />
               ) : null}
               <Button type="submit" size="lg" disabled={isRunning}>
-                {editingGroupId ? 'Save group' : 'Create group'}
+                {editingGroupId ? t.saveGroup : t.createGroup}
               </Button>
             </SheetFooter>
           </form>

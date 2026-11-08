@@ -38,6 +38,8 @@ import { formatDate } from '@/lib/dates'
 import { formatKcalPer100, toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 import { Value } from '@/components/nutrition/value'
+import { useLocale } from '@/i18n/locale'
+import { messages } from './meal-editor.messages'
 
 type MealMutationItem = FunctionArgs<
   typeof api.nutrition.createMeal
@@ -171,6 +173,8 @@ function MealEditorContent({
   onDone = () => {},
   onPendingChange,
 }: MealEditorProps & { userId: string | null }) {
+  const locale = useLocale()
+  const t = messages[locale]
   const [restoredDraft] = useState(() =>
     userId && resumeDraft ? readMealDraft(userId) : null,
   )
@@ -312,7 +316,7 @@ function MealEditorContent({
   )
   const batchDate = (sessionId: Id<'cookSessions'>) => {
     const cookedAt = cookedAtBySession.get(sessionId)
-    return cookedAt === undefined ? undefined : formatDate(cookedAt)
+    return cookedAt === undefined ? undefined : formatDate(cookedAt, locale)
   }
 
   useEffect(() => {
@@ -628,13 +632,13 @@ function MealEditorContent({
   const upsertDraftItem = () => {
     const parsedAmount = Number(itemWeight)
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast.error('Enter an amount greater than 0.')
+      toast.error(t.amountRequired)
       return
     }
 
     if (itemMode === 'catalog') {
       if (!itemIngredientId) {
-        toast.error('Select an ingredient first.')
+        toast.error(t.selectIngredientFirst)
         return
       }
       const ingredient = ingredientById.get(itemIngredientId)
@@ -648,7 +652,7 @@ function MealEditorContent({
           ? editingItem
           : undefined
       if (!ingredient && !existingSnapshot) {
-        toast.error('Selected ingredient is not available.')
+        toast.error(t.ingredientUnavailable)
         return
       }
       upsertDraft({
@@ -672,7 +676,7 @@ function MealEditorContent({
 
     if (itemMode === 'new') {
       if (!itemCustomName.trim()) {
-        toast.error('Name is required for a new ingredient.')
+        toast.error(t.newIngredientNameRequired)
         return
       }
       const parsedKcal = Number(itemCustomKcalPer100)
@@ -680,7 +684,7 @@ function MealEditorContent({
         !itemCustomIgnoreCalories &&
         (!Number.isFinite(parsedKcal) || parsedKcal <= 0)
       ) {
-        toast.error('Calories per 100g must be greater than 0.')
+        toast.error(t.kcalPer100Required)
         return
       }
       const kcalPer100 =
@@ -701,7 +705,7 @@ function MealEditorContent({
     }
 
     if (!itemCookedFoodId) {
-      toast.error('Select a cooked food first.')
+      toast.error(t.selectCookedFoodFirst)
       return
     }
     const cookedFood = cookedFoodById.get(itemCookedFoodId)
@@ -715,7 +719,7 @@ function MealEditorContent({
         ? editingItem
         : undefined
     if (!cookedFood && !existingSnapshot) {
-      toast.error('Selected cooked food is not available.')
+      toast.error(t.cookedFoodUnavailable)
       return
     }
     upsertDraft({
@@ -735,7 +739,7 @@ function MealEditorContent({
     const name = itemQuickName.trim()
     const calories = Number(itemQuickCalories)
     if (!name || !Number.isFinite(calories) || calories <= 0) {
-      toast.error('Enter a food name and calories greater than 0.')
+      toast.error(t.quickItemRequired)
       return
     }
     upsertDraft({ sourceType: 'fixedCalories', name, calories })
@@ -974,53 +978,48 @@ function MealEditorContent({
     if (userId && canPersistDraft) {
       const saved = writeMealDraft(userId, serializedDraft)
       if (!saved && !persistenceFailedRef.current) {
-        toast.warning(
-          'Draft recovery is unavailable. Keep this tab open until you save your meal.',
-        )
+        toast.warning(t.draftRecoveryUnavailable)
       }
       persistenceFailedRef.current = !saved
     }
-  }, [userId, serializedDraft, canPersistDraft])
+  }, [userId, serializedDraft, canPersistDraft, t.draftRecoveryUnavailable])
 
   if (paging.people.isLoadingFirstPage) return <EditorSkeleton />
 
   const saveMeal = () => {
     if (!effectiveSelectedPersonId || mealItems.length === 0) {
-      toast.error('Add at least one item before saving a meal.')
+      toast.error(t.itemsRequired)
       return
     }
-    void runAction(
-      editingMealId ? 'Meal updated.' : 'Meal created.',
-      async () => {
-        if (editingMealId) {
-          await updateMeal({
-            mealId: editingMealId,
-            expectedEditRevision: expectedMealEditRevision,
-            expectedMealItemIds,
-            personId: effectiveSelectedPersonId,
-            name: mealName.trim() || undefined,
-            eatenOn: mealDate,
-            items: toMealMutationItems(mealItems),
-          })
-        } else {
-          await createMeal({
-            personId: effectiveSelectedPersonId,
-            name: mealName.trim() || undefined,
-            eatenOn: mealDate,
-            items: toMealMutationItems(mealItems),
-          })
-        }
-        resetMealForm()
-        if (userId) writeMealDraft(userId, null)
-        onDone()
-      },
-    )
+    void runAction(editingMealId ? t.mealUpdated : t.mealCreated, async () => {
+      if (editingMealId) {
+        await updateMeal({
+          mealId: editingMealId,
+          expectedEditRevision: expectedMealEditRevision,
+          expectedMealItemIds,
+          personId: effectiveSelectedPersonId,
+          name: mealName.trim() || undefined,
+          eatenOn: mealDate,
+          items: toMealMutationItems(mealItems),
+        })
+      } else {
+        await createMeal({
+          personId: effectiveSelectedPersonId,
+          name: mealName.trim() || undefined,
+          eatenOn: mealDate,
+          items: toMealMutationItems(mealItems),
+        })
+      }
+      resetMealForm()
+      if (userId) writeMealDraft(userId, null)
+      onDone()
+    })
   }
 
   const editingLabel =
     editingDraftItemIndex !== null ? (
       <p className="type-footnote font-medium text-muted-foreground">
-        Editing item {editingDraftItemIndex + 1}
+        {t.editingItem(editingDraftItemIndex + 1)}
       </p>
     ) : null
   // Text, not a second ×, so it can't be mistaken for closing the whole sheet.
@@ -1031,7 +1030,7 @@ function MealEditorContent({
       className="-mt-1.5 -mr-2.5 shrink-0"
       onClick={resetDraftItemInputs}
     >
-      Cancel
+      {t.cancel}
     </Button>
   )
   const resultRow = (
@@ -1064,7 +1063,11 @@ function MealEditorContent({
       ? resultRow(
           `t-${result.template._id}`,
           result.template.name,
-          `Meal template · ${result.template.items.length} food${result.template.items.length === 1 ? '' : 's'} · ${result.calories.toFixed(0)} kcal`,
+          [
+            t.mealTemplate,
+            t.foodCount(result.template.items.length),
+            `${result.calories.toFixed(0)} kcal`,
+          ].join(' · '),
           () => pickResult(result),
         )
       : result.kind === 'cooked'
@@ -1072,7 +1075,7 @@ function MealEditorContent({
             `c-${result.food._id}`,
             result.food.name,
             [
-              'Cooked batch',
+              t.cookedBatch,
               batchDate(result.food.cookSessionId),
               `${formatKcalPer100(result.food.kcalPer100)} kcal/100 g`,
             ]
@@ -1083,7 +1086,13 @@ function MealEditorContent({
         : resultRow(
             `i-${result.ingredient._id}`,
             result.ingredient.name,
-            `Ingredient · ${result.ingredient.brand ? `${result.ingredient.brand} · ` : ''}${formatKcalPer100(result.ingredient.kcalPer100)} kcal/100 g`,
+            [
+              t.ingredient,
+              result.ingredient.brand,
+              `${formatKcalPer100(result.ingredient.kcalPer100)} kcal/100 g`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
             () => pickResult(result),
           )
   const suggestions: SearchResult[] = [
@@ -1104,13 +1113,12 @@ function MealEditorContent({
       <div className="flex flex-1 flex-col gap-5">
         {editingMealId && editingMealDetail === null ? (
           <p role="alert" className="type-subhead text-destructive">
-            This meal is no longer available. Your draft is preserved; close the
-            editor to keep it in this tab.
+            {t.mealUnavailable}
           </p>
         ) : null}
         {showRestoredNotice ? (
           <p className="type-subhead text-muted-foreground" role="status">
-            Draft restored in this tab.
+            {t.draftRestored}
           </p>
         ) : null}
         <fieldset
@@ -1129,14 +1137,11 @@ function MealEditorContent({
                 aria-hidden="true"
                 className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
               />
-              <span className="sr-only">, rename</span>
+              <span className="sr-only">{t.rename}</span>
             </button>
           ) : null}
           {people.length === 0 ? (
-            <p className="type-subhead text-muted-foreground">
-              Add a person in Settings, under People &amp; goals, before logging
-              meals.
-            </p>
+            <p className="type-subhead text-muted-foreground">{t.noPeople}</p>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <PersonPicker
@@ -1153,8 +1158,8 @@ function MealEditorContent({
                 variant="chip"
                 value={mealDate}
                 onChange={setMealDate}
-                ariaLabel="Meal date"
-                label={formatDate(mealDate)}
+                ariaLabel={t.mealDate}
+                label={formatDate(mealDate, locale)}
               />
               {paging.people.canLoadMore || paging.people.isLoadingMore ? (
                 <Button
@@ -1164,7 +1169,7 @@ function MealEditorContent({
                   aria-busy={paging.people.isLoadingMore}
                   onClick={paging.people.loadMore}
                 >
-                  Load more people
+                  {t.loadMorePeople}
                 </Button>
               ) : null}
               {selectedPersonId &&
@@ -1174,14 +1179,13 @@ function MealEditorContent({
                   role="status"
                   className="w-full type-subhead text-muted-foreground"
                 >
-                  The selected person is unavailable. Choose an active person to
-                  log a meal.
+                  {t.personUnavailable}
                 </p>
               ) : null}
             </div>
           )}
           {editingMealId && !isEditingMealHydrated ? (
-            <LoadingRows label="Loading meal items" rows={1} />
+            <LoadingRows label={t.loadingMealItems} rows={1} />
           ) : null}
           <fieldset
             className="min-w-0 space-y-5"
@@ -1195,14 +1199,14 @@ function MealEditorContent({
                     <p className="type-headline">
                       {activeFood?.name ??
                         (activeFoodUnavailable
-                          ? 'This food is no longer available. Choose another.'
-                          : 'Loading food…')}
+                          ? t.foodUnavailable
+                          : t.loadingFood)}
                     </p>
                     {activeFood ? (
                       <p className="mt-0.5 type-footnote text-muted-foreground tabular-nums">
                         {activeFood.kind === 'cooked'
-                          ? 'Cooked batch'
-                          : 'Ingredient'}{' '}
+                          ? t.cookedBatch
+                          : t.ingredient}{' '}
                         · {formatKcalPer100(activeFood.kcalPer100)} kcal/100 g
                       </p>
                     ) : null}
@@ -1217,10 +1221,10 @@ function MealEditorContent({
                       autoFocus
                       aria-label={
                         activeFood?.kind === 'cooked'
-                          ? 'Consumed cooked food grams'
-                          : 'Ingredient grams'
+                          ? t.cookedFoodGrams
+                          : t.ingredientGrams
                       }
-                      placeholder="Amount"
+                      placeholder={t.amount}
                       className="pr-8"
                       value={itemWeight}
                       onChange={(event) => setItemWeight(event.target.value)}
@@ -1246,7 +1250,7 @@ function MealEditorContent({
                     disabled={!activeFood || !(Number(itemWeight) > 0)}
                   >
                     <Plus />
-                    {editingDraftItemIndex === null ? 'Add' : 'Update'}
+                    {editingDraftItemIndex === null ? t.add : t.update}
                   </Button>
                 </div>
               </div>
@@ -1255,33 +1259,33 @@ function MealEditorContent({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 pt-1">
                     {editingLabel}
-                    <p className="type-headline">Quick calories</p>
+                    <p className="type-headline">{t.quickCalories}</p>
                     <p className="mt-0.5 type-footnote text-muted-foreground">
-                      Know the total? Type a name and the calories.
+                      {t.quickCaloriesHint}
                     </p>
                   </div>
                   {closePanel}
                 </div>
                 <div className="mt-3 grid grid-cols-[minmax(0,1fr)_6.5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_auto]">
                   <div className="space-y-1.5">
-                    <Label htmlFor="quickName">Food</Label>
+                    <Label htmlFor="quickName">{t.food}</Label>
                     <Input
                       id="quickName"
-                      aria-label="Quick add name"
-                      placeholder="What did you eat?"
+                      aria-label={t.quickAddName}
+                      placeholder={t.quickAddNamePlaceholder}
                       autoFocus={!itemQuickName}
                       value={itemQuickName}
                       onChange={(event) => setItemQuickName(event.target.value)}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="quickCalories">Calories</Label>
+                    <Label htmlFor="quickCalories">{t.calories}</Label>
                     <div className="relative">
                       <Input
                         id="quickCalories"
                         type="number"
                         inputMode="numeric"
-                        aria-label="Quick add calories"
+                        aria-label={t.quickAddCalories}
                         autoFocus={Boolean(itemQuickName)}
                         className="pr-12"
                         value={itemQuickCalories}
@@ -1304,7 +1308,7 @@ function MealEditorContent({
                     onClick={addQuickItem}
                   >
                     <Plus />
-                    {editingDraftItemIndex === null ? 'Add' : 'Update'}
+                    {editingDraftItemIndex === null ? t.add : t.update}
                   </Button>
                 </div>
               </div>
@@ -1313,17 +1317,17 @@ function MealEditorContent({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 pt-1">
                     {editingLabel}
-                    <p className="type-headline">New food</p>
+                    <p className="type-headline">{t.newFood}</p>
                     <p className="mt-0.5 type-footnote text-muted-foreground">
-                      Not in your library yet? Enter its calories per 100 g.
+                      {t.newFoodHint}
                     </p>
                   </div>
                   {closePanel}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
                   <Input
-                    aria-label="Custom ingredient name"
-                    placeholder="Name, e.g. granola"
+                    aria-label={t.customName}
+                    placeholder={t.customNamePlaceholder}
                     autoFocus={!itemCustomName}
                     className="col-span-2 sm:col-span-1"
                     value={itemCustomName}
@@ -1333,7 +1337,7 @@ function MealEditorContent({
                     <Input
                       type="number"
                       inputMode="decimal"
-                      aria-label="Custom ingredient kcal per 100"
+                      aria-label={t.customKcalPer100}
                       placeholder="kcal/100 g"
                       autoFocus={Boolean(itemCustomName)}
                       value={itemCustomKcalPer100}
@@ -1345,8 +1349,8 @@ function MealEditorContent({
                   <Input
                     type="number"
                     inputMode="decimal"
-                    aria-label="Custom ingredient grams"
-                    placeholder="Grams"
+                    aria-label={t.customGrams}
+                    placeholder={t.gramsPlaceholder}
                     value={itemWeight}
                     onChange={(event) => setItemWeight(event.target.value)}
                     onKeyDown={(event) => {
@@ -1364,7 +1368,7 @@ function MealEditorContent({
                     }
                   >
                     <Plus />
-                    {editingDraftItemIndex === null ? 'Add' : 'Update'}
+                    {editingDraftItemIndex === null ? t.add : t.update}
                   </Button>
                   <CustomIngredientSwitchRow
                     ignoreCalories={itemCustomIgnoreCalories}
@@ -1377,8 +1381,8 @@ function MealEditorContent({
             ) : (
               <div>
                 <SearchField
-                  label="Search foods"
-                  placeholder="Search foods, batches, templates"
+                  label={t.searchFoods}
+                  placeholder={t.searchPlaceholder}
                   autoFocus={!editingMealId}
                   value={query}
                   onValueChange={(value) => {
@@ -1398,9 +1402,9 @@ function MealEditorContent({
                       <>
                         {/* A quiet group label, like "Or add it yourself"
                             below; the list keeps its own name. */}
-                        <p className="mt-5 group-label">Matches</p>
+                        <p className="mt-5 group-label">{t.matches}</p>
                         <ul
-                          aria-label="Search results"
+                          aria-label={t.searchResults}
                           className="inset-group inset-rows"
                         >
                           {results.map(describe)}
@@ -1414,13 +1418,11 @@ function MealEditorContent({
                         className="mt-1 ml-0.5 self-start"
                         onClick={() => setExpandedQuery(needle)}
                       >
-                        Show all {matchingResults.length} matches
+                        {t.showAllMatches(matchingResults.length)}
                       </Button>
                     ) : null}
                     <p id="add-yourself-label" className="mt-5 group-label">
-                      {results.length > 0
-                        ? 'Or add it yourself'
-                        : 'No matches. Add it yourself'}
+                      {results.length > 0 ? t.orAddYourself : t.noMatches}
                     </p>
                     <ul
                       aria-labelledby="add-yourself-label"
@@ -1428,8 +1430,8 @@ function MealEditorContent({
                     >
                       {resultRow(
                         'quick',
-                        `Quick add “${query.trim()}”`,
-                        'Enter its calories',
+                        t.quickAddQuery(query.trim()),
+                        t.enterCalories,
                         () => openQuick(query.trim()),
                         Zap,
                       )}
@@ -1437,8 +1439,8 @@ function MealEditorContent({
                           like adding one of the matches above. */}
                       {resultRow(
                         'new',
-                        `New food “${query.trim()}”`,
-                        'Enter calories per 100 g',
+                        t.newFoodQuery(query.trim()),
+                        t.enterKcalPer100,
                         () => openNew(query.trim()),
                         SquarePen,
                       )}
@@ -1461,7 +1463,7 @@ function MealEditorContent({
                         onClick={() => openQuick()}
                       >
                         <Zap />
-                        Quick calories
+                        {t.quickCalories}
                       </Button>
                       <Button
                         variant="outline"
@@ -1470,15 +1472,13 @@ function MealEditorContent({
                         onClick={() => openNew()}
                       >
                         <SquarePen />
-                        New food
+                        {t.newFood}
                       </Button>
                     </div>
                     {/* Suggestions help start a meal; once it has foods, they'd push those below the fold. */}
                     {suggestions.length > 0 && mealItems.length === 0 ? (
                       <>
-                        <p className="mt-5 group-label">
-                          Templates and recent batches
-                        </p>
+                        <p className="mt-5 group-label">{t.suggestions}</p>
                         <ul className="inset-group inset-rows">
                           {suggestions.map(describe)}
                         </ul>
@@ -1491,7 +1491,7 @@ function MealEditorContent({
                 templatesQuery.status === 'CanLoadMore' ||
                 cookSessionsQuery.status === 'CanLoadMore' ? (
                   <p className="mt-2 px-4 type-footnote text-muted-foreground">
-                    Search covers the foods loaded so far.{' '}
+                    {t.searchCoversLoaded}{' '}
                     <button
                       type="button"
                       className="font-medium text-foreground underline underline-offset-4"
@@ -1506,7 +1506,7 @@ function MealEditorContent({
                           cookSessionsQuery.loadMore(PAGE_SIZE)
                       }}
                     >
-                      Load more
+                      {t.loadMore}
                     </button>
                   </p>
                 ) : null}
@@ -1514,13 +1514,10 @@ function MealEditorContent({
             )}
 
             {mealItems.length > 0 ? (
-              <section aria-label="Foods in this meal">
+              <section aria-label={t.foodsInMeal}>
                 <p className="flex justify-between gap-3 group-label">
-                  <span>
-                    In this meal · {mealItems.length} food
-                    {mealItems.length === 1 ? '' : 's'}
-                  </span>
-                  <span className="font-normal">Tap a food to edit</span>
+                  <span>{t.inThisMeal(mealItems.length)}</span>
+                  <span className="font-normal">{t.tapToEdit}</span>
                 </p>
                 <ul className="inset-group inset-rows">
                   {mealItems.map((item, index) => {
@@ -1547,7 +1544,10 @@ function MealEditorContent({
                         <div className="min-w-0 flex-1">
                           <button
                             type="button"
-                            aria-label={`Edit ${label}, ${grams ? `${grams} · ` : ''}${kcal}`}
+                            aria-label={t.editItem(
+                              label,
+                              grams ? `${grams} · ${kcal}` : kcal,
+                            )}
                             onClick={() => editDraftItem(index)}
                             className="flex min-h-14 w-full items-center gap-3 py-2.5 pr-2 pl-4 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                           >
@@ -1578,7 +1578,7 @@ function MealEditorContent({
                         {/* Centred on the row's first 56px, beside the kcal. */}
                         <RowRemoveButton
                           className="mt-1.5"
-                          label={`Remove ${label}`}
+                          label={t.removeItem(label)}
                           onClick={() => removeDraftItem(index)}
                         >
                           <Trash2 />
@@ -1593,15 +1593,15 @@ function MealEditorContent({
 
           <div className="space-y-1.5">
             <Label htmlFor="mealName" className="block">
-              Meal name{' '}
+              {t.mealName}{' '}
               <span className="font-normal text-muted-foreground">
-                (optional)
+                {t.optional}
               </span>
             </Label>
             <Input
               id="mealName"
-              aria-label="Meal name"
-              placeholder="Breakfast, lunch, snack"
+              aria-label={t.mealName}
+              placeholder={t.mealNamePlaceholder}
               // Loading the edited meal sets its name; typing first would be lost.
               disabled={!isEditingMealHydrated}
               value={mealName}
@@ -1616,14 +1616,16 @@ function MealEditorContent({
               onClick={() => setIsDiscardDialogOpen(true)}
             >
               {editingMealId ? <X /> : <Trash2 />}
-              {editingMealId ? 'Cancel edit' : 'Discard draft'}
+              {editingMealId ? t.cancelEdit : t.discardDraft}
             </Button>
           ) : null}
 
           {/* A translucent toolbar: content scrolls under it, blurred. */}
           <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center justify-between gap-3 border-t bg-background/85 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl [@media(prefers-reduced-transparency:reduce)]:bg-background">
             <div className="tabular-nums">
-              <p className="type-footnote text-muted-foreground">Meal total</p>
+              <p className="type-footnote text-muted-foreground">
+                {t.mealTotal}
+              </p>
               <p>
                 <Value size="stat" value={draftCalories.toFixed(0)} />
               </p>
@@ -1634,8 +1636,8 @@ function MealEditorContent({
               onClick={saveMeal}
             >
               {mealItems.length > 0
-                ? `Save meal (${mealItems.length} food${mealItems.length === 1 ? '' : 's'})`
-                : 'Save meal'}
+                ? t.saveMealWithCount(mealItems.length)
+                : t.saveMeal}
             </Button>
           </div>
         </fieldset>
@@ -1649,9 +1651,9 @@ function MealEditorContent({
           setIsDiscardDialogOpen(false)
           onDone()
         }}
-        title="Discard meal draft?"
-        description="Your unsaved meal changes in this tab will be lost."
-        confirmLabel="Discard draft"
+        title={t.discardDraftTitle}
+        description={t.discardDraftDescription}
+        confirmLabel={t.discardDraft}
         disabled={isRunning}
       />
     </>

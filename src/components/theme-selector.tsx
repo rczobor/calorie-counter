@@ -5,12 +5,14 @@ import { useSyncExternalStore } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { SelectContent, SelectItem } from '@/components/ui/select'
+import { useMessages } from '@/i18n/messages'
 import { cn } from '@/lib/utils'
+import { messages } from './theme-selector.messages'
 
 const THEME_OPTIONS = [
-  { label: 'Light', value: 'light', icon: Sun },
-  { label: 'Dark', value: 'dark', icon: Moon },
-  { label: 'System', value: 'system', icon: Monitor },
+  { value: 'light', icon: Sun },
+  { value: 'dark', icon: Moon },
+  { value: 'system', icon: Monitor },
 ] as const
 
 const subscribeNoop = () => () => {}
@@ -20,6 +22,7 @@ const subscribeNoop = () => () => {}
  * "Appearance" row in a Settings list (`row`).
  */
 export default function ThemeSelector({ row = false }: { row?: boolean }) {
+  const t = useMessages(messages)
   const { theme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
     subscribeNoop,
@@ -34,6 +37,7 @@ export default function ThemeSelector({ row = false }: { row?: boolean }) {
   const selectedOption =
     THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[2]
   const Icon = selectedOption.icon
+  const selectedLabel = t[selectedOption.value]
 
   return (
     <SelectPrimitive.Root
@@ -56,16 +60,18 @@ export default function ThemeSelector({ row = false }: { row?: boolean }) {
           )
         }
         // The row's name starts with its visible label, for voice control.
-        aria-label={`${row ? 'Appearance' : 'Theme'}: ${selectedOption.label}`}
-        title={row ? undefined : `Theme: ${selectedOption.label}`}
+        aria-label={
+          row ? t.appearanceValue(selectedLabel) : t.theme(selectedLabel)
+        }
+        title={row ? undefined : t.theme(selectedLabel)}
       >
         {row ? (
           <>
-            <span>Appearance</span>
+            <span>{t.appearance}</span>
             {/* The current value reads as content; the row ends on the same
                 muted chevron as every other row that opens something. */}
             <span className="flex items-center gap-2 text-foreground">
-              {selectedOption.label}
+              {selectedLabel}
               <ChevronRight
                 aria-hidden="true"
                 className="size-4 shrink-0 text-muted-foreground"
@@ -80,7 +86,7 @@ export default function ThemeSelector({ row = false }: { row?: boolean }) {
         {THEME_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             <option.icon aria-hidden="true" />
-            {option.label}
+            {t[option.value]}
           </SelectItem>
         ))}
       </SelectContent>

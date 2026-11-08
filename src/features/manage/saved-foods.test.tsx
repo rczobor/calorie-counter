@@ -49,13 +49,17 @@ vi.mock('convex/react', () => ({
   },
 }))
 import { SavedFoods } from './saved-foods'
+import { applySavedLocale } from '@/i18n/locale'
 beforeEach(() => {
   vi.clearAllMocks()
   calls.length = 0
   nutrition = fixedPortion
   archive.mockResolvedValue(null)
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  applySavedLocale(null)
+})
 
 describe('Reusable food library', () => {
   it('explains the stored portion and nutrition source without a nutrition editor', () => {
@@ -101,5 +105,13 @@ describe('Reusable food library', () => {
       target: { value: '  vitamins  ' },
     })
     expect(calls).toContainEqual({ archived: false, search: 'vitamins' })
+  })
+  it('writes recorded decimals the Hungarian way', () => {
+    applySavedLocale('hu')
+    nutrition = { kind: 'byVolume', kcalPer100: 52.5 }
+    render(<SavedFoods showArchived={false} onShowArchivedChange={vi.fn()} />)
+    expect(
+      screen.getByRole('button', { name: 'Vitamins / 100 ml 52,5 kcal' }),
+    ).toBeTruthy()
   })
 })

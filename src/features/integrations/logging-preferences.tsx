@@ -11,10 +11,13 @@ import { ActionsMenu } from '@/components/list/actions-menu'
 import { Disclosure } from '@/components/list/disclosure'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { useMessages } from '@/i18n/messages'
+import { messages } from './logging-preferences.messages'
 
 type ConfirmationMode = 'always' | 'explicitOnly'
 
 export function LoggingPreferences() {
+  const t = useMessages(messages)
   const preferences = useQuery(api.mcpPreferences.get, {})
   const households = useQuery(api.households.list, {})
   const update = useMutation(api.mcpPreferences.update)
@@ -81,18 +84,14 @@ export function LoggingPreferences() {
       confirmationMode === 'explicitOnly' &&
       preferences?.confirmationMode !== 'explicitOnly'
     )
-      confirmAndRunAction(
-        'Allow fully specified, non-estimated new meals you ask to log to be saved without a second approval turn? Estimates, cooking, corrections, and transfers still require review.',
-        'Logging defaults updated.',
-        action,
-      )
-    else void runAction('Logging defaults updated.', action)
+      confirmAndRunAction(t.confirmDirect, t.updated, action)
+    else void runAction(t.updated, action)
   }
   return (
-    <section aria-label="Logging defaults">
+    <section aria-label={t.title}>
       {/* The group header carries its actions on the right, as an iOS list's Edit does. */}
       <div className="flex min-h-10 items-center justify-between gap-3 pb-1">
-        <h2 className="group-label pb-0">Logging defaults</h2>
+        <h2 className="group-label pb-0">{t.title}</h2>
         {!editing ? (
           <div className="flex items-center">
             <Button
@@ -101,21 +100,19 @@ export function LoggingPreferences() {
               disabled={isRunning || preferences === undefined}
               onClick={beginEdit}
             >
-              {preferences ? 'Edit defaults' : 'Set defaults'}
+              {preferences ? t.edit : t.set}
             </Button>
             {preferences ? (
               <ActionsMenu
-                label="Logging default actions"
+                label={t.actions}
                 disabled={isRunning}
                 actions={[
                   {
-                    label: 'Reset defaults',
+                    label: t.reset,
                     disabled: isRunning,
                     onSelect: () =>
-                      confirmAndRunAction(
-                        'Reset logging defaults? Your assistant will ask for a household and person again. Recorded meals and connections remain.',
-                        'Logging defaults reset.',
-                        () => update({ preferences: null }),
+                      confirmAndRunAction(t.confirmReset, t.resetDone, () =>
+                        update({ preferences: null }),
                       ),
                   },
                 ]}
@@ -125,11 +122,7 @@ export function LoggingPreferences() {
         ) : null}
       </div>
       {preferences === undefined ? (
-        <LoadingRows
-          label="Loading logging defaults"
-          rows={1}
-          className="inset-group px-4"
-        />
+        <LoadingRows label={t.loading} rows={1} className="inset-group px-4" />
       ) : editing ? (
         <form
           onSubmit={(event) => {
@@ -142,11 +135,11 @@ export function LoggingPreferences() {
             disabled={isRunning}
           >
             <div className="space-y-2">
-              <Label>Household</Label>
+              <Label>{t.household}</Label>
               <Select
-                ariaLabel="Logging household"
+                ariaLabel={t.householdSelect}
                 value={availableHousehold ? householdId : null}
-                placeholder="Select household"
+                placeholder={t.selectHousehold}
                 options={(households ?? []).map((household) => ({
                   value: household._id,
                   label: household.name,
@@ -158,11 +151,11 @@ export function LoggingPreferences() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Person</Label>
+              <Label>{t.person}</Label>
               <Select
-                ariaLabel="Logging person"
+                ariaLabel={t.personSelect}
                 value={selectedPersonAvailable ? personId : null}
-                placeholder="Select person"
+                placeholder={t.selectPerson}
                 options={options.map((person) => ({
                   value: person._id,
                   label: person.name,
@@ -179,12 +172,12 @@ export function LoggingPreferences() {
                   aria-busy={people.status === 'LoadingMore'}
                   onClick={() => people.loadMore(50)}
                 >
-                  Load more people
+                  {t.loadMorePeople}
                 </Button>
               ) : null}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="logging-timezone">Timezone</Label>
+              <Label htmlFor="logging-timezone">{t.timeZone}</Label>
               <Input
                 id="logging-timezone"
                 value={timeZone}
@@ -194,16 +187,13 @@ export function LoggingPreferences() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Save policy</Label>
+              <Label>{t.savePolicy}</Label>
               <Select
-                ariaLabel="Logging save policy"
+                ariaLabel={t.savePolicySelect}
                 value={confirmationMode}
                 options={[
-                  { value: 'always', label: 'Always ask before saving' },
-                  {
-                    value: 'explicitOnly',
-                    label: 'Direct logging for exact new meals',
-                  },
+                  { value: 'always', label: t.alwaysAskOption },
+                  { value: 'explicitOnly', label: t.directOption },
                 ]}
                 onValueChange={(value) =>
                   setConfirmationMode(
@@ -214,10 +204,7 @@ export function LoggingPreferences() {
             </div>
             {confirmationMode === 'explicitOnly' ? (
               <p className="px-4 type-footnote text-muted-foreground sm:col-span-2">
-                Only complete, non-estimated new meals can save directly.
-                Estimates, cooking, corrections, and transfers still need
-                approval. Your assistant’s own confirmation settings are
-                separate.
+                {t.directNote}
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -229,14 +216,14 @@ export function LoggingPreferences() {
                   !timeZone.trim()
                 }
               >
-                Save defaults
+                {t.save}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditing(false)}
               >
-                Cancel
+                {t.cancel}
               </Button>
             </div>
           </fieldset>
@@ -245,41 +232,35 @@ export function LoggingPreferences() {
         <>
           <dl className="inset-group inset-rows">
             <PreferenceRow
-              label="Household"
-              value={preferences.householdName ?? 'Unavailable household'}
+              label={t.household}
+              value={preferences.householdName ?? t.unavailableHousehold}
             />
             <PreferenceRow
-              label="Person"
-              value={preferences.personName ?? 'Unavailable person'}
+              label={t.person}
+              value={preferences.personName ?? t.unavailablePerson}
             />
-            <PreferenceRow label="Timezone" value={preferences.timeZone} />
+            <PreferenceRow label={t.timeZone} value={preferences.timeZone} />
             <PreferenceRow
-              label="Save policy"
+              label={t.savePolicy}
               value={
                 preferences.confirmationMode === 'always'
-                  ? 'Ask before saving'
-                  : 'Direct for exact new meals'
+                  ? t.alwaysAsk
+                  : t.direct
               }
             />
           </dl>
           {!preferences.available ? (
             <p role="alert" className="mt-2 px-4 type-subhead text-destructive">
-              The remembered household or person is unavailable. Choose new
-              defaults or reset them; the assistant will not silently select
-              another household.
+              {t.unavailable}
             </p>
           ) : null}
-          <Disclosure summary="About these defaults" className="mt-1">
-            <p>
-              Applies across all your assistant conversations and connections.
-              Browsing another person or household here does not change them.
-            </p>
+          <Disclosure summary={t.aboutTitle} className="mt-1">
+            <p>{t.aboutDescription}</p>
           </Disclosure>
         </>
       ) : (
         <p className="inset-group px-4 py-3.5 type-subhead text-muted-foreground">
-          No defaults saved. Your assistant will ask which household and person
-          to use.
+          {t.empty}
         </p>
       )}
       <ConfirmDestructiveDialog
