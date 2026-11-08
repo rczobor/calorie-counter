@@ -1,4 +1,4 @@
-import { Dialog } from '@base-ui/react/dialog'
+import { Drawer } from '@base-ui/react/drawer'
 import type { FunctionReturnType } from 'convex/server'
 import { Trash2, X } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
@@ -87,162 +88,153 @@ export function RecordWeightDialog({
   }
 
   return (
-    <Dialog.Root
-      open
-      onOpenChange={(open) => {
-        if (!open && !pending) onClose()
-      }}
+    <Sheet
+      onClose={onClose}
+      pending={pending}
+      initialFocus={inputRef}
+      className="max-h-[92dvh] pb-[max(1rem,env(safe-area-inset-bottom))] md:max-w-md md:pb-5"
     >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm" />
-        <Dialog.Popup
-          initialFocus={inputRef}
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col overflow-y-auto rounded-t-2xl border-t bg-background pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl outline-none md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:w-[calc(100%-2rem)] md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:pb-5"
-        >
-          <div
-            aria-hidden="true"
-            className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30 md:hidden"
-          />
-          <div className="flex items-start justify-between gap-4 px-5 pt-2 md:pt-5">
-            <div>
-              <Dialog.Title className="text-lg font-semibold">
-                {editing ? 'Edit weight' : 'Record weight'}
-              </Dialog.Title>
-              <Dialog.Description className="text-sm text-muted-foreground">
-                {editing
-                  ? `${personName} · ${datedLabel(editing.measuredOn, today)}`
-                  : personName}
-              </Dialog.Description>
-            </div>
-            <Dialog.Close
-              disabled={pending}
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="-mr-2 size-10"
-                  aria-label="Close"
-                />
-              }
-            >
-              <X />
-            </Dialog.Close>
+      {/* The popup's overshoot fill would add scroll height, so scroll here. */}
+      <div className="min-h-0 overflow-y-auto">
+        <div className="flex items-start justify-between gap-4 px-5 pt-2 md:pt-5">
+          <div>
+            <Drawer.Title className="text-lg font-semibold">
+              {editing ? 'Edit weight' : 'Record weight'}
+            </Drawer.Title>
+            <Drawer.Description className="text-sm text-muted-foreground">
+              {editing
+                ? `${personName} · ${datedLabel(editing.measuredOn, today)}`
+                : personName}
+            </Drawer.Description>
           </div>
-          <form
-            className="mt-4 space-y-4 px-5"
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (error) {
-                setShowError(true)
-                inputRef.current?.focus()
-                return
-              }
-              const weightKg = parseWeightInput(text)
-              if (weightKg === null) return
-              void run(editing ? 'Weight updated.' : 'Weight saved.', () =>
-                record({
-                  personId,
-                  measuredOn: date,
-                  weightKg,
-                  expectedEditRevision: existing?.editRevision,
-                }),
-              )
-            }}
+          <Drawer.Close
+            disabled={pending}
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="-mr-2 size-10"
+                aria-label="Close"
+              />
+            }
           >
-            <fieldset disabled={pending} className="min-w-0 space-y-4">
-              {editing ? null : (
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <DatePicker
-                    value={date}
-                    onChange={setDate}
-                    ariaLabel="Weight date"
-                    label={datedLabel(date, today)}
-                    className="h-10 rounded-full"
-                  />
-                </div>
-              )}
-              {!editing && existing ? (
-                // Said before the field, so nobody replaces a weight unawares.
-                <p className="text-sm" role="status">
-                  This day already has {formatKg(existing.weightKg)} kg. Saving
-                  replaces it.
+            <X />
+          </Drawer.Close>
+        </div>
+        <form
+          className="mt-4 space-y-4 px-5"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (error) {
+              setShowError(true)
+              inputRef.current?.focus()
+              return
+            }
+            const weightKg = parseWeightInput(text)
+            if (weightKg === null) return
+            void run(editing ? 'Weight updated.' : 'Weight saved.', () =>
+              record({
+                personId,
+                measuredOn: date,
+                weightKg,
+                expectedEditRevision: existing?.editRevision,
+              }),
+            )
+          }}
+        >
+          <fieldset disabled={pending} className="min-w-0 space-y-4">
+            {editing ? null : (
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <DatePicker
+                  value={date}
+                  onChange={setDate}
+                  ariaLabel="Weight date"
+                  label={datedLabel(date, today)}
+                  className="h-10 rounded-full"
+                />
+              </div>
+            )}
+            {!editing && existing ? (
+              // Said before the field, so nobody replaces a weight unawares.
+              <p className="text-sm" role="status">
+                This day already has {formatKg(existing.weightKg)} kg. Saving
+                replaces it.
+              </p>
+            ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="weight-kg">Weight</Label>
+              <div className="relative">
+                <Input
+                  id="weight-kg"
+                  ref={inputRef}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  enterKeyHint="done"
+                  className="h-12 pr-12 text-2xl font-semibold tabular-nums md:text-2xl"
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  aria-invalid={showError && error ? true : undefined}
+                  aria-describedby={showError && error ? errorId : undefined}
+                />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-muted-foreground"
+                >
+                  kg
+                </span>
+              </div>
+              {showError && error ? (
+                <p id={errorId} className="text-sm text-destructive">
+                  {error}
                 </p>
               ) : null}
-              <div className="space-y-2">
-                <Label htmlFor="weight-kg">Weight</Label>
-                <div className="relative">
-                  <Input
-                    id="weight-kg"
-                    ref={inputRef}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    enterKeyHint="done"
-                    className="h-12 pr-12 text-2xl font-semibold tabular-nums md:text-2xl"
-                    value={text}
-                    onChange={(event) => setText(event.target.value)}
-                    aria-invalid={showError && error ? true : undefined}
-                    aria-describedby={showError && error ? errorId : undefined}
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-muted-foreground"
-                  >
-                    kg
-                  </span>
-                </div>
-                {showError && error ? (
-                  <p id={errorId} className="text-sm text-destructive">
-                    {error}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                {editing ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="-ml-2.5 text-destructive hover:text-destructive"
-                    onClick={() => setConfirmDelete(true)}
-                  >
-                    <Trash2 />
-                    Delete
-                  </Button>
-                ) : (
-                  <span />
-                )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              {editing ? (
                 <Button
-                  type="submit"
-                  size="lg"
-                  className="h-11"
-                  disabled={!text.trim()}
+                  type="button"
+                  variant="ghost"
+                  className="-ml-2.5 text-destructive hover:text-destructive"
+                  onClick={() => setConfirmDelete(true)}
                 >
-                  Save weight
+                  <Trash2 />
+                  Delete
                 </Button>
-              </div>
-            </fieldset>
-          </form>
-          {editing ? (
-            <ConfirmDestructiveDialog
-              open={confirmDelete}
-              onOpenChange={setConfirmDelete}
-              disabled={pending}
-              title="Delete this weight?"
-              description={`${formatKg(editing.weightKg)} kg on ${datedLabel(editing.measuredOn, today)} will be removed.`}
-              onConfirm={() => {
-                setConfirmDelete(false)
-                void run('Weight deleted.', () =>
-                  remove({
-                    entryId: editing._id,
-                    expectedEditRevision: editing.editRevision,
-                  }),
-                )
-              }}
-            />
-          ) : null}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+              ) : (
+                <span />
+              )}
+              <Button
+                type="submit"
+                size="lg"
+                className="h-11"
+                disabled={!text.trim()}
+              >
+                Save weight
+              </Button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+      {editing ? (
+        <ConfirmDestructiveDialog
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          disabled={pending}
+          title="Delete this weight?"
+          description={`${formatKg(editing.weightKg)} kg on ${datedLabel(editing.measuredOn, today)} will be removed.`}
+          onConfirm={() => {
+            setConfirmDelete(false)
+            void run('Weight deleted.', () =>
+              remove({
+                entryId: editing._id,
+                expectedEditRevision: editing.editRevision,
+              }),
+            )
+          }}
+        />
+      ) : null}
+    </Sheet>
   )
 }
