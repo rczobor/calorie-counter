@@ -52,9 +52,13 @@ function useClerkLocalization() {
   useEffect(() => {
     if (locale !== 'hu' || hungarian) return
     let current = true
-    void import('@clerk/localizations/hu-HU').then(({ huHU }) => {
-      if (current) setHungarian(huHU)
-    })
+    import('@clerk/localizations/hu-HU')
+      .then(({ huHU }) => {
+        if (current) setHungarian(huHU)
+      })
+      // A chunk lost to a newer deploy leaves Clerk in English; the next
+      // switch to Hungarian tries again.
+      .catch(() => undefined)
     return () => {
       current = false
     }

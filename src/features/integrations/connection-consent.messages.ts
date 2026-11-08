@@ -2,12 +2,16 @@ import { defineMessages } from '@/i18n/messages'
 
 type Scope = { name: string; description: string }
 
-const huScopeDescriptions: Partial<Record<string, string>> = {
-  'nutrition:read':
-    'Személyek, testsúlyok, ételek, receptek, étkezések és kalóriaösszesítések olvasása a háztartásaidban',
-  'meals:write':
-    'Étkezések és testsúlyok rögzítése és javítása, mentett ételek létrehozása és a rögzítési alapértelmezések beállítása',
-  'cooking:write': 'Főzések rögzítése és a főtt ételek kész tömegének javítása',
+// Keyed by the server's exact English (convex/mcp.ts scopes). When that text
+// changes, the screen shows the new English rather than a translation that may
+// no longer list everything a permission allows.
+export const HUNGARIAN_SCOPE_DESCRIPTIONS: Partial<Record<string, string>> = {
+  'Read people, body weights, daily goals, foods, recipes, meals, and calorie totals in your households':
+    'Személyek, testsúlyok, napi célok, ételek, receptek, étkezések és kalóriaösszesítések olvasása a háztartásaidban',
+  'Record and correct meals and body weights, change daily goals, save reusable foods, and set logging preferences':
+    'Étkezések és testsúlyok rögzítése és javítása, napi célok módosítása, mentett ételek létrehozása és a rögzítési alapértelmezések beállítása',
+  'Record cooking sessions and correct cooked-food finished weights':
+    'Főzések rögzítése és a főtt ételek kész tömegének javítása',
 }
 
 export const messages = defineMessages({
@@ -59,7 +63,7 @@ export const messages = defineMessages({
     localApplication:
       'Ezt a kapcsolatot egy helyi alkalmazás kapja meg. Csak akkor hagyd jóvá, ha te indítottad.',
     scopeDescription: (scope: Scope) =>
-      huScopeDescriptions[scope.name] ?? scope.description,
+      HUNGARIAN_SCOPE_DESCRIPTIONS[scope.description] ?? scope.description,
     accessSummary:
       'Az asszisztens a fenti engedélyek keretein belül hozzáfér a személyekhez, az étkezésekhez, a célokhoz, az előzményekhez, az ételtárhoz és a főzésekhez minden háztartásban, amelynek tagja vagy, azokban is, amelyekhez később csatlakozol. Minden kérésnél kifejezetten kiválasztja a háztartást. A Beállítások, AI-asszisztensek oldalon leválaszthatod.',
     allow: 'Engedélyezés',

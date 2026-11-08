@@ -40,13 +40,17 @@ return <h2>{t.title}</h2>
   helpers, takes a `locale: Locale` (from `useLocale()`) and reads
   `messages[locale]`. Do not leave English in module-level constants.
 - Text that people typed (food, person and household names, notes) and data
-  from the server stay as they are.
+  from the server stay as they are. Text the app suggests and saves for later
+  reading, such as a goal-history reason, is saved in the language it was shown
+  in, like typed text. The AI assistant writes its reasons in English.
 - Tests render in English, so existing assertions keep their English text.
 
 ## Dates and numbers
 
 - Show a calendar date with `formatDate(value, locale)` from `@/lib/dates`, the
   app's one date format ("Sun, Nov 8" or "nov. 8., vasárnap").
+- English follows the browser's English region when it has one ("8 Nov" in
+  en-GB), else US conventions; `intlLocale(locale)` gives the tag.
 - For any other date shape, use `Intl` with `intlLocale(locale)`. Never pass
   `undefined` or `'en-US'`, and do not show date-fns `format()` output, whose
   patterns are English-only. date-fns is still fine for date arithmetic.

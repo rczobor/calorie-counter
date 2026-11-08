@@ -59,19 +59,21 @@ describe('language setting', () => {
   })
 
   it('returns to the saved language when the account cannot store the choice', async () => {
+    // Saved Hungarian on an English browser, so a revert to the browser's
+    // language would show English.
+    accountLocale = 'hu'
+    applySavedLocale('hu')
     save.mockRejectedValue(new Error('offline'))
     render(<LanguageSetting />)
 
-    await pick(/^Language: English/, 'Magyar')
+    await pick(/^Nyelv: Magyar/, 'English')
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith(
-        'Couldn’t save your language. Try again.',
+        'Nem sikerült menteni a nyelvet. Próbáld újra.',
       ),
     )
-    expect(
-      screen.getByRole('combobox', { name: 'Language: English' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: 'Nyelv: Magyar' })).toBeTruthy()
   })
 
   it('applies the account’s language once it loads', () => {

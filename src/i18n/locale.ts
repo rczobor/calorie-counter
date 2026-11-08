@@ -3,11 +3,15 @@ import { useSyncExternalStore } from 'react'
 export const LOCALES = ['en', 'hu'] as const
 export type Locale = (typeof LOCALES)[number]
 
-// English keeps US conventions; the tags drive every Intl date and number.
-const INTL_LOCALES = { en: 'en-US', hu: 'hu-HU' } satisfies Record<
-  Locale,
-  string
->
+// The tags drive every Intl date and number. English keeps the browser's
+// English region when it has one ("8 Nov" in en-GB), else US conventions.
+const INTL_LOCALES = {
+  en: () =>
+    (typeof navigator === 'undefined'
+      ? undefined
+      : navigator.languages.find((tag) => /^en-/i.test(tag))) ?? 'en-US',
+  hu: () => 'hu-HU',
+} satisfies Record<Locale, () => string>
 
 // Mirrors the account's choice so a returning user starts in it before the
 // account loads. Absent means the account follows the browser.
@@ -18,7 +22,7 @@ export function isLocale(value: unknown): value is Locale {
 }
 
 export function intlLocale(locale: Locale) {
-  return INTL_LOCALES[locale]
+  return INTL_LOCALES[locale]()
 }
 
 /** The first browser language the app speaks, or English. */

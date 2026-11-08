@@ -1,9 +1,17 @@
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { applySavedLocale, detectBrowserLocale, useLocale } from './locale'
+import {
+  applySavedLocale,
+  detectBrowserLocale,
+  intlLocale,
+  useLocale,
+} from './locale'
 
-afterEach(() => applySavedLocale(null))
+afterEach(() => {
+  applySavedLocale(null)
+  vi.restoreAllMocks()
+})
 
 describe('interface language', () => {
   it('takes the first browser language the app speaks, else English', () => {
@@ -12,6 +20,15 @@ describe('interface language', () => {
     expect(detectBrowserLocale(['en-GB', 'hu'])).toBe('en')
     expect(detectBrowserLocale(['de-DE'])).toBe('en')
     expect(detectBrowserLocale([])).toBe('en')
+  })
+
+  it('formats English in the browser’s English region, else as in the US', () => {
+    const languages = vi.spyOn(navigator, 'languages', 'get')
+    languages.mockReturnValue(['de-DE', 'en-GB'])
+    expect(intlLocale('en')).toBe('en-GB')
+    languages.mockReturnValue(['hu-HU', 'en'])
+    expect(intlLocale('en')).toBe('en-US')
+    expect(intlLocale('hu')).toBe('hu-HU')
   })
 
   it('applies and remembers the account’s choice, and follows the browser without one', () => {
