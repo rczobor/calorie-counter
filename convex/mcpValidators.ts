@@ -534,6 +534,7 @@ const goalCheckIn = v.object({
       plannedKgPerWeek: v.number(),
       heldAtMinimum: v.boolean(),
       targetReached: v.boolean(),
+      belowHealthyWeight: v.boolean(),
     }),
   ),
 })

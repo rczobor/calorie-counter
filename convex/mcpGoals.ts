@@ -192,6 +192,7 @@ export const getGoal = internalMutation({
                 plannedKgPerWeek: round2(suggestion.kgPerWeek),
                 heldAtMinimum: suggestion.heldAtMinimum,
                 targetReached: suggestion.targetReached,
+                belowHealthyWeight: suggestion.belowHealthyWeight,
               }
             : undefined,
         },
@@ -278,22 +279,25 @@ async function prepareGoalChange(
       data.latestWeightKg !== null
     ) {
       maintenance = checkIn.estimate.maintenance
+      const { targetReached, belowHealthyWeight } = checkIn.suggestion
+      const endsPlan =
+        (targetReached || belowHealthyWeight) && plan.direction !== 'maintain'
       // The same calculation as the suggestion, which keeps its working.
       goal = goalForPlan({
         maintenanceKcal: maintenance.kcal,
         weightKg: data.latestWeightKg,
         sex: profile.sex,
-        plan: checkIn.suggestion.targetReached
-          ? { direction: 'maintain' }
-          : plan,
+        plan: endsPlan ? { direction: 'maintain' } : plan,
       })
       basis = 'checkIn'
       reason ??= `Check-in: maintenance ≈ ${roundKcal(maintenance.kcal)} kcal`
-      // A reached target ends the plan, as the app's check-in does.
-      if (checkIn.suggestion.targetReached && plan.direction !== 'maintain') {
+      // A plan that has to stop ends, as the app's check-in does.
+      if (endsPlan) {
         plan = { direction: 'maintain' }
         warnings.push(
-          'The target is reached, so the plan changes to keeping weight steady.',
+          targetReached
+            ? 'The target is reached, so the plan changes to keeping weight steady.'
+            : 'Below a healthy weight for this height, so the plan changes to keeping weight steady.',
         )
       }
     } else {

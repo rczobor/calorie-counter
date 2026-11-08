@@ -5,6 +5,7 @@ import rateLimiterTest from '@convex-dev/rate-limiter/test'
 import { checkValue } from '@convex-dev/mcp'
 import { v, type GenericValidator, type Infer } from 'convex/values'
 import { api, internal, components } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import { mcp } from './mcp'
 import {
   mealPreview,
@@ -2781,14 +2782,8 @@ describe('MCP goal tools', () => {
     expect(person?.energyProfile).toEqual(profile)
   })
 
-  it('takes the check-in suggestion and ends a plan whose target is reached', async () => {
-    const t = setup()
-    const own = await credential(t)
-    const personId = await insertPerson(t, {
-      energyProfile: profile,
-      goalPlan: { direction: 'lose', percentPerWeek: 0.5, targetWeightKg: 83 },
-    })
-    // Four weeks of ~1960 kcal logged while the trend falls to about 82.4 kg.
+  /** Four weeks of ~1960 kcal logged while weight trends down 0.26 kg a week from `startKg`. */
+  async function logFourWeeks(t: Test, personId: Id<'people'>, startKg = 83.4) {
     await t.run(async (ctx) => {
       const person = await ctx.db.get(personId)
       if (!person) throw new Error('Expected the test person.')
@@ -2812,13 +2807,47 @@ describe('MCP goal tools', () => {
             ...owner,
             personId,
             measuredOn: date,
-            weightKg: 83.4 - ((28 - daysAgo) * 0.26) / 7,
+            weightKg: startKg - ((28 - daysAgo) * 0.26) / 7,
             editRevision: 0,
             createdAt: 0,
             updatedAt: 0,
           })
       }
     })
+  }
+
+  it('ends a loss plan through the check-in once below a healthy weight', async () => {
+    const t = setup()
+    const own = await credential(t)
+    // 150 cm and about 40.4 kg by now: a BMI near 18.
+    const personId = await insertPerson(t, {
+      energyProfile: { ...profile, heightCm: 150 },
+      goalPlan: { direction: 'lose', percentPerWeek: 0.5 },
+    })
+    await logFourWeeks(t, personId, 41.4)
+    const previewed = await output(
+      await call(t, own.token, 'preview_goal_change', {
+        input: { personId, expectedEditRevision: 0, effectiveDate: today },
+      }),
+      goalChangePreview,
+    )
+    expect(previewed).toMatchObject({
+      basis: 'checkIn',
+      input: { goalPlan: { direction: 'maintain' } },
+      working: { adjustmentKcal: 0 },
+      warnings: [expect.stringContaining('Below a healthy weight')],
+    })
+  })
+
+  it('takes the check-in suggestion and ends a plan whose target is reached', async () => {
+    const t = setup()
+    const own = await credential(t)
+    const personId = await insertPerson(t, {
+      energyProfile: profile,
+      goalPlan: { direction: 'lose', percentPerWeek: 0.5, targetWeightKg: 83 },
+    })
+    // The trend falls to about 82.4 kg, past the 83 kg target.
+    await logFourWeeks(t, personId)
     const status = await output(
       await call(t, own.token, 'get_goal', { personId, localDate: today }),
       goalStatusResult,
