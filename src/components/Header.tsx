@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { Show } from '@clerk/react'
-import { Clock, Flame, Plus, Settings, UtensilsCrossed } from 'lucide-react'
+import { Clock, Flame, House, Plus, Settings } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import { isE2eMockMode } from '@/testing/e2e/config'
 const ThemeSelector = lazy(() => import('./theme-selector'))
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Today', icon: UtensilsCrossed },
+  { to: '/', label: 'Today', icon: House },
   { to: '/history', label: 'History', icon: Clock },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const
@@ -72,47 +72,47 @@ export function BottomNavigation() {
   const navigate = useNavigate()
   return (
     <SignedInOnly>
+      {/* Floats over the content; the installed iPhone app tucks it just above
+          the home indicator, browsers keep a small gap. Content blurs
+          progressively behind it, so no sharp glyphs show between or below
+          the pills while the glass still has content to show. */}
       <nav
         aria-label="Primary navigation"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md supports-[backdrop-filter]:bg-background/85 md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] before:absolute before:inset-x-0 before:-top-4 before:bottom-0 before:backdrop-blur-sm before:mask-t-from-85% md:hidden [@media(prefers-reduced-transparency:reduce)]:before:backdrop-blur-none"
       >
-        <div className="mx-auto flex max-w-xl items-center gap-1 px-2 py-1.5">
-          {NAV_ITEMS.map((item) => {
-            const active = isActive(pathname, item.to)
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                activeOptions={{ exact: true }}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-                  active
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <span
+        <div className="pointer-events-auto relative mx-auto flex max-w-xl items-center gap-2">
+          <div className="glass flex min-w-0 flex-1 items-center rounded-full p-1">
+            {NAV_ITEMS.map((item) => {
+              const active = isActive(pathname, item.to)
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  activeOptions={{ exact: true }}
+                  aria-current={active ? 'page' : undefined}
+                  aria-label={item.label}
                   className={cn(
-                    'flex h-7 w-12 items-center justify-center rounded-full',
-                    active && 'bg-primary/12',
+                    'flex h-11 flex-1 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                    active
+                      ? 'bg-primary/14 text-primary dark:bg-primary/10'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <item.icon aria-hidden="true" className="size-[18px]" />
-                </span>
-                {item.label}
-              </Link>
-            )
-          })}
+                  <item.icon aria-hidden="true" className="size-6" />
+                </Link>
+              )
+            })}
+          </div>
           <Button
-            className="ml-1.5 h-12 shrink-0 rounded-full px-5 font-semibold shadow-sm"
+            size="icon"
+            aria-label="Log meal"
+            className="size-13 rounded-full shadow-[0_10px_30px_-10px_var(--glass-shadow)]"
             onClick={() => {
               requestLogMeal()
               if (pathname !== '/') void navigate({ to: '/' })
             }}
           >
-            <Plus aria-hidden="true" className="size-4" />
-            Log meal
+            <Plus aria-hidden="true" className="size-6" />
           </Button>
         </div>
       </nav>
