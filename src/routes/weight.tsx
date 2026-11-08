@@ -109,6 +109,11 @@ function WeightContent() {
     { archived: false },
     { initialNumItems: PEOPLE_PAGE_SIZE },
   )
+  // The picker lists everyone, as households are small; load every page.
+  const { status: peopleStatus, loadMore: loadMorePeople } = people
+  useEffect(() => {
+    if (peopleStatus === 'CanLoadMore') loadMorePeople(PEOPLE_PAGE_SIZE)
+  }, [peopleStatus, loadMorePeople])
   const loaded = people.results.find((p) => p._id === selectedPersonId)
   // A linked or remembered person may be archived or beyond the first page.
   const pointLoaded = useQuery(
@@ -117,7 +122,14 @@ function WeightContent() {
       ? { personId: selectedPersonId }
       : 'skip',
   )
-  const person = loaded ?? pointLoaded ?? people.results[0]
+  const loadingPeople =
+    people.status === 'LoadingFirstPage' ||
+    (Boolean(selectedPersonId) && !loaded && pointLoaded === undefined)
+  // Never fall back to the first person while the chosen one is still loading:
+  // Record would save to the wrong person.
+  const person = loadingPeople
+    ? undefined
+    : (loaded ?? pointLoaded ?? people.results[0])
   const personId = person?._id
   const startDate = shiftDate(today, -(rangeDays - 1))
   const range = useQuery(
@@ -133,9 +145,6 @@ function WeightContent() {
     personId ? { personId } : 'skip',
     { initialNumItems: ENTRIES_PAGE_SIZE },
   )
-  const loadingPeople =
-    people.status === 'LoadingFirstPage' ||
-    (Boolean(selectedPersonId) && !loaded && pointLoaded === undefined)
   const options = [
     ...people.results,
     ...(pointLoaded && !loaded ? [pointLoaded] : []),
