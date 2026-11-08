@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm exec convex deploy --cmd 'pnpm run build' --preview-run seed:defaults",
   "headers": [
     {
       "source": "/connect",
