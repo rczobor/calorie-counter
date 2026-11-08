@@ -95,7 +95,7 @@
     inset 0 1px 0 var(--glass-highlight),
     0 10px 30px -10px var(--glass-shadow),
     0 2px 8px -2px var(--glass-shadow);
-  backdrop-filter: blur(8px) saturate(1.8);
+  backdrop-filter: blur(16px) saturate(1.8);
   @media (prefers-reduced-transparency: reduce) {
     background-color: var(--background);
     backdrop-filter: none;
