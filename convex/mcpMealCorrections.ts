@@ -406,7 +406,7 @@ export const correctMeal = internalMutation({
         args.input,
       )
       await limiter.limit(ctx, 'writes', {
-        key: owner.tokenIdentifier,
+        key: owner.userId,
         throws: true,
       })
       await updateMealForOwner(ctx, owner, update)

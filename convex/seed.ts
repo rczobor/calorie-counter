@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { ensurePersonalHousehold } from './households'
-import { ensureAccount, ownerFields, type AuthenticatedOwner } from './lib/auth'
+import { ensureUserId, ownerFields, type AuthenticatedOwner } from './lib/auth'
 import { normalizeRequiredDate } from './lib/validation'
 
 type SeedSummary = {
@@ -91,7 +91,7 @@ async function resolveSeedOwner(
   const tokenIdentifier = `${issuer}|${subject}`
   return {
     householdId: await ensurePersonalHousehold(ctx, tokenIdentifier),
-    ...(await ensureAccount(ctx, tokenIdentifier)),
+    userId: await ensureUserId(ctx, tokenIdentifier),
   }
 }
 

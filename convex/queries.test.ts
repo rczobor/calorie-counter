@@ -15,6 +15,7 @@ import {
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 import { ensurePersonalHousehold } from './households'
+import { ensureUserId } from './lib/auth'
 
 const seedDefaults = makeFunctionReference<
   'mutation',
@@ -59,7 +60,7 @@ describe('nutrition scoped queries', () => {
       totalCalories: 500,
       itemCount: 1,
     })
-    expect(data.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(data.page[0]).not.toHaveProperty('ownerUserId')
   })
 
   it('serves bounded owner-free DTOs from the domain query APIs', async () => {
@@ -117,15 +118,13 @@ describe('nutrition scoped queries', () => {
 
     expect(people.page).toHaveLength(1)
     expect(people.page[0]).toMatchObject({ consumedCalories: 640 })
-    expect(people.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(people.page[0]).not.toHaveProperty('ownerUserId')
     expect(meals.page).toHaveLength(2)
     expect(new Set(meals.page.map((meal) => meal._id))).toEqual(
       new Set([mealId, archivedMealId]),
     )
     expect(meals.isDone).toBe(true)
-    expect(meals.page.every((meal) => !('ownerTokenIdentifier' in meal))).toBe(
-      true,
-    )
+    expect(meals.page.every((meal) => !('ownerUserId' in meal))).toBe(true)
     expect(activeMeals.page).toHaveLength(1)
     expect(activeMeals.isDone).toBe(true)
     expect(activeMeals.page[0]).toMatchObject({
@@ -134,19 +133,19 @@ describe('nutrition scoped queries', () => {
       totalCalories: 640,
       itemCount: 1,
     })
-    expect(activeMeals.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(activeMeals.page[0]).not.toHaveProperty('ownerUserId')
     expect(detail?.items).toHaveLength(1)
     expect(detail?.items[0]).toMatchObject({
       sourceType: 'fixedCalories',
       caloriesSnapshot: 640,
     })
-    expect(detail?.items[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(detail?.items[0]).not.toHaveProperty('ownerUserId')
     expect(history.page).toHaveLength(1)
     expect(history.page[0]).toMatchObject({
       consumedCalories: 640,
       mealCount: 1,
     })
-    expect(history.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(history.page[0]).not.toHaveProperty('ownerUserId')
   })
 
   it('normalizes missing legacy edit revisions in every editable DTO', async () => {
@@ -157,9 +156,10 @@ describe('nutrition scoped queries', () => {
         ctx,
         TEST_TOKEN_IDENTIFIER,
       )
+      const ownerUserId = await ensureUserId(ctx, TEST_TOKEN_IDENTIFIER)
       const createdAt = Date.now()
       const personId = await ctx.db.insert('people', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         name: 'Legacy person',
         currentDailyGoalKcal: 2_000,
@@ -167,7 +167,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       const groupId = await ctx.db.insert('foodGroups', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         name: 'Legacy group',
         appliesTo: 'ingredient',
@@ -175,7 +175,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       const ingredientId = await ctx.db.insert('ingredients', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         name: 'Legacy ingredient',
         kcalPer100: 100,
@@ -186,7 +186,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       const recipeId = await ctx.db.insert('recipes', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         name: 'Legacy recipe',
         archived: false,
@@ -194,7 +194,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       await ctx.db.insert('recipeVersions', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         recipeId,
         versionNumber: 1,
@@ -202,7 +202,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       const sessionId = await ctx.db.insert('cookSessions', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         label: 'Legacy session',
         searchText: '2026-04-04 Legacy session',
@@ -212,7 +212,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       const cookedFoodId = await ctx.db.insert('cookedFoods', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         cookSessionId: sessionId,
         name: 'Legacy cooked food',
@@ -224,7 +224,7 @@ describe('nutrition scoped queries', () => {
         createdAt,
       })
       const mealId = await ctx.db.insert('meals', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         personId,
         name: 'Legacy meal',
@@ -305,13 +305,14 @@ describe('nutrition scoped queries', () => {
         ctx,
         TEST_TOKEN_IDENTIFIER,
       )
+      const ownerUserId = await ensureUserId(ctx, TEST_TOKEN_IDENTIFIER)
       const insertCookedFood = async (
         cookSessionId: typeof sessionId,
         name: string,
         archived: boolean,
       ) =>
         await ctx.db.insert('cookedFoods', {
-          ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+          ownerUserId,
           householdId,
           cookSessionId,
           name,
@@ -346,7 +347,7 @@ describe('nutrition scoped queries', () => {
       name: 'Visible batch',
       archived: false,
     })
-    expect(result.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(result.page[0]).not.toHaveProperty('ownerUserId')
     const searchResult = await user.query(
       api.cooking.searchCookedFoodsBySession,
       {
@@ -360,7 +361,7 @@ describe('nutrition scoped queries', () => {
       _id: cookedFoodId,
       name: 'Visible batch',
     })
-    expect(searchResult[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(searchResult[0]).not.toHaveProperty('ownerUserId')
     await expect(
       asTestUserWithToken(t, 'other-user|token').query(
         api.cooking.listCookedFoodsForSession,
@@ -403,7 +404,7 @@ describe('nutrition scoped queries', () => {
         cookedByPersonName: 'Archived cook',
       }),
     )
-    expect(result.page[0]).not.toHaveProperty('ownerTokenIdentifier')
+    expect(result.page[0]).not.toHaveProperty('ownerUserId')
   })
 
   it('returns the latest goal before a history range, not the oldest goal', async () => {

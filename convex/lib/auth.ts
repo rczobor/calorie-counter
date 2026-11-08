@@ -1,30 +1,22 @@
-import type { Doc, Id } from '../_generated/dataModel'
+import type { Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import { DomainError } from './validation'
 
-// Account data is keyed by app-owned `users` rows, so a new Clerk instance or
-// domain only rewrites `users.tokenIdentifier`. Rows written before
-// `migrations:rekeyAccounts` still carry the raw tokenIdentifier; the lookups
-// below fall back to it until that migration has run everywhere.
-export type Account = {
-  tokenIdentifier: string
-  userId: Id<'users'> | null
+// Account data is keyed by app-owned `users` rows. Only
+// `users.tokenIdentifier` names the Clerk identity, so moving Clerk instances
+// or domains rewrites that row and nothing else.
+export type AuthenticatedOwner = {
+  householdId: Id<'households'>
+  userId: Id<'users'>
 }
-
-export type AuthenticatedOwner = Account & { householdId: Id<'households'> }
 
 type Reader = Pick<QueryCtx, 'db'>
 type OwnedDocument = { householdId?: Id<'households'> } | null
-type OwnerKeys = 'ownerTokenIdentifier' | 'ownerUserId' | 'householdId'
+type OwnerKeys = 'ownerUserId' | 'householdId'
 
 // Account attribution only; authorization uses householdId.
 export function ownerFields(owner: AuthenticatedOwner) {
-  return owner.userId
-    ? { householdId: owner.householdId, ownerUserId: owner.userId }
-    : {
-        householdId: owner.householdId,
-        ownerTokenIdentifier: owner.tokenIdentifier,
-      }
+  return { householdId: owner.householdId, ownerUserId: owner.userId }
 }
 
 export type WithoutOwner<TDoc> = TDoc extends unknown
@@ -35,7 +27,6 @@ export function withoutOwner<TDoc extends Partial<Record<OwnerKeys, string>>>(
   doc: TDoc,
 ): WithoutOwner<TDoc> {
   const publicFields: Partial<TDoc> = { ...doc }
-  delete publicFields.ownerTokenIdentifier
   delete publicFields.ownerUserId
   delete publicFields.householdId
   return publicFields as WithoutOwner<TDoc>
@@ -65,126 +56,55 @@ export async function requireAuthenticatedUser(
   return { tokenIdentifier: identity.tokenIdentifier }
 }
 
-export async function findAccount(
-  ctx: Reader,
-  tokenIdentifier: string,
-): Promise<Account> {
+/** The account's users row, or null before its first bootstrap mutation. */
+export async function findUserId(ctx: Reader, tokenIdentifier: string) {
   const user = await ctx.db
     .query('users')
     .withIndex('by_tokenIdentifier', (q) =>
       q.eq('tokenIdentifier', tokenIdentifier),
     )
     .unique()
-  return { tokenIdentifier, userId: user?._id ?? null }
+  return user?._id ?? null
 }
 
-export async function ensureAccount(
-  ctx: MutationCtx,
-  tokenIdentifier: string,
-): Promise<Account & { userId: Id<'users'> }> {
-  const account = await findAccount(ctx, tokenIdentifier)
-  return {
-    tokenIdentifier,
-    userId:
-      account.userId ?? (await ctx.db.insert('users', { tokenIdentifier })),
-  }
+export async function ensureUserId(ctx: MutationCtx, tokenIdentifier: string) {
+  return (
+    (await findUserId(ctx, tokenIdentifier)) ??
+    (await ctx.db.insert('users', { tokenIdentifier }))
+  )
 }
 
-/** The account a stored users reference points to, or null if it is gone. */
-export async function accountForUser(
+export function findPersonalHousehold(ctx: Reader, userId: Id<'users'>) {
+  return ctx.db
+    .query('households')
+    .withIndex('by_personalOwnerUserId', (q) =>
+      q.eq('personalOwnerUserId', userId),
+    )
+    .unique()
+}
+
+export function findMembership(
   ctx: Reader,
   userId: Id<'users'>,
-): Promise<Account | null> {
-  const user = await ctx.db.get(userId)
-  return user ? { tokenIdentifier: user.tokenIdentifier, userId } : null
-}
-
-export function isAccount(
-  row: { userId?: Id<'users'>; tokenIdentifier?: string },
-  account: Account,
-) {
-  return row.userId
-    ? row.userId === account.userId
-    : row.tokenIdentifier === account.tokenIdentifier
-}
-
-export function isPersonalOwner(
-  household: Doc<'households'> | null,
-  account: Account,
-) {
-  if (!household) return false
-  return household.personalOwnerUserId
-    ? household.personalOwnerUserId === account.userId
-    : household.personalOwnerTokenIdentifier === account.tokenIdentifier
-}
-
-export async function findPersonalHousehold(ctx: Reader, account: Account) {
-  const { userId } = account
-  const household = userId
-    ? await ctx.db
-        .query('households')
-        .withIndex('by_personalOwnerUserId', (q) =>
-          q.eq('personalOwnerUserId', userId),
-        )
-        .unique()
-    : null
-  return (
-    household ??
-    (await ctx.db
-      .query('households')
-      .withIndex('by_personalOwnerTokenIdentifier', (q) =>
-        q.eq('personalOwnerTokenIdentifier', account.tokenIdentifier),
-      )
-      .unique())
-  )
-}
-
-export async function findMembership(
-  ctx: Reader,
-  account: Account,
   householdId: Id<'households'>,
 ) {
-  const { userId } = account
-  const member = userId
-    ? await ctx.db
-        .query('householdMembers')
-        .withIndex('by_userId_and_householdId', (q) =>
-          q.eq('userId', userId).eq('householdId', householdId),
-        )
-        .unique()
-    : null
-  return (
-    member ??
-    (await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q
-          .eq('tokenIdentifier', account.tokenIdentifier)
-          .eq('householdId', householdId),
-      )
-      .unique())
-  )
+  return ctx.db
+    .query('householdMembers')
+    .withIndex('by_userId_and_householdId', (q) =>
+      q.eq('userId', userId).eq('householdId', householdId),
+    )
+    .unique()
 }
 
-export async function listMemberships(
+export function listMemberships(
   ctx: Reader,
-  account: Account,
+  userId: Id<'users'>,
   limit: number,
 ) {
-  const { userId } = account
-  const current = userId
-    ? await ctx.db
-        .query('householdMembers')
-        .withIndex('by_userId_and_householdId', (q) => q.eq('userId', userId))
-        .take(limit)
-    : []
-  const legacy = await ctx.db
+  return ctx.db
     .query('householdMembers')
-    .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-      q.eq('tokenIdentifier', account.tokenIdentifier),
-    )
+    .withIndex('by_userId_and_householdId', (q) => q.eq('userId', userId))
     .take(limit)
-  return [...current, ...legacy].slice(0, limit)
 }
 
 export async function requireHouseholdForAccount(
@@ -192,13 +112,14 @@ export async function requireHouseholdForAccount(
   tokenIdentifier: string,
   requestedHouseholdId?: Id<'households'>,
 ): Promise<AuthenticatedOwner> {
-  const account = await findAccount(ctx, tokenIdentifier)
+  const userId = await findUserId(ctx, tokenIdentifier)
   const householdId =
-    requestedHouseholdId ?? (await findPersonalHousehold(ctx, account))?._id
+    requestedHouseholdId ??
+    (userId ? (await findPersonalHousehold(ctx, userId))?._id : undefined)
   if (!householdId) throw new DomainError('Select a household first.')
-  if (!(await findMembership(ctx, account, householdId)))
+  if (!userId || !(await findMembership(ctx, userId, householdId)))
     throw new DomainError('Household access denied.')
-  return { ...account, householdId }
+  return { householdId, userId }
 }
 
 export async function requireAuthenticatedHousehold(

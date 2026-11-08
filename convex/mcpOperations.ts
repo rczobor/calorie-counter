@@ -17,9 +17,8 @@ import { savedFoodQuery } from './savedFoods'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
 import {
   assertOwnedOrThrow,
-  isPersonalOwner,
   listMemberships,
-  ensureAccount,
+  ensureUserId,
   ownerFields,
   type AuthenticatedOwner,
 } from './lib/auth'
@@ -103,36 +102,22 @@ export async function findReceipt(
   normalizeRequiredText(operationKey, 'Operation key', 100)
   if (operationKey.length > 100)
     throw new ConvexError('Operation key cannot exceed 100 characters.')
-  const key = `${operation}:${operationKey}`
-  const { userId } = owner
-  const receipt =
-    (userId
-      ? await ctx.db
-          .query('mcpOperations')
-          .withIndex('by_ownerUserId_and_connectionId_and_key', (q) =>
-            q
-              .eq('ownerUserId', userId)
-              .eq('connectionId', user.connectionId)
-              .eq('key', key),
-          )
-          .unique()
-      : null) ??
-    (await ctx.db
-      .query('mcpOperations')
-      .withIndex('by_ownerTokenIdentifier_and_connectionId_and_key', (q) =>
-        q
-          .eq('ownerTokenIdentifier', owner.tokenIdentifier)
-          .eq('connectionId', user.connectionId)
-          .eq('key', key),
-      )
-      .unique())
+  const receipt = await ctx.db
+    .query('mcpOperations')
+    .withIndex('by_ownerUserId_and_connectionId_and_key', (q) =>
+      q
+        .eq('ownerUserId', owner.userId)
+        .eq('connectionId', user.connectionId)
+        .eq('key', `${operation}:${operationKey}`),
+    )
+    .unique()
   if (receipt && receipt.householdId !== owner.householdId) {
     // Old receipts belong only to this account's original household, never a shared one.
     const originalHousehold =
       receipt.householdId === undefined
         ? await ctx.db.get(owner.householdId)
         : null
-    if (!isPersonalOwner(originalHousehold, owner))
+    if (originalHousehold?.personalOwnerUserId !== owner.userId)
       throw new ConvexError(
         'This operation key belongs to a different household. Retry it in its original household.',
       )
@@ -402,7 +387,7 @@ export const logMeal = internalMutation({
       requireSnapshots(args.input.items)
       const { preview, writeInput } = await prepareMeal(ctx, owner, args.input)
       await limiter.limit(ctx, 'writes', {
-        key: owner.tokenIdentifier,
+        key: owner.userId,
         throws: true,
       })
       const mealId = await createMealForOwner(ctx, owner, writeInput)
@@ -665,7 +650,7 @@ export const correctCookedFoodWeight = internalMutation({
         throw new ConvexError('Operation result is unavailable.')
       }
       await limiter.limit(ctx, 'writes', {
-        key: owner.tokenIdentifier,
+        key: owner.userId,
         throws: true,
       })
       const { food, kcalPer100 } = await correctCookedFoodWeightForOwner(
@@ -747,7 +732,7 @@ export const logCooking = internalMutation({
         args.input,
       )
       await limiter.limit(ctx, 'writes', {
-        key: owner.tokenIdentifier,
+        key: owner.userId,
         throws: true,
       })
       const sessionId =
@@ -1256,7 +1241,7 @@ export const listHouseholds = internalMutation({
     await ensurePersonalHousehold(ctx, args.user.userId)
     const memberships = await listMemberships(
       ctx,
-      await ensureAccount(ctx, args.user.userId),
+      await ensureUserId(ctx, args.user.userId),
       10,
     )
     const result = []

@@ -17,6 +17,7 @@ import {
   TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 import { ensurePersonalHousehold } from './households'
+import { ensureUserId } from './lib/auth'
 
 type TestContext = ReturnType<typeof createConvexTest>
 
@@ -1014,8 +1015,9 @@ describe('nutrition cooking and meal mutations', () => {
         ctx,
         TEST_TOKEN_IDENTIFIER,
       )
+      const ownerUserId = await ensureUserId(ctx, TEST_TOKEN_IDENTIFIER)
       const cookedFoodId = await ctx.db.insert('cookedFoods', {
-        ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+        ownerUserId,
         householdId,
         cookSessionId: sessionId,
         name: 'Legacy batch',
@@ -1028,7 +1030,7 @@ describe('nutrition cooking and meal mutations', () => {
       })
       const insertLine = () =>
         ctx.db.insert('cookedFoodIngredients', {
-          ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+          ownerUserId,
           householdId,
           cookedFoodId,
           sourceType: 'ingredient' as const,

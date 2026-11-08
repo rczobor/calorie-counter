@@ -209,7 +209,7 @@ describe('MCP reusable food snapshots', () => {
       }),
     ).rejects.toThrow('permission')
     const foreignPerson = await insertPerson(t, {
-      ownerTokenIdentifier: 'other-account',
+      account: 'other-account',
     })
     const foreignMeal = await asTestUserWithToken(t, 'other-account').mutation(
       api.nutrition.createMeal,
@@ -376,7 +376,7 @@ describe('MCP cooked batches used in cooking', () => {
   it('checks household scope again when following historical source ingredients', async () => {
     const { t, owner, cookedFoodId } = await pumpkinFixture()
     const foreignIngredient = await insertIngredient(t, {
-      ownerTokenIdentifier: 'other-account',
+      account: 'other-account',
     })
     await asTestUserWithToken(t, 'other-account').mutation(
       api.households.ensurePersonal,

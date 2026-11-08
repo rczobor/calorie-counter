@@ -431,7 +431,7 @@ function dateKey(date: Date) {
 
 export function createDesignData(
   now: number,
-  ownerTokenIdentifier: string,
+  ownerUserId: Id<'users'>,
   householdId: Id<'households'>,
 ): Pick<
   MockState,
@@ -448,7 +448,7 @@ export function createDesignData(
       minutes,
     )
   }
-  const owner = { ownerTokenIdentifier, householdId }
+  const owner = { ownerUserId, householdId }
 
   const ingredientDocs = Object.entries(ingredients).map(
     ([id, [name, kcalPer100, unit]]) =>
@@ -492,7 +492,7 @@ export function createDesignData(
     const common = {
       _id: `${mealId}-item-${index}` as Id<'mealItems'>,
       _creationTime: createdAt,
-      ownerTokenIdentifier,
+      ownerUserId,
       householdId,
       mealId,
     }
@@ -578,7 +578,7 @@ export function createDesignData(
     const meal: Doc<'meals'> = {
       _id: mealId,
       _creationTime: createdAt,
-      ownerTokenIdentifier,
+      ownerUserId,
       householdId,
       personId,
       name: spec.name,
@@ -641,7 +641,7 @@ export function createDesignData(
   ): Doc<'people'> => ({
     _id,
     _creationTime: at(9).getTime(),
-    ownerTokenIdentifier,
+    ownerUserId,
     householdId,
     name,
     currentDailyGoalKcal: goal,

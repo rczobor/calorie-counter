@@ -1403,22 +1403,13 @@ export async function buildMealItemSnapshots(
         const {
           _id,
           _creationTime,
-          ownerTokenIdentifier,
           ownerUserId,
           householdId,
           mealId,
           notes,
           ...snapshot
         } = original
-        void [
-          _id,
-          _creationTime,
-          ownerTokenIdentifier,
-          ownerUserId,
-          householdId,
-          mealId,
-          notes,
-        ]
+        void [_id, _creationTime, ownerUserId, householdId, mealId, notes]
         const caloriesSnapshot = assertFiniteDerived(
           original.caloriesSnapshot * item.multiplier,
           'Meal item calories',
