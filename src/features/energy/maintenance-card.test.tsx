@@ -49,6 +49,7 @@ const ready: CheckIn = {
     incompleteDays: [{ date: '2026-10-22', kcal: 237 }],
     averageIntakeKcal: 1984.4,
     trendKgPerWeek: -0.16,
+    trendWeightKg: 82.5,
     measuredKcal: 2160,
     maintenance: { kcal: 2183, uncertaintyKcal: 60 },
   },
@@ -110,6 +111,31 @@ describe('MaintenanceCard', () => {
       effectiveDate: '2026-11-08',
       reason: 'Check-in: maintenance ≈ 2180 kcal',
     })
+  })
+
+  it('ends the plan when the target is reached, even near the current goal', () => {
+    checkIn.current = {
+      ...ready,
+      suggestion: {
+        goalKcal: 2020,
+        kgPerWeek: 0,
+        heldAtMinimum: false,
+        targetReached: true,
+      },
+    }
+    show({ ...alex, goalPlan: { ...alex.goalPlan, targetWeightKg: 83 } })
+    expect(
+      screen.getByText(/Alex reached 83 kg, so this keeps weight steady\./),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Update goal' }))
+    expect(mutate).toHaveBeenCalledWith(
+      'nutrition:updatePerson',
+      expect.objectContaining({
+        goalKcal: 2020,
+        name: 'Alex',
+        goalPlan: { direction: 'maintain' },
+      }),
+    )
   })
 
   it('calls a goal within 50 kcal of the suggestion on track', () => {

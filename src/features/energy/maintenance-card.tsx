@@ -212,7 +212,7 @@ function Learning({
         ) : (
           <SetUpPlan person={person} onOpenCalculator={onOpenCalculator} />
         )}
-        {person.goalPlan && !person.archived ? (
+        {person.goalPlan ? (
           <Button
             variant="outline"
             size="sm"
@@ -251,11 +251,9 @@ function SetUpPlan({
           ? 'Choose a pace to get a suggested goal.'
           : 'Add height and activity for a starting estimate and a suggested goal.'}
       </p>
-      {person.archived ? null : (
-        <Button variant="outline" size="sm" onClick={onOpenCalculator}>
-          Find a daily goal
-        </Button>
-      )}
+      <Button variant="outline" size="sm" onClick={onOpenCalculator}>
+        Find a daily goal
+      </Button>
     </div>
   )
 }
@@ -273,6 +271,7 @@ function Ready({
 }) {
   const { estimate, formula, suggestion, history } = checkIn
   const updateGoal = useMutation(api.nutrition.updatePersonGoal)
+  const updatePerson = useMutation(api.nutrition.updatePerson)
   const [pending, setPending] = useState(false)
   if (estimate.status !== 'ready') return null
   const maintenance = roundKcal(estimate.maintenance.kcal)
@@ -284,21 +283,32 @@ function Ready({
   )
   const plan = person.goalPlan
   const current = Math.round(person.currentDailyGoalKcal)
+  // A reached target always offers the update, since it also ends the plan.
   const change =
-    suggestion && Math.abs(suggestion.goalKcal - current) >= SUGGEST_FROM_KCAL
+    suggestion &&
+    (suggestion.targetReached ||
+      Math.abs(suggestion.goalKcal - current) >= SUGGEST_FROM_KCAL)
   const skipped = estimate.incompleteDays
 
   async function update() {
     if (!suggestion) return
     setPending(true)
     try {
-      await updateGoal({
+      const goalChange = {
         personId: person._id,
         expectedEditRevision: person.editRevision,
         goalKcal: suggestion.goalKcal,
         effectiveDate: today,
         reason: `Check-in: maintenance ≈ ${maintenance} kcal`,
-      })
+      }
+      // A reached target ends the plan too, so the card and People say so.
+      if (suggestion.targetReached)
+        await updatePerson({
+          ...goalChange,
+          name: person.name,
+          goalPlan: { direction: 'maintain' },
+        })
+      else await updateGoal(goalChange)
       toast.success('Goal updated.')
     } catch (failure) {
       toast.error(toErrorMessage(failure))
@@ -393,27 +403,25 @@ function Ready({
                   minimum.
                 </p>
               ) : null}
-              {person.archived ? null : (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {change ? (
-                    <Button
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => void update()}
-                    >
-                      Update goal
-                    </Button>
-                  ) : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {change ? (
                   <Button
-                    variant="outline"
                     size="sm"
                     disabled={pending}
-                    onClick={onOpenCalculator}
+                    onClick={() => void update()}
                   >
-                    Edit plan
+                    Update goal
                   </Button>
-                </div>
-              )}
+                ) : null}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={onOpenCalculator}
+                >
+                  Edit plan
+                </Button>
+              </div>
             </div>
           </>
         ) : (
@@ -490,7 +498,9 @@ function EstimateChart({
   if (formulaKcal !== undefined) values.push(formulaKcal)
   const low = Math.min(...values) - 40
   const high = Math.max(...values) + 40
-  const x = (index: number) => (index / (history.length - 1)) * 100
+  const days = history.map((point) => parseISO(point.date).getTime())
+  const x = (index: number) =>
+    ((days[index] - days[0]) / (days[days.length - 1] - days[0])) * 100
   const y = (kcal: number) => ((high - kcal) / (high - low)) * 100
   const upper = history.map(
     (p, i) => `${x(i)},${y(p.kcal + p.uncertaintyKcal)}`,

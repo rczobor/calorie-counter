@@ -216,7 +216,7 @@ export function energyPlanProblem({
   if (target === undefined) return null
   if (!Number.isFinite(target)) return 'Enter a target weight in kilograms.'
   const minimum = minHealthyWeightKg(profile.heightCm)
-  if (target < minimum)
+  if (plan.direction === 'lose' && target < minimum)
     return `The target is below a healthy weight for this height (${minimum.toFixed(1)} kg).`
   if (weightKg !== undefined) {
     if (plan.direction === 'lose' && target >= weightKg)
@@ -261,7 +261,10 @@ function median(values: number[]) {
     : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
-/** Least-squares slope in kg per day and its standard error. */
+/**
+ * Least-squares slope in kg per day, its standard error, and the trend's
+ * weight on the latest weigh-in's day.
+ */
 function weightTrend(weights: Array<{ date: string; kg: number }>) {
   const xs = weights.map((entry) => dayNumber(entry.date))
   const ys = weights.map((entry) => entry.kg)
@@ -279,7 +282,11 @@ function weightTrend(weights: Array<{ date: string; kg: number }>) {
   for (let i = 0; i < n; i++)
     residuals += (ys[i] - meanY - slope * (xs[i] - meanX)) ** 2
   const noise = Math.max(MIN_WEIGHT_NOISE_KG, Math.sqrt(residuals / (n - 2)))
-  return { kgPerDay: slope, standardError: noise / Math.sqrt(sxx) }
+  return {
+    kgPerDay: slope,
+    standardError: noise / Math.sqrt(sxx),
+    latestKg: meanY + slope * (Math.max(...xs) - meanX),
+  }
 }
 
 export type CheckInEstimate =
@@ -298,6 +305,8 @@ export type CheckInEstimate =
       incompleteDays: Array<{ date: string; kcal: number }>
       averageIntakeKcal: number
       trendKgPerWeek: number
+      /** The trend line's weight now: steadier than the latest weigh-in. */
+      trendWeightKg: number
       /** Maintenance from the logs alone. */
       measuredKcal: number
       /** The logs blended with the formula; the formula fades as data grows. */
@@ -370,6 +379,7 @@ export function estimateFromLogs({
     ...progress,
     averageIntakeKcal,
     trendKgPerWeek: trend.kgPerDay * 7,
+    trendWeightKg: trend.latestKg,
     measuredKcal,
     maintenance,
   }
@@ -432,12 +442,13 @@ export function buildCheckIn({
     profile &&
     latestWeightKg !== null
   ) {
+    // The trend, so a day's water swing near the target can't flip it.
     const targetReached =
       plan.direction !== 'maintain' &&
       plan.targetWeightKg !== undefined &&
       (plan.direction === 'lose'
-        ? latestWeightKg <= plan.targetWeightKg
-        : latestWeightKg >= plan.targetWeightKg)
+        ? estimate.trendWeightKg <= plan.targetWeightKg
+        : estimate.trendWeightKg >= plan.targetWeightKg)
     const goal = goalForPlan({
       maintenanceKcal: estimate.maintenance.kcal,
       weightKg: latestWeightKg,

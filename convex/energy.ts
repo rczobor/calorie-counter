@@ -25,6 +25,7 @@ const checkInDto = v.object({
       ...progressFields,
       averageIntakeKcal: v.number(),
       trendKgPerWeek: v.number(),
+      trendWeightKg: v.number(),
       measuredKcal: v.number(),
       maintenance: estimateDto,
     }),

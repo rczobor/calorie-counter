@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildCheckIn,
   energyPlanProblem,
   estimateFromLogs,
   formulaMaintenance,
@@ -241,5 +242,39 @@ describe('estimate from logs', () => {
         prior: null,
       }),
     ).toMatchObject({ status: 'learning', weighIns: 8, weighInSpanDays: 7 })
+  })
+})
+
+describe('check-in suggestion', () => {
+  it('judges a reached target by the trend, not one low weigh-in', () => {
+    const { days, weights } = steadyWeeks()
+    // The trend ends near 82.9 kg; one morning reads 82.0.
+    const noisy = weights.map((entry, i) =>
+      i === weights.length - 1 ? { ...entry, kg: 82.0 } : entry,
+    )
+    const plan = {
+      direction: 'lose',
+      percentPerWeek: 0.5,
+      targetWeightKg: 82.5,
+    } as const
+    const checkIn = buildCheckIn({
+      today: '2026-11-08',
+      intake: days,
+      weights: noisy,
+      latestWeightKg: 82.0,
+      profile: alex,
+      plan,
+    })
+    expect(checkIn.suggestion).toMatchObject({ targetReached: false })
+    expect(
+      buildCheckIn({
+        today: '2026-11-08',
+        intake: days,
+        weights,
+        latestWeightKg: 82.9,
+        profile: alex,
+        plan: { ...plan, targetWeightKg: 83.5 },
+      }).suggestion,
+    ).toMatchObject({ targetReached: true, kgPerWeek: 0 })
   })
 })
