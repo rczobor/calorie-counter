@@ -274,7 +274,7 @@ function MaintenanceScreen() {
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const t = useMessages(messages)
   if (isE2eMockMode) {
-    return <>{children}</>
+    return <ConvexAuthReady>{children}</ConvexAuthReady>
   }
 
   if (!isClerkConfigured) {
