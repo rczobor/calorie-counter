@@ -101,7 +101,7 @@ describe('cooking draft helpers', () => {
       {
         _id: asId<'cookedFoodIngredients'>('line-2'),
         _creationTime: 1,
-        ownerTokenIdentifier: 'user-1|token',
+        ownerUserId: asId<'users'>('user-1'),
         cookedFoodId: asId<'cookedFoods'>('food-1'),
         sourceType: 'custom' as const,
         ingredientId: undefined,

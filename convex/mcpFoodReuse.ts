@@ -594,7 +594,7 @@ export const manageMealTemplate = internalMutation({
         throw new ConvexError('Operation result is unavailable.')
       }
       await limiter.limit(ctx, 'writes', {
-        key: owner.tokenIdentifier,
+        key: owner.userId,
         throws: true,
       })
       const result = await changeTemplate(ctx, owner, args.input)
@@ -1073,7 +1073,7 @@ export const saveFoodFromMeal = internalMutation({
         servingCount: sourceServings,
       })
       await limiter.limit(ctx, 'writes', {
-        key: owner.tokenIdentifier,
+        key: owner.userId,
         throws: true,
       })
       const identityKey = savedFoodIdentityKey(

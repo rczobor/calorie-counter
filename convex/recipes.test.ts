@@ -68,12 +68,10 @@ describe('recipe queries', () => {
         },
       ],
     })
-    expect(detail?.recipe).not.toHaveProperty('ownerTokenIdentifier')
-    expect(detail?.version).not.toHaveProperty('ownerTokenIdentifier')
-    expect(detail?.ingredients[0]).not.toHaveProperty('ownerTokenIdentifier')
-    expect(detail?.referencedIngredients[0]).not.toHaveProperty(
-      'ownerTokenIdentifier',
-    )
+    expect(detail?.recipe).not.toHaveProperty('ownerUserId')
+    expect(detail?.version).not.toHaveProperty('ownerUserId')
+    expect(detail?.ingredients[0]).not.toHaveProperty('ownerUserId')
+    expect(detail?.referencedIngredients[0]).not.toHaveProperty('ownerUserId')
     await expect(
       otherUser.query(api.recipes.getCurrent, {
         recipeId: created.recipeId,

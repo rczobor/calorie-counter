@@ -6,6 +6,7 @@ import {
   asTestUserWithToken,
   createConvexTest,
   readEditRevision,
+  TEST_TOKEN_IDENTIFIER,
 } from '../src/tests/convex-test-utils'
 
 async function setupHousehold() {
@@ -27,6 +28,46 @@ const page = { numItems: 20, cursor: null }
 afterEach(() => vi.useRealTimers())
 
 describe('household sharing', () => {
+  it('follows an account to a new Clerk identity when only its users row changes', async () => {
+    const { t, robi, householdId } = await setupHousehold()
+    await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Alex',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-04-04',
+    })
+    await robi.mutation(api.userPreferences.setLocale, { locale: 'hu' })
+    const read = async (user: typeof robi) => ({
+      households: await user.query(api.households.list, {}),
+      people: (
+        await user.query(api.people.list, {
+          householdId,
+          archived: false,
+          paginationOpts: page,
+        })
+      ).page.map((person) => person.name),
+      locale: await user.query(api.userPreferences.getLocale, {}),
+    })
+    const before = await read(robi)
+
+    const movedToken = 'https://clerk.production.example|user_prod'
+    await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query('users')
+        .withIndex('by_tokenIdentifier', (q) =>
+          q.eq('tokenIdentifier', TEST_TOKEN_IDENTIFIER),
+        )
+        .unique()
+      if (!user) throw new Error('Expected the account row.')
+      await ctx.db.patch(user._id, { tokenIdentifier: movedToken })
+    })
+
+    expect(await read(asTestUserWithToken(t, movedToken))).toEqual(before)
+    expect(
+      await t.run((ctx) => ctx.db.query('households').collect()),
+    ).toHaveLength(2)
+  })
+
   it('creates one personal household idempotently', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)

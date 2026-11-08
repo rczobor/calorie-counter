@@ -85,8 +85,9 @@ person that is archived or unavailable must be replaced explicitly.
 
 On first use, the app creates an account's personal household. Every domain
 record has a required `householdId`, and all authorization, indexes, and
-searches use it. `ownerTokenIdentifier` records which account wrote a row; it
-does not grant access.
+searches use it. `ownerUserId` records which account wrote a row; it does not
+grant access. Accounts are `users` rows keyed by Clerk's `tokenIdentifier`, so
+moving Clerk instances or domains rewrites only `users.tokenIdentifier`.
 
 ## Local Setup
 

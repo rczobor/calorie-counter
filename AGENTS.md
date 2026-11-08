@@ -59,11 +59,12 @@ with one of them, surface the tradeoff instead of quietly working around it.
 
 Use these terms consistently in code and conversation:
 
-- **account**: an authenticated Clerk/Convex identity.
+- **account**: an authenticated Clerk/Convex identity, stored as a `users` row.
+  Only `users.tokenIdentifier` names the Clerk identity.
 - **household**: the shared nutrition dataset and its authorization boundary; an
   account may belong to several households.
 - **owner**: legacy naming for an authorized household scope in existing backend
-  helpers. `ownerTokenIdentifier` is account attribution, not authorization.
+  helpers. `ownerUserId` is account attribution, not authorization.
 - **person**: someone whose meals and calorie goals are tracked within a
   household's data.
 - **catalog**: reusable food groups, ingredients, and recipes.

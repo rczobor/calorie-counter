@@ -12,10 +12,9 @@ import { readDayNutrition } from './lib/dayNutrition'
 import { DomainError } from './lib/validation'
 import {
   assertOwnedOrThrow,
-  ensureAccount,
-  findAccount,
+  ensureUserId,
+  findUserId,
   requireHouseholdForAccount,
-  type Account,
   type AuthenticatedOwner,
 } from './lib/auth'
 import {
@@ -57,24 +56,14 @@ export async function domainResult<T>(run: () => Promise<T>): Promise<T> {
 
 export async function getPreferences(
   ctx: Pick<QueryCtx, 'db'>,
-  account: Account,
+  userId: Id<'users'> | null,
 ) {
-  const { userId } = account
-  const current = userId
+  return userId
     ? await ctx.db
         .query('mcpPreferences')
         .withIndex('by_userId', (q) => q.eq('userId', userId))
         .unique()
     : null
-  return (
-    current ??
-    (await ctx.db
-      .query('mcpPreferences')
-      .withIndex('by_tokenIdentifier', (q) =>
-        q.eq('tokenIdentifier', account.tokenIdentifier),
-      )
-      .unique())
-  )
 }
 
 export async function requireMcpOwner(
@@ -87,7 +76,7 @@ export async function requireMcpOwner(
   await ensurePersonalHousehold(ctx, user.userId)
   const preferences = householdId
     ? null
-    : await getPreferences(ctx, await findAccount(ctx, user.userId))
+    : await getPreferences(ctx, await findUserId(ctx, user.userId))
   try {
     return await requireHouseholdForAccount(
       ctx,
@@ -115,7 +104,7 @@ export async function describeContext(
 ): Promise<Infer<typeof loggingContext>> {
   const household = await ctx.db.get(owner.householdId)
   if (!household) throw new ConvexError('Household not found.')
-  const preferences = await getPreferences(ctx, owner)
+  const preferences = await getPreferences(ctx, owner.userId)
   const person =
     preferences?.householdId === owner.householdId
       ? await ctx.db.get(preferences.personId)
@@ -168,7 +157,7 @@ export const setLoggingPreferences = internalMutation({
       // Relaxing approval must be a human choice in the app, never an agent's.
       if (
         preferences?.confirmationMode === 'explicitOnly' &&
-        (await getPreferences(ctx, await findAccount(ctx, user.userId)))
+        (await getPreferences(ctx, await findUserId(ctx, user.userId)))
           ?.confirmationMode !== 'explicitOnly'
       )
         throw new ConvexError(
@@ -188,8 +177,8 @@ export async function updateLoggingPreferencesForAccount(
   tokenIdentifier: string,
   preferences: Infer<typeof loggingPreferences> | null,
 ) {
-  const account = await ensureAccount(ctx, tokenIdentifier)
-  const previous = await getPreferences(ctx, account)
+  const userId = await ensureUserId(ctx, tokenIdentifier)
+  const previous = await getPreferences(ctx, userId)
   if (!preferences) {
     if (previous) await ctx.db.delete(previous._id)
     return null
@@ -207,7 +196,7 @@ export async function updateLoggingPreferencesForAccount(
   if (person.archived)
     throw new ConvexError('Person is archived. Choose an active person.')
   localCalendarDate(preferences.timeZone, Date.now())
-  const document = { userId: account.userId, ...preferences }
+  const document = { userId, ...preferences }
   if (previous) await ctx.db.replace(previous._id, document)
   else await ctx.db.insert('mcpPreferences', document)
   return owner

@@ -6,6 +6,7 @@ import type { Doc, Id } from '../../convex/_generated/dataModel'
 
 import schema from '../../convex/schema'
 import { ensurePersonalHousehold } from '../../convex/households'
+import { ensureUserId } from '../../convex/lib/auth'
 
 const modules = import.meta.glob('../../convex/**/*.ts')
 
@@ -109,62 +110,69 @@ export async function readEditRevision<Table extends EditRevisionTable>(
 }
 
 // Inserted rows belong to the account's personal household, created on demand.
-async function testOwner(
+// `account` names that account by its Clerk tokenIdentifier.
+type TestOwnerOverrides = { account?: string; householdId?: Id<'households'> }
+
+async function testOwner<TFields extends TestOwnerOverrides>(
   ctx: Parameters<typeof ensurePersonalHousehold>[0],
-  overrides: { ownerTokenIdentifier?: string; householdId?: Id<'households'> },
+  overrides: TFields,
 ) {
-  const ownerTokenIdentifier =
-    overrides.ownerTokenIdentifier ?? TEST_TOKEN_IDENTIFIER
+  const { account = TEST_TOKEN_IDENTIFIER, ...fields } = overrides
   return {
-    ownerTokenIdentifier,
-    householdId:
-      overrides.householdId ??
-      (await ensurePersonalHousehold(ctx, ownerTokenIdentifier)),
+    owner: {
+      ownerUserId: await ensureUserId(ctx, account),
+      householdId:
+        overrides.householdId ?? (await ensurePersonalHousehold(ctx, account)),
+    },
+    fields,
   }
 }
 
 export async function insertPerson(
   t: ReturnType<typeof createConvexTest>,
-  overrides: Partial<Doc<'people'>> = {},
+  overrides: Partial<Doc<'people'>> & TestOwnerOverrides = {},
 ) {
   return await t.run(async (ctx) => {
+    const { owner, fields } = await testOwner(ctx, overrides)
     return await ctx.db.insert('people', {
-      ...(await testOwner(ctx, overrides)),
+      ...owner,
       name: 'Alex',
       notes: undefined,
       currentDailyGoalKcal: 2000,
       editRevision: 0,
       archived: false,
       createdAt: Date.now(),
-      ...overrides,
+      ...fields,
     })
   })
 }
 
 export async function insertFoodGroup(
   t: ReturnType<typeof createConvexTest>,
-  overrides: Partial<Doc<'foodGroups'>> = {},
+  overrides: Partial<Doc<'foodGroups'>> & TestOwnerOverrides = {},
 ) {
   return await t.run(async (ctx) => {
+    const { owner, fields } = await testOwner(ctx, overrides)
     return await ctx.db.insert('foodGroups', {
-      ...(await testOwner(ctx, overrides)),
+      ...owner,
       name: 'Prep',
       appliesTo: 'ingredient',
       editRevision: 0,
       archived: false,
       createdAt: Date.now(),
-      ...overrides,
+      ...fields,
     })
   })
 }
 
 export async function insertIngredient(
   t: ReturnType<typeof createConvexTest>,
-  overrides: Partial<Doc<'ingredients'>> = {},
+  overrides: Partial<Doc<'ingredients'>> & TestOwnerOverrides = {},
 ) {
   return await t.run(async (ctx) => {
+    const { owner, fields } = await testOwner(ctx, overrides)
     return await ctx.db.insert('ingredients', {
-      ...(await testOwner(ctx, overrides)),
+      ...owner,
       name: 'Ingredient',
       brand: undefined,
       kcalPer100: 100,
@@ -175,14 +183,14 @@ export async function insertIngredient(
       notes: undefined,
       archived: false,
       createdAt: Date.now(),
-      ...overrides,
+      ...fields,
     })
   })
 }
 
 export async function insertCookSession(
   t: ReturnType<typeof createConvexTest>,
-  overrides: Partial<Doc<'cookSessions'>> = {},
+  overrides: Partial<Doc<'cookSessions'>> & TestOwnerOverrides = {},
 ) {
   return await t.run(async (ctx) => {
     const label = overrides.label ?? 'Session'
@@ -190,8 +198,9 @@ export async function insertCookSession(
     const searchText =
       overrides.searchText ??
       `${new Date(cookedAt).toISOString().slice(0, 10)} ${label}`.trim()
+    const { owner, fields } = await testOwner(ctx, overrides)
     return await ctx.db.insert('cookSessions', {
-      ...(await testOwner(ctx, overrides)),
+      ...owner,
       label,
       searchText,
       cookedAt,
@@ -200,7 +209,7 @@ export async function insertCookSession(
       archived: false,
       updatedAt: Date.now(),
       createdAt: Date.now(),
-      ...overrides,
+      ...fields,
     })
   })
 }
@@ -208,11 +217,12 @@ export async function insertCookSession(
 export async function insertMeal(
   t: ReturnType<typeof createConvexTest>,
   personId: Id<'people'>,
-  overrides: Partial<Doc<'meals'>> = {},
+  overrides: Partial<Doc<'meals'>> & TestOwnerOverrides = {},
 ) {
   return await t.run(async (ctx) => {
+    const { owner, fields } = await testOwner(ctx, overrides)
     return await ctx.db.insert('meals', {
-      ...(await testOwner(ctx, overrides)),
+      ...owner,
       personId,
       name: undefined,
       eatenOn: '2026-04-04',
@@ -222,7 +232,7 @@ export async function insertMeal(
       itemCount: 1,
       editRevision: 0,
       createdAt: Date.now(),
-      ...overrides,
+      ...fields,
     })
   })
 }
@@ -235,11 +245,13 @@ export async function insertMealItem(
       Extract<Doc<'mealItems'>, { sourceType: 'customByWeight' }>,
       '_id' | '_creationTime'
     >
-  > = {},
+  > &
+    TestOwnerOverrides = {},
 ) {
   return await t.run(async (ctx) => {
+    const { owner, fields } = await testOwner(ctx, overrides)
     return await ctx.db.insert('mealItems', {
-      ...(await testOwner(ctx, overrides)),
+      ...owner,
       mealId,
       sourceType: 'customByWeight',
       ingredientId: undefined,
@@ -250,7 +262,7 @@ export async function insertMealItem(
       consumedWeightGrams: 100,
       caloriesSnapshot: 100,
       notes: undefined,
-      ...overrides,
+      ...fields,
     })
   })
 }

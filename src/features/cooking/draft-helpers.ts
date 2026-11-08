@@ -89,7 +89,7 @@ export type CookingDraft = {
 }
 
 type OwnerFree<T> = T extends unknown
-  ? Omit<T, 'ownerTokenIdentifier' | 'ownerUserId' | 'householdId'>
+  ? Omit<T, 'ownerUserId' | 'householdId'>
   : never
 
 export function getIngredientBasisUnit(ingredient?: {

@@ -186,7 +186,7 @@ describe('nutrition catalog mutations', () => {
           groupArchived: true,
         }),
       )
-      expect(result[0]).not.toHaveProperty('ownerTokenIdentifier')
+      expect(result[0]).not.toHaveProperty('ownerUserId')
     }
   })
 

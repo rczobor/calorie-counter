@@ -1,6 +1,6 @@
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 
-const OWNER_TOKEN_IDENTIFIER = 'user-1|token'
+const OWNER_USER_ID = 'user-1' as Id<'users'>
 const HOUSEHOLD_ID = 'household-1' as Id<'households'>
 
 export function asId<TableName extends TableNames>(value: string) {
@@ -15,7 +15,7 @@ export function createPersonDoc(
   return {
     _id: asId<'people'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     name,
     notes: undefined,
@@ -35,7 +35,7 @@ export function createFoodGroupDoc(
   return {
     _id: asId<'foodGroups'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     name,
     appliesTo: 'cookedFood',
@@ -54,7 +54,7 @@ export function createPersonGoalHistoryDoc(
   return {
     _id: asId<'personGoalHistory'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     personId: asId<'people'>(personId),
     effectiveDate: '2026-04-04',
@@ -73,7 +73,7 @@ export function createIngredientDoc(
   return {
     _id: asId<'ingredients'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     name,
     brand: undefined,
@@ -97,7 +97,7 @@ export function createCookSessionDoc(
   return {
     _id: asId<'cookSessions'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     label,
     searchText: `2026-04-04 ${label}`,
@@ -121,7 +121,7 @@ export function createCookedFoodDoc(
   return {
     _id: asId<'cookedFoods'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     cookSessionId: asId<'cookSessions'>(sessionId),
     name,
@@ -151,13 +151,13 @@ type CustomCookedFoodLine = Extract<
 type IngredientCookedFoodLineOverrides = Partial<
   Omit<
     IngredientCookedFoodLine,
-    '_id' | '_creationTime' | 'ownerTokenIdentifier' | 'cookedFoodId'
+    '_id' | '_creationTime' | 'ownerUserId' | 'cookedFoodId'
   >
 > & { sourceType?: 'ingredient' }
 type CustomCookedFoodLineOverrides = Partial<
   Omit<
     CustomCookedFoodLine,
-    '_id' | '_creationTime' | 'ownerTokenIdentifier' | 'cookedFoodId'
+    '_id' | '_creationTime' | 'ownerUserId' | 'cookedFoodId'
   >
 > & { sourceType: 'custom' }
 
@@ -180,7 +180,7 @@ export function createCookedFoodIngredientDoc(
   const common = {
     _id: asId<'cookedFoodIngredients'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     cookedFoodId: asId<'cookedFoods'>(cookedFoodId),
     ingredientNameSnapshot: 'Ingredient',
@@ -216,7 +216,7 @@ export function createMealDoc(
   return {
     _id: asId<'meals'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     personId: asId<'people'>(personId),
     name: undefined,
@@ -248,7 +248,7 @@ type FixedCaloriesMealItem = Extract<
   { sourceType: 'fixedCalories' }
 >
 type MealItemOverrides<TItem extends Doc<'mealItems'>> = Partial<
-  Omit<TItem, '_id' | '_creationTime' | 'ownerTokenIdentifier' | 'mealId'>
+  Omit<TItem, '_id' | '_creationTime' | 'ownerUserId' | 'mealId'>
 >
 type IngredientMealItemOverrides = MealItemOverrides<IngredientMealItem> & {
   sourceType: 'ingredient'
@@ -296,7 +296,7 @@ export function createMealItemDoc(
   const common = {
     _id: asId<'mealItems'>(id),
     _creationTime: 1,
-    ownerTokenIdentifier: OWNER_TOKEN_IDENTIFIER,
+    ownerUserId: OWNER_USER_ID,
     householdId: HOUSEHOLD_ID,
     mealId: asId<'meals'>(mealId),
     nameSnapshot: 'Meal item',

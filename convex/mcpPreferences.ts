@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import {
-  findAccount,
+  findUserId,
   requireAuthenticatedUser,
   requireHouseholdForAccount,
 } from './lib/auth'
@@ -24,7 +24,7 @@ export const get = query({
     const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
     const preferences = await getPreferences(
       ctx,
-      await findAccount(ctx, tokenIdentifier),
+      await findUserId(ctx, tokenIdentifier),
     )
     if (!preferences) return null
     const { householdId, personId, timeZone, confirmationMode } = preferences

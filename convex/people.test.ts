@@ -14,6 +14,7 @@ import {
   testUserId,
 } from '../src/tests/convex-test-utils'
 import { ensurePersonalHousehold } from './households'
+import { ensureUserId } from './lib/auth'
 
 describe('nutrition people mutations', () => {
   beforeEach(() => {
@@ -90,8 +91,6 @@ describe('nutrition people mutations', () => {
     const ownerUserId = await testUserId(t)
     expect(records.person).toMatchObject({ ownerUserId })
     expect(records.history[0]).toMatchObject({ ownerUserId })
-    expect(records.person).not.toHaveProperty('ownerTokenIdentifier')
-    expect(records.history[0]).not.toHaveProperty('ownerTokenIdentifier')
   })
 
   it('rejects writes from a different token with the same subject', async () => {
@@ -131,7 +130,7 @@ describe('nutrition people mutations', () => {
     const person = await owner.query(api.people.get, { personId })
 
     expect(person).toMatchObject({ _id: personId, name: 'Alex' })
-    expect(person).not.toHaveProperty('ownerTokenIdentifier')
+    expect(person).not.toHaveProperty('ownerUserId')
     await expect(
       otherUser.query(api.people.get, { personId }),
     ).resolves.toBeNull()
@@ -337,10 +336,11 @@ describe('nutrition people mutations', () => {
         ctx,
         TEST_TOKEN_IDENTIFIER,
       )
+      const ownerUserId = await ensureUserId(ctx, TEST_TOKEN_IDENTIFIER)
       await Promise.all(
         Array.from({ length: 100 }, (_, index) =>
           ctx.db.insert('personGoalHistory', {
-            ownerTokenIdentifier: TEST_TOKEN_IDENTIFIER,
+            ownerUserId,
             householdId,
             personId,
             effectiveDate: '2026-04-04',

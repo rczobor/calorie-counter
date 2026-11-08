@@ -95,7 +95,7 @@ function readAccountLocale(): MockState['locale'] {
   return value === 'en' || value === 'hu' ? value : null
 }
 
-const ownerTokenIdentifier = 'e2e-user|mock-token'
+const ownerUserId = 'e2e-user' as Id<'users'>
 const householdId = 'e2e-household' as Id<'households'>
 const sessionId = 'cccccccccccccccccccc' as Id<'cookSessions'>
 const cookedFoodId = 'dddddddddddddddddddd' as Id<'cookedFoods'>
@@ -129,7 +129,7 @@ function createInitialState(): MockState {
   const person: Doc<'people'> = {
     _id: personId,
     _creationTime: now - 10_000,
-    ownerTokenIdentifier,
+    ownerUserId,
     householdId,
     name: 'Alex',
     currentDailyGoalKcal: 2100,
@@ -140,7 +140,7 @@ function createInitialState(): MockState {
   const meal: Doc<'meals'> = {
     _id: mealId,
     _creationTime: now - 5_000,
-    ownerTokenIdentifier,
+    ownerUserId,
     householdId,
     personId,
     name: 'Seeded breakfast',
@@ -154,7 +154,7 @@ function createInitialState(): MockState {
   const mealItem: Doc<'mealItems'> = {
     _id: mealItemId,
     _creationTime: now - 5_000,
-    ownerTokenIdentifier,
+    ownerUserId,
     householdId,
     mealId,
     sourceType: 'fixedCalories',
@@ -174,21 +174,21 @@ function createInitialState(): MockState {
       ],
       ingredients: [
         createIngredientDoc(ingredientId, 'Beans', {
-          ownerTokenIdentifier,
+          ownerUserId,
           householdId,
           kcalPer100: 100,
         }),
       ],
       cookSessions: [
         createCookSessionDoc(sessionId, 'Weekend cooking', {
-          ownerTokenIdentifier,
+          ownerUserId,
           householdId,
           cookedAt: now - 86400000,
         }),
       ],
       cookedFoods: [
         createCookedFoodDoc(cookedFoodId, sessionId, 'Homemade chili', {
-          ownerTokenIdentifier,
+          ownerUserId,
           householdId,
           finishedWeightGrams: 1000,
           totalCalories: 1200,
@@ -255,7 +255,7 @@ let state: MockState =
   import.meta.env.VITE_E2E_SCENARIO === 'design'
     ? {
         ...createInitialState(),
-        ...createDesignData(Date.now(), ownerTokenIdentifier, householdId),
+        ...createDesignData(Date.now(), ownerUserId, householdId),
       }
     : createInitialState()
 const listeners = new Set<() => void>()
@@ -320,7 +320,7 @@ function createMealItemDocument(
   const common = {
     _id: id,
     _creationTime: createdAt,
-    ownerTokenIdentifier,
+    ownerUserId,
     householdId,
     mealId,
     caloriesSnapshot: caloriesForItem(item),
@@ -395,7 +395,7 @@ function createMeal(args: CreateMealArgs) {
   const meal: Doc<'meals'> = {
     _id: mealId,
     _creationTime: createdAt,
-    ownerTokenIdentifier,
+    ownerUserId,
     householdId,
     personId: args.personId,
     name: args.name,
@@ -441,13 +441,10 @@ function weightsFor(snapshot: MockState, personId: Id<'people'>) {
     .sort((a, b) => a.measuredOn.localeCompare(b.measuredOn))
 }
 
-function withoutOwner<
-  T extends { ownerTokenIdentifier?: string; ownerUserId?: string },
->(document: T) {
+function withoutOwner<T extends { ownerUserId?: string }>(document: T) {
   const copy: Partial<T> = { ...document }
-  delete copy.ownerTokenIdentifier
   delete copy.ownerUserId
-  return copy as Omit<T, 'ownerTokenIdentifier' | 'ownerUserId'>
+  return copy as Omit<T, 'ownerUserId'>
 }
 
 function dayNutrition(
@@ -893,7 +890,7 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
         const entry: Doc<'weightEntries'> = {
           _id: `e2e-weight-${state.nextId}` as Id<'weightEntries'>,
           _creationTime: now,
-          ownerTokenIdentifier,
+          ownerUserId,
           householdId,
           personId: input.personId,
           measuredOn: input.measuredOn,

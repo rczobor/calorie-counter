@@ -490,7 +490,7 @@ describe('MCP cooked-food finished-weight corrections', () => {
     ).rejects.toThrow('archived')
     await t.run((ctx) => ctx.db.patch(input.cookedFoodId, { archived: false }))
     const foreignPerson = await insertPerson(t, {
-      ownerTokenIdentifier: 'other|owner',
+      account: 'other|owner',
     })
     const foreignSession = await asTestUserWithToken(t, 'other|owner').mutation(
       api.nutrition.createCookSession,
@@ -782,7 +782,7 @@ describe('MCP meal corrections', () => {
     const { t, user, mealId, detail } = await correctionFixture()
     const other = await credential(t, 'other|owner')
     const foreignPersonId = await insertPerson(t, {
-      ownerTokenIdentifier: 'other|owner',
+      account: 'other|owner',
     })
     const otherMealId = await asTestUser(t).mutation(api.nutrition.createMeal, {
       personId: detail.personId,
@@ -2790,7 +2790,7 @@ describe('MCP goal tools', () => {
       const person = await ctx.db.get(personId)
       if (!person) throw new Error('Expected the test person.')
       const owner = {
-        ownerTokenIdentifier: person.ownerTokenIdentifier,
+        ownerUserId: person.ownerUserId,
         householdId: person.householdId,
       }
       for (let daysAgo = 28; daysAgo >= 1; daysAgo--) {

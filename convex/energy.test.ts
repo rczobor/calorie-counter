@@ -28,7 +28,7 @@ async function logFourWeeks(
     const person = await ctx.db.get(personId)
     if (!person) throw new Error('Expected the test person.')
     const owner = {
-      ownerTokenIdentifier: person.ownerTokenIdentifier,
+      ownerUserId: person.ownerUserId,
       householdId: person.householdId,
     }
     for (let daysAgo = 28; daysAgo >= 1; daysAgo--) {

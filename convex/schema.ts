@@ -30,10 +30,6 @@ import {
   localeValidator,
 } from './validators'
 
-// Legacy Clerk tokenIdentifier keys stay optional until every row is rekeyed
-// to a users reference by migrations:rekeyAccounts.
-const legacyAccountKey = v.optional(v.string())
-
 export default defineSchema({
   // One row per account. Only tokenIdentifier names the identity provider, so
   // moving Clerk instances or domains rewrites this table and nothing else.
@@ -42,24 +38,17 @@ export default defineSchema({
   }).index('by_tokenIdentifier', ['tokenIdentifier']),
   // Account settings for the app itself; MCP logging defaults live in mcpPreferences.
   userPreferences: defineTable({
-    userId: v.optional(v.id('users')),
-    tokenIdentifier: legacyAccountKey,
+    userId: v.id('users'),
     locale: localeValidator,
-  })
-    .index('by_userId', ['userId'])
-    .index('by_tokenIdentifier', ['tokenIdentifier']),
+  }).index('by_userId', ['userId']),
   mcpPreferences: defineTable({
-    userId: v.optional(v.id('users')),
-    tokenIdentifier: legacyAccountKey,
+    userId: v.id('users'),
     ...loggingPreferences.fields,
-  })
-    .index('by_userId', ['userId'])
-    .index('by_tokenIdentifier', ['tokenIdentifier']),
+  }).index('by_userId', ['userId']),
   mcpSavedFoods: defineTable({
     foodIdentity: v.optional(foodIdentityValidator),
     identityKey: v.optional(v.string()),
-    ownerUserId: v.optional(v.id('users')),
-    ownerTokenIdentifier: legacyAccountKey,
+    ownerUserId: v.id('users'),
     householdId: v.id('households'),
     name: v.string(),
     nutrition: savedFoodNutrition,
@@ -87,8 +76,7 @@ export default defineSchema({
     }),
   mealTemplates: defineTable({
     householdId: v.id('households'),
-    ownerUserId: v.optional(v.id('users')),
-    ownerTokenIdentifier: legacyAccountKey,
+    ownerUserId: v.id('users'),
     name: v.string(),
     sourceMealId: v.id('meals'),
     items: mealInput.fields.items,
@@ -107,30 +95,21 @@ export default defineSchema({
   households: defineTable({
     name: v.string(),
     personalOwnerUserId: v.optional(v.id('users')),
-    personalOwnerTokenIdentifier: legacyAccountKey,
     createdAt: v.number(),
-  })
-    .index('by_personalOwnerUserId', ['personalOwnerUserId'])
-    .index('by_personalOwnerTokenIdentifier', ['personalOwnerTokenIdentifier']),
+  }).index('by_personalOwnerUserId', ['personalOwnerUserId']),
   householdMembers: defineTable({
     householdId: v.id('households'),
-    userId: v.optional(v.id('users')),
-    tokenIdentifier: legacyAccountKey,
+    userId: v.id('users'),
     name: v.string(),
     role: v.union(v.literal('admin'), v.literal('member')),
     joinedAt: v.number(),
   })
     .index('by_userId_and_householdId', ['userId', 'householdId'])
-    .index('by_tokenIdentifier_and_householdId', [
-      'tokenIdentifier',
-      'householdId',
-    ])
     .index('by_householdId', ['householdId']),
   householdInvitations: defineTable({
     householdId: v.id('households'),
     tokenHash: v.string(),
-    createdByUserId: v.optional(v.id('users')),
-    createdBy: legacyAccountKey,
+    createdByUserId: v.id('users'),
     expiresAt: v.number(),
     acceptedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
@@ -138,8 +117,7 @@ export default defineSchema({
     .index('by_tokenHash', ['tokenHash'])
     .index('by_householdId', ['householdId']),
   mcpOperations: defineTable({
-    ownerUserId: v.optional(v.id('users')),
-    ownerTokenIdentifier: legacyAccountKey,
+    ownerUserId: v.id('users'),
     householdId: v.optional(v.id('households')),
     connectionId: v.string(),
     operation: v.union(
@@ -153,17 +131,11 @@ export default defineSchema({
     key: v.string(),
     input: v.string(),
     result: v.union(mealResult, cookingResult, savedFoodResult, templateResult),
-  })
-    .index('by_ownerUserId_and_connectionId_and_key', [
-      'ownerUserId',
-      'connectionId',
-      'key',
-    ])
-    .index('by_ownerTokenIdentifier_and_connectionId_and_key', [
-      'ownerTokenIdentifier',
-      'connectionId',
-      'key',
-    ]),
+  }).index('by_ownerUserId_and_connectionId_and_key', [
+    'ownerUserId',
+    'connectionId',
+    'key',
+  ]),
   people: defineTable(peopleFields)
     .index('by_householdId_and_archived_and_name', [
       'householdId',
