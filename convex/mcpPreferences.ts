@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import {
+  findAccount,
   requireAuthenticatedUser,
   requireHouseholdForAccount,
 } from './lib/auth'
@@ -20,13 +21,16 @@ export const get = query({
   args: {},
   returns: v.union(preferencesDto, v.null()),
   handler: async (ctx) => {
-    const { ownerTokenIdentifier } = await requireAuthenticatedUser(ctx)
-    const preferences = await getPreferences(ctx, ownerTokenIdentifier)
+    const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
+    const preferences = await getPreferences(
+      ctx,
+      await findAccount(ctx, tokenIdentifier),
+    )
     if (!preferences) return null
     const { householdId, personId, timeZone, confirmationMode } = preferences
     const stored = { householdId, personId, timeZone, confirmationMode }
     try {
-      await requireHouseholdForAccount(ctx, ownerTokenIdentifier, householdId)
+      await requireHouseholdForAccount(ctx, tokenIdentifier, householdId)
     } catch (error) {
       if (
         !(error instanceof Error) ||
@@ -59,12 +63,8 @@ export const update = mutation({
   args: { preferences: v.union(loggingPreferences, v.null()) },
   returns: v.null(),
   handler: async (ctx, { preferences }) => {
-    const { ownerTokenIdentifier } = await requireAuthenticatedUser(ctx)
-    await updateLoggingPreferencesForAccount(
-      ctx,
-      ownerTokenIdentifier,
-      preferences,
-    )
+    const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
+    await updateLoggingPreferencesForAccount(ctx, tokenIdentifier, preferences)
     return null
   },
 })

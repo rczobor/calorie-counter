@@ -1,19 +1,31 @@
 import { v } from 'convex/values'
 
 import { mutation, query, type QueryCtx } from './_generated/server'
-import { requireAuthenticatedUser } from './lib/auth'
+import {
+  ensureAccount,
+  findAccount,
+  requireAuthenticatedUser,
+  type Account,
+} from './lib/auth'
 import { localeValidator } from './validators'
 
-function getUserPreferences(
-  ctx: Pick<QueryCtx, 'db'>,
-  tokenIdentifier: string,
-) {
-  return ctx.db
-    .query('userPreferences')
-    .withIndex('by_tokenIdentifier', (q) =>
-      q.eq('tokenIdentifier', tokenIdentifier),
-    )
-    .unique()
+async function getUserPreferences(ctx: Pick<QueryCtx, 'db'>, account: Account) {
+  const { userId } = account
+  const current = userId
+    ? await ctx.db
+        .query('userPreferences')
+        .withIndex('by_userId', (q) => q.eq('userId', userId))
+        .unique()
+    : null
+  return (
+    current ??
+    (await ctx.db
+      .query('userPreferences')
+      .withIndex('by_tokenIdentifier', (q) =>
+        q.eq('tokenIdentifier', account.tokenIdentifier),
+      )
+      .unique())
+  )
 }
 
 /** The account's chosen language, or null to follow the browser. */
@@ -21,8 +33,9 @@ export const getLocale = query({
   args: {},
   returns: v.union(localeValidator, v.null()),
   handler: async (ctx) => {
-    const { ownerTokenIdentifier } = await requireAuthenticatedUser(ctx)
-    return (await getUserPreferences(ctx, ownerTokenIdentifier))?.locale ?? null
+    const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
+    const account = await findAccount(ctx, tokenIdentifier)
+    return (await getUserPreferences(ctx, account))?.locale ?? null
   },
 })
 
@@ -30,16 +43,14 @@ export const setLocale = mutation({
   args: { locale: localeValidator },
   returns: v.null(),
   handler: async (ctx, { locale }) => {
-    const { ownerTokenIdentifier } = await requireAuthenticatedUser(ctx)
-    const existing = await getUserPreferences(ctx, ownerTokenIdentifier)
+    const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
+    const account = await ensureAccount(ctx, tokenIdentifier)
+    const existing = await getUserPreferences(ctx, account)
     if (existing) {
       if (existing.locale !== locale)
         await ctx.db.patch(existing._id, { locale })
     } else {
-      await ctx.db.insert('userPreferences', {
-        tokenIdentifier: ownerTokenIdentifier,
-        locale,
-      })
+      await ctx.db.insert('userPreferences', { userId: account.userId, locale })
     }
     return null
   },

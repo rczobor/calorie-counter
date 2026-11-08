@@ -7,6 +7,7 @@ import {
   asTestUserWithToken,
   createConvexTest,
   testHouseholdId,
+  testUserId,
 } from '../src/tests/convex-test-utils'
 import { ensurePersonalHousehold } from './households'
 
@@ -356,7 +357,7 @@ describe('default seed data', () => {
     expect(
       Object.values(data)
         .flat()
-        .every((row) => !('ownerUserId' in row)),
+        .every((row) => !('ownerTokenIdentifier' in row)),
     ).toBe(true)
   })
 
@@ -370,10 +371,11 @@ describe('default seed data', () => {
     const data = await readSeedData(t, token)
 
     expect(data.people).toHaveLength(2)
-    expect(data.people.every((row) => row.ownerTokenIdentifier === token)).toBe(
+    const userId = await testUserId(t, token)
+    expect(data.people.every((row) => row.ownerUserId === userId)).toBe(true)
+    expect(data.people.every((row) => !('ownerTokenIdentifier' in row))).toBe(
       true,
     )
-    expect(data.people.every((row) => !('ownerUserId' in row))).toBe(true)
   })
 
   it('resolves ownership from an authenticated identity', async () => {
@@ -384,10 +386,11 @@ describe('default seed data', () => {
     const data = await readSeedData(t, token)
 
     expect(data.people).toHaveLength(2)
-    expect(data.people.every((row) => row.ownerTokenIdentifier === token)).toBe(
+    const userId = await testUserId(t, token)
+    expect(data.people.every((row) => row.ownerUserId === userId)).toBe(true)
+    expect(data.people.every((row) => !('ownerTokenIdentifier' in row))).toBe(
       true,
     )
-    expect(data.people.every((row) => !('ownerUserId' in row))).toBe(true)
   })
 
   it('adds a newly seeded meal to an existing daily summary', async () => {

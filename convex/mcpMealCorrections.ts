@@ -6,7 +6,11 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
-import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
+import {
+  assertOwnedOrThrow,
+  ownerFields,
+  type AuthenticatedOwner,
+} from './lib/auth'
 import {
   describeContext,
   readDailySummary,
@@ -402,7 +406,7 @@ export const correctMeal = internalMutation({
         args.input,
       )
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       await updateMealForOwner(ctx, owner, update)
@@ -429,7 +433,7 @@ export const correctMeal = internalMutation({
         url: appUrl(path),
       }
       await ctx.db.insert('mcpOperations', {
-        ...owner,
+        ...ownerFields(owner),
         connectionId: args.user.connectionId,
         operation: 'mealCorrection',
         key: `mealCorrection:${args.operationKey}`,

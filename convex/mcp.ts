@@ -717,7 +717,9 @@ export const mcp: McpServer = new McpServer(components.mcp, {
 const connectionApi = mcp.api({
   getUserId: async (ctx) => {
     if (!env.MCP_CONSENT_URL) return null
-    return (await requireAuthenticatedUser(ctx)).ownerTokenIdentifier
+    // Connection grants keep the Clerk tokenIdentifier: getUserId gets no
+    // database access to resolve a users row, so grants end with a Clerk move.
+    return (await requireAuthenticatedUser(ctx)).tokenIdentifier
   },
 })
 export const { getAuthRequest, authorize, listConnections, revokeConnection } =

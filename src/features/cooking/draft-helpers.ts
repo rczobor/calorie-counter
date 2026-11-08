@@ -88,8 +88,8 @@ export type CookingDraft = {
   ingredientLines: CookedFoodIngredientDraft[]
 }
 
-type OwnerFree<T> = T extends { ownerTokenIdentifier: string }
-  ? Omit<T, 'ownerTokenIdentifier' | 'householdId'>
+type OwnerFree<T> = T extends unknown
+  ? Omit<T, 'ownerTokenIdentifier' | 'ownerUserId' | 'householdId'>
   : never
 
 export function getIngredientBasisUnit(ingredient?: {

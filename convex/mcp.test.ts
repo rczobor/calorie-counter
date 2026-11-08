@@ -42,6 +42,7 @@ import {
   insertPerson,
   insertIngredient,
   TEST_TOKEN_IDENTIFIER,
+  testUserId,
 } from '../src/tests/convex-test-utils'
 
 vi.hoisted(() => {
@@ -129,12 +130,13 @@ async function output<V extends GenericValidator>(
 }
 
 async function makeReceiptLegacy(t: Test, connectionId: string, key: string) {
+  const ownerUserId = await testUserId(t)
   return t.run(async (ctx) => {
     const receipt = await ctx.db
       .query('mcpOperations')
-      .withIndex('by_ownerTokenIdentifier_and_connectionId_and_key', (q) =>
+      .withIndex('by_ownerUserId_and_connectionId_and_key', (q) =>
         q
-          .eq('ownerTokenIdentifier', TEST_TOKEN_IDENTIFIER)
+          .eq('ownerUserId', ownerUserId)
           .eq('connectionId', connectionId)
           .eq('key', key),
       )
@@ -1542,7 +1544,7 @@ describe('MCP upgrade compatibility', () => {
       })
       expect(
         await t.run((ctx) => ctx.db.query('households').collect()),
-      ).toMatchObject([{ personalOwnerTokenIdentifier: TEST_TOKEN_IDENTIFIER }])
+      ).toMatchObject([{ personalOwnerUserId: await testUserId(t) }])
     },
   )
 

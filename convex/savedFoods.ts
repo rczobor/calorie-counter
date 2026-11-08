@@ -7,6 +7,7 @@ import { mutation, query, type QueryCtx } from './_generated/server'
 import {
   assertOwnedOrThrow,
   requireAuthenticatedHousehold,
+  withoutOwner,
   type AuthenticatedOwner,
 } from './lib/auth'
 import { assertPageSize, normalizeSearch } from './lib/validation'
@@ -115,12 +116,7 @@ export const listTemplates = query({
     const page = await rows.paginate(args.paginationOpts)
     return {
       ...page,
-      page: page.page.map(
-        ({ ownerTokenIdentifier, householdId, ...template }) => {
-          void [ownerTokenIdentifier, householdId]
-          return template
-        },
-      ),
+      page: page.page.map(withoutOwner),
     }
   },
 })

@@ -43,6 +43,20 @@ export function testHouseholdId(
   return id
 }
 
+export async function testUserId(
+  t: ReturnType<typeof createConvexTest>,
+  token = TEST_TOKEN_IDENTIFIER,
+) {
+  const user = await t.run((ctx) =>
+    ctx.db
+      .query('users')
+      .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', token))
+      .unique(),
+  )
+  if (!user) throw new Error('Bootstrap the test account before reading it.')
+  return user._id
+}
+
 export function asTestUser(t: ReturnType<typeof createConvexTest>) {
   return asTestUserWithToken(t, TEST_TOKEN_IDENTIFIER)
 }

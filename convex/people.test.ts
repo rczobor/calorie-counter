@@ -11,6 +11,7 @@ import {
   insertMeal,
   readEditRevision,
   TEST_TOKEN_IDENTIFIER,
+  testUserId,
 } from '../src/tests/convex-test-utils'
 import { ensurePersonalHousehold } from './households'
 
@@ -86,14 +87,11 @@ describe('nutrition people mutations', () => {
       return { person, history }
     })
 
-    expect(records.person).toMatchObject({
-      ownerTokenIdentifier: 'user-1|token',
-    })
-    expect(records.history[0]).toMatchObject({
-      ownerTokenIdentifier: 'user-1|token',
-    })
-    expect(records.person).not.toHaveProperty('ownerUserId')
-    expect(records.history[0]).not.toHaveProperty('ownerUserId')
+    const ownerUserId = await testUserId(t)
+    expect(records.person).toMatchObject({ ownerUserId })
+    expect(records.history[0]).toMatchObject({ ownerUserId })
+    expect(records.person).not.toHaveProperty('ownerTokenIdentifier')
+    expect(records.history[0]).not.toHaveProperty('ownerTokenIdentifier')
   })
 
   it('rejects writes from a different token with the same subject', async () => {

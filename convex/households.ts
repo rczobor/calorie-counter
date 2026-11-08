@@ -11,6 +11,13 @@ import {
   type QueryCtx,
 } from './_generated/server'
 import {
+  accountForUser,
+  ensureAccount,
+  findAccount,
+  findMembership,
+  findPersonalHousehold,
+  isAccount,
+  listMemberships,
   requireAuthenticatedHousehold,
   requireAuthenticatedUser,
 } from './lib/auth'
@@ -24,21 +31,17 @@ export async function ensurePersonalHousehold(
   tokenIdentifier: string,
   name = 'My household',
 ) {
-  let household = await ctx.db
-    .query('households')
-    .withIndex('by_personalOwnerTokenIdentifier', (q) =>
-      q.eq('personalOwnerTokenIdentifier', tokenIdentifier),
-    )
-    .unique()
+  const account = await ensureAccount(ctx, tokenIdentifier)
+  let household = await findPersonalHousehold(ctx, account)
   if (!household) {
     const householdId = await ctx.db.insert('households', {
       name,
-      personalOwnerTokenIdentifier: tokenIdentifier,
+      personalOwnerUserId: account.userId,
       createdAt: Date.now(),
     })
     await ctx.db.insert('householdMembers', {
       householdId,
-      tokenIdentifier,
+      userId: account.userId,
       name: 'Household creator',
       role: 'admin',
       joinedAt: Date.now(),
@@ -59,14 +62,11 @@ export const ensurePersonal = mutation({
       ctx,
       identity.tokenIdentifier,
     )
-    const member = await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q
-          .eq('tokenIdentifier', identity.tokenIdentifier)
-          .eq('householdId', householdId),
-      )
-      .unique()
+    const member = await findMembership(
+      ctx,
+      await findAccount(ctx, identity.tokenIdentifier),
+      householdId,
+    )
     if (member)
       await ctx.db.patch(member._id, {
         name:
@@ -88,13 +88,12 @@ export const list = query({
   args: {},
   returns: v.array(householdDto),
   handler: async (ctx) => {
-    const { ownerTokenIdentifier } = await requireAuthenticatedUser(ctx)
-    const memberships = await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q.eq('tokenIdentifier', ownerTokenIdentifier),
-      )
-      .take(MAX_HOUSEHOLDS)
+    const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
+    const memberships = await listMemberships(
+      ctx,
+      await findAccount(ctx, tokenIdentifier),
+      MAX_HOUSEHOLDS,
+    )
     const households = []
     for (const membership of memberships) {
       const household = await ctx.db.get(membership.householdId)
@@ -111,14 +110,7 @@ export const list = query({
 
 async function requireAdmin(ctx: MutationCtx, householdId: Id<'households'>) {
   const account = await requireAuthenticatedHousehold(ctx, householdId)
-  const member = await ctx.db
-    .query('householdMembers')
-    .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-      q
-        .eq('tokenIdentifier', account.ownerTokenIdentifier)
-        .eq('householdId', householdId),
-    )
-    .unique()
+  const member = await findMembership(ctx, account, householdId)
   if (member?.role !== 'admin')
     throw new Error('Only household admins can do this.')
   return account
@@ -156,7 +148,7 @@ export const members = query({
       _id: row._id,
       name: row.name,
       role: row.role,
-      isYou: row.tokenIdentifier === account.ownerTokenIdentifier,
+      isYou: isAccount(row, account),
     }))
   },
 })
@@ -173,9 +165,7 @@ export const updateMember = mutation({
     const member = await ctx.db.get(args.memberId)
     if (!member || member.householdId !== args.householdId)
       throw new Error('Household member not found.')
-    const leaving =
-      args.role === 'remove' &&
-      member.tokenIdentifier === account.ownerTokenIdentifier
+    const leaving = args.role === 'remove' && isAccount(member, account)
     if (!leaving) await requireAdmin(ctx, args.householdId)
     if (member.role === 'admin' && args.role !== 'admin') {
       const admins = await ctx.db
@@ -216,7 +206,9 @@ export const invite = mutation({
     await ctx.db.insert('householdInvitations', {
       householdId: args.householdId,
       tokenHash: await hashToken(token),
-      createdBy: account.ownerTokenIdentifier,
+      ...(account.userId
+        ? { createdByUserId: account.userId }
+        : { createdBy: account.tokenIdentifier }),
       expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     })
     return token
@@ -318,32 +310,21 @@ export const acceptInvitation = mutation({
       invitation.expiresAt <= Date.now()
     )
       throw new Error('This invitation has expired or was already used.')
-    const inviter = await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q
-          .eq('tokenIdentifier', invitation.createdBy)
-          .eq('householdId', invitation.householdId),
-      )
-      .unique()
+    const inviterAccount = invitation.createdByUserId
+      ? await accountForUser(ctx, invitation.createdByUserId)
+      : invitation.createdBy
+        ? await findAccount(ctx, invitation.createdBy)
+        : null
+    const inviter =
+      inviterAccount &&
+      (await findMembership(ctx, inviterAccount, invitation.householdId))
     if (inviter?.role !== 'admin')
       throw new Error('This invitation is no longer valid.')
     await ensurePersonalHousehold(ctx, identity.tokenIdentifier)
-    const existing = await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q
-          .eq('tokenIdentifier', identity.tokenIdentifier)
-          .eq('householdId', invitation.householdId),
-      )
-      .unique()
+    const account = await ensureAccount(ctx, identity.tokenIdentifier)
+    const existing = await findMembership(ctx, account, invitation.householdId)
     if (existing) return invitation.householdId
-    const memberships = await ctx.db
-      .query('householdMembers')
-      .withIndex('by_tokenIdentifier_and_householdId', (q) =>
-        q.eq('tokenIdentifier', identity.tokenIdentifier),
-      )
-      .take(MAX_HOUSEHOLDS)
+    const memberships = await listMemberships(ctx, account, MAX_HOUSEHOLDS)
     if (memberships.length >= MAX_HOUSEHOLDS)
       throw new Error('You can belong to at most 10 households.')
     const members = await ctx.db
@@ -356,7 +337,7 @@ export const acceptInvitation = mutation({
       throw new Error('This household has reached its member limit.')
     await ctx.db.insert('householdMembers', {
       householdId: invitation.householdId,
-      tokenIdentifier: identity.tokenIdentifier,
+      userId: account.userId,
       name:
         identity.name?.trim() ||
         identity.nickname?.trim() ||

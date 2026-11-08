@@ -83,7 +83,7 @@ export const recordWeight = internalMutation({
     domainResult(async () => {
       const owner = await requireMcpOwner(ctx, user, 'meals:write', householdId)
       await limiter.limit(ctx, 'writes', {
-        key: owner.ownerTokenIdentifier,
+        key: owner.tokenIdentifier,
         throws: true,
       })
       const result = await recordWeightForOwner(ctx, owner, input)

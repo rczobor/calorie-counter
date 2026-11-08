@@ -56,8 +56,10 @@ export const groupScopeValidator = v.union(
 )
 
 const ownerFields = {
-  // Account attribution only; authorization uses householdId.
-  ownerTokenIdentifier: v.string(),
+  // Account attribution only; authorization uses householdId. The legacy
+  // tokenIdentifier remains until migrations:rekeyAccounts replaces it.
+  ownerUserId: v.optional(v.id('users')),
+  ownerTokenIdentifier: v.optional(v.string()),
   householdId: v.id('households'),
 }
 
