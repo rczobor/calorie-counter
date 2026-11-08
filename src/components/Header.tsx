@@ -70,20 +70,33 @@ function HeaderNavigation() {
 export function BottomNavigation() {
   const pathname = usePathname()
   const navigate = useNavigate()
+  const activeIndex = NAV_ITEMS.findIndex((item) => isActive(pathname, item.to))
   return (
     <SignedInOnly>
       {/* Floats over the content; the installed iPhone app tucks it just above
-          the home indicator, browsers keep a small gap. Content blurs
-          progressively behind it, so no sharp glyphs show between or below
-          the pills while the glass still has content to show. */}
+          the home indicator, browsers keep a small gap. Only the glass itself
+          blurs what is behind it. */}
       <nav
         aria-label="Primary navigation"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] before:absolute before:inset-x-0 before:-top-4 before:bottom-0 before:backdrop-blur-sm before:mask-t-from-85% md:hidden [@media(prefers-reduced-transparency:reduce)]:before:backdrop-blur-none"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] md:hidden"
       >
-        <div className="pointer-events-auto relative mx-auto flex max-w-xl items-center gap-2">
-          <div className="glass flex min-w-0 flex-1 items-center rounded-full p-1">
-            {NAV_ITEMS.map((item) => {
-              const active = isActive(pathname, item.to)
+        <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2">
+          <div className="glass relative flex min-w-0 flex-1 items-center rounded-full p-1">
+            {/* One highlight glides between the equal-width tabs; it hides on
+                pages outside the tabs, such as /connect. */}
+            <span
+              aria-hidden="true"
+              className={cn(
+                'absolute inset-y-1 left-1 rounded-full bg-primary/14 transition-[translate,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none dark:bg-primary/10',
+                activeIndex < 0 && 'opacity-0',
+              )}
+              style={{
+                width: `calc((100% - 0.5rem) / ${NAV_ITEMS.length})`,
+                translate: `${Math.max(activeIndex, 0) * 100}%`,
+              }}
+            />
+            {NAV_ITEMS.map((item, index) => {
+              const active = index === activeIndex
               return (
                 <Link
                   key={item.to}
@@ -92,9 +105,9 @@ export function BottomNavigation() {
                   aria-current={active ? 'page' : undefined}
                   aria-label={item.label}
                   className={cn(
-                    'flex h-11 flex-1 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                    'relative flex h-11 flex-1 items-center justify-center rounded-full transition-[color,scale] focus-visible:outline-2 focus-visible:outline-ring motion-safe:active:scale-90',
                     active
-                      ? 'bg-primary/14 text-primary dark:bg-primary/10'
+                      ? 'text-primary'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -106,7 +119,7 @@ export function BottomNavigation() {
           <Button
             size="icon"
             aria-label="Log meal"
-            className="size-13 rounded-full shadow-[0_10px_30px_-10px_var(--glass-shadow)]"
+            className="size-13 rounded-full shadow-[0_10px_30px_-10px_var(--glass-shadow)] motion-safe:active:scale-90"
             onClick={() => {
               requestLogMeal()
               if (pathname !== '/') void navigate({ to: '/' })

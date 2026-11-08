@@ -162,3 +162,35 @@ test('a landscape iPhone keeps content clear of the notch', async ({
   expect(homeBox).not.toBeNull()
   expect(homeBox!.x).toBeGreaterThanOrEqual(47)
 })
+
+test('on a phone, the tab highlight settles under the current tab', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const navigation = page.getByRole('navigation', {
+    name: 'Primary navigation',
+  })
+  const highlight = navigation.locator('span[aria-hidden="true"]')
+  for (const name of ['Settings', 'History', 'Today']) {
+    const tab = navigation.getByRole('link', { name, exact: true })
+    await tab.click()
+    await expect(tab).toHaveAttribute('aria-current', 'page')
+    // The highlight glides between tabs, so wait for it to settle.
+    await expect
+      .poll(async () => {
+        const [from, to] = await Promise.all([
+          highlight.boundingBox(),
+          tab.boundingBox(),
+        ])
+        return (
+          from !== null &&
+          to !== null &&
+          Math.abs(from.x - to.x) < 1 &&
+          Math.abs(from.width - to.width) < 1
+        )
+      })
+      .toBe(true)
+  }
+})
