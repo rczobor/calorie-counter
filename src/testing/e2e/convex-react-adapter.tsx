@@ -15,6 +15,11 @@ import {
   createCookedFoodIngredientDoc,
 } from '@/tests/factories'
 import { createDesignData } from './design-scenario'
+import {
+  buildCheckIn,
+  CHECK_IN_LOOKBACK_DAYS,
+  shiftDay,
+} from '../../../convex/lib/energy'
 
 type DashboardData = {
   people: Array<Doc<'people'>>
@@ -723,6 +728,38 @@ export function useQuery<Query extends FunctionReference<'query'>>(
       .at(-1)
     return (latest ? weightDto(latest) : null) as FunctionReturnType<Query>
   }
+  if (functionName === 'energy:checkIn') {
+    const { personId, today } = args as FunctionArgs<typeof api.energy.checkIn>
+    const person = snapshot.dashboard.people.find((p) => p._id === personId)
+    const firstDay = shiftDay(today, -CHECK_IN_LOOKBACK_DAYS)
+    const totals = new Map<string, number>()
+    for (const meal of snapshot.dashboard.meals)
+      if (
+        meal.personId === personId &&
+        !meal.archived &&
+        meal.eatenOn >= firstDay &&
+        meal.eatenOn < today
+      )
+        totals.set(
+          meal.eatenOn,
+          (totals.get(meal.eatenOn) ?? 0) + meal.totalCalories,
+        )
+    const weights = weightsFor(snapshot, personId).filter(
+      (entry) => entry.measuredOn <= today,
+    )
+    return buildCheckIn({
+      today,
+      intake: [...totals]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, kcal]) => ({ date, kcal })),
+      weights: weights
+        .filter((entry) => entry.measuredOn >= firstDay)
+        .map((entry) => ({ date: entry.measuredOn, kg: entry.weightKg })),
+      latestWeightKg: weights.at(-1)?.weightKg ?? null,
+      profile: person?.energyProfile,
+      plan: person?.goalPlan,
+    }) as FunctionReturnType<Query>
+  }
   if (functionName === 'mcp:getAuthRequest')
     return null as FunctionReturnType<Query>
   if (functionName === 'people:get') {
@@ -833,6 +870,45 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
           weights: [...state.weights, entry],
         })
         return entry._id as FunctionReturnType<Mutation>
+      }
+      if (
+        functionName === 'nutrition:updatePerson' ||
+        functionName === 'nutrition:updatePersonGoal'
+      ) {
+        const input = args as Partial<
+          FunctionArgs<typeof api.nutrition.updatePerson>
+        > &
+          Pick<
+            FunctionArgs<typeof api.nutrition.updatePersonGoal>,
+            'personId' | 'expectedEditRevision'
+          >
+        const person = state.dashboard.people.find(
+          (candidate) => candidate._id === input.personId,
+        )
+        if (!person) throw new Error('Person not found.')
+        if ((person.editRevision ?? 0) !== input.expectedEditRevision)
+          throw new Error('Person changed since it was read.')
+        const next: Doc<'people'> = {
+          ...person,
+          name: input.name?.trim() ?? person.name,
+          currentDailyGoalKcal: input.goalKcal ?? person.currentDailyGoalKcal,
+          energyProfile: input.energyProfile ?? person.energyProfile,
+          goalPlan:
+            input.goalPlan === undefined
+              ? person.goalPlan
+              : (input.goalPlan ?? undefined),
+          editRevision: (person.editRevision ?? 0) + 1,
+        }
+        publish({
+          ...state,
+          dashboard: {
+            ...state.dashboard,
+            people: state.dashboard.people.map((candidate) =>
+              candidate._id === person._id ? next : candidate,
+            ),
+          },
+        })
+        return null as FunctionReturnType<Mutation>
       }
       if (functionName === 'weight:remove') {
         const { entryId } = args as FunctionArgs<typeof api.weight.remove>
