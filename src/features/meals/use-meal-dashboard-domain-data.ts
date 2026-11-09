@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+import { youFirst } from '@/features/households/you-first'
 
 const PAGE_SIZE = 20
 
@@ -124,11 +125,15 @@ export function useMealDashboardDomainData({
   )
   const people: MealDashboardPerson[] = useMemo(
     () =>
-      selectedPersonCanBeRetained &&
-      selectedPerson &&
-      !peopleQuery.results.some((person) => person._id === selectedPerson._id)
-        ? [...peopleQuery.results, selectedPerson]
-        : peopleQuery.results,
+      youFirst(
+        selectedPersonCanBeRetained &&
+          selectedPerson &&
+          !peopleQuery.results.some(
+            (person) => person._id === selectedPerson._id,
+          )
+          ? [...peopleQuery.results, selectedPerson]
+          : peopleQuery.results,
+      ),
     [peopleQuery.results, selectedPerson, selectedPersonCanBeRetained],
   )
   const effectiveSelectedPersonId: Id<'people'> | '' =

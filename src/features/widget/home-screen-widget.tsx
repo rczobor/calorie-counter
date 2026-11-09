@@ -18,6 +18,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useHousehold } from '@/features/households/household-context'
 import { PersonPicker } from '@/features/households/person-picker'
+import { youFirst } from '@/features/households/you-first'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { formatDate } from '@/lib/dates'
@@ -70,7 +71,7 @@ export function HomeScreenWidget() {
   // a real preview and the preview, picker and Create always agree.
   const chosen =
     people.results.find((person) => person._id === personId) ??
-    people.results[0]
+    youFirst(people.results)[0]
   // The preview follows the chosen person, then the widget being set up.
   // The setup card keeps its own household, so switching households while it
   // is open can't ask for its person in the wrong one.
@@ -325,9 +326,10 @@ export function HomeScreenWidget() {
                 <PersonPicker
                   value={chosen?._id ?? null}
                   placeholder={t.selectPerson}
-                  options={people.results.map((person) => ({
+                  options={youFirst(people.results).map((person) => ({
                     value: person._id,
                     label: person.name,
+                    you: person.linkedAccount === 'you',
                   }))}
                   onValueChange={setPersonId}
                 />

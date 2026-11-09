@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { messages } from './status-badge.messages'
 
 type StatusBadgeProps = {
-  status: 'Active' | 'Archived'
+  status: 'Active' | 'Archived' | 'You' | 'Unsaved'
   className?: string
 }
 
@@ -12,10 +12,15 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5 type-caption font-medium',
+        // The footnote tier, one step above captions, so a badge beside a
+        // 17px name stays readable; py-px keeps rows at their height.
+        'inline-flex items-center rounded-full border px-2.5 py-px type-footnote font-medium',
         status === 'Active'
           ? 'border-transparent bg-muted text-foreground'
-          : 'border-dashed border-input text-muted-foreground',
+          : status === 'Archived'
+            ? 'border-dashed border-input text-muted-foreground'
+            : // Outlined like the prefilled chips: grey fills read as disabled.
+              'border-input text-foreground',
         className,
       )}
     >

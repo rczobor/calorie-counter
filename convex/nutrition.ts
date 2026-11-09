@@ -21,6 +21,7 @@ import {
 import {
   assertOwnedOrThrow,
   type AuthenticatedOwner,
+  findLinkedPerson,
   isOwnedBy,
   ownerFields,
   requireAuthenticatedHousehold,
@@ -2170,6 +2171,44 @@ export const setPersonArchived = mutation({
       archived: args.archived,
       editRevision: nextEditRevision(person, 'Person'),
     })
+  },
+})
+
+/**
+ * Links a person to the caller's account, or removes that link. Members only
+ * link themselves, so a link always means "this person is me". Linking another
+ * person moves the caller's earlier link. The edit revision stays: a link
+ * never conflicts with profile edits.
+ */
+export const setPersonLinkedToMe = mutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    personId: v.id('people'),
+    linked: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    const person = assertOwnedOrThrow(
+      await ctx.db.get(args.personId),
+      owner,
+      'Person not found.',
+    )
+    if (person.userId !== undefined && person.userId !== owner.userId)
+      throw new DomainError('This person is linked to another member.')
+    if (!args.linked) {
+      if (person.userId) await ctx.db.patch(person._id, { userId: undefined })
+      return null
+    }
+    if (person.userId) return null
+    const previous = await findLinkedPerson(
+      ctx,
+      owner.householdId,
+      owner.userId,
+    )
+    if (previous) await ctx.db.patch(previous._id, { userId: undefined })
+    await ctx.db.patch(person._id, { userId: owner.userId })
+    return null
   },
 })
 

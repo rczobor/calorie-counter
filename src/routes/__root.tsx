@@ -239,7 +239,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 </InstallProvider>
                 <Suspense fallback={null}>
                   <Toaster
-                    richColors
                     mobileOffset={{
                       bottom: 'calc(5rem + env(safe-area-inset-bottom))',
                     }}

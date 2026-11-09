@@ -30,6 +30,8 @@ const sam = {
   archived: true,
 }
 let pending = false
+// The viewer's linked person; null shows "Which one is you?".
+let linkedToMe: string | null = 'person-alex'
 let activeStatus: 'Exhausted' | 'CanLoadMore' = 'Exhausted'
 const loadMore = vi.fn()
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -64,7 +66,9 @@ vi.mock('convex/react', () => ({
       ? undefined
       : getFunctionName(reference) === 'weight:latestOnOrBefore'
         ? { weightKg: 82.4, measuredOn: '2026-11-01' }
-        : alex,
+        : getFunctionName(reference) === 'people:linkedToMe'
+          ? linkedToMe
+          : alex,
   usePaginatedQuery: (
     reference: Parameters<typeof getFunctionName>[0],
     args: { archived?: boolean } | 'skip',
@@ -101,6 +105,7 @@ function openAlex() {
 beforeEach(() => {
   vi.clearAllMocks()
   pending = false
+  linkedToMe = 'person-alex'
   activeStatus = 'Exhausted'
   mutate.mockResolvedValue(null)
   confirm.mockImplementation(
@@ -111,6 +116,39 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('People settings', () => {
+  it('asks which person is you until you link one', () => {
+    show()
+    expect(screen.queryByText('Which one is you?')).toBeNull()
+    cleanup()
+
+    linkedToMe = null
+    show()
+    expect(screen.getByRole('button', { name: 'I’m Alex' })).toBeTruthy()
+  })
+
+  it('links the person to the signed-in account only when the form saves', async () => {
+    show()
+    openAlex()
+    fireEvent.click(screen.getByRole('switch', { name: 'This is me' }))
+    expect(
+      screen.getByText('Saving links this person to your account.'),
+    ).toBeTruthy()
+    expect(screen.getByText('Unsaved')).toBeTruthy()
+    expect(mutate).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    // Only the link changed, so the profile and its edit revision stay put.
+    await waitFor(() =>
+      expect(mutate.mock.calls.map(([name]) => name)).toEqual([
+        'nutrition:setPersonLinkedToMe',
+      ]),
+    )
+    expect(mutate).toHaveBeenLastCalledWith('nutrition:setPersonLinkedToMe', {
+      personId: alex._id,
+      linked: true,
+    })
+  })
+
   it('fills the goal from the calculator and saves the plan with it', async () => {
     show()
     openAlex()

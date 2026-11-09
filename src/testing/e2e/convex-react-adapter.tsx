@@ -461,6 +461,16 @@ function withoutOwner<T extends { ownerUserId?: string }>(document: T) {
   return copy as Omit<T, 'ownerUserId'>
 }
 
+/** A person as the people queries return it to the e2e account. */
+function personView({ userId, ...person }: Doc<'people'>) {
+  return {
+    ...withoutOwner(person),
+    ...(userId && {
+      linkedAccount: userId === ownerUserId ? 'you' : 'other',
+    }),
+  }
+}
+
 function dayNutrition(
   snapshot: MockState,
   personId: Id<'people'>,
@@ -523,7 +533,7 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
     results = snapshot.dashboard.people
       .filter((p) => p.archived === input.archived)
       .map((p) => ({
-        ...withoutOwner(p),
+        ...personView(p),
         ...dayNutrition(snapshot, p._id, input.eatenOn),
       }))
   } else if (functionName === 'savedFoods:listTemplates') {
@@ -603,7 +613,7 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
     const archived = (args as { archived: boolean }).archived
     results = snapshot.dashboard.people
       .filter((person) => person.archived === archived)
-      .map(withoutOwner)
+      .map(personView)
   } else if (functionName === 'catalog:listIngredients') {
     const queryArgs = args as {
       archived: boolean
@@ -831,12 +841,16 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
   if (functionName === 'mcp:getAuthRequest')
     return null as FunctionReturnType<Query>
+  if (functionName === 'people:linkedToMe')
+    return (snapshot.dashboard.people.find(
+      (person) => person.userId === ownerUserId,
+    )?._id ?? null) as FunctionReturnType<Query>
   if (functionName === 'people:get') {
     const personId = (args as { personId: Id<'people'> }).personId
     const person = snapshot.dashboard.people.find(
       (candidate) => candidate._id === personId,
     )
-    return (person ? withoutOwner(person) : null) as FunctionReturnType<Query>
+    return (person ? personView(person) : null) as FunctionReturnType<Query>
   }
   if (functionName === 'cooking:getSession') {
     const sessionId = (args as { sessionId: Id<'cookSessions'> }).sessionId
@@ -939,6 +953,29 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
           weights: [...state.weights, entry],
         })
         return entry._id as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'nutrition:setPersonLinkedToMe') {
+        const { personId, linked } = args as FunctionArgs<
+          typeof api.nutrition.setPersonLinkedToMe
+        >
+        publish({
+          ...state,
+          dashboard: {
+            ...state.dashboard,
+            people: state.dashboard.people.map((person) => ({
+              ...person,
+              userId:
+                person._id === personId
+                  ? linked
+                    ? ownerUserId
+                    : undefined
+                  : linked && person.userId === ownerUserId
+                    ? undefined
+                    : person.userId,
+            })),
+          },
+        })
+        return null as FunctionReturnType<Mutation>
       }
       if (
         functionName === 'nutrition:updatePerson' ||

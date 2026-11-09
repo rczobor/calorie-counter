@@ -2,8 +2,10 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Calculator } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
+import { toast } from 'sonner'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import {
   useMutation,
   usePaginatedQuery,
@@ -12,6 +14,7 @@ import {
 import { PageShell } from '@/components/page/page-shell'
 import { ConfigMissingState } from '@/components/page/page-states'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
+import { StatusBadge } from '@/components/page/status-badge'
 import { EditorDialog } from '@/components/page/editor-dialog'
 import { Field, UnitInput } from '@/components/list/field'
 import { ListToolbar, LoadMoreButton } from '@/components/list/list-toolbar'
@@ -19,7 +22,10 @@ import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { describePlan } from '@/features/energy/energy-format'
+import { WhichOneIsYou } from '@/features/households/which-one-is-you'
+import { youFirst } from '@/features/households/you-first'
 import {
   GoalCalculator,
   type CalculatorChoice,
@@ -29,7 +35,8 @@ import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import { formatDate } from '@/lib/dates'
-import { toLocalDateString } from '@/lib/nutrition'
+import { toErrorMessage, toLocalDateString } from '@/lib/nutrition'
+import { cn } from '@/lib/utils'
 import { messages } from './people.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
@@ -52,6 +59,8 @@ function PeopleContent() {
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
   const [reason, setReason] = useState('')
+  // Whether this person is the signed-in member; saved with the form.
+  const [isMe, setIsMe] = useState(false)
   // The local date the calculator opened on, while it is open.
   const [calculatingOn, setCalculatingOn] = useState<string | null>(null)
   // A calculator result waits in the form and saves with the goal.
@@ -71,8 +80,10 @@ function PeopleContent() {
   )
   const people = useMemo(
     () =>
-      [...active.results, ...(showArchived ? archived.results : [])].sort(
-        (a, b) => a.name.localeCompare(b.name),
+      youFirst(
+        [...active.results, ...(showArchived ? archived.results : [])].sort(
+          (a, b) => a.name.localeCompare(b.name),
+        ),
       ),
     [active.results, archived.results, showArchived],
   )
@@ -96,6 +107,7 @@ function PeopleContent() {
   const updatePerson = useMutation(api.nutrition.updatePerson)
   const setArchived = useMutation(api.nutrition.setPersonArchived)
   const deletePerson = useMutation(api.nutrition.deletePerson)
+  const setLinkedToMe = useMutation(api.nutrition.setPersonLinkedToMe)
   const {
     isRunning,
     runAction,
@@ -107,12 +119,105 @@ function PeopleContent() {
   } = useConfirmableAction()
   // Archive and Delete send the live revision, as the row buttons did.
   const live = editing && selected !== null ? (selected ?? editing) : undefined
-  const dirty =
-    editing !== undefined &&
-    (name !== (editing?.name ?? '') ||
-      goal !== String(editing?.currentDailyGoalKcal ?? 2200) ||
-      reason !== '' ||
-      plan !== null)
+  const linkPending = isMe !== (editing?.linkedAccount === 'you')
+  const profileDirty =
+    name !== (editing?.name ?? '') ||
+    goal !== String(editing?.currentDailyGoalKcal ?? 2200) ||
+    reason !== '' ||
+    plan !== null
+  const dirty = editing !== undefined && (profileDirty || linkPending)
+
+  // Linking this person moves the member's link from the one they are now,
+  // even when that person is archived or not loaded, so Undo can move it back.
+  const linkedToMe = useQuery(api.people.linkedToMe, {})
+  const linkedElsewhere =
+    linkedToMe && linkedToMe !== editing?._id
+      ? {
+          _id: linkedToMe,
+          name:
+            people.find((person) => person._id === linkedToMe)?.name ??
+            t.anotherPerson,
+        }
+      : undefined
+
+  // The switch saves with the form, so a pending change says what Save does.
+  function linkNote() {
+    const saved = editing?.linkedAccount === 'you'
+    if (live?.linkedAccount === 'other') return t.linkedToOther
+    if (isMe && !saved)
+      return linkedElsewhere
+        ? t.linkMovesOnSave(linkedElsewhere.name, name.trim() || t.thisPerson)
+        : t.linkOnSave
+    if (!isMe && saved) return t.unlinkOnSave
+    if (isMe) return t.linkOn
+    // An offer stays short; the pending caption names a move before Save.
+    return editing ? t.linkOff : t.newLinkOff
+  }
+
+  // A link change ends in a toast with Undo, so a mistaken tap costs a tap.
+  function withUndo(undo: () => Promise<unknown>) {
+    return {
+      action: {
+        label: t.undo,
+        onClick: () => {
+          undo().catch((error: unknown) =>
+            toast.error(toErrorMessage(error, locale)),
+          )
+        },
+      },
+    }
+  }
+
+  function save() {
+    const displayName = name.trim()
+    const previous = linkedElsewhere
+    let personId: Id<'people'> | undefined = editing?._id
+    const success = !linkPending
+      ? editing
+        ? t.updated
+        : t.created
+      : !isMe
+        ? t.unlinkedToast(displayName)
+        : previous
+          ? t.linkMovedToast(previous.name, displayName)
+          : t.linkedToast(displayName)
+    const undo = async () => {
+      if (!personId) return
+      if (!isMe) await setLinkedToMe({ personId, linked: true })
+      else if (previous)
+        await setLinkedToMe({ personId: previous._id, linked: true })
+      else await setLinkedToMe({ personId, linked: false })
+    }
+    void runAction(
+      success,
+      async () => {
+        const effectiveDate = toLocalDateString(Date.now())
+        // A link-only change leaves the profile and its edit revision alone.
+        if (editing && profileDirty)
+          await updatePerson({
+            personId: editing._id,
+            expectedEditRevision: editing.editRevision,
+            name,
+            goalKcal: Number(goal),
+            reason: reason.trim() || undefined,
+            effectiveDate,
+            ...plan,
+          })
+        else if (!editing)
+          personId = await createPerson({
+            name,
+            currentDailyGoalKcal: Number(goal),
+            effectiveDate,
+            reason: reason.trim() || undefined,
+            ...plan,
+          })
+        if (personId && linkPending)
+          await setLinkedToMe({ personId, linked: isMe })
+        setEditing(undefined)
+      },
+      linkPending ? withUndo(undo) : undefined,
+    )
+  }
 
   function beginEdit(person: Person | null) {
     setEditing(person)
@@ -120,6 +225,7 @@ function PeopleContent() {
     setGoal(String(person?.currentDailyGoalKcal ?? 2200))
     setReason('')
     setPlan(null)
+    setIsMe(person?.linkedAccount === 'you')
   }
   function closeEditor() {
     if (dirty)
@@ -147,6 +253,7 @@ function PeopleContent() {
             onCheckedChange: setShowArchived,
           }}
         />
+        <WhichOneIsYou people={active.results} className="pb-3" />
         <RecordList
           label={t.people}
           loading={active.status === 'LoadingFirstPage'}
@@ -157,6 +264,11 @@ function PeopleContent() {
               key={person._id}
               verb={t.edit}
               title={person.name}
+              badge={
+                person.linkedAccount === 'you' ? (
+                  <StatusBadge status="You" className="shrink-0" />
+                ) : undefined
+              }
               detail={
                 person.goalPlan
                   ? describePlan(person.goalPlan, locale)
@@ -201,31 +313,10 @@ function PeopleContent() {
             aria-label={editing ? t.editPerson(editing.name) : t.newPerson}
             onSubmit={(event) => {
               event.preventDefault()
-              void runAction(editing ? t.updated : t.created, async () => {
-                const effectiveDate = toLocalDateString(Date.now())
-                if (editing)
-                  await updatePerson({
-                    personId: editing._id,
-                    expectedEditRevision: editing.editRevision,
-                    name,
-                    goalKcal: Number(goal),
-                    reason: reason.trim() || undefined,
-                    effectiveDate,
-                    ...plan,
-                  })
-                else
-                  await createPerson({
-                    name,
-                    currentDailyGoalKcal: Number(goal),
-                    effectiveDate,
-                    reason: reason.trim() || undefined,
-                    ...plan,
-                  })
-                setEditing(undefined)
-              })
+              save()
             }}
           >
-            <fieldset disabled={isRunning} className="min-w-0 space-y-4 pb-5">
+            <fieldset disabled={isRunning} className="min-w-0 space-y-4 pb-6">
               <Field label={t.name} htmlFor="person-name">
                 <Input
                   id="person-name"
@@ -306,6 +397,47 @@ function PeopleContent() {
                   ) : null}
                 </section>
               ) : null}
+              <section aria-labelledby="person-account-title" className="pt-1">
+                <h3 id="person-account-title" className="group-label">
+                  {t.linkedAccount}
+                </h3>
+                {/* A switch is a settings-style cell: label and switch on the content edges. */}
+                <div className="flex min-h-12 items-center justify-between gap-3 inset-group px-4 py-2.5">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <label
+                        htmlFor="person-is-me"
+                        className="text-base text-foreground"
+                      >
+                        {t.thisIsMe}
+                      </label>
+                      {/* A switch that is on but not saved must not pass for a saved link. */}
+                      {linkPending ? (
+                        <StatusBadge status="Unsaved" className="shrink-0" />
+                      ) : null}
+                    </div>
+                    <p
+                      id="person-is-me-note"
+                      className={cn(
+                        'mt-0.5 type-footnote text-pretty',
+                        linkPending
+                          ? 'font-medium text-foreground'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {linkNote()}
+                    </p>
+                  </div>
+                  <Switch
+                    id="person-is-me"
+                    aria-describedby="person-is-me-note"
+                    checked={isMe}
+                    // A span, so the fieldset's disabled doesn't reach it.
+                    disabled={isRunning || live?.linkedAccount === 'other'}
+                    onCheckedChange={(checked) => setIsMe(Boolean(checked))}
+                  />
+                </div>
+              </section>
             </fieldset>
             <SheetFooter>
               {live ? (

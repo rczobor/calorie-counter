@@ -160,6 +160,7 @@ export default defineSchema({
       'archived',
       'name',
     ])
+    .index('by_householdId_and_userId', ['householdId', 'userId'])
     .searchIndex('search_name', {
       searchField: 'name',
       filterFields: ['householdId', 'archived'],

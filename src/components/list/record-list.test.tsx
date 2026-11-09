@@ -57,11 +57,21 @@ describe('list primitives', () => {
           onOpen={onOpen}
         />
         <RecordRow title="Barley" archived onOpen={onOpen} />
+        <RecordRow
+          title="Robi"
+          badge={<span>You</span>}
+          archived
+          onOpen={onOpen}
+        />
       </RecordList>,
     )
+    // A badge and Archived stay separate words in the row's name.
+    expect(
+      screen.getByRole('button', { name: /Robi You Archived/ }),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /^Edit Oats/ }))
     expect(onOpen).toHaveBeenCalledOnce()
-    expect(screen.getAllByText('Archived')).toHaveLength(1)
+    expect(screen.getAllByText('Archived')).toHaveLength(2)
     expect(screen.getByRole('list', { name: 'Ingredients' })).toBeTruthy()
   })
 

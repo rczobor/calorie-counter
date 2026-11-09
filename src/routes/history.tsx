@@ -4,6 +4,7 @@ import {
 } from '@/components/page/page-placeholder'
 import { useHousehold } from '@/features/households/household-context'
 import { PersonPicker } from '@/features/households/person-picker'
+import { youFirst } from '@/features/households/you-first'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
 import {
@@ -125,10 +126,12 @@ function HistoryPageContent() {
   )
   const people = useMemo(
     () =>
-      pointLoadedPerson &&
-      !loadedPeople.some((person) => person._id === pointLoadedPerson._id)
-        ? [...loadedPeople, pointLoadedPerson]
-        : loadedPeople,
+      youFirst(
+        pointLoadedPerson &&
+          !loadedPeople.some((person) => person._id === pointLoadedPerson._id)
+          ? [...loadedPeople, pointLoadedPerson]
+          : loadedPeople,
+      ),
     [loadedPeople, pointLoadedPerson],
   )
   const defaultPersonAppliedRef = useRef(false)
@@ -283,6 +286,7 @@ function HistoryPageContent() {
               options={people.map((person) => ({
                 value: person._id,
                 label: person.name,
+                you: person.linkedAccount === 'you',
               }))}
               value={effectiveSelectedPersonId || null}
               onValueChange={(value) =>

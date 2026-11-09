@@ -8,6 +8,7 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import {
+  findLinkedPerson,
   findUserId,
   listMemberships,
   requireAuthenticatedUser,
@@ -159,6 +160,10 @@ async function leaveHousehold(
     })
     return
   }
+  // The person and its history stay with the household; only the deleted
+  // account's link goes, so another member can link that person.
+  const linked = await findLinkedPerson(ctx, householdId, userId)
+  if (linked) await ctx.db.patch(linked._id, { userId: undefined })
   // A shared household keeps an admin: the longest-standing member.
   if (
     membership.role === 'admin' &&

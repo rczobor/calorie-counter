@@ -41,6 +41,8 @@ export const messages = defineMessages({
     loadingHouseholdIntake: 'Loading household intake',
     kcalLeft: (kcal: string) => `${kcal} kcal left`,
     kcalOver: (kcal: string) => `${kcal} kcal over`,
+    // A household row's name with its "You" badge.
+    nameYou: (name: string) => `${name}, you`,
     personSummary: (
       name: string,
       consumed: string,
@@ -56,6 +58,9 @@ export const messages = defineMessages({
     meals: 'Meals',
     personMeals: (name: string) => `${name}’s meals`,
     personArchivedMeals: (name: string) => `${name}’s archived meals`,
+    // The member's own person speaks in the second person.
+    yourMeals: 'Your meals',
+    yourArchivedMeals: 'Your archived meals',
     logMeal: 'Log meal',
     noArchivedMeals: 'No archived meals on this day.',
     editMeal: 'Edit meal',
@@ -112,6 +117,7 @@ export const messages = defineMessages({
     loadingHouseholdIntake: 'Háztartás bevitelének betöltése',
     kcalLeft: (kcal: string) => `${kcal} kcal maradt`,
     kcalOver: (kcal: string) => `${kcal} kcal túllépés`,
+    nameYou: (name: string) => `${name}, te`,
     personSummary: (
       name: string,
       consumed: string,
@@ -126,6 +132,8 @@ export const messages = defineMessages({
     discard: 'Elvetés',
     meals: 'Étkezések',
     personMeals: (name: string) => `${name}: étkezések`,
+    yourMeals: 'Az étkezéseid',
+    yourArchivedMeals: 'Archivált étkezéseid',
     personArchivedMeals: (name: string) => `${name}: archivált étkezések`,
     logMeal: 'Étkezés rögzítése',
     noArchivedMeals: 'Ezen a napon nincs archivált étkezés.',

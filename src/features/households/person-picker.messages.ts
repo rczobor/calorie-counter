@@ -7,10 +7,15 @@ export const messages = defineMessages({
     // voice control users can say what they see.
     switchPerson: (visible?: string) =>
       visible ? `Switch person, ${visible}` : 'Switch person',
+    // The visible name plus its "You" badge.
+    nameYou: (name: string) => `${name}, you`,
+    you: 'You',
   },
   hu: {
     selectPerson: 'Válassz személyt',
     switchPerson: (visible?: string) =>
       visible ? `Személy váltása, ${visible}` : 'Személy váltása',
+    nameYou: (name: string) => `${name}, te`,
+    you: 'Te',
   },
 })

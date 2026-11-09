@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { toast, type ExternalToast } from 'sonner'
 
 import { useLocale } from '@/i18n/locale'
 import { toErrorMessage } from '@/lib/nutrition'
@@ -19,7 +19,12 @@ export function useConfirmableAction() {
   const isRunningRef = useRef(false)
 
   const runAction = useCallback(
-    async (successText: string, action: () => Promise<unknown>) => {
+    async (
+      successText: string,
+      action: () => Promise<unknown>,
+      // Lets a success toast carry an action, such as Undo.
+      successToast?: ExternalToast,
+    ) => {
       if (isRunningRef.current) {
         return false
       }
@@ -27,7 +32,7 @@ export function useConfirmableAction() {
       setIsRunning(true)
       try {
         await action()
-        toast.success(successText)
+        toast.success(successText, successToast)
         return true
       } catch (error) {
         toast.error(toErrorMessage(error, locale))

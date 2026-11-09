@@ -28,6 +28,9 @@ import {
   useQuery,
   useMutation,
 } from '@/features/households/convex-hooks'
+import { StatusBadge } from '@/components/page/status-badge'
+import { WhichOneIsYou } from '@/features/households/which-one-is-you'
+import { youFirst } from '@/features/households/you-first'
 import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
 import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistence-identity'
@@ -160,8 +163,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
       : 'skip',
   )
   useEffect(() => {
-    if (!selectedPersonId && people.results[0])
-      setSelectedPersonId(people.results[0]._id)
+    // A device without a saved choice opens on the member's own person.
+    const first = youFirst(people.results)[0]
+    if (!selectedPersonId && first) setSelectedPersonId(first._id)
   }, [people.results, selectedPersonId, setSelectedPersonId])
   const loadedSelected = people.results.find((p) => p._id === selectedPersonId)
   const selected = loadedSelected ?? pointPerson
@@ -211,9 +215,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
     () => (archived ? undefined : subscribeLogMeal(onLogRequest)),
     [archived],
   )
-  const visiblePeople = [...people.results]
-  if (selected && !visiblePeople.some((p) => p._id === selected._id) && summary)
-    visiblePeople.push({ ...selected, ...summary, _id: selected._id })
+  const loadedPeople = [...people.results]
+  if (selected && !loadedPeople.some((p) => p._id === selected._id) && summary)
+    loadedPeople.push({ ...selected, ...summary, _id: selected._id })
+  const visiblePeople = youFirst(loadedPeople)
 
   const focused = visiblePeople.find((p) => p._id === selectedPersonId)
   const hasLoggedMeal = focused !== undefined && focused.mealCount > 0
@@ -251,6 +256,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   <PersonPicker
                     ref={householdButton}
                     name={selected?.name}
+                    you={selected?.linkedAccount === 'you'}
                     placeholder={t.choosePerson}
                     expanded={showHousehold}
                     controls="household-intake"
@@ -350,6 +356,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 options={visiblePeople.map((person) => ({
                   value: person._id,
                   label: person.name,
+                  you: person.linkedAccount === 'you',
                 }))}
                 value={selected?._id ?? null}
                 onValueChange={(value) => {
@@ -399,7 +406,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                     type="button"
                     aria-pressed={p._id === selectedPersonId}
                     aria-label={t.personSummary(
-                      p.name,
+                      p.linkedAccount === 'you' ? t.nameYou(p.name) : p.name,
                       p.consumedCalories.toFixed(0),
                       p.goalKcal.toFixed(0),
                       p.remainingCalories === 0
@@ -431,8 +438,11 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                         />
                       ) : null}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-base">
-                      {p.name}
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate text-base">{p.name}</span>
+                      {p.linkedAccount === 'you' ? (
+                        <StatusBadge status="You" className="shrink-0" />
+                      ) : null}
                     </span>
                     <span className="text-right type-footnote text-muted-foreground tabular-nums">
                       <Balance
@@ -466,6 +476,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 {t.loadMorePeople}
               </Button>
             ) : null}
+            <WhichOneIsYou people={people.results} className="mt-5" />
           </section>
         ) : null}
         {!archived ? (
@@ -605,8 +616,12 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           <h2 className="type-title">
             {selected
               ? archived
-                ? t.personArchivedMeals(selected.name)
-                : t.personMeals(selected.name)
+                ? selected.linkedAccount === 'you'
+                  ? t.yourArchivedMeals
+                  : t.personArchivedMeals(selected.name)
+                : selected.linkedAccount === 'you'
+                  ? t.yourMeals
+                  : t.personMeals(selected.name)
               : t.meals}
           </h2>
           {!archived ? (

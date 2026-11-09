@@ -143,10 +143,20 @@ describe('account deletion', () => {
       eatenOn: '2026-04-04',
       items: [{ sourceType: 'fixedCalories', name: 'Soup', calories: 300 }],
     })
+    await robi.mutation(api.nutrition.setPersonLinkedToMe, {
+      householdId,
+      personId,
+      linked: true,
+    })
 
     await robi.mutation(api.account.deleteMyAccount, {})
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
+    // The person stays, without a link to the deleted account.
+    expect(
+      (await viki.query(api.people.get, { householdId, personId }))
+        ?.linkedAccount,
+    ).toBeUndefined()
     // Viki becomes the admin; the household is nobody's personal one now.
     expect(await viki.query(api.households.members, { householdId })).toEqual([
       expect.objectContaining({ role: 'admin', isYou: true }),

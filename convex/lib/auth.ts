@@ -97,6 +97,20 @@ export function findMembership(
     .unique()
 }
 
+/** The person an account linked to itself in a household, if any. */
+export function findLinkedPerson(
+  ctx: Reader,
+  householdId: Id<'households'>,
+  userId: Id<'users'>,
+) {
+  return ctx.db
+    .query('people')
+    .withIndex('by_householdId_and_userId', (q) =>
+      q.eq('householdId', householdId).eq('userId', userId),
+    )
+    .unique()
+}
+
 export function listMemberships(
   ctx: Reader,
   userId: Id<'users'>,

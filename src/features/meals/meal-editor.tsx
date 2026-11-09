@@ -1148,6 +1148,7 @@ function MealEditorContent({
                 options={people.map((person) => ({
                   value: person._id,
                   label: person.name,
+                  you: person.linkedAccount === 'you',
                 }))}
                 value={effectiveSelectedPersonId || null}
                 onValueChange={(value) =>

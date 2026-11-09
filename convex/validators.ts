@@ -86,6 +86,10 @@ export const goalPlanValidator = v.union(
 
 export const peopleFields = {
   ...ownerFields,
+  // The member account this person is, set only by that member. Unlike
+  // ownerUserId, which records who created the person. One per account per
+  // household.
+  userId: v.optional(v.id('users')),
   name: v.string(),
   notes: v.optional(v.string()),
   currentDailyGoalKcal: v.number(),

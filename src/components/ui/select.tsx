@@ -10,6 +10,10 @@ const SelectRoot = SelectPrimitive.Root
 export type SelectOption<Value extends string = string> = {
   value: Value
   label: string
+  /** A status capsule after the label in the open list. */
+  badge?: ReactNode
+  /** The same status as quiet text in the closed trigger, beside the label. */
+  hint?: string
   disabled?: boolean
 }
 
@@ -63,7 +67,26 @@ function Select<Value extends string = string>({
         aria-label={ariaLabel ?? placeholder}
       >
         {icon}
-        <SelectValue placeholder={placeholder} />
+        <SelectValue placeholder={placeholder}>
+          {options.some((option) => option.hint)
+            ? (selectedValue: Value | null) => {
+                const option = options.find(
+                  (candidate) => candidate.value === selectedValue,
+                )
+                if (!option) return placeholder
+                return (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate">{option.label}</span>
+                    {option.hint ? (
+                      <span className="shrink-0 text-muted-foreground">
+                        · {option.hint}
+                      </span>
+                    ) : null}
+                  </span>
+                )
+              }
+            : undefined}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
@@ -74,6 +97,7 @@ function Select<Value extends string = string>({
               disabled={option.disabled}
             >
               {option.label}
+              {option.badge}
             </SelectItem>
           ))}
         </SelectGroup>
