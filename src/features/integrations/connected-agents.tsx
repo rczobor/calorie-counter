@@ -2,7 +2,7 @@ import { LoadingRows } from '@/components/page/loading-content'
 import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Unplug } from 'lucide-react'
 import { LoggingPreferences } from './logging-preferences'
 import { api } from '../../../convex/_generated/api'
 import { Button } from '@/components/ui/button'
@@ -110,11 +110,12 @@ export function ConnectedAgents() {
                     }
                     actions={
                       <Button
-                        variant="outline"
+                        variant="destructive"
                         size="sm"
                         disabled={pending !== null}
                         onClick={() => setDisconnecting(connection)}
                       >
+                        <Unplug aria-hidden="true" />
                         {pending === connection.id
                           ? t.disconnecting
                           : t.disconnect}

@@ -80,6 +80,7 @@ export type MockState = {
   savedFoodArchived: boolean
   preferences: FunctionReturnType<typeof api.mcpPreferences.get>
   connected: boolean
+  widgets: Array<{ id: string; person: string; createdAt: number }>
   weights: Array<Doc<'weightEntries'>>
   locale: FunctionReturnType<typeof api.userPreferences.getLocale>
   privacyAccepted: boolean
@@ -257,6 +258,7 @@ function createInitialState(): MockState {
     savedFoodArchived: false,
     preferences: initialPreferences,
     connected: true,
+    widgets: [],
     weights: [],
     locale: readAccountLocale(),
     privacyAccepted: readPrivacyAccepted(),
@@ -702,6 +704,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
           ]
         : []
     ) as FunctionReturnType<Query>
+  if (functionName === 'widgets:list')
+    return snapshot.widgets as FunctionReturnType<Query>
+  if (functionName === 'widgets:count')
+    return snapshot.widgets.length as FunctionReturnType<Query>
   if (functionName === 'mcpPreferences:get')
     return snapshot.preferences as FunctionReturnType<Query>
   if (functionName === 'userPreferences:getLocale')
@@ -1076,6 +1082,37 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
       }
       if (functionName === 'account:deleteMyAccount') {
         publish({ ...state, privacyAccepted: false })
+        return null as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'widgets:create') {
+        const { personId } = args as FunctionArgs<typeof api.widgets.create>
+        const person = state.dashboard.people.find(
+          (row) => row._id === personId,
+        )
+        const id = `e2e-widget-${state.widgets.length + 1}`
+        publish({
+          ...state,
+          widgets: [
+            ...state.widgets,
+            {
+              id,
+              person: person?.name ?? '',
+              createdAt: Date.now(),
+            },
+          ],
+        })
+        return {
+          id,
+          token: 'ccw_e2e-synthetic-token',
+          url: 'https://example.invalid/widget/today',
+        } as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'widgets:remove') {
+        const { id } = args as FunctionArgs<typeof api.widgets.remove>
+        publish({
+          ...state,
+          widgets: state.widgets.filter((row) => row.id !== id),
+        })
         return null as FunctionReturnType<Mutation>
       }
       if (functionName === 'mcp:revokeConnection') {

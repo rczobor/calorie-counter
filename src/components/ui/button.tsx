@@ -20,9 +20,11 @@ const buttonVariants = cva(
         // The one secondary action, on the page and inside cells: an
         // outlined, cell-coloured capsule. The tint is reserved for Log
         // meal, filled saves, the selected tab and focus; a grey fill only
-        // ever means a disabled primary.
+        // ever means a disabled primary. The outline is an inset ring on the
+        // painted (padding) edge, so an outlined capsule is exactly as tall
+        // as a filled one beside it; an outer ring added 2px.
         outline:
-          'bg-card text-foreground shadow-[0_0_0_1px_var(--border),0_1px_2px_oklch(0_0_0/0.06)] hover:bg-accent aria-expanded:bg-accent',
+          'bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border),0_1px_2px_oklch(0_0_0/0.06)] hover:bg-accent aria-expanded:bg-accent',
         // No fill when open: a grey capsule would read as a disabled primary.
         // Menus show their popover and disclosures turn their chevron instead.
         ghost: 'hover:bg-muted hover:text-foreground',

@@ -52,6 +52,17 @@ export default defineSchema({
     userId: v.id('users'),
     ...loggingPreferences.fields,
   }).index('by_userId', ['userId']),
+  // Read-only credentials for Home Screen widgets (widgets.ts). Each shows one
+  // person's day; only the token's SHA-256 hash is stored.
+  widgetTokens: defineTable({
+    userId: v.id('users'),
+    householdId: v.id('households'),
+    personId: v.id('people'),
+    tokenHash: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_tokenHash', ['tokenHash'])
+    .index('by_userId_and_householdId', ['userId', 'householdId']),
   mcpSavedFoods: defineTable({
     foodIdentity: v.optional(foodIdentityValidator),
     identityKey: v.optional(v.string()),
