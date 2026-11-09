@@ -107,6 +107,7 @@ function accountDetails(account: Account, t: Text, locale: Locale) {
   if (account.agentMeals > 0)
     details.push(t.assistantShare(share(account.agentMeals, tagged, locale)))
   if (account.households > 1) details.push(t.households(account.households))
+  if (account.partial) details.push(t.partialCounts)
   return details
 }
 

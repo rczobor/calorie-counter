@@ -76,14 +76,19 @@ describe('usage dashboard', () => {
 
   it('says when its figures cover only part of the data', () => {
     results.set('admin:isSuperAdmin', true)
+    const data = createUsageData(today)
     results.set('admin:engagement', {
-      ...createUsageData(today),
+      ...data,
       partial: true,
+      accounts: data.accounts.map((account) =>
+        account.name === 'Noor' ? { ...account, partial: true } : account,
+      ),
     })
     render(<UsageDashboard />)
     expect(screen.getByRole('note').textContent).toContain(
       'some figures cover only part of it',
     )
+    expect(screen.getByText(/· counts incomplete$/)).toBeTruthy()
   })
 
   it('looks like a missing page to everyone else', () => {

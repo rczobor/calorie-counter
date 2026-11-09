@@ -15,12 +15,13 @@ export function createUsageData(today: string): Engagement {
     Date.parse(`${shiftDay(today, -daysAgo)}T09:00:00Z`)
   const account = (
     id: string,
-    fields: Omit<Account, 'userId' | 'untaggedMeals'> & {
+    fields: Omit<Account, 'userId' | 'untaggedMeals' | 'partial'> & {
       untaggedMeals?: number
     },
   ): Account => ({
     userId: id as Id<'users'>,
     untaggedMeals: 0,
+    partial: false,
     ...fields,
   })
   const accounts = [

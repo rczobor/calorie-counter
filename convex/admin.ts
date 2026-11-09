@@ -75,6 +75,8 @@ const accountValidator = v.object({
   previousDaysLogged: v.number(),
   ...sourceCounts,
   status: statusValidator,
+  /** The meal budget cut this account's reads short, so its counts are low. */
+  partial: v.boolean(),
 })
 
 const engagementValidator = v.object({
@@ -140,7 +142,8 @@ export function engagementStatus({
   const isNew = joinedOn > shiftDay(today, -NEW_ACCOUNT_DAYS)
   if (lastLoggedOn === null) return isNew ? 'new' : 'neverStarted'
   if (isNew) return 'new'
-  if (daysLogged === 0) return 'lapsed'
+  // From the exact last day: daysLogged can be cut short by the read budget.
+  if (lastLoggedOn < shiftDay(today, 1 - WINDOW_DAYS)) return 'lapsed'
   if (lastLoggedOn <= shiftDay(today, -SLIPPING_AFTER_DAYS)) return 'slipping'
   if (
     previousDaysLogged >= MIN_PREVIOUS_DAYS_FOR_DROP &&
@@ -173,7 +176,7 @@ async function readAccount(
   previousStart: string,
   mealLimit: number,
 ) {
-  const [memberships, recentMeals, latestMeal] = await Promise.all([
+  const [memberships, readMeals, latestMeal] = await Promise.all([
     listMemberships(ctx, user._id, MAX_MEMBERSHIPS),
     ctx.db
       .query('meals')
@@ -184,7 +187,8 @@ async function readAccount(
           .lte('eatenOn', today),
       )
       .order('desc')
-      .take(mealLimit),
+      // One extra row tells a cut-short read from an exact fit.
+      .take(mealLimit + 1),
     ctx.db
       .query('meals')
       .withIndex('by_ownerUserId_and_eatenOn', (q) =>
@@ -193,6 +197,8 @@ async function readAccount(
       .order('desc')
       .first(),
   ])
+  const partial = readMeals.length > mealLimit
+  const recentMeals = readMeals.slice(0, mealLimit)
   // Archived meals still count: logging one was use of the app.
   const meals = recentMeals.filter((meal) => meal.eatenOn >= windowStart)
   const daysLogged = new Set(meals.map((meal) => meal.eatenOn)).size
@@ -225,9 +231,9 @@ async function readAccount(
         daysLogged,
         previousDaysLogged,
       }),
+      partial,
     },
     meals,
-    partial: recentMeals.length === mealLimit,
     mealsRead: recentMeals.length,
   }
 }
@@ -380,7 +386,7 @@ export const engagement = query({
       accounts,
       partial:
         users.length === MAX_ACCOUNTS ||
-        rows.some((row) => row.partial) ||
+        rows.some((row) => row.account.partial) ||
         items.length === MAX_ITEMS ||
         cookSessions.length === MAX_COOK_SESSIONS ||
         goals.partial,

@@ -134,6 +134,7 @@ describe('usage dashboard', () => {
       agentMeals: 1,
       untaggedMeals: 1,
       status: 'new',
+      partial: false,
     })
     expect(byId.get(await testUserId(t, drifter))).toMatchObject({
       lastLoggedOn: day(-35),
@@ -163,7 +164,7 @@ describe('usage dashboard', () => {
     })
   })
 
-  it('says its figures are partial when an account has more meals than it reads', async () => {
+  it('reads the newest meals first and says when an account was cut short', async () => {
     const t = createConvexTest()
     const admin = asTestUser(t)
     await admin.query(api.admin.isSuperAdmin, {})
@@ -171,24 +172,31 @@ describe('usage dashboard', () => {
     const householdId = testHouseholdId(t)
     const personId = await insertPerson(t)
     process.env.SUPER_ADMIN_USER_IDS = userId
+    // 280 meals in the last 28 days and 336 before: more than the 500 read.
+    // Reading oldest first would miss the last ten days.
     await t.run(async (ctx) => {
-      for (let index = 0; index < 500; index += 1)
-        await ctx.db.insert('meals', {
-          ownerUserId: userId,
-          householdId,
-          personId,
-          eatenOn: day(-(index % 50)),
-          archived: false,
-          totalCalories: 100,
-          itemCount: 1,
-          createdAt: Date.now(),
-          source: 'web',
-        })
+      for (let offset = 0; offset < 56; offset += 1)
+        for (let index = 0; index < (offset < 28 ? 10 : 12); index += 1)
+          await ctx.db.insert('meals', {
+            ownerUserId: userId,
+            householdId,
+            personId,
+            eatenOn: day(-offset),
+            archived: false,
+            totalCalories: 100,
+            itemCount: 1,
+            createdAt: Date.now(),
+            source: 'web',
+          })
     })
     const result = await admin.query(api.admin.engagement, { today })
     expect(result.partial).toBe(true)
-    // The newest meals are the ones read.
-    expect(result.accounts[0]).toMatchObject({ lastLoggedOn: today })
+    expect(result.accounts[0]).toMatchObject({
+      daysLogged: 28,
+      meals: 280,
+      status: 'new',
+      partial: true,
+    })
   })
 
   it('rejects a malformed date', async () => {
@@ -219,6 +227,8 @@ describe('engagement status', () => {
       { lastLoggedOn: null, daysLogged: 0, previousDaysLogged: 0 },
     ],
     ['lapsed', { lastLoggedOn: '2026-10-01', daysLogged: 0 }],
+    // Logged yesterday, but the read budget ran out before this account.
+    ['active', { daysLogged: 0, previousDaysLogged: 0 }],
     ['slipping', { lastLoggedOn: '2026-11-02', daysLogged: 12 }],
     ['active', { lastLoggedOn: '2026-11-03' }],
     ['slipping', { daysLogged: 8, previousDaysLogged: 16 }],
