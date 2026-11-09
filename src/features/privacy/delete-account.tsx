@@ -103,10 +103,10 @@ export function DeleteAccount({
           <>
             <span className="block font-medium text-foreground">
               {t.description.lead}
-            </span>
-            <span className="mt-2 block">{t.description.solo}</span>
-            <span className="mt-2 block">{t.description.shared}</span>
-            <span className="mt-2 block">{t.description.identity}</span>
+            </span>{' '}
+            <span className="mt-2 block">{t.description.solo}</span>{' '}
+            <span className="mt-2 block">{t.description.shared}</span>{' '}
+            <span className="mt-2 block">{t.description.identity}</span>{' '}
             {/* The warning ends the dialog, on its own line, in foreground. */}
             <span className="mt-2 block font-medium text-foreground">
               {t.description.warning}
