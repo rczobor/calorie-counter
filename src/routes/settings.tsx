@@ -32,6 +32,7 @@ function SettingsPage() {
     select: (state) => state.location.pathname,
   })
   const isSuperAdmin = useQuery(api.admin.isSuperAdmin, {})
+  const widgetCount = useQuery(api.widgets.count, {})
   if (pathname.replace(/\/$/, '') !== '/settings') return <Outlet />
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-6 sm:px-6 md:pt-8">
@@ -61,7 +62,26 @@ function SettingsPage() {
           <SettingsLink to="/settings/integrations" title={t.assistants} />
           <SettingsLink to="/household" title={t.household} />
           <LanguageSetting />
+        </div>
+      </section>
+      {/* Setting the app up on this phone: installing it, then its widget. */}
+      <section aria-labelledby="settings-device" className="mt-8">
+        <h2 id="settings-device" className="group-label">
+          {t.device}
+        </h2>
+        <div className="inset-group inset-rows">
           <InstallEntry variant="settings" />
+          <SettingsLink
+            to="/settings/widget"
+            title={t.widget}
+            value={
+              widgetCount === undefined
+                ? undefined
+                : widgetCount
+                  ? t.widgetCount(widgetCount)
+                  : t.noWidgets
+            }
+          />
         </div>
       </section>
       <section aria-labelledby="settings-data" className="mt-8">
@@ -101,11 +121,13 @@ function SettingsPage() {
 function SettingsLink({
   to,
   title,
+  value,
 }: {
   to:
     | '/people'
     | '/weight'
     | '/settings/integrations'
+    | '/settings/widget'
     | '/household'
     | '/catalog'
     | '/cooking'
@@ -113,14 +135,21 @@ function SettingsLink({
     | '/privacy'
     | '/settings/usage'
   title: string
+  /** The row's current state, in the foreground like Language's. */
+  value?: string
 }) {
   return (
     <Link to={to} className={LIST_ROW_CLASS}>
       <span className="min-w-0 flex-1">{title}</span>
-      <ChevronRight
-        className="size-4 shrink-0 text-muted-foreground"
-        aria-hidden="true"
-      />
+      {/* The value and chevron share Language's 8px gap, so values form one
+          right column. */}
+      <span className="flex items-center gap-2 text-foreground">
+        {value}
+        <ChevronRight
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </span>
     </Link>
   )
 }

@@ -40,6 +40,7 @@ import type * as seed from "../seed.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as validators from "../validators.js";
 import type * as weight from "../weight.js";
+import type * as widgets from "../widgets.js";
 
 import type {
   ApiFromModules,
@@ -80,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   userPreferences: typeof userPreferences;
   validators: typeof validators;
   weight: typeof weight;
+  widgets: typeof widgets;
 }>;
 
 /**

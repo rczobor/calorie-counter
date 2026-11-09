@@ -12,6 +12,7 @@ import {
   listMemberships,
   requireAuthenticatedUser,
 } from './lib/auth'
+import { MAX_WIDGETS } from './widgets'
 
 // Deleting an account is the one place that hard-deletes history: the person
 // withdrew consent, so their data has to go, not be archived. A household
@@ -220,6 +221,11 @@ export const deleteMyAccount = mutation({
       .withIndex('by_userId_and_version', (q) => q.eq('userId', userId))
       .take(MAX_CONSENTS)
     for (const row of consents) await ctx.db.delete(row._id)
+    const widgets = await ctx.db
+      .query('widgetTokens')
+      .withIndex('by_userId_and_householdId', (q) => q.eq('userId', userId))
+      .take(MAX_WIDGETS)
+    for (const row of widgets) await ctx.db.delete(row._id)
     await ctx.db.delete(userId)
     await ctx.scheduler.runAfter(0, internal.account.deleteOperations, {
       userId,

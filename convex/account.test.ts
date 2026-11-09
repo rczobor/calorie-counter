@@ -111,6 +111,8 @@ describe('account deletion', () => {
       hash: 'hash',
     })
 
+    await user.mutation(api.widgets.create, { personId })
+
     await user.mutation(api.account.deleteMyAccount, {})
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
