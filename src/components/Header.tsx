@@ -5,6 +5,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import { Button } from '@/components/ui/button'
 import { requestLogMeal } from '@/features/meals/log-meal-request'
+import { useConsentPending } from '@/features/privacy/use-consent-pending'
 import { useMessages } from '@/i18n/messages'
 import { isClerkConfigured } from '@/integrations/clerk/config'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,7 @@ function SignedInOnly({ children }: { children: ReactNode }) {
 function HeaderNavigation() {
   const t = useMessages(messages)
   const pathname = usePathname()
+  const consentPending = useConsentPending()
   return (
     <SignedInOnly>
       <nav
@@ -52,7 +54,7 @@ function HeaderNavigation() {
         className="hidden items-center gap-1 md:flex"
       >
         {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, item.to)
+          const active = !consentPending && isActive(pathname, item.to)
           return (
             <Link
               key={item.to}
@@ -76,7 +78,10 @@ export function BottomNavigation() {
   const t = useMessages(messages)
   const pathname = usePathname()
   const navigate = useNavigate()
-  const activeIndex = NAV_ITEMS.findIndex((item) => isActive(pathname, item.to))
+  // The consent screen stands in for every page, so no tab is current.
+  const activeIndex = useConsentPending()
+    ? -1
+    : NAV_ITEMS.findIndex((item) => isActive(pathname, item.to))
   return (
     <SignedInOnly>
       {/* Floats over the content; the installed iPhone app tucks it just above

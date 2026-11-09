@@ -7,7 +7,7 @@ type Key = (text: string) => ReactNode
 export const messages = defineMessages({
   en: {
     checking: 'Checking your privacy settings',
-    title: 'Before you continue',
+    title: 'Your health data',
     body: 'Calorie Counter stores what you eat, your body weight and your goals. This is health data, so the app needs your explicit consent to process it.',
     points: {
       who: (key: Key) =>
@@ -21,7 +21,7 @@ export const messages = defineMessages({
       delete: (key: Key) =>
         rich('You can ', key('delete your account and data'), ' at any time.'),
     },
-    pointsTitle: 'Your data',
+    pointsTitle: 'How it’s handled',
     readNotice: 'Privacy notice',
     noticeUpdated: (date: string) => `Updated ${date}`,
     statement:
@@ -29,11 +29,11 @@ export const messages = defineMessages({
     agree: 'Agree and continue',
     saving: 'Saving…',
     signOut: 'Sign out',
-    decline: 'Don’t want to agree? You can delete your account instead.',
+    decline: 'Don’t want to agree?',
   },
   hu: {
     checking: 'Adatvédelmi beállítások ellenőrzése',
-    title: 'Mielőtt folytatod',
+    title: 'Egészségügyi adataid',
     body: 'A Calorie Counter tárolja, mit eszel, a testsúlyodat és a céljaidat. Ezek egészségügyi adatok, ezért a kezelésükhöz a kifejezett hozzájárulásodra van szükség.',
     points: {
       who: (key: Key) =>
@@ -47,7 +47,7 @@ export const messages = defineMessages({
       delete: (key: Key) =>
         rich(key('Bármikor törölheted'), ' a fiókodat és az adataidat.'),
     },
-    pointsTitle: 'Az adataid',
+    pointsTitle: 'Hogyan kezeljük',
     readNotice: 'Adatvédelmi tájékoztató',
     noticeUpdated: (date: string) => `Frissítve: ${date}`,
     statement:
@@ -55,6 +55,6 @@ export const messages = defineMessages({
     agree: 'Elfogadom és folytatom',
     saving: 'Mentés…',
     signOut: 'Kijelentkezés',
-    decline: 'Nem szeretnéd elfogadni? Helyette törölheted a fiókodat.',
+    decline: 'Nem szeretnéd elfogadni?',
   },
 })
