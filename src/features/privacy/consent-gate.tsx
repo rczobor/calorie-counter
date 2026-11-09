@@ -117,8 +117,11 @@ function ConsentScreen() {
         </div>
         {/* On phones the decision is pinned just above the floating tab bar,
             a translucent toolbar the promises scroll under, so it stays in
-            reach in any language. Desktop keeps it inline. */}
-        <div className="sticky bottom-[calc(3.25rem+max(0.75rem,env(safe-area-inset-bottom)-0.5rem))] z-10 -mx-4 mt-6 bg-background/85 px-4 pt-4 pb-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none [@media(prefers-reduced-transparency:reduce)]:bg-background">
+            reach in any language. It pins only with room to spare (40em
+            grows with the reader's text size): taller than the space above
+            the bar, it would hide what it asks consent to. Otherwise, and on
+            desktop, it stays inline. */}
+        <div className="bottom-[calc(3.25rem+max(0.75rem,env(safe-area-inset-bottom)-0.5rem))] z-10 -mx-4 mt-6 bg-background/85 px-4 pt-4 pb-3 backdrop-blur-xl max-md:[@media(min-height:40em)]:sticky sm:-mx-6 sm:px-6 md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none [@media(prefers-reduced-transparency:reduce)]:bg-background">
           {/* Balanced wrapping only on desktop; phones keep the body's measure. */}
           <p className="type-body md:text-pretty">{t.statement}</p>
           {error ? (

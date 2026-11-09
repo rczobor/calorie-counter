@@ -8,6 +8,8 @@ function useConsentQueryPending() {
   const { isAuthenticated } = useConvexAuth()
   // ConsentGate holds the same subscription, so this costs no extra request.
   const consent = useQuery(api.privacy.consent, isAuthenticated ? {} : 'skip')
+  // Only an explicit "no" counts: while the check loads, the current tab
+  // stays selected, so it never flashes off for people who already agreed.
   return consent?.accepted === false
 }
 
