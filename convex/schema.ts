@@ -281,7 +281,9 @@ export default defineSchema({
       'personId',
       'eatenOn',
       'archived',
-    ]),
+    ])
+    // Account activity for the usage dashboard (admin.ts).
+    .index('by_ownerUserId_and_eatenOn', ['ownerUserId', 'eatenOn']),
   mealItems: defineTable(mealItemRecordValidator)
     .searchIndex('search_name', {
       searchField: 'nameSnapshot',

@@ -254,6 +254,9 @@ export const cookedFoodIngredientRecordValidator = v.union(
   v.object(cookedFoodIngredientCustomFields),
 )
 
+// Where a meal was first logged: the app itself or an AI assistant over MCP.
+export const mealSourceValidator = v.union(v.literal('web'), v.literal('agent'))
+
 export const mealsFields = {
   ...ownerFields,
   personId: v.id('people'),
@@ -265,6 +268,8 @@ export const mealsFields = {
   itemCount: v.number(),
   editRevision: v.optional(v.number()),
   createdAt: v.number(),
+  // Absent on meals saved before the source was recorded.
+  source: v.optional(mealSourceValidator),
 }
 
 const mealItemCommonFields = {

@@ -16,6 +16,7 @@ import {
   expectedNutritionSnapshotValidator,
   energyProfileValidator,
   goalPlanValidator,
+  mealSourceValidator,
 } from './validators'
 import {
   assertOwnedOrThrow,
@@ -3479,6 +3480,7 @@ export async function createMealForOwner(
   ctx: MutationCtx,
   owner: AuthenticatedOwner,
   args: Infer<typeof createMealInput>,
+  source: Infer<typeof mealSourceValidator>,
 ) {
   const person = assertOwnedOrThrow(
     await ctx.db.get(args.personId),
@@ -3503,6 +3505,7 @@ export async function createMealForOwner(
     itemCount: itemSnapshots.length,
     editRevision: 0,
     createdAt: now,
+    source,
   })
   await writeMealItemSnapshots(ctx.db, owner, mealId, itemSnapshots)
   await adjustDailySummary(
@@ -3526,6 +3529,7 @@ export const createMeal = mutation({
       ctx,
       await requireAuthenticatedHousehold(ctx, args.householdId),
       args,
+      'web',
     ),
 })
 

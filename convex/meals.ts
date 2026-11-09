@@ -16,6 +16,7 @@ import {
 import {
   nutritionUnitValidator,
   mealEvidenceFields,
+  mealSourceValidator,
   nutritionProvenanceValidator,
 } from './validators'
 
@@ -31,6 +32,7 @@ const mealDto = v.object({
   itemCount: v.number(),
   editRevision: v.number(),
   createdAt: v.number(),
+  source: v.optional(mealSourceValidator),
 })
 
 function mealWithoutOwner(meal: Doc<'meals'>) {

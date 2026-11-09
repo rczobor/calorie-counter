@@ -31,6 +31,7 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly MCP_CONSENT_URL: string | undefined;
+  readonly SUPER_ADMIN_USER_IDS: string | undefined;
 };
 
 /**
