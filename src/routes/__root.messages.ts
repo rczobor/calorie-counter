@@ -18,6 +18,7 @@ export const messages = defineMessages({
     sessionFailedDescription:
       'Sign out and sign in again. If this persists, create a Clerk JWT template named `convex` (audience `convex`), verify CLERK_JWT_ISSUER_DOMAIN, then restart `pnpm exec convex dev`.',
     preparingSession: 'Preparing your session',
+    privacyNotice: 'Privacy notice',
   },
   hu: {
     maintenanceTitle: 'Tervezett karbantartás',
@@ -37,5 +38,6 @@ export const messages = defineMessages({
     sessionFailedDescription:
       'Jelentkezz ki, majd be újra. Ha a hiba továbbra is fennáll, hozz létre egy `convex` nevű Clerk JWT-sablont (audience: `convex`), ellenőrizd a CLERK_JWT_ISSUER_DOMAIN értékét, majd indítsd újra a `pnpm exec convex dev` parancsot.',
     preparingSession: 'Munkamenet előkészítése',
+    privacyNotice: 'Adatvédelmi tájékoztató',
   },
 })

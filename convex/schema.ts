@@ -41,6 +41,13 @@ export default defineSchema({
     userId: v.id('users'),
     locale: localeValidator,
   }).index('by_userId', ['userId']),
+  // Explicit consent to process health data, one row per accepted notice
+  // version (lib/privacy.ts).
+  privacyConsents: defineTable({
+    userId: v.id('users'),
+    version: v.string(),
+    acceptedAt: v.number(),
+  }).index('by_userId_and_version', ['userId', 'version']),
   mcpPreferences: defineTable({
     userId: v.id('users'),
     ...loggingPreferences.fields,
