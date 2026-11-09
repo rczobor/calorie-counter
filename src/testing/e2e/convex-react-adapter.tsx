@@ -84,6 +84,7 @@ export type MockState = {
   weights: Array<Doc<'weightEntries'>>
   locale: FunctionReturnType<typeof api.userPreferences.getLocale>
   privacyAccepted: boolean
+  hasSavedFood: boolean
 }
 
 // The account's language outlives a reload, as it does on the server.
@@ -96,6 +97,31 @@ function readPrivacyAccepted() {
     typeof localStorage === 'undefined' ||
     localStorage.getItem('e2e-privacy-consent') !== 'pending'
   )
+}
+
+// `localStorage['e2e-new-account'] = 'true'` starts with people and goals but
+// nothing logged, cooked or saved yet, for the empty states.
+function asNewAccount(initial: MockState): MockState {
+  if (
+    typeof localStorage === 'undefined' ||
+    localStorage.getItem('e2e-new-account') !== 'true'
+  )
+    return initial
+  return {
+    ...initial,
+    dashboard: {
+      ...initial.dashboard,
+      ingredients: [],
+      cookSessions: [],
+      cookedFoods: [],
+      meals: [],
+      mealItems: [],
+    },
+    mealDetails: {},
+    templates: [],
+    hasSavedFood: false,
+    connected: false,
+  }
 }
 
 function readAccountLocale(): MockState['locale'] {
@@ -262,16 +288,18 @@ function createInitialState(): MockState {
     weights: [],
     locale: readAccountLocale(),
     privacyAccepted: readPrivacyAccepted(),
+    hasSavedFood: true,
   }
 }
 
-let state: MockState =
+let state: MockState = asNewAccount(
   import.meta.env.VITE_E2E_SCENARIO === 'design'
     ? {
         ...createInitialState(),
         ...createDesignData(Date.now(), ownerUserId, householdId),
       }
-    : createInitialState()
+    : createInitialState(),
+)
 const listeners = new Set<() => void>()
 
 // `?e2eHold=session|household|data` freezes one loading layer so design
@@ -546,6 +574,7 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
   } else if (functionName === 'savedFoods:list') {
     const input = args as { archived: boolean; search?: string }
     results =
+      snapshot.hasSavedFood &&
       input.archived === snapshot.savedFoodArchived &&
       (!input.search || 'vitamins'.includes(input.search.toLowerCase()))
         ? [
