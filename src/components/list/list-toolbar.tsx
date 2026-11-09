@@ -53,6 +53,8 @@ export function ListToolbar<Sort extends string = string>({
   const search = empty ? undefined : searchProp
   const sort = empty ? undefined : sortProp
   const archived = empty ? undefined : archivedProp
+  // Nothing left to show: no empty row, so the page keeps its rhythm.
+  if (!search && !create && !archived) return null
   const crowded = Boolean(search && sort && archived && !create)
   const secondRow = Boolean(create) || crowded || !search
   const sortControl = sort ? (
