@@ -100,7 +100,7 @@ export function createUsageData(today: string): Engagement {
   ]
   return {
     accounts,
-    accountsTruncated: false,
+    partial: false,
     totals: {
       meals: 185,
       webMeals: 113,
@@ -113,7 +113,6 @@ export function createUsageData(today: string): Engagement {
         customByWeight: 77,
         fixedCalories: 58,
       },
-      itemsTruncated: false,
       cookSessions: 6,
       goalDays: { under: 22, near: 31, over: 19 },
     },

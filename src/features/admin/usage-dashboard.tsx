@@ -63,6 +63,11 @@ function UsageReport({ data }: { data: Engagement }) {
   const t = useMessages(messages)
   return (
     <div className="mt-6 space-y-8">
+      {data.partial ? (
+        <p role="note" className="px-4 type-footnote text-muted-foreground">
+          {t.partial}
+        </p>
+      ) : null}
       {STATUSES.map((status) => {
         const accounts = data.accounts.filter((row) => row.status === status)
         return accounts.length ? (
@@ -86,11 +91,6 @@ function UsageReport({ data }: { data: Engagement }) {
           </section>
         ) : null
       })}
-      {data.accountsTruncated ? (
-        <p className="px-4 type-footnote text-muted-foreground">
-          {t.accountsTruncated(data.accounts.length)}
-        </p>
-      ) : null}
       <Totals totals={data.totals} />
     </div>
   )
@@ -153,11 +153,7 @@ function Totals({ totals }: { totals: Totals }) {
         <Figure label={t.edited} value={ofMeals(totals.editedMeals)} />
         <Figure label={t.batches} value={totals.cookSessions} />
       </TotalsGroup>
-      <TotalsGroup
-        id="usage-foods"
-        title={t.foods}
-        note={totals.itemsTruncated ? t.foodsTruncated(items) : undefined}
-      >
+      <TotalsGroup id="usage-foods" title={t.foods}>
         <Figure
           label={t.fromLibrary}
           value={ofItems(totals.items.ingredient)}

@@ -7,8 +7,8 @@ export const messages = defineMessages({
       'The last 28 days. Shows whether people log, never what they eat.',
     loading: 'Loading usage…',
     unavailable: 'This page isn’t available.',
-    accountsTruncated: (count: number) =>
-      `Showing the first ${count} accounts.`,
+    partial:
+      'There was too much data to read at once, so some figures cover only part of it.',
     status: {
       slipping: 'Slipping',
       active: 'Active',
@@ -43,7 +43,6 @@ export const messages = defineMessages({
     cookedFoods: 'Cooked foods',
     byWeight: 'Typed in by weight',
     caloriesOnly: 'Calories only',
-    foodsTruncated: (count: number) => `Counts the latest ${count} foods.`,
     batches: 'Batches cooked',
     finishedDays: 'Finished days',
     finishedDaysNote: 'Days before today with meals logged, for every person.',
@@ -57,7 +56,8 @@ export const messages = defineMessages({
       'Az elmúlt 28 nap. Azt mutatja, hogy rögzítenek-e, sosem azt, hogy mit esznek.',
     loading: 'Használat betöltése…',
     unavailable: 'Ez az oldal nem érhető el.',
-    accountsTruncated: (count: number) => `Az első ${count} fiók látható.`,
+    partial:
+      'Túl sok adat volt ahhoz, hogy egyszerre beolvassuk, ezért egyes számok csak az adatok egy részén alapulnak.',
     status: {
       slipping: 'Lemorzsolódhat',
       active: 'Aktív',
@@ -92,7 +92,6 @@ export const messages = defineMessages({
     cookedFoods: 'Főtt ételekből',
     byWeight: 'Tömeg szerint begépelve',
     caloriesOnly: 'Csak kalória',
-    foodsTruncated: (count: number) => `A legutóbbi ${count} étel alapján.`,
     batches: 'Főzések',
     finishedDays: 'Lezárt napok',
     finishedDaysNote:

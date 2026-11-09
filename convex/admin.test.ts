@@ -69,6 +69,13 @@ describe('usage dashboard', () => {
     })
     await insertMealItem(t, agentMeal)
     await insertMeal(t, personId, { eatenOn: day(-2), editRevision: 1 })
+    // Archiving bumps the revision too, but is not an edit.
+    await insertMeal(t, personId, {
+      eatenOn: day(-3),
+      source: 'web',
+      archived: true,
+      editRevision: 1,
+    })
     await insertMeal(t, personId, { eatenOn: day(-30), source: 'web' })
     await insertMeal(t, personId, { eatenOn: day(-40), source: 'web' })
     // Planned ahead: neither activity nor the last logged day.
@@ -120,10 +127,10 @@ describe('usage dashboard', () => {
       joinedAt: expect.any(Number),
       households: 1,
       lastLoggedOn: day(-1),
-      daysLogged: 2,
+      daysLogged: 3,
       previousDaysLogged: 2,
-      meals: 3,
-      webMeals: 1,
+      meals: 4,
+      webMeals: 2,
       agentMeals: 1,
       untaggedMeals: 1,
       status: 'new',
@@ -137,10 +144,10 @@ describe('usage dashboard', () => {
     expect(
       byId.get(await testUserId(t, 'https://example.test|quiet')),
     ).toMatchObject({ lastLoggedOn: null, daysLogged: 0, meals: 0 })
-    expect(result.accountsTruncated).toBe(false)
+    expect(result.partial).toBe(false)
     expect(result.totals).toEqual({
-      meals: 3,
-      webMeals: 1,
+      meals: 4,
+      webMeals: 2,
       agentMeals: 1,
       untaggedMeals: 1,
       editedMeals: 1,
@@ -150,11 +157,38 @@ describe('usage dashboard', () => {
         customByWeight: 1,
         fixedCalories: 1,
       },
-      itemsTruncated: false,
       cookSessions: 1,
       // Day -1: 2000 of a 2600 goal. Days -3 to -5 predate it: 2000.
       goalDays: { under: 2, near: 1, over: 1 },
     })
+  })
+
+  it('says its figures are partial when an account has more meals than it reads', async () => {
+    const t = createConvexTest()
+    const admin = asTestUser(t)
+    await admin.query(api.admin.isSuperAdmin, {})
+    const userId = await testUserId(t)
+    const householdId = testHouseholdId(t)
+    const personId = await insertPerson(t)
+    process.env.SUPER_ADMIN_USER_IDS = userId
+    await t.run(async (ctx) => {
+      for (let index = 0; index < 500; index += 1)
+        await ctx.db.insert('meals', {
+          ownerUserId: userId,
+          householdId,
+          personId,
+          eatenOn: day(-(index % 50)),
+          archived: false,
+          totalCalories: 100,
+          itemCount: 1,
+          createdAt: Date.now(),
+          source: 'web',
+        })
+    })
+    const result = await admin.query(api.admin.engagement, { today })
+    expect(result.partial).toBe(true)
+    // The newest meals are the ones read.
+    expect(result.accounts[0]).toMatchObject({ lastLoggedOn: today })
   })
 
   it('rejects a malformed date', async () => {

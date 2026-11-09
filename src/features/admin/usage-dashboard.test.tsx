@@ -74,6 +74,18 @@ describe('usage dashboard', () => {
     expect(figure(days, 'Within 10% of the goal')).toBe('43%')
   })
 
+  it('says when its figures cover only part of the data', () => {
+    results.set('admin:isSuperAdmin', true)
+    results.set('admin:engagement', {
+      ...createUsageData(today),
+      partial: true,
+    })
+    render(<UsageDashboard />)
+    expect(screen.getByRole('note').textContent).toContain(
+      'some figures cover only part of it',
+    )
+  })
+
   it('looks like a missing page to everyone else', () => {
     results.set('admin:isSuperAdmin', false)
     results.set('admin:engagement', createUsageData(today))

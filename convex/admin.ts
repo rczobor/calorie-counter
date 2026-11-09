@@ -20,13 +20,23 @@ const MIN_PREVIOUS_DAYS_FOR_DROP = 8
 /** A day within this share of the goal counts as near it. */
 const NEAR_GOAL_SHARE = 0.1
 
-const MAX_ACCOUNTS = 500
-const MAX_MEMBERSHIPS = 20
-const MAX_MEALS_PER_ACCOUNT = 2_000
-const MAX_ITEMS = 4_000
-const MAX_COOK_SESSIONS = 1_000
-const MAX_DAY_SUMMARIES = 4_000
-const MAX_GOAL_ROWS = 100
+// One query reads everything, so the caps add up to a budget well inside a
+// Convex transaction (32,000 documents, 4,096 index reads, 16 MiB):
+//   200 accounts × (10 memberships + 1 latest meal)     2,200 docs
+//   meals shared by every account                      8,000
+//   foods 2,000 + batches 500 + day summaries 2,000    4,500
+//   200 people × (1 person + 10 goals)                 2,200
+// About 17,000 documents and 1,000 index reads at most. Reads take the newest
+// rows first; past a cap the page says its figures are partial.
+const MAX_ACCOUNTS = 200
+const MAX_MEMBERSHIPS = 10
+const MEAL_BUDGET = 8_000
+const MAX_MEALS_PER_ACCOUNT = 500
+const MAX_ITEMS = 2_000
+const MAX_COOK_SESSIONS = 500
+const MAX_DAY_SUMMARIES = 2_000
+const MAX_GOAL_PEOPLE = 200
+const MAX_GOAL_ROWS = 10
 
 const statusValidator = v.union(
   v.literal('active'),
@@ -69,7 +79,8 @@ const accountValidator = v.object({
 
 const engagementValidator = v.object({
   accounts: v.array(accountValidator),
-  accountsTruncated: v.boolean(),
+  /** Some reads hit their cap, so some figures cover only part of the data. */
+  partial: v.boolean(),
   totals: v.object({
     ...sourceCounts,
     editedMeals: v.number(),
@@ -79,7 +90,6 @@ const engagementValidator = v.object({
       customByWeight: v.number(),
       fixedCalories: v.number(),
     }),
-    itemsTruncated: v.boolean(),
     cookSessions: v.number(),
     /** Finished person-days by how they ended against the goal. */
     goalDays: v.object({
@@ -161,6 +171,7 @@ async function readAccount(
   today: string,
   windowStart: string,
   previousStart: string,
+  mealLimit: number,
 ) {
   const [memberships, recentMeals, latestMeal] = await Promise.all([
     listMemberships(ctx, user._id, MAX_MEMBERSHIPS),
@@ -172,7 +183,8 @@ async function readAccount(
           .gte('eatenOn', previousStart)
           .lte('eatenOn', today),
       )
-      .take(MAX_MEALS_PER_ACCOUNT),
+      .order('desc')
+      .take(mealLimit),
     ctx.db
       .query('meals')
       .withIndex('by_ownerUserId_and_eatenOn', (q) =>
@@ -215,6 +227,8 @@ async function readAccount(
       }),
     },
     meals,
+    partial: recentMeals.length === mealLimit,
+    mealsRead: recentMeals.length,
   }
 }
 
@@ -228,6 +242,7 @@ async function countGoalDays(
     await ctx.db
       .query('dailySummaries')
       .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+      .order('desc')
       .take(MAX_DAY_SUMMARIES)
   ).filter(
     (row) =>
@@ -239,8 +254,13 @@ async function countGoalDays(
     Id<'people'>,
     { fallback: number; history: Array<Doc<'personGoalHistory'>> }
   >()
+  let partial = summaries.length === MAX_DAY_SUMMARIES
   for (const row of summaries) {
     if (goalsByPerson.has(row.personId)) continue
+    if (goalsByPerson.size === MAX_GOAL_PEOPLE) {
+      partial = true
+      continue
+    }
     const [person, history] = await Promise.all([
       ctx.db.get(row.personId),
       ctx.db
@@ -273,7 +293,7 @@ async function countGoalDays(
     else if (difference > NEAR_GOAL_SHARE) goalDays.over += 1
     else goalDays.near += 1
   }
-  return goalDays
+  return { goalDays, partial }
 }
 
 /** Whether the signed-in account may open the usage dashboard. */
@@ -300,11 +320,21 @@ export const engagement = query({
     const since = dayStart(windowStart)
 
     const users = await ctx.db.query('users').take(MAX_ACCOUNTS)
-    const rows = await Promise.all(
-      users.map((user) =>
-        readAccount(ctx, user, today, windowStart, previousStart),
-      ),
-    )
+    // One after another, so the accounts share the meal budget.
+    const rows = []
+    let mealBudget = MEAL_BUDGET
+    for (const user of users) {
+      const row = await readAccount(
+        ctx,
+        user,
+        today,
+        windowStart,
+        previousStart,
+        Math.min(MAX_MEALS_PER_ACCOUNT, mealBudget),
+      )
+      mealBudget -= row.mealsRead
+      rows.push(row)
+    }
     const accounts = rows
       .map((row) => row.account)
       .sort(
@@ -315,14 +345,19 @@ export const engagement = query({
       )
     const meals = rows.flatMap((row) => row.meals)
 
-    const [items, cookSessions, goalDays] = await Promise.all([
+    // Meals count by the day they were eaten, foods and batches by the UTC
+    // day they were entered, so a backdated meal's foods may fall in another
+    // window. Close enough for shares.
+    const [items, cookSessions, goals] = await Promise.all([
       ctx.db
         .query('mealItems')
         .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
         .take(MAX_ITEMS),
       ctx.db
         .query('cookSessions')
         .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
         .take(MAX_COOK_SESSIONS),
       // A day's summary can be created up to a day before that date starts
       // in UTC; the date filter inside drops the extra rows.
@@ -343,15 +378,21 @@ export const engagement = query({
 
     return {
       accounts,
-      accountsTruncated: users.length === MAX_ACCOUNTS,
+      partial:
+        users.length === MAX_ACCOUNTS ||
+        rows.some((row) => row.partial) ||
+        items.length === MAX_ITEMS ||
+        cookSessions.length === MAX_COOK_SESSIONS ||
+        goals.partial,
       totals: {
         ...countSources(meals),
-        editedMeals: meals.filter((meal) => (meal.editRevision ?? 0) > 0)
-          .length,
+        // Archiving also bumps editRevision, and is not an edit.
+        editedMeals: meals.filter(
+          (meal) => !meal.archived && (meal.editRevision ?? 0) > 0,
+        ).length,
         items: itemCounts,
-        itemsTruncated: items.length === MAX_ITEMS,
         cookSessions: cookSessions.length,
-        goalDays,
+        goalDays: goals.goalDays,
       },
     }
   },

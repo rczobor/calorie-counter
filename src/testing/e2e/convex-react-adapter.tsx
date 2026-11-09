@@ -692,8 +692,11 @@ export function useQuery<Query extends FunctionReference<'query'>>(
     return snapshot.preferences as FunctionReturnType<Query>
   if (functionName === 'userPreferences:getLocale')
     return snapshot.locale as FunctionReturnType<Query>
+  // `localStorage['e2e-super-admin'] = 'true'` signs in as the app's admin.
   if (functionName === 'admin:isSuperAdmin')
-    return true as FunctionReturnType<Query>
+    return (typeof localStorage !== 'undefined' &&
+      localStorage.getItem('e2e-super-admin') ===
+        'true') as FunctionReturnType<Query>
   if (functionName === 'admin:engagement')
     return createUsageData(
       (args as { today: string }).today,
