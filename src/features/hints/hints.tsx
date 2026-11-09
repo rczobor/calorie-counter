@@ -3,17 +3,12 @@ import {
   ChartColumn,
   Gauge,
   MessageCircle,
-  Scale,
   Smartphone,
   UserPlus,
+  Weight,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  useCallback,
-  useEffect,
-  useSyncExternalStore,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Hint } from '../../../convex/lib/hints'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -21,13 +16,12 @@ import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { InstallEntry } from '@/features/install/install-entry'
 import { useInstall } from '@/features/install/install-provider'
 import { useMessages } from '@/i18n/messages'
-import { cn } from '@/lib/utils'
 import { messages } from './hints.messages'
 
 export const HINT_DETAILS = {
   assistant: { icon: MessageCircle, to: '/settings/integrations' },
   history: { icon: ChartColumn, to: '/history' },
-  weighIn: { icon: Scale, to: '/weight' },
+  weighIn: { icon: Weight, to: '/weight' },
   maintenance: { icon: Gauge, to: '/weight' },
   invite: { icon: UserPlus, to: '/household' },
   widget: { icon: Smartphone, to: '/settings/widget' },
@@ -104,25 +98,16 @@ export function TodayHint({
   return visible ? <HintCard hint={slot} onFinish={finish} /> : null
 }
 
-/**
- * An empty list that only the AI assistant fills (cooking, reusable foods,
- * templates): what belongs here, then the way to set the assistant up.
- */
-export function AssistantEmpty({ children }: { children: ReactNode }) {
+/** The action for empty lists only the AI assistant fills (cooking, reusable foods, templates). */
+export function AssistantSetupLink() {
   const t = useMessages(messages)
   return (
-    <>
-      <p>{children}</p>
-      <Link
-        to="/settings/integrations"
-        className={cn(
-          buttonVariants({ variant: 'outline', size: 'sm' }),
-          'mt-3',
-        )}
-      >
-        {t.hints.assistant.action}
-      </Link>
-    </>
+    <Link
+      to="/settings/integrations"
+      className={buttonVariants({ variant: 'outline', size: 'sm' })}
+    >
+      {t.hints.assistant.action}
+    </Link>
   )
 }
 
@@ -131,7 +116,7 @@ function HintCard({ hint, onFinish }: { hint: Hint; onFinish: () => void }) {
   const { icon: Icon, to } = HINT_DETAILS[hint]
   const copy = t.hints[hint]
   return (
-    <section aria-label={copy.title} className="mt-6 inset-group p-4">
+    <section aria-label={copy.title} className="mt-6 inset-group px-4 py-3.5">
       <div className="flex items-start gap-3">
         <Icon
           aria-hidden="true"
@@ -139,8 +124,10 @@ function HintCard({ hint, onFinish }: { hint: Hint; onFinish: () => void }) {
         />
         <div className="min-w-0 flex-1">
           <h2 className="type-headline">{copy.title}</h2>
-          <p className="mt-1 type-subhead text-muted-foreground">{copy.body}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <p className="mt-0.5 type-subhead text-muted-foreground">
+            {copy.body}
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
             <Link
               to={to}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}

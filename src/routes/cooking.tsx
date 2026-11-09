@@ -65,7 +65,8 @@ import {
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
-import { AssistantEmpty } from '@/features/hints/hints'
+import { EmptyState } from '@/components/page/empty-state'
+import { AssistantSetupLink } from '@/features/hints/hints'
 import { messages } from './cooking.messages'
 
 const PAGE_SIZE = 20
@@ -549,7 +550,12 @@ function CookedFoodList({
             term || showArchived || sessionId ? (
               t.noCookedFoods
             ) : (
-              <AssistantEmpty>{t.nothingCooked}</AssistantEmpty>
+              <EmptyState
+                title={t.nothingCookedTitle}
+                action={<AssistantSetupLink />}
+              >
+                {t.nothingCooked}
+              </EmptyState>
             )
           }
         >
@@ -962,7 +968,12 @@ function SessionList({
           term || showArchived ? (
             t.noBatches
           ) : (
-            <AssistantEmpty>{t.nothingCooked}</AssistantEmpty>
+            <EmptyState
+              title={t.nothingCookedTitle}
+              action={<AssistantSetupLink />}
+            >
+              {t.nothingCooked}
+            </EmptyState>
           )
         }
       >

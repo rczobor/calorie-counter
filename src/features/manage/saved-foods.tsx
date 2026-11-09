@@ -14,7 +14,8 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
 import { useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
-import { AssistantEmpty } from '@/features/hints/hints'
+import { EmptyState } from '@/components/page/empty-state'
+import { AssistantSetupLink } from '@/features/hints/hints'
 import { messages } from './saved-foods.messages'
 
 const PAGE_SIZE = 20
@@ -97,7 +98,9 @@ export function SavedFoods({
           term || showArchived ? (
             t.empty
           ) : (
-            <AssistantEmpty>{t.empty}</AssistantEmpty>
+            <EmptyState title={t.noneTitle} action={<AssistantSetupLink />}>
+              {t.none}
+            </EmptyState>
           )
         }
       >

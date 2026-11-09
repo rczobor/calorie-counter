@@ -167,13 +167,15 @@ describe('History route', () => {
     })
   })
 
-  it('explains an empty range once instead of a chart of empty days', () => {
+  it('explains an empty range instead of an empty chart, keeping the days', () => {
     mockSummaries = []
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
     expect(screen.getByText('No meals in these days')).toBeTruthy()
+    expect(screen.queryByText('Daily average')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Daily calories' })).toBeNull()
-    expect(screen.queryAllByRole('listitem')).toEqual([])
+    // Each day still opens, so a missed meal can be logged.
+    expect(screen.getAllByRole('listitem')).toHaveLength(7)
   })
 
   it('uses daily summaries and shows reverse chronological calendar days', () => {

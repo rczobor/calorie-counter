@@ -29,7 +29,8 @@ export const messages = defineMessages({
     daysHeading: 'Days',
     noData: 'No data for the selected range.',
     emptyRangeTitle: 'No meals in these days',
-    emptyRange: 'Each day you log shows here against its goal.',
+    emptyRange:
+      'Each day you log shows here against its goal. Open a day below to log a meal you missed.',
     noMealsLogged: 'No meals logged',
     noChartData: 'No chart data for the selected range.',
     barLabel: (date: string, consumed: number, goal: number) =>

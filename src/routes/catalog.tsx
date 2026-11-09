@@ -51,6 +51,7 @@ import {
 } from '@/lib/nutrition'
 import { useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
+import { EmptyState } from '@/components/page/empty-state'
 import { messages } from './catalog.messages'
 
 const SEARCH_MAX_LENGTH = 100
@@ -892,9 +893,13 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 catalogData.search.ingredients.isLoading
               }
               empty={
-                ingredientSearch.trim() || showArchived
-                  ? t.noIngredients
-                  : t.ingredientsEmpty
+                ingredientSearch.trim() || showArchived ? (
+                  t.noIngredients
+                ) : (
+                  <EmptyState title={t.ingredientsEmptyTitle}>
+                    {t.ingredientsEmpty}
+                  </EmptyState>
+                )
               }
             >
               {sortedIngredients.map((ingredient) => {

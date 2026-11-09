@@ -19,7 +19,8 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
-import { AssistantEmpty } from '@/features/hints/hints'
+import { EmptyState } from '@/components/page/empty-state'
+import { AssistantSetupLink } from '@/features/hints/hints'
 import { messages } from './meal-templates.messages'
 
 type Template = FunctionReturnType<
@@ -402,7 +403,13 @@ export function MealTemplates() {
         label={t.section}
         loading={templates.status === 'LoadingFirstPage'}
         empty={
-          search.trim() ? t.empty : <AssistantEmpty>{t.none}</AssistantEmpty>
+          search.trim() ? (
+            t.empty
+          ) : (
+            <EmptyState title={t.noneTitle} action={<AssistantSetupLink />}>
+              {t.none}
+            </EmptyState>
+          )
         }
       >
         {templates.results.map((template) => (

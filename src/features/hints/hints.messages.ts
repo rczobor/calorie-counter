@@ -1,12 +1,13 @@
 import { defineMessages } from '@/i18n/messages'
 
+// One sentence each; the action is a verb that says where it goes.
 export const messages = defineMessages({
   en: {
     gotIt: 'Got it',
     hints: {
       assistant: {
         title: 'Log by chatting',
-        body: 'Tell ChatGPT or Claude what you ate, and it logs the meal here. Cooking too.',
+        body: 'Tell ChatGPT or Claude what you ate or cooked, and it logs it here.',
         action: 'Set up an assistant',
       },
       history: {
@@ -16,13 +17,13 @@ export const messages = defineMessages({
       },
       weighIn: {
         title: 'Find your real maintenance',
-        body: 'Weigh in a few mornings a week. After two weeks the app measures what you actually burn.',
-        action: 'Open Weight',
+        body: 'Weigh in a few mornings a week, and after two weeks the app measures what you burn.',
+        action: 'Record a weigh-in',
       },
       maintenance: {
-        title: 'Maintenance measured',
-        body: 'Your logs and weigh-ins now show what you actually burn. Check that your goal still fits.',
-        action: 'Open Weight',
+        title: 'Your maintenance is ready',
+        body: 'Your logs and weigh-ins now show what you burn, so check your goal still fits.',
+        action: 'See maintenance',
       },
       invite: {
         title: 'Let others log for themselves',
@@ -37,8 +38,8 @@ export const messages = defineMessages({
     },
     tips: {
       title: 'Tips',
-      intro:
-        'Features that are easy to miss. Each tip also shows once on Today, when it’s useful.',
+      group: 'Easy to miss',
+      footer: 'Each tip also shows once on Today, when it’s useful.',
     },
   },
   hu: {
@@ -46,23 +47,23 @@ export const messages = defineMessages({
     hints: {
       assistant: {
         title: 'Rögzítés csevegve',
-        body: 'Írd meg a ChatGPT-nek vagy a Claude-nak, mit ettél, és rögzíti itt az étkezést. A főzést is.',
+        body: 'Írd meg a ChatGPT-nek vagy a Claude-nak, mit ettél vagy főztél, és itt rögzíti.',
         action: 'Asszisztens beállítása',
       },
       history: {
         title: 'Az elmúlt hetek',
         body: 'Az Előzményekben minden nap a napi célja mellett látszik, a napi átlagoddal együtt.',
-        action: 'Előzmények',
+        action: 'Előzmények megnyitása',
       },
       weighIn: {
         title: 'A valódi fenntartó kalóriád',
-        body: 'Mérd meg magad hetente néhány reggel. Két hét után az app kiszámolja, mennyit égetsz valójában.',
-        action: 'Testsúly',
+        body: 'Mérd meg magad hetente néhány reggel, és két hét után az app kiszámolja, mennyit égetsz.',
+        action: 'Mérés rögzítése',
       },
       maintenance: {
         title: 'Megvan a fenntartó kalóriád',
-        body: 'A rögzítéseid és méréseid alapján már látszik, mennyit égetsz valójában. Nézd meg, illik-e még hozzá a napi célod.',
-        action: 'Testsúly',
+        body: 'A rögzítéseidből és méréseidből már látszik, mennyit égetsz, ezért nézd meg, illik-e még a napi célod.',
+        action: 'Fenntartó kalória megtekintése',
       },
       invite: {
         title: 'Rögzítsenek mások is',
@@ -77,8 +78,9 @@ export const messages = defineMessages({
     },
     tips: {
       title: 'Tippek',
-      intro:
-        'Könnyen észrevétlen funkciók. Mindegyik tipp egyszer a Ma oldalon is megjelenik, amikor hasznos.',
+      group: 'Könnyen elsiklik',
+      footer:
+        'Mindegyik tipp egyszer a Ma oldalon is megjelenik, amikor hasznos.',
     },
   },
 })
