@@ -55,7 +55,7 @@ async function loadDay() {
 
 // A drawn image can't follow light and dark like text can, so the ring uses
 // mid tones that read on both widget backgrounds, on translucent tracks.
-// Tracks share one recipe: their arc's hue at 40%.
+// Tracks at 40%: the over track in the arc's berry, the under track neutral grey.
 const RING = {
   track: new Color('#8e8e93', 0.4),
   left: new Color('#22a39e'),
@@ -109,7 +109,8 @@ function ringImage(consumed, goal, size, width, colors = RING) {
       ctx.fillEllipse(new Rect(center.x - width / 2, center.y - width / 2, width, width))
     }
   }
-  const left = goal > 0 ? (goal - consumed) / goal : -1
+  // From the rounded figure, so a fraction over never draws as over.
+  const left = goal > 0 ? Math.round(goal - consumed) / goal : -1
   if (left >= 0) {
     ring(colors.track)
     if (left > 0) arc(Math.min(1, left), colors.left)
@@ -127,7 +128,8 @@ const family = config.widgetFamily || 'small'
 
 try {
   const day = await loadDay()
-  const over = day.remainingCalories < 0
+  // Rounded first, so the figure, the word and the ring agree.
+  const over = Math.round(day.remainingCalories) < 0
   const amount = String(Math.abs(Math.round(day.remainingCalories)))
   const label = over ? TEXT.over : TEXT.left
   // Centres an item: Scriptable lists lead-align, so pad it from both sides.
@@ -156,6 +158,7 @@ try {
     }
     const unit = centred((row) => row.addText(over ? TEXT.overShort : TEXT.leftShort))
     unit.font = Font.mediumSystemFont(figure.length <= 4 ? 10 : 13)
+    unit.minimumScaleFactor = 0.75
     unit.lineLimit = 1
     widget.addSpacer()
   } else if (family === 'accessoryRectangular') {

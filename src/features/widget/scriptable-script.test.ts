@@ -176,7 +176,12 @@ describe('Scriptable widget script', () => {
   it('shows an overrun on the Lock Screen', async () => {
     const result = await runInScriptable(script, {
       status: 200,
-      body: { person: 'Alex', remainingCalories: -120, goalKcal: 2000 },
+      body: {
+        person: 'Alex',
+        consumedCalories: 2120,
+        remainingCalories: -120,
+        goalKcal: 2000,
+      },
       family: 'accessoryRectangular',
     })
     expect(result.texts).toEqual([
@@ -184,6 +189,20 @@ describe('Scriptable widget script', () => {
       '120 kcal over',
       'Daily goal: 2000 kcal',
     ])
+  })
+
+  it('names the person in the inline Lock Screen line, beside the date', async () => {
+    const result = await runInScriptable(script, {
+      status: 200,
+      body: {
+        person: 'Alex',
+        consumedCalories: 1196,
+        remainingCalories: 804,
+        goalKcal: 2000,
+      },
+      family: 'accessoryInline',
+    })
+    expect(result.texts).toEqual(['Alex 804 kcal left'])
   })
 
   it('signs the overage in the round Lock Screen gauge, where colour is gone', async () => {

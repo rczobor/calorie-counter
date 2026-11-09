@@ -16,8 +16,9 @@ function WidgetRing({
   goal: number
   size: number
 }) {
-  const left = goal > 0 ? (goal - consumed) / goal : -1
-  const width = size * 0.2
+  const left = goal > 0 ? Math.round(goal - consumed) / goal : -1
+  // The script's small ring: a 7pt stroke on 44pt.
+  const width = (size * 7) / 44
   const circle = {
     cx: size / 2,
     cy: size / 2,
@@ -26,7 +27,7 @@ function WidgetRing({
     strokeWidth: width,
     pathLength: 100,
   }
-  const arc = left >= 0 ? left : Math.min(1, Math.max(0.05, -left))
+  const arc = left >= 0 ? left : Math.min(1, Math.max(0.08, -left))
   return (
     <svg
       aria-hidden="true"
@@ -82,7 +83,7 @@ export function WidgetPreview({
   /** A smaller tile without the goal line, for showing two side by side. */
   compact?: boolean
 }) {
-  const over = remaining !== undefined && remaining < 0
+  const over = remaining !== undefined && Math.round(remaining) < 0
   return (
     <div
       role="img"

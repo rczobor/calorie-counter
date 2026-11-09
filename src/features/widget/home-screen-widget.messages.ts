@@ -46,7 +46,7 @@ export const messages = defineMessages({
     stepAdd:
       'Long-press an empty spot, tap [Edit], then [Add Widget]. Choose Scriptable, pick a size and tap [Add Widget].',
     stepAddLock:
-      'Or on the Lock Screen: long-press it, tap [Customize], then [Lock Screen], tap the widget area and choose Scriptable.',
+      'Or on the Lock Screen: long-press it, tap [Customize], then [Lock Screen], tap the widget area and choose Scriptable. Then tap the new widget and choose Calories as its [Script].',
     stepEdit:
       'Long-press the new widget, tap [Edit Widget] and choose Calories as its [Script].',
     unconfigured: 'No script chosen',
@@ -111,7 +111,7 @@ export const messages = defineMessages({
     stepAdd:
       'Tartsd lenyomva egy üres helyet, koppints a [Szerkesztés], majd a [Widget hozzáadása] lehetőségre. Válaszd a Scriptable-t, válassz méretet, és koppints a [Widget hozzáadása] gombra.',
     stepAddLock:
-      'Vagy a zárolási képernyőn: tartsd lenyomva, koppints a [Testreszabás], majd a [Zárolási képernyő] lehetőségre, koppints a widgetek helyére, és válaszd a Scriptable-t.',
+      'Vagy a zárolási képernyőn: tartsd lenyomva, koppints a [Testreszabás], majd a [Zárolási képernyő] lehetőségre, koppints a widgetek helyére, és válaszd a Scriptable-t. Aztán koppints az új widgetre, és a [Script] mezőben válaszd a Kalória szkriptet.',
     stepEdit:
       'Tartsd lenyomva az új widgetet, koppints a [Widget szerkesztése] lehetőségre, és a [Script] mezőben válaszd a Kalória szkriptet.',
     unconfigured: 'Nincs kiválasztott szkript',
