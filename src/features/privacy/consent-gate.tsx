@@ -1,7 +1,7 @@
 import { SignOutButton } from '@clerk/react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { ChartNoAxesColumn, ChevronRight, Trash2, Users } from 'lucide-react'
+import { ChartNoAxesColumn, ChevronRight, Settings, Users } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api } from '../../../convex/_generated/api'
 import { PRIVACY_NOTICE_VERSION } from '../../../convex/lib/privacy'
@@ -33,8 +33,13 @@ export function ConsentGate({ children }: { children: ReactNode }) {
 const POINTS = [
   { key: 'who', Icon: Users },
   { key: 'statistics', Icon: ChartNoAxesColumn },
-  { key: 'delete', Icon: Trash2 },
+  // A promise never borrows the destructive action's trash glyph.
+  { key: 'delete', Icon: Settings },
 ] as const
+
+function keyPhrase(text: string) {
+  return <strong className="font-semibold">{text}</strong>
+}
 
 function ConsentScreen() {
   const t = useMessages(messages)
@@ -55,8 +60,10 @@ function ConsentScreen() {
   }
 
   return (
-    <main className="flex-1 px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-6 sm:px-6 md:pt-10">
-      <section aria-labelledby="consent-title" className="mx-auto max-w-xl">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-6 sm:px-6 md:pt-10">
+      {/* Settings' page column, so the left edge meets the top bar; the text
+          keeps a reading measure inside it. */}
+      <section aria-labelledby="consent-title" className="max-w-xl">
         <h1 id="consent-title" className="type-large-title">
           {t.title}
         </h1>
@@ -69,7 +76,7 @@ function ConsentScreen() {
                 className="mt-0.5 size-5 shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <span className="type-subhead">{t.points[key]}</span>
+              <span className="type-subhead">{t.points[key](keyPhrase)}</span>
             </li>
           ))}
         </ul>

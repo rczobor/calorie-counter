@@ -99,7 +99,16 @@ export function DeleteAccount({
         onOpenChange={setOpen}
         onConfirm={() => void confirm()}
         title={t.title}
-        description={t.description}
+        description={
+          <>
+            <span className="block font-medium text-foreground">
+              {t.description.lead}
+            </span>
+            <span className="mt-2 block">{t.description.solo}</span>
+            <span className="mt-2 block">{t.description.shared}</span>
+            <span className="mt-2 block">{t.description.note}</span>
+          </>
+        }
         confirmLabel={pending ? t.deleting : t.action}
         disabled={pending}
       />
