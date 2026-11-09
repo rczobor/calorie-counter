@@ -100,10 +100,9 @@ export function DeleteAccount({
         onConfirm={() => void confirm()}
         title={t.title}
         description={
-          <>
-            <span className="block font-medium text-foreground">
-              {t.description.lead}
-            </span>{' '}
+          // Natural wrapping: balanced lines split these facts into fragments.
+          <span className="block text-pretty">
+            <span className="block text-foreground">{t.description.lead}</span>{' '}
             <span className="mt-2 block">{t.description.solo}</span>{' '}
             <span className="mt-2 block">{t.description.shared}</span>{' '}
             <span className="mt-2 block">{t.description.identity}</span>{' '}
@@ -111,7 +110,7 @@ export function DeleteAccount({
             <span className="mt-2 block font-medium text-foreground">
               {t.description.warning}
             </span>
-          </>
+          </span>
         }
         confirmLabel={pending ? t.deleting : t.action}
         disabled={pending}

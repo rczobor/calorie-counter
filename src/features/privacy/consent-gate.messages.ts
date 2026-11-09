@@ -8,13 +8,13 @@ export const messages = defineMessages({
   en: {
     checking: 'Checking your privacy settings',
     title: 'Your health data',
-    body: 'Calorie Counter stores what you eat, your body weight and your goals. This is health data, so the app needs your explicit consent to process it.',
+    body: 'Calorie Counter stores what you eat, your body weight and your goals. This is health data.',
     points: {
       who: (key: Key) =>
         rich(key('Only you and your household members'), ' see your data.'),
       statistics: (key: Key) =>
         rich(
-          'Usage statistics show whether people log, ',
+          'The app’s usage statistics show whether people log, ',
           key('never what they eat'),
           '.',
         ),
@@ -34,13 +34,13 @@ export const messages = defineMessages({
   hu: {
     checking: 'Adatvédelmi beállítások ellenőrzése',
     title: 'Egészségügyi adataid',
-    body: 'A Calorie Counter tárolja, mit eszel, a testsúlyodat és a céljaidat. Ezek egészségügyi adatok, ezért a kezelésükhöz a kifejezett hozzájárulásodra van szükség.',
+    body: 'A Calorie Counter tárolja, mit eszel, a testsúlyodat és a céljaidat. Ezek egészségügyi adatok.',
     points: {
       who: (key: Key) =>
         rich(key('Csak te és a háztartásaid tagjai'), ' látják az adataidat.'),
       statistics: (key: Key) =>
         rich(
-          'A használati statisztikák azt mutatják, hogy rögzítenek-e az emberek, ',
+          'Az alkalmazás használati statisztikái azt mutatják, hogy rögzítenek-e az emberek, ',
           key('azt soha, hogy mit esznek'),
           '.',
         ),

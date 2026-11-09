@@ -5,7 +5,7 @@ import {
   ChartNoAxesColumn,
   ChevronRight,
   FileText,
-  UserRoundCog,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -41,7 +41,7 @@ const POINTS = [
   { key: 'who', Icon: Users },
   { key: 'statistics', Icon: ChartNoAxesColumn },
   // A promise never borrows the destructive action's trash glyph.
-  { key: 'delete', Icon: UserRoundCog },
+  { key: 'delete', Icon: ShieldCheck },
 ] as const
 
 function keyPhrase(text: string) {
@@ -118,7 +118,7 @@ function ConsentScreen() {
         {/* On phones the decision is pinned just above the floating tab bar,
             a translucent toolbar the promises scroll under, so it stays in
             reach in any language. Desktop keeps it inline. */}
-        <div className="sticky bottom-[calc(3.25rem+max(0.75rem,env(safe-area-inset-bottom)-0.5rem))] z-10 -mx-4 mt-6 border-t border-border bg-background/85 px-4 pt-4 pb-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none [@media(prefers-reduced-transparency:reduce)]:bg-background">
+        <div className="sticky bottom-[calc(3.25rem+max(0.75rem,env(safe-area-inset-bottom)-0.5rem))] z-10 -mx-4 mt-6 bg-background/85 px-4 pt-4 pb-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none [@media(prefers-reduced-transparency:reduce)]:bg-background">
           {/* Balanced wrapping only on desktop; phones keep the body's measure. */}
           <p className="type-body md:text-pretty">{t.statement}</p>
           {error ? (
