@@ -302,7 +302,8 @@ export const deleteDepartedWeights = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const person = await ctx.db.get(args.personId)
-    // The person changed hands since (the member came back): leave it.
+    // Linked to someone else since: that only happens if the member rejoined
+    // and moved their link, so the rest is theirs to see again.
     if (!person || person.userId !== args.userId) return null
     const batch = await ctx.db
       .query('weightEntries')
@@ -317,7 +318,19 @@ export const deleteDepartedWeights = internalMutation({
         internal.weight.deleteDepartedWeights,
         args,
       )
-    else await ctx.db.patch(person._id, { userId: undefined })
+    else
+      // The profile and target weight were as private as the weight.
+      await ctx.db.patch(person._id, {
+        userId: undefined,
+        energyProfile: undefined,
+        ...(person.goalPlan?.direction !== 'maintain' &&
+          person.goalPlan && {
+            goalPlan: {
+              direction: person.goalPlan.direction,
+              percentPerWeek: person.goalPlan.percentPerWeek,
+            },
+          }),
+      })
     return null
   },
 })

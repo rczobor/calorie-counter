@@ -134,13 +134,16 @@ function PeopleContent() {
   const dirty = editing !== undefined && (profileDirty || linkPending)
   // Another member's person: the household sees the goal, only they change it.
   const goalLocked = live?.linkedAccount === 'other'
-  const privacyFooter = useRef<HTMLParagraphElement>(null)
+  const linkGroup = useRef<HTMLElement>(null)
   // A pending link change grows the caption and footer past the sticky action
-  // bar on a phone; once it renders, scroll the sheet to show them.
+  // bar on a phone; once it renders, scroll the sheet to show the group.
   useEffect(() => {
     if (!linkPending) return
-    let scroller = privacyFooter.current?.parentElement
-    while (scroller && getComputedStyle(scroller).overflowY !== 'auto')
+    let scroller = linkGroup.current?.parentElement
+    while (
+      scroller &&
+      !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY)
+    )
       scroller = scroller.parentElement
     scroller?.scrollTo({ top: scroller.scrollHeight })
   }, [linkPending])
@@ -228,10 +231,13 @@ function PeopleContent() {
             personId: editing._id,
             expectedEditRevision: editing.editRevision,
             name,
-            goalKcal: Number(goal),
-            reason: reason.trim() || undefined,
+            // Another member's goal isn't ours to send, even unchanged.
+            ...(!goalLocked && {
+              goalKcal: Number(goal),
+              reason: reason.trim() || undefined,
+              ...plan,
+            }),
             effectiveDate,
-            ...plan,
             linkedToMe: linkChange,
           })
         // A link-only change leaves the profile and its edit revision alone.
@@ -358,7 +364,10 @@ function PeopleContent() {
                     {t.dailyGoal}
                   </h3>
                   <p className="flex min-h-11 items-center justify-between gap-3 inset-group px-4">
-                    <Value value={goal} unit={t.kcalPerDay} />
+                    <Value
+                      value={live?.currentDailyGoalKcal ?? goal}
+                      unit={t.kcalPerDay}
+                    />
                     <Lock
                       aria-hidden="true"
                       className="size-4 shrink-0 text-muted-foreground"
@@ -445,7 +454,11 @@ function PeopleContent() {
                   ) : null}
                 </section>
               ) : null}
-              <section aria-labelledby="person-account-title" className="pt-1">
+              <section
+                ref={linkGroup}
+                aria-labelledby="person-account-title"
+                className="pt-1"
+              >
                 <h3 id="person-account-title" className="group-label">
                   {t.linkedAccount}
                 </h3>
@@ -501,10 +514,7 @@ function PeopleContent() {
                 )}
                 {/* Says what Save will leave; a pending unlink's caption warns. */}
                 {linkPending && !isMe ? null : (
-                  <p
-                    ref={privacyFooter}
-                    className="px-4 pt-1.5 type-footnote text-pretty text-muted-foreground"
-                  >
+                  <p className="px-4 pt-1.5 type-footnote text-pretty text-muted-foreground">
                     {live?.linkedAccount === 'other'
                       ? t.weightPrivateTo(live.name)
                       : linkPending

@@ -179,8 +179,14 @@ describe('private weights', () => {
       person: await ctx.db.get(personId),
       weights: await ctx.db.query('weightEntries').collect(),
     }))
-    expect(left.person).toMatchObject({ name: 'Linked' })
+    expect(left.person).toMatchObject({
+      name: 'Linked',
+      goalPlan: { direction: 'lose', percentPerWeek: 0.5 },
+    })
     expect(left.person?.userId).toBeUndefined()
+    // The profile and target weight were as private as the weight.
+    expect(left.person?.energyProfile).toBeUndefined()
+    expect(left.person?.goalPlan).not.toHaveProperty('targetWeightKg')
     expect(left.weights).toEqual([])
   })
 })

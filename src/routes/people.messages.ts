@@ -45,12 +45,12 @@ export const messages = defineMessages({
     linkOnSave: 'Saving links this person to your account.',
     // Unlinking shares the weight again, so a pending change says so.
     linkMovesOnSave: (from: string, to: string) =>
-      `Saving moves your link from ${from} to ${to}. The household will see ${from}’s weight.`,
+      `Saving moves your link from ${from} to ${to}. The household will see ${from}’s weight and goal details.`,
     newLinkOff: 'Turn on if this person is you.',
     thisPerson: 'this person',
     anotherPerson: 'another person',
     unlinkOnSave:
-      'Saving unlinks this person. The household will see their weight.',
+      'Saving unlinks this person. The household will see their weight and goal details.',
     weightPrivate: 'Only you see your weight.',
     weightPrivacyOffer: 'Only the linked member sees the weight.',
     goalLocked: (name: string) => `Only ${name} can change this goal.`,
@@ -108,12 +108,12 @@ export const messages = defineMessages({
     linkOn: 'A fiókodhoz kapcsolva. Kikapcsolva leválik.',
     linkOnSave: 'Mentéskor ez a személy a fiókodhoz kapcsolódik.',
     linkMovesOnSave: (from: string, to: string) =>
-      `Mentéskor a kapcsolatod átkerül. Most: ${from}, mentés után: ${to}. Az előző személy testsúlyát a háztartás is látni fogja.`,
+      `Mentéskor a kapcsolatod átkerül. Most: ${from}, mentés után: ${to}. Az előző személy testsúlyát és céladatait a háztartás is látni fogja.`,
     newLinkOff: 'Kapcsold be, ha ez a személy te vagy.',
     thisPerson: 'ez a személy',
     anotherPerson: 'egy másik személy',
     unlinkOnSave:
-      'Mentéskor ez a személy leválik. A testsúlyát a háztartás is látni fogja.',
+      'Mentéskor ez a személy leválik. A testsúlyát és a céladatait a háztartás is látni fogja.',
     weightPrivate: 'A testsúlyodat csak te látod.',
     weightPrivacyOffer: 'A testsúlyt csak a kapcsolt tag látja.',
     goalLocked: (name: string) => `Ezt a célt csak ${name} módosíthatja.`,

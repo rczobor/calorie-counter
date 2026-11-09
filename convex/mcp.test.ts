@@ -2639,12 +2639,21 @@ describe('MCP weight tools', () => {
       api.households.acceptInvitation,
       { token: await robi.mutation(api.households.invite, { householdId }) },
     )
+    const today = new Date().toISOString().slice(0, 10)
+    const goal = { personId, expectedEditRevision: 0, effectiveDate: today }
     for (const [tool, args] of [
       ['get_weight_history', { householdId, personId }],
       [
         'record_weight',
         { householdId, personId, measuredOn: '2026-11-01', weightKg: 70 },
       ],
+      ['get_goal', { householdId, personId, localDate: today }],
+      [
+        'preview_goal_change',
+        { householdId, input: { ...goal, goalKcal: 1800 } },
+      ],
+      // Even an unchanged goal: the reply would carry the private profile.
+      ['set_goal', { householdId, input: { ...goal, goalKcal: 2000 } }],
     ] as const)
       expect(
         await (await call(t, assistant.token, tool, args)).json(),

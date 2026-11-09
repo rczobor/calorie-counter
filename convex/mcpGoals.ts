@@ -4,6 +4,7 @@ import type { Doc } from './_generated/dataModel'
 import { internalMutation, type MutationCtx } from './_generated/server'
 import { readCheckInData } from './energy'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
+import { assertCanChangeGoal } from './lib/personPrivacy'
 import {
   ageInYearOf,
   buildCheckIn,
@@ -212,6 +213,7 @@ async function prepareGoalChange(
   input: Infer<typeof goalChangeInput>,
 ): Promise<Infer<typeof goalChangePreview>> {
   const person = requireActivePerson(await ctx.db.get(input.personId), owner)
+  assertCanChangeGoal(person, owner)
   assertExpectedEditRevision(person, input.expectedEditRevision, 'Person')
   const effectiveDate = await requireToday(
     ctx,
@@ -437,6 +439,8 @@ export const setGoal = internalMutation({
         await ctx.db.get(input.personId),
         owner,
       )
+      // Before anything is echoed back: the reply carries the profile.
+      assertCanChangeGoal(person, owner)
       if (input.goalKcal === undefined)
         throw new DomainError(
           'Send the exact input returned by preview_goal_change, including its goalKcal.',

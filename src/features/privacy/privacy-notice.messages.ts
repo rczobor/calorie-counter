@@ -44,7 +44,7 @@ export const messages = defineMessages({
     keepHeading: 'How long it is kept',
     keep: 'Until you delete it or your account. Deleting your account removes it, and every household only you belong to, within minutes. Copies in the providers’ backups disappear as those backups expire.',
     shared:
-      'Data in a household you share stays with its other members when you leave or delete your account, except the body weight of the person marked as you, which is deleted. Ask a household admin to remove the rest, or write to the address above.',
+      'Data in a household you share stays with its other members when you leave or delete your account. The person marked as you keeps their goal, but their body weight and the details behind the goal are deleted. Ask a household admin to remove the rest, or write to the address above.',
     rightsHeading: 'Your rights',
     rights: (email: ReactNode) =>
       rich(
@@ -102,7 +102,7 @@ export const messages = defineMessages({
     keepHeading: 'Meddig őrizzük',
     keep: 'Amíg nem törlöd őket vagy a fiókodat. A fiók törlése perceken belül eltávolítja a fiókodat és minden olyan háztartást, amelynek csak te vagy a tagja. A szolgáltatók biztonsági mentéseiben lévő másolatok a mentések lejártával törlődnek.',
     shared:
-      'Egy közös háztartás adatai a többi tagnál maradnak, ha kilépsz vagy törlöd a fiókodat, kivéve a magadként megjelölt személy testsúlyát, amely törlődik. A többi adat eltávolítását kérd a háztartás adminisztrátorától, vagy írj a fenti címre.',
+      'Egy közös háztartás adatai a többi tagnál maradnak, ha kilépsz vagy törlöd a fiókodat. A magadként megjelölt személy célja megmarad, de a testsúlya és a cél mögötti adatok törlődnek. A többi adat eltávolítását kérd a háztartás adminisztrátorától, vagy írj a fenti címre.',
     rightsHeading: 'A jogaid',
     rights: (email: ReactNode) =>
       rich(
