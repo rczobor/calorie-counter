@@ -89,7 +89,9 @@ function ConsentScreen() {
                 className="mt-0.5 size-5 shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <span className="type-subhead">{t.points[key](keyPhrase)}</span>
+              <span className="type-subhead text-pretty">
+                {t.points[key](keyPhrase)}
+              </span>
             </li>
           ))}
         </ul>
