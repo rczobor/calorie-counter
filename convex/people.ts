@@ -11,6 +11,7 @@ import {
   requireAuthenticatedHousehold,
   withoutOwner,
 } from './lib/auth'
+import { isAnotherMembers } from './lib/personPrivacy'
 import { readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
@@ -40,6 +41,8 @@ function personWithoutOwner(
   viewer: Id<'users'>,
 ): Infer<typeof personDto> {
   const { userId, energyProfile, goalPlan, ...fields } = withoutOwner(person)
+  // When the link was made is the server's business, not the viewer's.
+  delete fields.linkedAt
   if (userId && userId !== viewer) {
     // Another member's person: their goal stays visible, but the profile and
     // target weight behind it are as private as their weight.
@@ -266,6 +269,16 @@ export const listGoalHistory = query({
       )
       .order('desc')
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(withoutOwner) }
+    const person = await ctx.db.get(args.personId)
+    // A check-in's reason carries its maintenance figure, which with the goal
+    // and plan gives the private weight away; another member sees no reasons.
+    const hideReasons = person !== null && isAnotherMembers(person, owner)
+    return {
+      ...result,
+      page: result.page.map((row): Infer<typeof goalDto> => {
+        const { reason, ...fields } = withoutOwner(row)
+        return hideReasons ? fields : { ...fields, reason }
+      }),
+    }
   },
 })

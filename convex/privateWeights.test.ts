@@ -114,6 +114,20 @@ describe('private weights', () => {
     })
   })
 
+  it('hides goal reasons from other members', async () => {
+    const { robi, viki, householdId, personId } = await shared('robi')
+    const history = (user: typeof robi) =>
+      user.query(api.people.listGoalHistory, {
+        householdId,
+        personId,
+        paginationOpts: page,
+      })
+    expect((await history(robi)).page[0]).toMatchObject({
+      reason: 'Initial goal',
+    })
+    expect((await history(viki)).page[0]).not.toHaveProperty('reason')
+  })
+
   it('lets only the linked member change the goal; the name stays shared', async () => {
     const { robi, viki, householdId, personId } = await shared('robi')
     await viki.mutation(api.nutrition.updatePerson, {
@@ -155,6 +169,69 @@ describe('private weights', () => {
     expect(
       await viki.query(api.people.get, { householdId, personId }),
     ).toMatchObject({ name: 'Renamed', currentDailyGoalKcal: 1800 })
+  })
+
+  it('keeps what the household recorded before the link when a member leaves', async () => {
+    vi.useFakeTimers({ now: new Date('2026-12-01T08:00:00Z') })
+    const t = createConvexTest()
+    const robi = asTestUser(t)
+    const viki = asTestUserWithToken(t, 'https://clerk.example|viki')
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const token = await robi.mutation(api.households.invite, { householdId })
+    await viki.mutation(api.households.acceptInvitation, { token })
+    const personId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Alice',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-11-30',
+    })
+    await robi.mutation(api.weight.record, {
+      householdId,
+      personId,
+      measuredOn: '2026-11-30',
+      weightKg: 70,
+    })
+    vi.setSystemTime(new Date('2026-12-01T09:00:00Z'))
+    await viki.mutation(api.nutrition.setPersonLinkedToMe, {
+      householdId,
+      personId,
+      linked: true,
+    })
+    vi.setSystemTime(new Date('2026-12-01T10:00:00Z'))
+    await viki.mutation(api.weight.record, {
+      householdId,
+      personId,
+      measuredOn: '2026-12-01',
+      weightKg: 69.5,
+    })
+    await viki.mutation(api.nutrition.updatePersonGoal, {
+      householdId,
+      personId,
+      expectedEditRevision: 0,
+      goalKcal: 1900,
+      effectiveDate: '2026-12-01',
+      reason: 'Check-in: maintenance ≈ 2400 kcal',
+    })
+    const leaving = (
+      await viki.query(api.households.members, { householdId })
+    ).find((row) => row.isYou)!
+    await viki.mutation(api.households.updateMember, {
+      householdId,
+      memberId: leaving._id,
+      role: 'remove',
+    })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const left = await t.run(async (ctx) => ({
+      weights: await ctx.db.query('weightEntries').collect(),
+      reasons: (await ctx.db.query('personGoalHistory').collect()).map(
+        (row) => row.reason ?? null,
+      ),
+    }))
+    expect(left.weights.map((entry) => entry.measuredOn)).toEqual([
+      '2026-11-30',
+    ])
+    expect(left.reasons).toEqual(['Initial goal', null])
   })
 
   it('deletes a leaving member’s weight before freeing their person', async () => {

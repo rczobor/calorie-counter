@@ -297,22 +297,50 @@ export async function releaseLinkedPerson(
     })
 }
 
+/**
+ * Links made before `linkedAt` existed count from the day linking shipped:
+ * nothing was private before it.
+ */
+const LINKING_SHIPPED = Date.UTC(2026, 10, 9)
+
 export const deleteDepartedWeights = internalMutation({
   args: { personId: v.id('people'), userId: v.id('users') },
   returns: v.null(),
   handler: async (ctx, args) => {
     const person = await ctx.db.get(args.personId)
-    // Linked to someone else since: that only happens if the member rejoined
-    // and moved their link, so the rest is theirs to see again.
-    if (!person || person.userId !== args.userId) return null
-    const batch = await ctx.db
+    if (!person) return null
+    // Another member's now; only possible after this one rejoined and left
+    // the person: what is left is theirs.
+    if (person.userId !== undefined && person.userId !== args.userId)
+      return null
+    // Only what was recorded while linked: the household's earlier weigh-ins
+    // and goal reasons stay shared.
+    const since = person.linkedAt ?? LINKING_SHIPPED
+    const weights = await ctx.db
       .query('weightEntries')
       .withIndex('by_householdId_and_personId_and_measuredOn', (q) =>
         q.eq('householdId', person.householdId).eq('personId', person._id),
       )
+      .filter((q) => q.gte(q.field('createdAt'), since))
       .take(DEPARTED_BATCH)
-    for (const entry of batch) await ctx.db.delete(entry._id)
-    if (batch.length === DEPARTED_BATCH)
+    for (const entry of weights) await ctx.db.delete(entry._id)
+    // Check-in reasons carry maintenance figures, as private as the weight.
+    const reasons =
+      weights.length === DEPARTED_BATCH
+        ? []
+        : await ctx.db
+            .query('personGoalHistory')
+            .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
+              q
+                .eq('householdId', person.householdId)
+                .eq('personId', person._id)
+                .gte('createdAt', since),
+            )
+            .filter((q) => q.neq(q.field('reason'), undefined))
+            .take(DEPARTED_BATCH)
+    for (const row of reasons)
+      await ctx.db.patch(row._id, { reason: undefined })
+    if (weights.length === DEPARTED_BATCH || reasons.length === DEPARTED_BATCH)
       await ctx.scheduler.runAfter(
         0,
         internal.weight.deleteDepartedWeights,
@@ -322,6 +350,7 @@ export const deleteDepartedWeights = internalMutation({
       // The profile and target weight were as private as the weight.
       await ctx.db.patch(person._id, {
         userId: undefined,
+        linkedAt: undefined,
         energyProfile: undefined,
         ...(person.goalPlan?.direction !== 'maintain' &&
           person.goalPlan && {

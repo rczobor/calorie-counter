@@ -2229,13 +2229,15 @@ async function linkPersonToOwner(
   if (person.userId !== undefined && person.userId !== owner.userId)
     throw new DomainError('This person is linked to another member.')
   if (!linked) {
-    if (person.userId) await ctx.db.patch(person._id, { userId: undefined })
+    if (person.userId)
+      await ctx.db.patch(person._id, { userId: undefined, linkedAt: undefined })
     return
   }
   if (person.userId) return
   const previous = await findLinkedPerson(ctx, owner.householdId, owner.userId)
-  if (previous) await ctx.db.patch(previous._id, { userId: undefined })
-  await ctx.db.patch(person._id, { userId: owner.userId })
+  if (previous)
+    await ctx.db.patch(previous._id, { userId: undefined, linkedAt: undefined })
+  await ctx.db.patch(person._id, { userId: owner.userId, linkedAt: Date.now() })
 }
 
 export const deletePerson = mutation({
