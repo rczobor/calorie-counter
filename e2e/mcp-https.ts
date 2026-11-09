@@ -121,11 +121,16 @@ try {
         throw new Error('Synthetic sign-in incomplete')
     }
   }, ticket)
-  // A new account consents to the privacy notice before any household data.
-  await page.getByRole('button', { name: 'Agree and continue' }).click()
-  await page
-    .getByRole('heading', { name: 'Integrations', exact: true })
-    .waitFor()
+  // The reused smoke account consents on its first run, and again whenever
+  // the privacy notice version changes.
+  const agree = page.getByRole('button', { name: 'Agree and continue' })
+  const integrations = page.getByRole('heading', {
+    name: 'Integrations',
+    exact: true,
+  })
+  await agree.or(integrations).waitFor()
+  if (await agree.isVisible()) await agree.click()
+  await integrations.waitFor()
   const jwt = await page.evaluate(() =>
     (window as typeof window & { Clerk: BrowserClerk }).Clerk.session!.getToken(
       { template: 'convex' },
