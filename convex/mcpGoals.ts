@@ -141,7 +141,7 @@ export const getGoal = internalMutation({
       const today = await requireToday(ctx, owner, args.localDate, 'Local date')
       const checkIn = buildCheckIn({
         today,
-        ...(await readCheckInData(ctx, owner, person._id, today)),
+        ...(await readCheckInData(ctx, owner, person, today)),
         profile: person.energyProfile,
         plan: person.goalPlan,
       })
@@ -224,7 +224,7 @@ async function prepareGoalChange(
     input.goalPlan === undefined
       ? person.goalPlan
       : (input.goalPlan ?? undefined)
-  const data = await readCheckInData(ctx, owner, person._id, effectiveDate)
+  const data = await readCheckInData(ctx, owner, person, effectiveDate)
   const warnings: string[] = []
   if (input.energyProfile !== undefined || input.goalPlan !== undefined) {
     if (plan && !profile)

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Calculator } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Calculator, Lock } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 import { toast } from 'sonner'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
@@ -17,6 +17,7 @@ import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-
 import { StatusBadge } from '@/components/page/status-badge'
 import { EditorDialog } from '@/components/page/editor-dialog'
 import { Field, UnitInput } from '@/components/list/field'
+import { Value } from '@/components/nutrition/value'
 import { ListToolbar, LoadMoreButton } from '@/components/list/list-toolbar'
 import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
@@ -131,6 +132,18 @@ function PeopleContent() {
     reason !== '' ||
     plan !== null
   const dirty = editing !== undefined && (profileDirty || linkPending)
+  // Another member's person: the household sees the goal, only they change it.
+  const goalLocked = live?.linkedAccount === 'other'
+  const privacyFooter = useRef<HTMLParagraphElement>(null)
+  // A pending link change grows the caption and footer past the sticky action
+  // bar on a phone; once it renders, scroll the sheet to show them.
+  useEffect(() => {
+    if (!linkPending) return
+    let scroller = privacyFooter.current?.parentElement
+    while (scroller && getComputedStyle(scroller).overflowY !== 'auto')
+      scroller = scroller.parentElement
+    scroller?.scrollTo({ top: scroller.scrollHeight })
+  }, [linkPending])
 
   // Linking this person moves the member's link from the one they are now,
   // even when that person is archived or not loaded, so Undo can move it back.
@@ -148,7 +161,6 @@ function PeopleContent() {
   // The switch saves with the form, so a pending change says what Save does.
   function linkNote() {
     const saved = savedIsMe
-    if (live?.linkedAccount === 'other') return t.linkedToOther
     if (isMe && !saved)
       return linkedElsewhere
         ? t.linkMovesOnSave(linkedElsewhere.name, name.trim() || t.thisPerson)
@@ -338,36 +350,60 @@ function PeopleContent() {
                   required
                 />
               </Field>
-              <Field
-                label={t.dailyGoal}
-                htmlFor="person-goal"
-                hint={
-                  plan
-                    ? t.savedWithGoal(describePlan(plan.goalPlan, locale))
-                    : t.goalHint
-                }
-              >
-                <UnitInput
-                  id="person-goal"
-                  unit="kcal"
-                  aria-label={t.dailyGoal}
-                  min="0.01"
-                  step="any"
-                  value={goal}
-                  onChange={(event) => setGoal(event.target.value)}
-                  required
-                />
-              </Field>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setCalculatingOn(toLocalDateString(Date.now()))}
-              >
-                <Calculator />
-                {t.helpMeChoose}
-              </Button>
-              {editing ? (
+              {goalLocked ? (
+                // Read-only, not a disabled field, so the goal reads as set;
+                // a group like the read-only ones below it.
+                <section aria-labelledby="person-goal-title">
+                  <h3 id="person-goal-title" className="group-label">
+                    {t.dailyGoal}
+                  </h3>
+                  <p className="flex min-h-11 items-center justify-between gap-3 inset-group px-4">
+                    <Value value={goal} unit={t.kcalPerDay} />
+                    <Lock
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground"
+                    />
+                  </p>
+                  <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
+                    {t.goalLocked(live?.name ?? name)}
+                  </p>
+                </section>
+              ) : (
+                <Field
+                  label={t.dailyGoal}
+                  htmlFor="person-goal"
+                  hint={
+                    plan
+                      ? t.savedWithGoal(describePlan(plan.goalPlan, locale))
+                      : t.goalHint
+                  }
+                >
+                  <UnitInput
+                    id="person-goal"
+                    unit="kcal"
+                    aria-label={t.dailyGoal}
+                    min="0.01"
+                    step="any"
+                    value={goal}
+                    onChange={(event) => setGoal(event.target.value)}
+                    required
+                  />
+                </Field>
+              )}
+              {goalLocked ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCalculatingOn(toLocalDateString(Date.now()))
+                  }
+                >
+                  <Calculator />
+                  {t.helpMeChoose}
+                </Button>
+              )}
+              {editing && !goalLocked ? (
                 <Field label={t.reasonLabel} htmlFor="goal-reason">
                   <Input
                     id="goal-reason"
@@ -413,45 +449,71 @@ function PeopleContent() {
                 <h3 id="person-account-title" className="group-label">
                   {t.linkedAccount}
                 </h3>
-                {/* A switch is a settings-style cell: label and switch on the content edges. */}
-                <div className="flex min-h-12 items-center justify-between gap-3 inset-group px-4 py-2.5">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <label
-                        htmlFor="person-is-me"
-                        className="text-base text-foreground"
+                {live?.linkedAccount === 'other' ? (
+                  // Read-only, like the locked goal: nothing here to change.
+                  <p className="flex min-h-12 items-center justify-between gap-3 inset-group px-4 py-2.5 text-base">
+                    {t.linkedToOther(live.name)}
+                    <Lock
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground"
+                    />
+                  </p>
+                ) : (
+                  /* A switch is a settings-style cell: label and switch on the content edges. */
+                  <div className="flex min-h-12 items-center justify-between gap-3 inset-group px-4 py-2.5">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <label
+                          htmlFor="person-is-me"
+                          className="text-base text-foreground"
+                        >
+                          {t.thisIsMe}
+                        </label>
+                        {/* A switch that is on but not saved must not pass for a saved link. */}
+                        {linkPending ? (
+                          <StatusBadge status="Unsaved" className="shrink-0" />
+                        ) : null}
+                      </div>
+                      <p
+                        id="person-is-me-note"
+                        className={cn(
+                          'mt-0.5 type-footnote text-pretty',
+                          linkPending
+                            ? 'font-medium text-foreground'
+                            : 'text-muted-foreground',
+                        )}
                       >
-                        {t.thisIsMe}
-                      </label>
-                      {/* A switch that is on but not saved must not pass for a saved link. */}
-                      {linkPending ? (
-                        <StatusBadge status="Unsaved" className="shrink-0" />
-                      ) : null}
+                        {linkNote()}
+                      </p>
                     </div>
-                    <p
-                      id="person-is-me-note"
-                      className={cn(
-                        'mt-0.5 type-footnote text-pretty',
-                        linkPending
-                          ? 'font-medium text-foreground'
-                          : 'text-muted-foreground',
-                      )}
-                    >
-                      {linkNote()}
-                    </p>
+                    <Switch
+                      id="person-is-me"
+                      aria-describedby="person-is-me-note"
+                      checked={isMe}
+                      // A span, so the fieldset's disabled doesn't reach it.
+                      disabled={isRunning}
+                      onCheckedChange={(checked) => {
+                        // Back at the saved value, follow it again.
+                        setIsMeChoice(checked === savedIsMe ? null : checked)
+                      }}
+                    />
                   </div>
-                  <Switch
-                    id="person-is-me"
-                    aria-describedby="person-is-me-note"
-                    checked={isMe}
-                    // A span, so the fieldset's disabled doesn't reach it.
-                    disabled={isRunning || live?.linkedAccount === 'other'}
-                    onCheckedChange={(checked) =>
-                      // Back at the saved value, follow it again.
-                      setIsMeChoice(checked === savedIsMe ? null : checked)
-                    }
-                  />
-                </div>
+                )}
+                {/* Says what Save will leave; a pending unlink's caption warns. */}
+                {linkPending && !isMe ? null : (
+                  <p
+                    ref={privacyFooter}
+                    className="px-4 pt-1.5 type-footnote text-pretty text-muted-foreground"
+                  >
+                    {live?.linkedAccount === 'other'
+                      ? t.weightPrivateTo(live.name)
+                      : linkPending
+                        ? t.weightPrivateAfterSave(name.trim() || t.thisPerson)
+                        : savedIsMe
+                          ? t.weightPrivate
+                          : t.weightPrivacyOffer}
+                  </p>
+                )}
               </section>
             </fieldset>
             <SheetFooter>

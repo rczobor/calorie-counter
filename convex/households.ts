@@ -12,7 +12,6 @@ import {
 } from './_generated/server'
 import {
   ensureUserId,
-  findLinkedPerson,
   findMembership,
   findPersonalHousehold,
   findUserId,
@@ -21,6 +20,7 @@ import {
   requireAuthenticatedUser,
 } from './lib/auth'
 import { assertPageSize, normalizeRequiredText } from './lib/validation'
+import { releaseLinkedPerson } from './weight'
 
 const MAX_MEMBERS = 20
 const MAX_HOUSEHOLDS = 10
@@ -179,13 +179,7 @@ export const updateMember = mutation({
     }
     if (args.role === 'remove') {
       await ctx.db.delete(member._id)
-      // The person stays with the household; only the account link goes.
-      const linked = await findLinkedPerson(
-        ctx,
-        args.householdId,
-        member.userId,
-      )
-      if (linked) await ctx.db.patch(linked._id, { userId: undefined })
+      await releaseLinkedPerson(ctx, args.householdId, member.userId)
     } else await ctx.db.patch(member._id, { role: args.role })
     return null
   },

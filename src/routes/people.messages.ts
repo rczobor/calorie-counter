@@ -43,13 +43,21 @@ export const messages = defineMessages({
     linkOff: 'Not linked. Turn on if this person is you.',
     linkOn: 'Linked to your account. Turn off to unlink.',
     linkOnSave: 'Saving links this person to your account.',
+    // Unlinking shares the weight again, so a pending change says so.
     linkMovesOnSave: (from: string, to: string) =>
-      `Saving moves your link from ${from} to ${to}.`,
+      `Saving moves your link from ${from} to ${to}. The household will see ${from}’s weight.`,
     newLinkOff: 'Turn on if this person is you.',
     thisPerson: 'this person',
     anotherPerson: 'another person',
-    unlinkOnSave: 'Saving unlinks this person from your account.',
-    linkedToOther: 'Linked to another member of the household.',
+    unlinkOnSave:
+      'Saving unlinks this person. The household will see their weight.',
+    weightPrivate: 'Only you see your weight.',
+    weightPrivacyOffer: 'Only the linked member sees the weight.',
+    goalLocked: (name: string) => `Only ${name} can change this goal.`,
+    weightPrivateAfterSave: (name: string) =>
+      `After saving, only you see ${name}’s weight.`,
+    weightPrivateTo: (name: string) => `Only ${name} sees this weight.`,
+    linkedToOther: (name: string) => `Linked to ${name}’s account`,
     linkedToast: (name: string) => `Linked ${name} to your account.`,
     createdLinkedToast: (name: string) =>
       `Created ${name} and linked to your account.`,
@@ -100,12 +108,19 @@ export const messages = defineMessages({
     linkOn: 'A fiókodhoz kapcsolva. Kikapcsolva leválik.',
     linkOnSave: 'Mentéskor ez a személy a fiókodhoz kapcsolódik.',
     linkMovesOnSave: (from: string, to: string) =>
-      `Mentéskor a kapcsolatod átkerül. Most: ${from}, mentés után: ${to}.`,
+      `Mentéskor a kapcsolatod átkerül. Most: ${from}, mentés után: ${to}. Az előző személy testsúlyát a háztartás is látni fogja.`,
     newLinkOff: 'Kapcsold be, ha ez a személy te vagy.',
     thisPerson: 'ez a személy',
     anotherPerson: 'egy másik személy',
-    unlinkOnSave: 'Mentéskor ez a személy leválik a fiókodról.',
-    linkedToOther: 'A háztartás egy másik tagjához kapcsolva.',
+    unlinkOnSave:
+      'Mentéskor ez a személy leválik. A testsúlyát a háztartás is látni fogja.',
+    weightPrivate: 'A testsúlyodat csak te látod.',
+    weightPrivacyOffer: 'A testsúlyt csak a kapcsolt tag látja.',
+    goalLocked: (name: string) => `Ezt a célt csak ${name} módosíthatja.`,
+    weightPrivateAfterSave: (name: string) =>
+      `Mentés után ${name} testsúlyát csak te látod.`,
+    weightPrivateTo: (name: string) => `Ezt a testsúlyt csak ${name} látja.`,
+    linkedToOther: (name: string) => `${name} fiókjához kapcsolva`,
     linkedToast: (name: string) => `A fiókodhoz kapcsolva: ${name}.`,
     createdLinkedToast: (name: string) =>
       `Létrehozva és a fiókodhoz kapcsolva: ${name}.`,

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import type { Id } from './_generated/dataModel'
+import type { Doc } from './_generated/dataModel'
 import { query, type QueryCtx } from './_generated/server'
 import {
   assertOwnedOrThrow,
@@ -8,6 +8,7 @@ import {
   type AuthenticatedOwner,
 } from './lib/auth'
 import { buildCheckIn, CHECK_IN_LOOKBACK_DAYS, shiftDay } from './lib/energy'
+import { isAnotherMembers } from './lib/personPrivacy'
 import { normalizeRequiredDate } from './lib/validation'
 import { weightEntriesForPerson } from './weight'
 
@@ -56,9 +57,10 @@ const checkInDto = v.object({
 export async function readCheckInData(
   ctx: Pick<QueryCtx, 'db'>,
   owner: AuthenticatedOwner,
-  personId: Id<'people'>,
+  person: Doc<'people'>,
   today: string,
 ) {
+  const personId = person._id
   const firstDay = shiftDay(today, -CHECK_IN_LOOKBACK_DAYS)
   // One summary and at most one weight per day, so the ranges bound the reads.
   const summaries = await ctx.db
@@ -71,11 +73,11 @@ export async function readCheckInData(
         .lt('eatenOn', today),
     )
     .take(CHECK_IN_LOOKBACK_DAYS)
-  const weighIns = await weightEntriesForPerson(ctx, owner, personId, {
+  const weighIns = await weightEntriesForPerson(ctx, owner, person, {
     startDate: firstDay,
     endDate: today,
   }).take(CHECK_IN_LOOKBACK_DAYS + 1)
-  const latest = await weightEntriesForPerson(ctx, owner, personId, {
+  const latest = await weightEntriesForPerson(ctx, owner, person, {
     endDate: today,
   })
     .order('desc')
@@ -104,7 +106,8 @@ export const checkIn = query({
     // The client's local date: queries must not read the clock.
     today: v.string(),
   },
-  returns: checkInDto,
+  // Null for another member's person: the check-in is built from their weight.
+  returns: v.union(v.null(), checkInDto),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const person = assertOwnedOrThrow(
@@ -112,10 +115,11 @@ export const checkIn = query({
       owner,
       'Person not found.',
     )
+    if (isAnotherMembers(person, owner)) return null
     const today = normalizeRequiredDate(args.today, 'Today')
     return buildCheckIn({
       today,
-      ...(await readCheckInData(ctx, owner, person._id, today)),
+      ...(await readCheckInData(ctx, owner, person, today)),
       profile: person.energyProfile,
       plan: person.goalPlan,
     })

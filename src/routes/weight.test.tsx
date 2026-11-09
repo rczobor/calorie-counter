@@ -86,4 +86,15 @@ describe('Weight page', () => {
       }),
     )
   })
+
+  it('shows another member’s person as private without reading their weight', () => {
+    window.history.replaceState(null, '', `/weight?personId=${sam._id}`)
+    linkedPerson.current = { ...sam, linkedAccount: 'other' }
+    render(<WeightPage />)
+
+    expect(screen.getByText('Private to Sam')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Record weight/ })).toBeNull()
+    expect(queried.some(({ name }) => name.startsWith('weight:'))).toBe(false)
+    expect(queried.some(({ name }) => name === 'energy:checkIn')).toBe(false)
+  })
 })

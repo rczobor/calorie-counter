@@ -8,12 +8,12 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import {
-  findLinkedPerson,
   findUserId,
   listMemberships,
   requireAuthenticatedUser,
 } from './lib/auth'
 import { MAX_WIDGETS } from './widgets'
+import { releaseLinkedPerson } from './weight'
 
 // Deleting an account is the one place that hard-deletes history: the person
 // withdrew consent, so their data has to go, not be archived. A household
@@ -160,10 +160,9 @@ async function leaveHousehold(
     })
     return
   }
-  // The person and its history stay with the household; only the deleted
-  // account's link goes, so another member can link that person.
-  const linked = await findLinkedPerson(ctx, householdId, userId)
-  if (linked) await ctx.db.patch(linked._id, { userId: undefined })
+  // The person and its other history stay with the household; its weight
+  // was private to this account and goes with it.
+  await releaseLinkedPerson(ctx, householdId, userId)
   // A shared household keeps an admin: the longest-standing member.
   if (
     membership.role === 'admin' &&

@@ -2,7 +2,7 @@ import {
   paginationOptsValidator,
   paginationResultValidator,
 } from 'convex/server'
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel'
 import { query } from './_generated/server'
@@ -35,14 +35,34 @@ const personDto = v.object({
   linkedAccount: v.optional(v.union(v.literal('you'), v.literal('other'))),
 })
 
-function personWithoutOwner(person: Doc<'people'>, viewer: Id<'users'>) {
-  const { userId, ...fields } = withoutOwner(person)
+function personWithoutOwner(
+  person: Doc<'people'>,
+  viewer: Id<'users'>,
+): Infer<typeof personDto> {
+  const { userId, energyProfile, goalPlan, ...fields } = withoutOwner(person)
+  if (userId && userId !== viewer) {
+    // Another member's person: their goal stays visible, but the profile and
+    // target weight behind it are as private as their weight.
+    const plan =
+      goalPlan && goalPlan.direction !== 'maintain'
+        ? {
+            direction: goalPlan.direction,
+            percentPerWeek: goalPlan.percentPerWeek,
+          }
+        : goalPlan
+    return {
+      ...fields,
+      ...(plan && { goalPlan: plan }),
+      editRevision: person.editRevision ?? 0,
+      linkedAccount: 'other' as const,
+    }
+  }
   return {
     ...fields,
+    ...(energyProfile && { energyProfile }),
+    ...(goalPlan && { goalPlan }),
     editRevision: person.editRevision ?? 0,
-    ...(userId && {
-      linkedAccount: userId === viewer ? ('you' as const) : ('other' as const),
-    }),
+    ...(userId && { linkedAccount: 'you' as const }),
   }
 }
 

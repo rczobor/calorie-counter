@@ -187,6 +187,20 @@ describe('People settings', () => {
     )
   })
 
+  it('locks another member’s goal but keeps their name editable', () => {
+    livePerson = { ...alex, linkedAccount: 'other' }
+    show()
+    openAlex()
+    expect(
+      screen.queryByRole('spinbutton', { name: 'Daily calorie goal' }),
+    ).toBeNull()
+    expect(screen.getByText('Only Alex can change this goal.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Help me choose' })).toBeNull()
+    expect(
+      (screen.getByLabelText('Person name') as HTMLInputElement).disabled,
+    ).toBe(false)
+  })
+
   it('follows a link that changed elsewhere while the editor is open', () => {
     const view = show()
     openAlex()

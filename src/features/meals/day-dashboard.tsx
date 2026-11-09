@@ -564,6 +564,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               personName={selected.name}
               date={date}
               today={today}
+              isPrivate={selected.linkedAccount === 'other'}
             />
           </div>
         ) : !archived && loadingPerson ? (
