@@ -6,7 +6,7 @@ export const messages = defineMessages({
     title: 'Permanently delete account?',
     // One fact per line: what goes, what else goes, what stays, then the warning.
     description: {
-      lead: 'This permanently deletes your account, your sign-in and your AI assistant connections.',
+      lead: 'This deletes your account, your sign-in and your AI assistant connections.',
       solo: 'Every household only you belong to goes too, with all its people, meals, weights, goals, foods and recipes.',
       shared: 'Households you share keep their data for the other members.',
       identity: 'You may be asked to confirm it’s you.',
@@ -21,7 +21,7 @@ export const messages = defineMessages({
     action: 'Fiók törlése',
     title: 'Véglegesen törlöd a fiókodat?',
     description: {
-      lead: 'Ezzel véglegesen törlöd a fiókodat, a bejelentkezésedet és az AI-asszisztens-kapcsolataidat.',
+      lead: 'Ezzel törlöd a fiókodat, a bejelentkezésedet és az AI-asszisztens-kapcsolataidat.',
       solo: 'Minden olyan háztartás is törlődik, amelynek csak te vagy a tagja, az összes személlyel, étkezéssel, testsúllyal, céllal, étellel és recepttel együtt.',
       shared: 'A közös háztartások adatai a többi tagnál maradnak.',
       identity: 'Előfordulhat, hogy újra igazolnod kell magad.',

@@ -5,7 +5,7 @@ import {
   ChartNoAxesColumn,
   ChevronRight,
   FileText,
-  Hand,
+  UserRoundCog,
   Users,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -41,7 +41,7 @@ const POINTS = [
   { key: 'who', Icon: Users },
   { key: 'statistics', Icon: ChartNoAxesColumn },
   // A promise never borrows the destructive action's trash glyph.
-  { key: 'delete', Icon: Hand },
+  { key: 'delete', Icon: UserRoundCog },
 ] as const
 
 function keyPhrase(text: string) {

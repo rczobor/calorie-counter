@@ -45,7 +45,7 @@ export const messages = defineMessages({
           '.',
         ),
       delete: (key: Key) =>
-        rich(key('Törölheted'), ' a fiókodat és az adataidat bármikor.'),
+        rich(key('Törölheted a fiókodat és az adataidat'), ' bármikor.'),
     },
     pointsTitle: 'Az adataid',
     readNotice: 'Adatvédelmi tájékoztató',
