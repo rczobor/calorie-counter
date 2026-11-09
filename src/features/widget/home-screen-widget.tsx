@@ -222,7 +222,12 @@ export function HomeScreenWidget() {
                 </Step>
               </StepGroup>
               <StepGroup title={t.groupHomeScreen}>
-                <Step number={4}>{withControls(t.stepAdd)}</Step>
+                <Step number={4}>
+                  <p>{withControls(t.stepAdd)}</p>
+                  <p className="mt-1.5 text-muted-foreground">
+                    {withControls(t.stepAddLock)}
+                  </p>
+                </Step>
                 <Step number={5}>{withControls(t.stepEdit)}</Step>
               </StepGroup>
               {/* Before and after step 5: a widget with no script chosen is
@@ -244,6 +249,7 @@ export function HomeScreenWidget() {
                   <WidgetPreview
                     compact
                     person={created.person}
+                    consumed={previewDay?.consumedCalories}
                     remaining={previewDay?.remainingCalories}
                     goal={previewDay?.goalKcal}
                     text={t.script}
@@ -312,6 +318,7 @@ export function HomeScreenWidget() {
                 <div className="flex items-center gap-4 rounded-xl bg-recessed p-3">
                   <WidgetPreview
                     person={chosen.name}
+                    consumed={previewDay?.consumedCalories}
                     remaining={previewDay?.remainingCalories}
                     goal={previewDay?.goalKcal}
                     text={t.script}
