@@ -5,14 +5,16 @@ export const messages = defineMessages({
   en: {
     gotIt: 'Got it',
     quoted: (text: string) => `“${text}”`,
-    copyExample: 'Copy example request',
+    tryAsking: 'Try asking',
+    copy: 'Copy',
+    copiedLabel: 'Copied',
     copied: 'Copied. Paste it into your assistant.',
     copyFailed: 'Couldn’t copy. Select the text instead.',
     examples: {
       cooking:
-        'I cooked chili with 500\u00a0g beef, 400\u00a0g beans and 300\u00a0g onion. The pot weighs 1.8\u00a0kg. Save it as a batch.',
+        'I cooked chili with 500\u00a0g beef, 400\u00a0g beans and 300\u00a0g onion. The pot weighs 1.8\u00a0kg. Save it as a cooked food.',
       savedFood: 'Save my usual oat milk latte as a reusable food.',
-      template: 'Save today’s breakfast as a meal template.',
+      template: 'Save the breakfast I just logged as a meal template.',
     },
     hints: {
       assistant: {
@@ -55,14 +57,16 @@ export const messages = defineMessages({
   hu: {
     gotIt: 'Értem',
     quoted: (text: string) => `„${text}”`,
-    copyExample: 'Példakérés másolása',
+    tryAsking: 'Kérd például így',
+    copy: 'Másolás',
+    copiedLabel: 'Kimásolva',
     copied: 'Kimásolva. Illeszd be az asszisztensednek.',
     copyFailed: 'Nem sikerült másolni. Jelöld ki a szöveget.',
     examples: {
       cooking:
-        'Főztem chilit 500\u00a0g marhával, 400\u00a0g babbal és 300\u00a0g hagymával. A kész étel 1,8\u00a0kg. Mentsd el főzésként.',
+        'Főztem chilit 500\u00a0g marhával, 400\u00a0g babbal és 300\u00a0g hagymával. A kész étel 1,8\u00a0kg. Mentsd el főtt ételként.',
       savedFood: 'Mentsd el a szokásos zabtejes lattémat mentett ételként.',
-      template: 'Mentsd el a mai reggelimet étkezéssablonként.',
+      template: 'Mentsd el az imént rögzített reggelimet étkezéssablonként.',
     },
     hints: {
       assistant: {

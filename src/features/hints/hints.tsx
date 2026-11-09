@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import {
+  Check,
   Clock,
   Copy,
   Gauge,
@@ -9,7 +10,7 @@ import {
   Weight,
   type LucideIcon,
 } from 'lucide-react'
-import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../../convex/_generated/api'
 import type { Hint } from '../../../convex/lib/hints'
@@ -125,23 +126,32 @@ export function AssistantListEmpty({
   return (
     <EmptyState
       title={title}
-      example={<AssistantExample text={example} />}
+      example={
+        <figure>
+          <figcaption className="type-footnote text-muted-foreground">
+            {t.tryAsking}
+          </figcaption>
+          <blockquote className="mt-1 rounded-xl bg-recessed px-3 py-2.5 type-subhead text-foreground select-text">
+            {t.quoted(example)}
+          </blockquote>
+        </figure>
+      }
       action={
-        connected === false || onShowArchived ? (
-          <>
-            {connected === false ? (
-              <Link
-                to="/settings/integrations"
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                {t.hints.assistant.action}
-              </Link>
-            ) : null}
-            {onShowArchived ? (
-              <ShowArchivedButton onClick={onShowArchived} />
-            ) : null}
-          </>
-        ) : null
+        <>
+          {/* Copying is how these lists fill, so it leads. */}
+          <CopyButton text={example} />
+          {connected === false ? (
+            <Link
+              to="/settings/integrations"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              {t.hints.assistant.action}
+            </Link>
+          ) : null}
+          {onShowArchived ? (
+            <ShowArchivedButton onClick={onShowArchived} />
+          ) : null}
+        </>
       }
     >
       {children}
@@ -149,32 +159,28 @@ export function AssistantListEmpty({
   )
 }
 
-/** A quoted request in a quiet well, with Copy on the same line. */
-function AssistantExample({ text }: { text: string }) {
+/** Copies the example request; the label confirms for a moment. */
+function CopyButton({ text }: { text: string }) {
   const t = useMessages(messages)
+  const [copied, setCopied] = useState(false)
   async function copy() {
     try {
       await navigator.clipboard.writeText(text)
-      toast.success(t.copied)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error(t.copyFailed)
     }
   }
   return (
-    <div className="flex items-start gap-2 rounded-xl bg-recessed py-2 pr-1 pl-3">
-      <p className="min-w-0 flex-1 py-1.5 type-subhead text-foreground select-text">
-        {t.quoted(text)}
-      </p>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t.copyExample}
-        className="text-muted-foreground"
-        onClick={() => void copy()}
-      >
-        <Copy />
-      </Button>
-    </div>
+    <Button variant="outline" size="sm" onClick={() => void copy()}>
+      {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+      {copied ? t.copiedLabel : t.copy}
+      {/* The label change isn't announced on its own. */}
+      <span role="status" className="sr-only">
+        {copied ? t.copied : ''}
+      </span>
+    </Button>
   )
 }
 

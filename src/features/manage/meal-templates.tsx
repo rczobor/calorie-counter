@@ -395,7 +395,10 @@ export function MealTemplates() {
   const hintCopy = useMessages(hintsMessages)
   return (
     <section aria-label={t.section} className="space-y-3">
-      <p className="type-subhead text-muted-foreground">{t.intro}</p>
+      {/* The empty state says this itself. */}
+      {nothingYet ? null : (
+        <p className="type-subhead text-muted-foreground">{t.intro}</p>
+      )}
       <ListToolbar
         search={{
           label: t.search,

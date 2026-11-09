@@ -146,9 +146,8 @@ describe('AssistantListEmpty', () => {
     const writeText = vi.fn(() => Promise.resolve())
     Object.assign(navigator, { clipboard: { writeText } })
     showEmpty()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Copy example request' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(writeText).toHaveBeenCalledWith('Save my chili as a batch.')
+    expect(await screen.findByRole('button', { name: /^Copied/ })).toBeTruthy()
   })
 })

@@ -29,7 +29,7 @@ export const messages = defineMessages({
     daysHeading: 'Days',
     noData: 'No data for the selected range.',
     emptyRangeTitle: 'Nothing logged in this range',
-    emptyRange: 'Open a day below to add what you ate.',
+    emptyRange: 'Tell your AI assistant what you ate, or open a day below.',
     noMealsLogged: 'No meals logged',
     noChartData: 'No chart data for the selected range.',
     barLabel: (date: string, consumed: number, goal: number) =>
@@ -66,7 +66,8 @@ export const messages = defineMessages({
     daysHeading: 'Napok',
     noData: 'A kiválasztott időszakhoz nincs adat.',
     emptyRangeTitle: 'Ebben az időszakban nincs rögzítés',
-    emptyRange: 'Nyiss meg lent egy napot, és rögzítsd, mit ettél.',
+    emptyRange:
+      'Írd meg az AI-asszisztensednek, mit ettél, vagy nyiss meg lent egy napot.',
     noMealsLogged: 'Nincs rögzített étkezés',
     noChartData: 'A kiválasztott időszakhoz nincs grafikonadat.',
     barLabel: (date: string, consumed: number, goal: number) =>

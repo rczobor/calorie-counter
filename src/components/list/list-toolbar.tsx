@@ -125,7 +125,13 @@ export function ListToolbar<Sort extends string = string>({
 export function ShowArchivedButton({ onClick }: { onClick: () => void }) {
   const t = useMessages(messages)
   return (
-    <Button variant="ghost" size="sm" onClick={onClick}>
+    // Leading its row, the text keeps the content edge.
+    <Button
+      variant="ghost"
+      size="sm"
+      className="first:-ml-3.5"
+      onClick={onClick}
+    >
       {t.showArchived}
     </Button>
   )
