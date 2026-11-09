@@ -4,7 +4,7 @@ export const messages = defineMessages({
   en: {
     section: 'Reusable foods',
     noneTitle: 'No reusable foods yet',
-    none: 'Ask your AI assistant to remember a food you logged.',
+    none: 'Ask your AI assistant to save a food you eat often, and it logs in one step next time.',
     search: 'Search reusable foods',
     empty:
       'No reusable foods found. Ask your AI assistant to remember a logged food to save it here.',
@@ -26,7 +26,7 @@ export const messages = defineMessages({
   hu: {
     section: 'Mentett ételek',
     noneTitle: 'Még nincs mentett étel',
-    none: 'Kérd meg az AI-asszisztensedet, hogy jegyezzen meg egy rögzített ételt.',
+    none: 'Kérd meg az AI-asszisztensedet, hogy mentsen el egy gyakran evett ételt, és legközelebb egy lépésben rögzíti.',
     search: 'Mentett ételek keresése',
     empty:
       'Nem található mentett étel. Kérd meg az AI-asszisztensedet, hogy jegyezzen meg egy rögzített ételt, és itt megjelenik.',

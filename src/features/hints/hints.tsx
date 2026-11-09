@@ -115,8 +115,13 @@ function HintCard({ hint, onFinish }: { hint: Hint; onFinish: () => void }) {
   const t = useMessages(messages)
   const { icon: Icon, to } = HINT_DETAILS[hint]
   const copy = t.hints[hint]
+  // A guest on the page: an outline on the canvas, never a filled cell that
+  // would rank with the day summary and the meals.
   return (
-    <section aria-label={copy.title} className="mt-6 inset-group px-4 py-3.5">
+    <section
+      aria-label={copy.title}
+      className="mt-6 rounded-xl border px-4 py-3.5"
+    >
       <div className="flex items-start gap-3">
         <Icon
           aria-hidden="true"

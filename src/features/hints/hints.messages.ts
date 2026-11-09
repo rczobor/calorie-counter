@@ -17,12 +17,12 @@ export const messages = defineMessages({
       },
       weighIn: {
         title: 'Find your real maintenance',
-        body: 'Weigh in a few mornings a week, and after two weeks the app measures what you burn.',
+        body: 'Weigh in a few mornings a week to learn what you really burn.',
         action: 'Record a weigh-in',
       },
       maintenance: {
         title: 'Your maintenance is ready',
-        body: 'Your logs and weigh-ins now show what you burn, so check your goal still fits.',
+        body: 'Your logs and weigh-ins now show what you burn, so you can check that your goal still fits.',
         action: 'See maintenance',
       },
       invite: {
@@ -39,7 +39,7 @@ export const messages = defineMessages({
     tips: {
       title: 'Tips',
       group: 'Easy to miss',
-      footer: 'Each tip also shows once on Today, when it’s useful.',
+      footer: 'Each tip shows once on Today when it’s useful.',
     },
   },
   hu: {
@@ -57,12 +57,12 @@ export const messages = defineMessages({
       },
       weighIn: {
         title: 'A valódi fenntartó kalóriád',
-        body: 'Mérd meg magad hetente néhány reggel, és két hét után az app kiszámolja, mennyit égetsz.',
+        body: 'Mérd meg magad hetente pár reggel, és megtudod, mennyit égetsz valójában.',
         action: 'Mérés rögzítése',
       },
       maintenance: {
         title: 'Megvan a fenntartó kalóriád',
-        body: 'A rögzítéseidből és méréseidből már látszik, mennyit égetsz, ezért nézd meg, illik-e még a napi célod.',
+        body: 'A rögzítéseidből és méréseidből már látszik, mennyit égetsz, így ellenőrizheted, illik-e még a napi célod.',
         action: 'Fenntartó kalória megtekintése',
       },
       invite: {
@@ -79,8 +79,7 @@ export const messages = defineMessages({
     tips: {
       title: 'Tippek',
       group: 'Könnyen elsiklik',
-      footer:
-        'Mindegyik tipp egyszer a Ma oldalon is megjelenik, amikor hasznos.',
+      footer: 'Minden tipp egyszer a Ma oldalon is megjelenik, amikor hasznos.',
     },
   },
 })
