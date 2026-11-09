@@ -148,6 +148,6 @@ describe('AssistantListEmpty', () => {
     showEmpty()
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(writeText).toHaveBeenCalledWith('Save my chili as a batch.')
-    expect(await screen.findByRole('button', { name: /^Copied/ })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeTruthy()
   })
 })
