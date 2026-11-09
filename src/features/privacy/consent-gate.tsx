@@ -5,7 +5,7 @@ import {
   ChartNoAxesColumn,
   ChevronRight,
   FileText,
-  Settings,
+  Hand,
   Users,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -41,7 +41,7 @@ const POINTS = [
   { key: 'who', Icon: Users },
   { key: 'statistics', Icon: ChartNoAxesColumn },
   // A promise never borrows the destructive action's trash glyph.
-  { key: 'delete', Icon: Settings },
+  { key: 'delete', Icon: Hand },
 ] as const
 
 function keyPhrase(text: string) {
@@ -104,11 +104,7 @@ function ConsentScreen() {
               <span className="block">{t.readNotice}</span>{' '}
               {/* Why someone who already agreed is asked again. */}
               <span className="block type-footnote text-muted-foreground">
-                {t.noticeUpdated(
-                  formatDate(PRIVACY_NOTICE_VERSION, locale, {
-                    year: 'always',
-                  }),
-                )}
+                {t.noticeUpdated(formatDate(PRIVACY_NOTICE_VERSION, locale))}
               </span>
             </span>
             <ChevronRight
@@ -117,7 +113,8 @@ function ConsentScreen() {
             />
           </Link>
         </div>
-        <p className="mt-8 type-body text-pretty">{t.statement}</p>
+        {/* Balanced wrapping only on desktop; phones keep the body's measure. */}
+        <p className="mt-6 type-body md:text-pretty">{t.statement}</p>
         {error ? (
           <p role="alert" className="mt-3 type-subhead text-destructive">
             {error}
@@ -140,7 +137,7 @@ function ConsentScreen() {
             </SignOutButton>
           ) : null}
         </div>
-        <p className="mt-8 type-subhead text-pretty text-muted-foreground">
+        <p className="mt-6 type-subhead text-pretty text-muted-foreground">
           {t.decline}
         </p>
         <DeleteAccount variant="link" />

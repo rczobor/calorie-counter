@@ -11,10 +11,7 @@ export const messages = defineMessages({
     body: 'Calorie Counter stores what you eat, your body weight and your goals. This is health data, so the app needs your explicit consent to process it.',
     points: {
       who: (key: Key) =>
-        rich(
-          key('Only you and the people in your households'),
-          ' see your data.',
-        ),
+        rich(key('Only you and your households'), ' see your data.'),
       statistics: (key: Key) =>
         rich(
           'Usage statistics show whether people log, ',
@@ -22,11 +19,7 @@ export const messages = defineMessages({
           '.',
         ),
       delete: (key: Key) =>
-        rich(
-          'You can ',
-          key('delete your account and data'),
-          ' at any time, here or later in Settings.',
-        ),
+        rich('You can ', key('delete your account and data'), ' at any time.'),
     },
     pointsTitle: 'Your data',
     readNotice: 'Privacy notice',
@@ -44,7 +37,7 @@ export const messages = defineMessages({
     body: 'A Calorie Counter tárolja, mit eszel, a testsúlyodat és a céljaidat. Ezek egészségügyi adatok, ezért a kezelésükhöz a kifejezett hozzájárulásodra van szükség.',
     points: {
       who: (key: Key) =>
-        rich(key('Csak te és a háztartásaid tagjai'), ' látják az adataidat.'),
+        rich(key('Csak te és a háztartásaid'), ' látják az adataidat.'),
       statistics: (key: Key) =>
         rich(
           'A használati statisztikák azt mutatják, hogy rögzítenek-e az emberek, ',
@@ -52,10 +45,7 @@ export const messages = defineMessages({
           '.',
         ),
       delete: (key: Key) =>
-        rich(
-          key('Törölheted a fiókodat és az adataidat'),
-          ' bármikor, itt vagy később a Beállításokban.',
-        ),
+        rich(key('Törölheted'), ' a fiókodat és az adataidat bármikor.'),
     },
     pointsTitle: 'Az adataid',
     readNotice: 'Adatvédelmi tájékoztató',
