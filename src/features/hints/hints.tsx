@@ -120,31 +120,28 @@ function HintCard({ hint, onFinish }: { hint: Hint; onFinish: () => void }) {
   return (
     <section
       aria-label={copy.title}
-      className="mt-6 rounded-xl border px-4 py-3.5"
+      className="mt-8 rounded-xl border px-4 py-3.5"
     >
-      <div className="flex items-start gap-3">
+      {/* The icon leads the title, so the sentence gets the full width. */}
+      <h2 className="flex items-center gap-2 type-headline">
         <Icon
           aria-hidden="true"
-          className="mt-0.5 size-5 shrink-0 text-muted-foreground"
+          className="size-5 shrink-0 text-muted-foreground"
         />
-        <div className="min-w-0 flex-1">
-          <h2 className="type-headline">{copy.title}</h2>
-          <p className="mt-0.5 type-subhead text-muted-foreground">
-            {copy.body}
-          </p>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            <Link
-              to={to}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              onClick={onFinish}
-            >
-              {copy.action}
-            </Link>
-            <Button variant="ghost" size="sm" onClick={onFinish}>
-              {t.gotIt}
-            </Button>
-          </div>
-        </div>
+        {copy.title}
+      </h2>
+      <p className="mt-0.5 type-subhead text-muted-foreground">{copy.body}</p>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        <Link
+          to={to}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          onClick={onFinish}
+        >
+          {copy.action}
+        </Link>
+        <Button variant="ghost" size="sm" onClick={onFinish}>
+          {t.gotIt}
+        </Button>
       </div>
     </section>
   )

@@ -171,7 +171,7 @@ describe('History route', () => {
     mockSummaries = []
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
-    expect(screen.getByText('No meals in these days')).toBeTruthy()
+    expect(screen.getByText('Nothing logged in these days')).toBeTruthy()
     expect(screen.queryByText('Daily average')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Daily calories' })).toBeNull()
     // Each day still opens, so a missed meal can be logged.

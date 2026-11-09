@@ -61,7 +61,7 @@ export const messages = defineMessages({
     noIngredients: 'No ingredients found.',
     ingredientsEmptyTitle: 'No ingredients yet',
     ingredientsEmpty:
-      'Add foods you eat often, with calories per 100\u00a0g, to find them when you log a meal.',
+      'Add foods you weigh, with calories per 100\u00a0g, to use them in meals and recipes.',
     notCounted: 'Not counted',
     loadMoreIngredients: 'Load more ingredients',
     editIngredient: 'Edit ingredient',
@@ -215,7 +215,7 @@ export const messages = defineMessages({
     noIngredients: 'Nem található alapanyag.',
     ingredientsEmptyTitle: 'Még nincs alapanyag',
     ingredientsEmpty:
-      'Add hozzá a gyakran evett ételeidet a 100\u00a0g-onkénti kalóriájukkal, és rögzítéskor megtalálod őket.',
+      'Add hozzá a grammra mért ételeidet a 100\u00a0g-onkénti kalóriájukkal, és étkezésekben, receptekben is használhatod őket.',
     notCounted: 'Kalória kihagyva',
     loadMoreIngredients: 'További alapanyagok betöltése',
     editIngredient: 'Alapanyag szerkesztése',

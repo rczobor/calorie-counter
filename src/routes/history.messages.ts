@@ -28,9 +28,8 @@ export const messages = defineMessages({
     viewDay: 'View day',
     daysHeading: 'Days',
     noData: 'No data for the selected range.',
-    emptyRangeTitle: 'No meals in these days',
-    emptyRange:
-      'Each day you log shows here against its goal. Open a day below to log a meal you missed.',
+    emptyRangeTitle: 'Nothing logged in these days',
+    emptyRange: 'Open a day below to log a meal you missed.',
     noMealsLogged: 'No meals logged',
     noChartData: 'No chart data for the selected range.',
     barLabel: (date: string, consumed: number, goal: number) =>
@@ -66,9 +65,8 @@ export const messages = defineMessages({
     viewDay: 'Nap megnyitása',
     daysHeading: 'Napok',
     noData: 'A kiválasztott időszakhoz nincs adat.',
-    emptyRangeTitle: 'Ezekben a napokban nincs étkezés',
-    emptyRange:
-      'Minden nap, amikor rögzítesz, itt jelenik meg a napi célja mellett.',
+    emptyRangeTitle: 'Ezekben a napokban nincs rögzítés',
+    emptyRange: 'Nyiss meg lent egy napot, ha kimaradt egy étkezés.',
     noMealsLogged: 'Nincs rögzített étkezés',
     noChartData: 'A kiválasztott időszakhoz nincs grafikonadat.',
     barLabel: (date: string, consumed: number, goal: number) =>

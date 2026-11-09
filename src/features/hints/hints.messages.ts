@@ -22,8 +22,8 @@ export const messages = defineMessages({
       },
       maintenance: {
         title: 'Your maintenance is ready',
-        body: 'Your logs and weigh-ins now show what you burn, so you can check that your goal still fits.',
-        action: 'See maintenance',
+        body: 'Your logs and weigh-ins now show what you really burn.',
+        action: 'Check your goal',
       },
       invite: {
         title: 'Let others log for themselves',
@@ -58,12 +58,12 @@ export const messages = defineMessages({
       weighIn: {
         title: 'A valódi fenntartó kalóriád',
         body: 'Mérd meg magad hetente pár reggel, és megtudod, mennyit égetsz valójában.',
-        action: 'Mérés rögzítése',
+        action: 'Testsúly rögzítése',
       },
       maintenance: {
         title: 'Megvan a fenntartó kalóriád',
-        body: 'A rögzítéseidből és méréseidből már látszik, mennyit égetsz, így ellenőrizheted, illik-e még a napi célod.',
-        action: 'Fenntartó kalória megtekintése',
+        body: 'A rögzítéseidből és méréseidből már látszik, mennyit égetsz valójában.',
+        action: 'Napi cél ellenőrzése',
       },
       invite: {
         title: 'Rögzítsenek mások is',

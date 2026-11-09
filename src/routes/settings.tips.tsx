@@ -6,7 +6,6 @@ import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { HINT_DETAILS } from '@/features/hints/hints'
 import { messages } from '@/features/hints/hints.messages'
 import { useMessages } from '@/i18n/messages'
-import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/settings/tips')({
   ssr: false,
@@ -29,16 +28,16 @@ function TipsPage() {
         <h2 id="tips-group" className="group-label">
           {t.tips.group}
         </h2>
-        <ul className="inset-group inset-rows">
+        <ul className="inset-group inset-rows [--row-inset:3rem]">
           {TIPS.map((tip) => {
             const { icon: Icon, to } = HINT_DETAILS[tip]
             const copy = t.hints[tip]
             return (
               <li key={tip}>
-                <Link to={to} className={cn(LIST_ROW_CLASS, 'items-start')}>
+                <Link to={to} className={LIST_ROW_CLASS}>
                   <Icon
                     aria-hidden="true"
-                    className="mt-0.5 size-5 shrink-0 text-muted-foreground"
+                    className="size-5 shrink-0 text-muted-foreground"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block">{copy.title}</span>
@@ -48,7 +47,7 @@ function TipsPage() {
                   </span>
                   <ChevronRight
                     aria-hidden="true"
-                    className="size-4 shrink-0 self-center text-muted-foreground"
+                    className="size-4 shrink-0 text-muted-foreground"
                   />
                 </Link>
               </li>
