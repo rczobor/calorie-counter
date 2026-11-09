@@ -68,6 +68,11 @@ function UsageReport({ data }: { data: Engagement }) {
           {t.partial}
         </p>
       ) : null}
+      {data.awaitingConsent ? (
+        <p className="px-4 type-footnote text-muted-foreground">
+          {t.awaitingConsent(data.awaitingConsent)}
+        </p>
+      ) : null}
       {STATUSES.map((status) => {
         const accounts = data.accounts.filter((row) => row.status === status)
         return accounts.length ? (

@@ -32,6 +32,10 @@ export const messages = defineMessages({
     assistantShare: (percent: string) => `${percent} by assistant`,
     households: (count: number) => `${count} households`,
     partialCounts: 'counts incomplete',
+    awaitingConsent: (count: number) =>
+      count === 1
+        ? '1 account hasn’t accepted the privacy notice yet, so it is left out.'
+        : `${count} accounts haven’t accepted the privacy notice yet, so they are left out.`,
     howPeopleLog: 'How people log',
     allAccounts: 'All accounts, the last 28 days.',
     meals: 'Meals logged',
@@ -82,6 +86,8 @@ export const messages = defineMessages({
     assistantShare: (percent: string) => `AI-asszisztenssel: ${percent}`,
     households: (count: number) => `${count} háztartás`,
     partialCounts: 'hiányos számok',
+    awaitingConsent: (count: number) =>
+      `${count} fiók még nem fogadta el az adatvédelmi tájékoztatót, ezért kimarad.`,
     howPeopleLog: 'Hogyan rögzítenek',
     allAccounts: 'Minden fiók, az elmúlt 28 nap.',
     meals: 'Rögzített étkezések',

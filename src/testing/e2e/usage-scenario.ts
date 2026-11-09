@@ -102,6 +102,7 @@ export function createUsageData(today: string): Engagement {
   return {
     accounts,
     partial: false,
+    awaitingConsent: 1,
     totals: {
       meals: 185,
       webMeals: 113,

@@ -5,6 +5,7 @@ import { api } from './_generated/api'
 import { engagementStatus } from './admin'
 import { shiftDay } from './lib/energy'
 import {
+  acceptPrivacyNotice,
   asTestUser,
   asTestUserWithToken,
   createConvexTest,
@@ -81,6 +82,7 @@ describe('usage dashboard', () => {
     // Planned ahead: neither activity nor the last logged day.
     await insertMeal(t, personId, { eatenOn: day(3), source: 'web' })
     const drifterPerson = await insertPerson(t, { account: drifter })
+    await acceptPrivacyNotice(t, drifter)
     for (const offset of [-35, -36])
       await insertMeal(t, drifterPerson, {
         account: drifter,
@@ -88,6 +90,16 @@ describe('usage dashboard', () => {
         source: 'web',
       })
     await insertCookSession(t)
+    // Never accepted the privacy notice: left out entirely.
+    const holdout = 'https://example.test|holdout'
+    const holdoutPerson = await insertPerson(t, { account: holdout })
+    const holdoutMeal = await insertMeal(t, holdoutPerson, {
+      account: holdout,
+      eatenOn: day(-1),
+      source: 'agent',
+    })
+    await insertMealItem(t, holdoutMeal, { account: holdout })
+    await insertCookSession(t, { account: holdout })
 
     await t.run(async (ctx) => {
       await ctx.db.insert('personGoalHistory', {
@@ -145,6 +157,8 @@ describe('usage dashboard', () => {
     expect(
       byId.get(await testUserId(t, 'https://example.test|quiet')),
     ).toMatchObject({ lastLoggedOn: null, daysLogged: 0, meals: 0 })
+    expect(byId.has(await testUserId(t, holdout))).toBe(false)
+    expect(result.awaitingConsent).toBe(1)
     expect(result.partial).toBe(false)
     expect(result.totals).toEqual({
       meals: 4,

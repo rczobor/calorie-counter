@@ -30,7 +30,7 @@ export const messages = defineMessages({
       'To run the app: store your entries, add up your days and suggest goals.',
       'To share a household’s data with the people you invite to it.',
       'To let AI assistants you connect read and record data for you.',
-      'To improve the app. The operator can see which accounts log regularly and how people log overall, never what anyone ate.',
+      'To improve the app. The operator can see which accounts log regularly and, for everyone together, how people log and how often days end near their goals. Never what anyone ate.',
     ],
     basis:
       'The legal basis is your explicit consent (GDPR Article 6(1)(a) and Article 9(2)(a)), which covers everything this notice describes. The cookieless visit and speed statistics rely on legitimate interest (Article 6(1)(f)).',
@@ -88,7 +88,7 @@ export const messages = defineMessages({
       'Az alkalmazás működtetésére: tárolja a bejegyzéseidet, összesíti a napjaidat és célt javasol.',
       'Hogy egy háztartás adatait megoszthasd azokkal, akiket meghívsz.',
       'Hogy az összekapcsolt AI-asszisztensek adatokat olvashassanak és rögzíthessenek helyetted.',
-      'Az alkalmazás fejlesztésére. Az üzemeltető látja, mely fiókok rögzítenek rendszeresen, és összesítve azt, hogyan rögzítenek az emberek, azt soha, hogy ki mit evett.',
+      'Az alkalmazás fejlesztésére. Az üzemeltető látja, mely fiókok rögzítenek rendszeresen, és mindenkire összesítve azt, hogyan rögzítenek az emberek, és milyen gyakran zárulnak a napok a cél közelében. Azt soha, hogy ki mit evett.',
     ],
     basis:
       'A jogalap a kifejezett hozzájárulásod (GDPR 6. cikk (1) bekezdés a) pont és 9. cikk (2) bekezdés a) pont), amely mindenre kiterjed, amit ez a tájékoztató leír. A sütik nélküli látogatási és sebességstatisztikák jogalapja a jogos érdek (6. cikk (1) bekezdés f) pont).',

@@ -52,6 +52,11 @@ describe('usage dashboard', () => {
         /^27 of 28 days · 26 the 4 weeks before · Last logged .+ · 69% by assistant · 2 households$/,
       ),
     ).toBeTruthy()
+    expect(
+      screen.getByText(
+        '1 account hasn’t accepted the privacy notice yet, so it is left out.',
+      ),
+    ).toBeTruthy()
     const never = screen.getByRole('region', { name: 'Never started 1' })
     expect(within(never).getByText('Unnamed account')).toBeTruthy()
     expect(within(never).getByText(/^Joined /)).toBeTruthy()
