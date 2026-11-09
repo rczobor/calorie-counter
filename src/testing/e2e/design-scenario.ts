@@ -422,6 +422,9 @@ const vikiDays: Record<number, MealKey[]> = {
 
 const alexId = 'aaaaaaaaaaaaaaaaaaaa' as Id<'people'>
 const vikiId = 'bbbbbbbbbbbbbbbbbbbb' as Id<'people'>
+// Sam is another member's own person: weighs in, and linked to their account.
+const samId = 'cccccccccccccccccccc' as Id<'people'>
+const samUserId = 'e2e-sam' as Id<'users'>
 
 function dateKey(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
@@ -633,6 +636,21 @@ export function createDesignData(
     })
   }
 
+  for (let daysAgo = 9; daysAgo >= 0; daysAgo--) {
+    const measuredAt = at(daysAgo, '06:50').getTime()
+    weights.push({
+      _id: `design-weight-s-${daysAgo}` as Id<'weightEntries'>,
+      _creationTime: measuredAt,
+      ...owner,
+      personId: samId,
+      measuredOn: dateKey(at(daysAgo)),
+      weightKg: Math.round((71.2 - daysAgo * 0.05) * 10) / 10,
+      editRevision: 0,
+      createdAt: measuredAt,
+      updatedAt: measuredAt,
+    })
+  }
+
   const person = (
     _id: Id<'people'>,
     name: string,
@@ -682,6 +700,12 @@ export function createDesignData(
           },
           goalPlan: { direction: 'maintain' },
         }),
+        {
+          ...person(samId, 'Sam', 2600, {
+            goalPlan: { direction: 'gain', percentPerWeek: 0.25 },
+          }),
+          userId: samUserId,
+        },
       ],
       ingredients: ingredientDocs,
       cookSessions: sessionDocs,
