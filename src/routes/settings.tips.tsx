@@ -4,6 +4,7 @@ import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { PageShell } from '@/components/page/page-shell'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { HINT_DETAILS } from '@/features/hints/hints'
+import { useInstall } from '@/features/install/install-provider'
 import { messages } from '@/features/hints/hints.messages'
 import { useMessages } from '@/i18n/messages'
 
@@ -18,6 +19,9 @@ const TIPS = ['assistant', 'history', 'weighIn', 'invite', 'widget'] as const
 
 function TipsPage() {
   const t = useMessages(messages)
+  // The Home Screen widget runs in Scriptable on an iPhone or iPad only.
+  const ios = useInstall()?.platform === 'ios'
+  const tips = TIPS.filter((tip) => tip !== 'widget' || ios)
   return (
     <PageShell
       title={t.tips.title}
@@ -29,7 +33,7 @@ function TipsPage() {
           {t.tips.group}
         </h2>
         <ul className="inset-group inset-rows [--row-inset:3rem]">
-          {TIPS.map((tip) => {
+          {tips.map((tip) => {
             const { icon: Icon, to } = HINT_DETAILS[tip]
             const copy = t.hints[tip]
             return (
