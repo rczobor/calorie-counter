@@ -119,6 +119,7 @@ export function RecordRow({
             <span>{title}</span>
           </span>{' '}
           {badge}
+          {badge ? ' ' : null}
           {archived ? <ArchivedBadge /> : null}
         </span>{' '}
         {detail ? (

@@ -463,7 +463,6 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
               {t.householdHint}
             </p>
-            <WhichOneIsYou people={people.results} className="mt-5" />
             {people.status === 'CanLoadMore' ||
             people.status === 'LoadingMore' ? (
               <Button
@@ -477,6 +476,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 {t.loadMorePeople}
               </Button>
             ) : null}
+            <WhichOneIsYou people={people.results} className="mt-5" />
           </section>
         ) : null}
         {!archived ? (

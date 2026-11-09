@@ -432,7 +432,8 @@ function PeopleContent() {
                     id="person-is-me"
                     aria-describedby="person-is-me-note"
                     checked={isMe}
-                    disabled={live?.linkedAccount === 'other'}
+                    // A span, so the fieldset's disabled doesn't reach it.
+                    disabled={isRunning || live?.linkedAccount === 'other'}
                     onCheckedChange={(checked) => setIsMe(Boolean(checked))}
                   />
                 </div>
