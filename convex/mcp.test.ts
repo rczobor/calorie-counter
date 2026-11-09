@@ -291,6 +291,9 @@ describe('MCP cooked-food finished-weight corrections', () => {
       }),
       mealResult,
     )
+    expect(await t.run((ctx) => ctx.db.get(mealId))).toMatchObject({
+      source: 'agent',
+    })
     const reused = await output(
       await call(t, own.token, 'preview_cooking', {
         input: {

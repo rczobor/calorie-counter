@@ -14,6 +14,8 @@ export const messages = defineMessages({
     archivedMeals: 'Archived meals',
     foodLibrary: 'Food library',
     cooking: 'Cooking',
+    admin: 'Admin',
+    usage: 'Usage',
     diagnostics: 'Diagnostics',
     recentStarts: 'Recent app starts',
     recentStartsHint:
@@ -42,6 +44,8 @@ export const messages = defineMessages({
     archivedMeals: 'Archivált étkezések',
     foodLibrary: 'Ételtár',
     cooking: 'Főzés',
+    admin: 'Adminisztráció',
+    usage: 'Használat',
     diagnostics: 'Diagnosztika',
     recentStarts: 'Legutóbbi indítások',
     recentStartsHint:

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as catalog from "../catalog.js";
 import type * as cooking from "../cooking.js";
 import type * as energy from "../energy.js";
@@ -44,6 +45,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   catalog: typeof catalog;
   cooking: typeof cooking;
   energy: typeof energy;

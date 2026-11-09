@@ -4,6 +4,7 @@ import {
   Outlet,
   useRouterState,
 } from '@tanstack/react-router'
+import { useQuery } from 'convex/react'
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { LIST_ROW_CLASS } from '@/components/page/list-row'
@@ -16,6 +17,7 @@ import HeaderUser from '@/integrations/clerk/header-user'
 import { formatDate } from '@/lib/dates'
 import { readStartupTimings } from '@/lib/startup-timing'
 import { cn } from '@/lib/utils'
+import { api } from '../../convex/_generated/api'
 import { messages } from './settings.messages'
 
 export const Route = createFileRoute('/settings')({
@@ -28,6 +30,7 @@ function SettingsPage() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const isSuperAdmin = useQuery(api.admin.isSuperAdmin, {})
   if (pathname.replace(/\/$/, '') !== '/settings') return <Outlet />
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-6 sm:px-6 md:pt-8">
@@ -70,6 +73,16 @@ function SettingsPage() {
           <SettingsLink to="/cooking" title={t.cooking} />
         </div>
       </section>
+      {isSuperAdmin ? (
+        <section aria-labelledby="settings-admin" className="mt-8">
+          <h2 id="settings-admin" className="group-label">
+            {t.admin}
+          </h2>
+          <div className="inset-group inset-rows">
+            <SettingsLink to="/settings/usage" title={t.usage} />
+          </div>
+        </section>
+      ) : null}
       <StartupTimings />
     </main>
   )
@@ -87,6 +100,7 @@ function SettingsLink({
     | '/catalog'
     | '/cooking'
     | '/settings/archived-meals'
+    | '/settings/usage'
   title: string
 }) {
   return (

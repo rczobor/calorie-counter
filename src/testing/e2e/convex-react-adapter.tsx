@@ -15,6 +15,7 @@ import {
   createCookedFoodIngredientDoc,
 } from '@/tests/factories'
 import { createDesignData } from './design-scenario'
+import { createUsageData } from './usage-scenario'
 import {
   buildCheckIn,
   CHECK_IN_LOOKBACK_DAYS,
@@ -691,6 +692,12 @@ export function useQuery<Query extends FunctionReference<'query'>>(
     return snapshot.preferences as FunctionReturnType<Query>
   if (functionName === 'userPreferences:getLocale')
     return snapshot.locale as FunctionReturnType<Query>
+  if (functionName === 'admin:isSuperAdmin')
+    return true as FunctionReturnType<Query>
+  if (functionName === 'admin:engagement')
+    return createUsageData(
+      (args as { today: string }).today,
+    ) as FunctionReturnType<Query>
   if (functionName === 'meals:getDayNutrition') {
     const input = args as { personId: Id<'people'>; eatenOn: string }
     return dayNutrition(

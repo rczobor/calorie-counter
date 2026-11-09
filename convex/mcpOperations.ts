@@ -390,7 +390,7 @@ export const logMeal = internalMutation({
         key: owner.userId,
         throws: true,
       })
-      const mealId = await createMealForOwner(ctx, owner, writeInput)
+      const mealId = await createMealForOwner(ctx, owner, writeInput, 'agent')
       const result = {
         context: await describeContext(ctx, owner),
         dailySummary: await readDailySummary(
