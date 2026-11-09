@@ -279,6 +279,12 @@ export const remove = mutation({
 const DEPARTED_BATCH = 100
 
 /**
+ * Links made before `linkedAt` existed count from the day linking shipped:
+ * nothing was private before it.
+ */
+const LINKING_SHIPPED = Date.UTC(2026, 10, 9)
+
+/**
  * A member who leaves a household, or deletes their account, takes the
  * weight of the person linked to them along: it was private to them, and
  * unlinked it would show to everyone. The person and its other history stay.
@@ -294,17 +300,17 @@ export async function releaseLinkedPerson(
     await ctx.scheduler.runAfter(0, internal.weight.deleteDepartedWeights, {
       personId: linked._id,
       userId,
+      // Taken now: an unlink before the job runs would clear linkedAt.
+      since: linked.linkedAt ?? LINKING_SHIPPED,
     })
 }
 
-/**
- * Links made before `linkedAt` existed count from the day linking shipped:
- * nothing was private before it.
- */
-const LINKING_SHIPPED = Date.UTC(2026, 10, 9)
-
 export const deleteDepartedWeights = internalMutation({
-  args: { personId: v.id('people'), userId: v.id('users') },
+  args: {
+    personId: v.id('people'),
+    userId: v.id('users'),
+    since: v.number(),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const person = await ctx.db.get(args.personId)
@@ -313,15 +319,20 @@ export const deleteDepartedWeights = internalMutation({
     // the person: what is left is theirs.
     if (person.userId !== undefined && person.userId !== args.userId)
       return null
-    // Only what was recorded while linked: the household's earlier weigh-ins
-    // and goal reasons stay shared.
-    const since = person.linkedAt ?? LINKING_SHIPPED
+    // Only what was recorded or corrected while linked: the household's
+    // earlier weigh-ins and goal reasons stay shared.
+    const { since } = args
     const weights = await ctx.db
       .query('weightEntries')
       .withIndex('by_householdId_and_personId_and_measuredOn', (q) =>
         q.eq('householdId', person.householdId).eq('personId', person._id),
       )
-      .filter((q) => q.gte(q.field('createdAt'), since))
+      .filter((q) =>
+        q.or(
+          q.gte(q.field('createdAt'), since),
+          q.gte(q.field('updatedAt'), since),
+        ),
+      )
       .take(DEPARTED_BATCH)
     for (const entry of weights) await ctx.db.delete(entry._id)
     // Check-in reasons carry maintenance figures, as private as the weight.

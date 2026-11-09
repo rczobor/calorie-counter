@@ -11,7 +11,7 @@ import {
   requireAuthenticatedHousehold,
   withoutOwner,
 } from './lib/auth'
-import { isAnotherMembers } from './lib/personPrivacy'
+import { goalReasonFor } from './lib/personPrivacy'
 import { readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
@@ -270,15 +270,12 @@ export const listGoalHistory = query({
       .order('desc')
       .paginate(args.paginationOpts)
     const person = await ctx.db.get(args.personId)
-    // A check-in's reason carries its maintenance figure, which with the goal
-    // and plan gives the private weight away; another member sees no reasons.
-    const hideReasons = person !== null && isAnotherMembers(person, owner)
     return {
       ...result,
-      page: result.page.map((row): Infer<typeof goalDto> => {
-        const { reason, ...fields } = withoutOwner(row)
-        return hideReasons ? fields : { ...fields, reason }
-      }),
+      page: result.page.map((row) => ({
+        ...withoutOwner(row),
+        reason: person ? goalReasonFor(person, owner, row.reason) : undefined,
+      })),
     }
   },
 })

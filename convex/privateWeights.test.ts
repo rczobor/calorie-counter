@@ -116,16 +116,25 @@ describe('private weights', () => {
 
   it('hides goal reasons from other members', async () => {
     const { robi, viki, householdId, personId } = await shared('robi')
-    const history = (user: typeof robi) =>
-      user.query(api.people.listGoalHistory, {
-        householdId,
-        personId,
-        paginationOpts: page,
-      })
-    expect((await history(robi)).page[0]).toMatchObject({
-      reason: 'Initial goal',
-    })
-    expect((await history(viki)).page[0]).not.toHaveProperty('reason')
+    const reasons = async (user: typeof robi) => [
+      ...(
+        await user.query(api.people.listGoalHistory, {
+          householdId,
+          personId,
+          paginationOpts: page,
+        })
+      ).page.map((row) => row.reason),
+      ...(
+        await user.query(api.history.goalsForRange, {
+          householdId,
+          personId,
+          startDate: '2026-04-01',
+          endDate: '2026-04-30',
+        })
+      ).map((row) => row.reason),
+    ]
+    expect(await reasons(robi)).toEqual(['Initial goal', 'Initial goal'])
+    expect(await reasons(viki)).toEqual([undefined, undefined])
   })
 
   it('lets only the linked member change the goal; the name stays shared', async () => {
@@ -185,12 +194,13 @@ describe('private weights', () => {
       currentDailyGoalKcal: 2000,
       effectiveDate: '2026-11-30',
     })
-    await robi.mutation(api.weight.record, {
-      householdId,
-      personId,
-      measuredOn: '2026-11-30',
-      weightKg: 70,
-    })
+    for (const measuredOn of ['2026-11-29', '2026-11-30'])
+      await robi.mutation(api.weight.record, {
+        householdId,
+        personId,
+        measuredOn,
+        weightKg: 70,
+      })
     vi.setSystemTime(new Date('2026-12-01T09:00:00Z'))
     await viki.mutation(api.nutrition.setPersonLinkedToMe, {
       householdId,
@@ -203,6 +213,14 @@ describe('private weights', () => {
       personId,
       measuredOn: '2026-12-01',
       weightKg: 69.5,
+    })
+    // A correction made while linked is the member's figure, not the household's.
+    await viki.mutation(api.weight.record, {
+      householdId,
+      personId,
+      measuredOn: '2026-11-29',
+      weightKg: 70.4,
+      expectedEditRevision: 0,
     })
     await viki.mutation(api.nutrition.updatePersonGoal, {
       householdId,

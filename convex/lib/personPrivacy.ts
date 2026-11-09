@@ -33,3 +33,16 @@ export function assertCanChangeGoal(
       'Only the member linked to this person can change their goal.',
     )
 }
+
+/**
+ * A goal-history reason as a viewer may see it: none for another member's
+ * person, because a check-in's maintenance figure, with the goal and plan,
+ * gives their weight away.
+ */
+export function goalReasonFor(
+  person: Pick<Doc<'people'>, 'userId'>,
+  owner: AuthenticatedOwner,
+  reason: string | undefined,
+) {
+  return isAnotherMembers(person, owner) ? undefined : reason
+}
