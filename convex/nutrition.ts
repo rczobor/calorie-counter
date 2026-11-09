@@ -1957,6 +1957,8 @@ export const createPerson = mutation({
     energyProfile: v.optional(energyProfileValidator),
     goalPlan: v.optional(goalPlanValidator),
     reason: v.optional(v.string()),
+    // Links the new person to the caller in the same transaction.
+    linkedToMe: v.optional(v.boolean()),
   },
   returns: v.id('people'),
   handler: async (ctx, args) => {
@@ -1999,6 +2001,10 @@ export const createPerson = mutation({
         ) ?? 'Initial goal',
       createdAt: now,
     })
+    if (args.linkedToMe) {
+      const person = await ctx.db.get(personId)
+      if (person) await linkPersonToOwner(ctx, owner, person, true)
+    }
     return personId
   },
 })
@@ -2094,11 +2100,15 @@ export const updatePerson = mutation({
   args: {
     householdId: v.optional(v.id('households')),
     ...updatePersonInput.fields,
+    // Saved in the same transaction, so a save can't keep half its changes.
+    linkedToMe: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { householdId, ...input }) => {
+  handler: async (ctx, { householdId, linkedToMe, ...input }) => {
     const owner = await requireAuthenticatedHousehold(ctx, householdId)
-    await updatePersonForOwner(ctx, owner, input)
+    const { previous } = await updatePersonForOwner(ctx, owner, input)
+    if (linkedToMe !== undefined)
+      await linkPersonToOwner(ctx, owner, previous, linkedToMe)
     return null
   },
 })
@@ -2194,23 +2204,29 @@ export const setPersonLinkedToMe = mutation({
       owner,
       'Person not found.',
     )
-    if (person.userId !== undefined && person.userId !== owner.userId)
-      throw new DomainError('This person is linked to another member.')
-    if (!args.linked) {
-      if (person.userId) await ctx.db.patch(person._id, { userId: undefined })
-      return null
-    }
-    if (person.userId) return null
-    const previous = await findLinkedPerson(
-      ctx,
-      owner.householdId,
-      owner.userId,
-    )
-    if (previous) await ctx.db.patch(previous._id, { userId: undefined })
-    await ctx.db.patch(person._id, { userId: owner.userId })
+    await linkPersonToOwner(ctx, owner, person, args.linked)
     return null
   },
 })
+
+/** Links the caller to a person, or removes that link, inside the caller's write. */
+async function linkPersonToOwner(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  person: Doc<'people'>,
+  linked: boolean,
+) {
+  if (person.userId !== undefined && person.userId !== owner.userId)
+    throw new DomainError('This person is linked to another member.')
+  if (!linked) {
+    if (person.userId) await ctx.db.patch(person._id, { userId: undefined })
+    return
+  }
+  if (person.userId) return
+  const previous = await findLinkedPerson(ctx, owner.householdId, owner.userId)
+  if (previous) await ctx.db.patch(previous._id, { userId: undefined })
+  await ctx.db.patch(person._id, { userId: owner.userId })
+}
 
 export const deletePerson = mutation({
   args: {

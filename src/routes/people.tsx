@@ -59,8 +59,9 @@ function PeopleContent() {
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
   const [reason, setReason] = useState('')
-  // Whether this person is the signed-in member; saved with the form.
-  const [isMe, setIsMe] = useState(false)
+  // The switch's unsaved choice; null follows the saved link, which can
+  // change on another device while the editor is open.
+  const [isMeChoice, setIsMeChoice] = useState<boolean | null>(null)
   // The local date the calculator opened on, while it is open.
   const [calculatingOn, setCalculatingOn] = useState<string | null>(null)
   // A calculator result waits in the form and saves with the goal.
@@ -119,7 +120,11 @@ function PeopleContent() {
   } = useConfirmableAction()
   // Archive and Delete send the live revision, as the row buttons did.
   const live = editing && selected !== null ? (selected ?? editing) : undefined
-  const linkPending = isMe !== (editing?.linkedAccount === 'you')
+  const savedIsMe = live?.linkedAccount === 'you'
+  // Another member's person can't be you, even if the switch was on.
+  const isMe =
+    live?.linkedAccount === 'other' ? false : (isMeChoice ?? savedIsMe)
+  const linkPending = isMe !== savedIsMe
   const profileDirty =
     name !== (editing?.name ?? '') ||
     goal !== String(editing?.currentDailyGoalKcal ?? 2200) ||
@@ -142,7 +147,7 @@ function PeopleContent() {
 
   // The switch saves with the form, so a pending change says what Save does.
   function linkNote() {
-    const saved = editing?.linkedAccount === 'you'
+    const saved = savedIsMe
     if (live?.linkedAccount === 'other') return t.linkedToOther
     if (isMe && !saved)
       return linkedElsewhere
@@ -180,7 +185,9 @@ function PeopleContent() {
         ? t.unlinkedToast(displayName)
         : previous
           ? t.linkMovedToast(previous.name, displayName)
-          : t.linkedToast(displayName)
+          : editing
+            ? t.linkedToast(displayName)
+            : t.createdLinkedToast(displayName)
     const undo = async () => {
       if (!personId) return
       if (!isMe) await setLinkedToMe({ personId, linked: true })
@@ -192,8 +199,19 @@ function PeopleContent() {
       success,
       async () => {
         const effectiveDate = toLocalDateString(Date.now())
-        // A link-only change leaves the profile and its edit revision alone.
-        if (editing && profileDirty)
+        // One write per save, with the link inside it, so a failure keeps
+        // nothing and Save can simply be pressed again.
+        const linkChange = linkPending ? isMe : undefined
+        if (!editing)
+          personId = await createPerson({
+            name,
+            currentDailyGoalKcal: Number(goal),
+            effectiveDate,
+            reason: reason.trim() || undefined,
+            ...plan,
+            linkedToMe: linkChange,
+          })
+        else if (profileDirty)
           await updatePerson({
             personId: editing._id,
             expectedEditRevision: editing.editRevision,
@@ -202,17 +220,11 @@ function PeopleContent() {
             reason: reason.trim() || undefined,
             effectiveDate,
             ...plan,
+            linkedToMe: linkChange,
           })
-        else if (!editing)
-          personId = await createPerson({
-            name,
-            currentDailyGoalKcal: Number(goal),
-            effectiveDate,
-            reason: reason.trim() || undefined,
-            ...plan,
-          })
-        if (personId && linkPending)
-          await setLinkedToMe({ personId, linked: isMe })
+        // A link-only change leaves the profile and its edit revision alone.
+        else if (linkChange !== undefined)
+          await setLinkedToMe({ personId: editing._id, linked: linkChange })
         setEditing(undefined)
       },
       linkPending ? withUndo(undo) : undefined,
@@ -225,7 +237,7 @@ function PeopleContent() {
     setGoal(String(person?.currentDailyGoalKcal ?? 2200))
     setReason('')
     setPlan(null)
-    setIsMe(person?.linkedAccount === 'you')
+    setIsMeChoice(null)
   }
   function closeEditor() {
     if (dirty)
@@ -434,7 +446,10 @@ function PeopleContent() {
                     checked={isMe}
                     // A span, so the fieldset's disabled doesn't reach it.
                     disabled={isRunning || live?.linkedAccount === 'other'}
-                    onCheckedChange={(checked) => setIsMe(Boolean(checked))}
+                    onCheckedChange={(checked) =>
+                      // Back at the saved value, follow it again.
+                      setIsMeChoice(checked === savedIsMe ? null : checked)
+                    }
                   />
                 </div>
               </section>

@@ -51,6 +51,8 @@ export const messages = defineMessages({
     unlinkOnSave: 'Saving unlinks this person from your account.',
     linkedToOther: 'Linked to another member of the household.',
     linkedToast: (name: string) => `Linked ${name} to your account.`,
+    createdLinkedToast: (name: string) =>
+      `Created ${name} and linked to your account.`,
     linkMovedToast: (from: string, to: string) =>
       `Link moved from ${from} to ${to}.`,
     unlinkedToast: (name: string) => `Unlinked ${name} from your account.`,
@@ -105,6 +107,8 @@ export const messages = defineMessages({
     unlinkOnSave: 'Mentéskor ez a személy leválik a fiókodról.',
     linkedToOther: 'A háztartás egy másik tagjához kapcsolva.',
     linkedToast: (name: string) => `A fiókodhoz kapcsolva: ${name}.`,
+    createdLinkedToast: (name: string) =>
+      `Létrehozva és a fiókodhoz kapcsolva: ${name}.`,
     linkMovedToast: (from: string, to: string) =>
       `A kapcsolatod átkerült. Előtte: ${from}, most: ${to}.`,
     unlinkedToast: (name: string) => `Leválasztva a fiókodról: ${name}.`,
