@@ -38,6 +38,7 @@ const alex = {
     activity: 'lowActive',
   },
   goalPlan: { direction: 'lose', percentPerWeek: 0.5 },
+  linkedAccount: 'you',
 } as const
 
 const ready: CheckIn = {
@@ -86,6 +87,13 @@ describe('MaintenanceCard', () => {
     mutate.mockClear()
   })
 
+  it("doesn't retire your maintenance hint with someone else's estimate", () => {
+    checkIn.current = ready
+    show({ ...alex, linkedAccount: 'other' })
+    expect(screen.getByText('Check-in ready')).toBeTruthy()
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
   it('shows the measured maintenance and updates the goal only when asked', () => {
     checkIn.current = ready
     show()
@@ -106,7 +114,7 @@ describe('MaintenanceCard', () => {
     ).toBeTruthy()
     // Seeing the measured maintenance retires Today's hint; the goal waits.
     expect(mutate.mock.calls).toEqual([
-      ['hints:setSeen', { hint: 'maintenance', seen: true }],
+      ['hints:setSeen', { hint: 'maintenance' }],
     ])
 
     fireEvent.click(screen.getByRole('button', { name: 'Update goal' }))

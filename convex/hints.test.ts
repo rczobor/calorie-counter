@@ -8,6 +8,7 @@ import {
   testHouseholdId,
   testUserId,
 } from '../src/tests/convex-test-utils'
+import { shiftDay } from './lib/energy'
 
 vi.hoisted(() => {
   process.env.MCP_CONSENT_URL = 'https://app.example.test/connect'
@@ -52,12 +53,48 @@ describe('feature hints', () => {
     await logOn('2026-04-07')
     expect(await eligible()).toEqual(['assistant', 'history'])
 
-    await user.mutation(api.hints.setSeen, { hint: 'history', seen: true })
-    await user.mutation(api.hints.setSeen, { hint: 'history', seen: true })
+    await user.mutation(api.hints.setSeen, { hint: 'history' })
+    await user.mutation(api.hints.setSeen, { hint: 'history' })
     expect(await eligible()).toEqual(['assistant'])
+  })
 
-    await user.mutation(api.hints.setSeen, { hint: 'history', seen: false })
-    expect(await eligible()).toEqual(['assistant', 'history'])
+  it('wait for logged days even when maintenance comes from earlier data', async () => {
+    const { t, user, personId, logOn, eligible } = await setup()
+    await user.mutation(api.nutrition.setPersonLinkedToMe, {
+      personId,
+      linked: true,
+    })
+    // Weeks of someone else's logs and weigh-ins for the person you link to.
+    const householdId = testHouseholdId(t)
+    const ownerUserId = await testUserId(t)
+    await t.run(async (ctx) => {
+      for (let day = 1; day <= 20; day++)
+        await ctx.db.insert('dailySummaries', {
+          householdId,
+          ownerUserId,
+          personId,
+          eatenOn: shiftDay(today, -day),
+          consumedCalories: 2000,
+          mealCount: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+      for (let day = 1; day <= 19; day += 3)
+        await ctx.db.insert('weightEntries', {
+          householdId,
+          ownerUserId,
+          personId,
+          measuredOn: shiftDay(today, -day),
+          weightKg: 80,
+          editRevision: 0,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+    })
+    expect(await eligible()).toEqual([])
+
+    await logOn('2026-04-08', '2026-04-09')
+    expect(await eligible()).toEqual(['history', 'maintenance'])
   })
 
   it('skip a feature that is already in use', async () => {

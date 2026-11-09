@@ -34,7 +34,7 @@ export function useMarkHintSeen() {
   return useCallback(
     (hint: Hint) => {
       // Best effort: a failed write only means the hint may show once more.
-      setSeen({ hint, seen: true }).catch(() => {})
+      setSeen({ hint }).catch(() => {})
     },
     [setSeen],
   )

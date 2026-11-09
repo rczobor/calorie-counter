@@ -19,6 +19,7 @@ import { normalizeRequiredDate } from './lib/validation'
 const DAYS_FOR = {
   history: 2,
   invite: 2,
+  maintenance: 2,
   assistant: 3,
   weighIn: 3,
   widget: 5,
@@ -52,7 +53,7 @@ async function loggedDaysBefore(
 
 /**
  * The hints the account qualifies for and hasn't seen, in priority order.
- * The client adds the device-only checks (iPhone, installed) and shows at most
+ * The client adds the device-only check (iPhone) and shows at most
  * one per launch. A hint never qualifies once its feature is in use.
  */
 export const eligible = query({
@@ -99,7 +100,10 @@ export const eligible = query({
             q.eq('householdId', owner.householdId).eq('personId', linked._id),
           )
           .first()),
+      // The estimate may come from someone else's logs, such as a member
+      // who just linked to a person the household already tracks.
       maintenance: async () =>
+        days >= DAYS_FOR.maintenance &&
         linked !== null &&
         buildCheckIn({
           today,
@@ -155,16 +159,15 @@ export const eligible = query({
   },
 })
 
-/** Marks a hint seen; `seen: false` brings it back. */
+/** Marks a hint seen for the account; it never shows again. */
 export const setSeen = mutation({
   args: {
     // Hints show inside a household, so the call authenticates like its reads.
     householdId: v.optional(v.id('households')),
     hint: hintValidator,
-    seen: v.boolean(),
   },
   returns: v.null(),
-  handler: async (ctx, { householdId, hint, seen }) => {
+  handler: async (ctx, { householdId, hint }) => {
     // Seen state belongs to the account, in every household.
     const { userId } = await requireAuthenticatedHousehold(ctx, householdId)
     const existing = await ctx.db
@@ -173,9 +176,8 @@ export const setSeen = mutation({
         q.eq('userId', userId).eq('hint', hint),
       )
       .unique()
-    if (seen && !existing)
+    if (!existing)
       await ctx.db.insert('seenHints', { userId, hint, seenAt: Date.now() })
-    if (!seen && existing) await ctx.db.delete(existing._id)
     return null
   },
 })

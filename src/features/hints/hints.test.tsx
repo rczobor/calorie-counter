@@ -52,7 +52,7 @@ describe('TodayHint', () => {
       screen.getByRole('heading', { name: 'Log by chatting' }),
     ).toBeTruthy()
     expect(mutate.mock.calls).toEqual([
-      ['hints:setSeen', { hint: 'assistant', seen: true }],
+      ['hints:setSeen', { hint: 'assistant' }],
     ])
 
     // Seen on the server, it drops out of the list; the slot keeps it.

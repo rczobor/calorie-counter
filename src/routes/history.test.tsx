@@ -163,7 +163,6 @@ describe('History route', () => {
     render(<Component />)
     expect(mockMutate).toHaveBeenCalledWith('hints:setSeen', {
       hint: 'history',
-      seen: true,
     })
   })
 

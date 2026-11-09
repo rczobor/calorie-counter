@@ -957,13 +957,8 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
       if (functionName === 'households:ensurePersonal')
         return 'e2e-household' as FunctionReturnType<Mutation>
       if (functionName === 'hints:setSeen') {
-        const { hint, seen } = args as FunctionArgs<typeof api.hints.setSeen>
-        publish({
-          ...state,
-          seenHints: seen
-            ? [...state.seenHints, hint]
-            : state.seenHints.filter((other) => other !== hint),
-        })
+        const { hint } = args as FunctionArgs<typeof api.hints.setSeen>
+        publish({ ...state, seenHints: [...state.seenHints, hint] })
         return null as FunctionReturnType<Mutation>
       }
       if (functionName === 'weight:record') {

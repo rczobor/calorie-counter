@@ -56,7 +56,9 @@ export function MaintenanceCard({
     personId: person._id,
     today,
   })
-  const ready = checkIn?.estimate.status === 'ready'
+  // Only your own estimate is what your Today hint announces.
+  const ready =
+    person.linkedAccount === 'you' && checkIn?.estimate.status === 'ready'
   const markHintSeen = useMarkHintSeen()
   // Seeing the measured maintenance here is what Today's hint points to.
   useEffect(() => {
