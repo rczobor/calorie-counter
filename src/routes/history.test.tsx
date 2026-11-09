@@ -18,6 +18,11 @@ import {
 
 const mockUsePaginatedQuery = vi.hoisted(() => vi.fn())
 const mockUseQuery = vi.hoisted(() => vi.fn())
+const mockMutate = vi.hoisted(() =>
+  vi.fn<(name: string, args: unknown) => Promise<null>>(() =>
+    Promise.resolve(null),
+  ),
+)
 const loadMoreHistory = vi.hoisted(() => vi.fn())
 const loadMorePeople = vi.hoisted(() => vi.fn())
 
@@ -37,6 +42,9 @@ let lastGoalArgs: unknown
 vi.mock('convex/react', () => ({
   usePaginatedQuery: mockUsePaginatedQuery,
   useQuery: mockUseQuery,
+  useMutation:
+    (reference: Parameters<typeof getFunctionName>[0]) => (args: unknown) =>
+      mockMutate(getFunctionName(reference), args),
 }))
 
 vi.mock('@/integrations/convex/config', () => ({
@@ -147,6 +155,25 @@ describe('History route', () => {
   afterEach(() => {
     cleanup()
     vi.useRealTimers()
+    mockMutate.mockClear()
+  })
+
+  it('retires its Today hint once opened', () => {
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+    expect(mockMutate).toHaveBeenCalledWith('hints:setSeen', {
+      hint: 'history',
+      seen: true,
+    })
+  })
+
+  it('explains an empty range once instead of a chart of empty days', () => {
+    mockSummaries = []
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+    expect(screen.getByText('No meals in these days')).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Daily calories' })).toBeNull()
+    expect(screen.queryAllByRole('listitem')).toEqual([])
   })
 
   it('uses daily summaries and shows reverse chronological calendar days', () => {

@@ -21,6 +21,7 @@ import {
   CHECK_IN_LOOKBACK_DAYS,
   shiftDay,
 } from '../../../convex/lib/energy'
+import { HINTS, type Hint } from '../../../convex/lib/hints'
 
 type DashboardData = {
   people: Array<Doc<'people'>>
@@ -85,6 +86,9 @@ export type MockState = {
   locale: FunctionReturnType<typeof api.userPreferences.getLocale>
   privacyAccepted: boolean
   hasSavedFood: boolean
+  /** Hints the account qualifies for; the server derives these from usage. */
+  hints: Hint[]
+  seenHints: Hint[]
 }
 
 // The account's language outlives a reload, as it does on the server.
@@ -97,6 +101,13 @@ function readPrivacyAccepted() {
     typeof localStorage === 'undefined' ||
     localStorage.getItem('e2e-privacy-consent') !== 'pending'
   )
+}
+
+// `localStorage['e2e-hints'] = 'assistant,history'` qualifies those hints.
+function readHints(): Hint[] {
+  if (typeof localStorage === 'undefined') return []
+  const listed = (localStorage.getItem('e2e-hints') ?? '').split(',')
+  return HINTS.filter((hint) => listed.includes(hint))
 }
 
 // `localStorage['e2e-new-account'] = 'true'` starts with people and goals but
@@ -289,6 +300,8 @@ function createInitialState(): MockState {
     locale: readAccountLocale(),
     privacyAccepted: readPrivacyAccepted(),
     hasSavedFood: true,
+    hints: readHints(),
+    seenHints: [],
   }
 }
 
@@ -743,6 +756,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
           ]
         : []
     ) as FunctionReturnType<Query>
+  if (functionName === 'hints:eligible')
+    return snapshot.hints.filter(
+      (hint) => !snapshot.seenHints.includes(hint),
+    ) as FunctionReturnType<Query>
   if (functionName === 'widgets:list')
     return snapshot.widgets as FunctionReturnType<Query>
   if (functionName === 'widgets:count')
@@ -939,6 +956,16 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
     async (args: FunctionArgs<Mutation>) => {
       if (functionName === 'households:ensurePersonal')
         return 'e2e-household' as FunctionReturnType<Mutation>
+      if (functionName === 'hints:setSeen') {
+        const { hint, seen } = args as FunctionArgs<typeof api.hints.setSeen>
+        publish({
+          ...state,
+          seenHints: seen
+            ? [...state.seenHints, hint]
+            : state.seenHints.filter((other) => other !== hint),
+        })
+        return null as FunctionReturnType<Mutation>
+      }
       if (functionName === 'weight:record') {
         const input = args as FunctionArgs<typeof api.weight.record>
         const existing = state.weights.find(

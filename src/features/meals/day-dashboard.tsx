@@ -37,7 +37,7 @@ import { useDraftPersistenceIdentity } from '@/features/cooking/draft-persistenc
 import { readMealDraft, writeMealDraft } from '@/features/meals/meal-draft'
 import { subscribeLogMeal } from '@/features/meals/log-meal-request'
 import { WeightGlance } from '@/features/weight/weight-glance'
-import { InstallEntry } from '@/features/install/install-entry'
+import { TodayHint } from '@/features/hints/hints'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { IntakeBar } from '@/features/meals/intake-bar'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
@@ -599,9 +599,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             </div>
           </div>
         ) : null}
-        <InstallEntry
-          variant="suggestion"
-          eligible={
+        <TodayHint
+          today={today}
+          visible={
             !archived &&
             date === today &&
             !loadingPerson &&

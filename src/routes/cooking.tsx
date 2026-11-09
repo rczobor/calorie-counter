@@ -65,6 +65,7 @@ import {
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
+import { AssistantEmpty } from '@/features/hints/hints'
 import { messages } from './cooking.messages'
 
 const PAGE_SIZE = 20
@@ -544,7 +545,13 @@ function CookedFoodList({
         <RecordList
           label={t.cookedFoods}
           loading={loading}
-          empty={t.noCookedFoods}
+          empty={
+            term || showArchived || sessionId ? (
+              t.noCookedFoods
+            ) : (
+              <AssistantEmpty>{t.nothingCooked}</AssistantEmpty>
+            )
+          }
         >
           {foods.map((food) => (
             <RecordRow
@@ -948,7 +955,17 @@ function SessionList({
         }}
         archived={archivedToggle}
       />
-      <RecordList label={t.batches} loading={loading} empty={t.noBatches}>
+      <RecordList
+        label={t.batches}
+        loading={loading}
+        empty={
+          term || showArchived ? (
+            t.noBatches
+          ) : (
+            <AssistantEmpty>{t.nothingCooked}</AssistantEmpty>
+          )
+        }
+      >
         {rows.map((session) => {
           const date = formatDate(session.cookedAt, locale)
           const label = session.label.trim()

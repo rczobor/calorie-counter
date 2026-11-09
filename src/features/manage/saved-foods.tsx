@@ -14,6 +14,7 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
 import { useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
+import { AssistantEmpty } from '@/features/hints/hints'
 import { messages } from './saved-foods.messages'
 
 const PAGE_SIZE = 20
@@ -89,7 +90,17 @@ export function SavedFoods({
           onCheckedChange: onShowArchivedChange,
         }}
       />
-      <RecordList label={t.section} loading={loading} empty={t.empty}>
+      <RecordList
+        label={t.section}
+        loading={loading}
+        empty={
+          term || showArchived ? (
+            t.empty
+          ) : (
+            <AssistantEmpty>{t.empty}</AssistantEmpty>
+          )
+        }
+      >
         {foods.map((food) => {
           const { value, unit, basis } = energy(food, locale)
           return (

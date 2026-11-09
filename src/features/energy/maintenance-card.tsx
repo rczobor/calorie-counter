@@ -1,7 +1,7 @@
 import { parseISO } from 'date-fns'
 import type { FunctionReturnType } from 'convex/server'
 import { Check, Info } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { api } from '../../../convex/_generated/api'
@@ -15,6 +15,7 @@ import {
 } from '../../../convex/lib/energy'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMarkHintSeen } from '@/features/hints/hints'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { formatMonthDay } from '@/features/weight/weight-format'
 import { formatAmount } from '@/i18n/format'
@@ -55,6 +56,12 @@ export function MaintenanceCard({
     personId: person._id,
     today,
   })
+  const ready = checkIn?.estimate.status === 'ready'
+  const markHintSeen = useMarkHintSeen()
+  // Seeing the measured maintenance here is what Today's hint points to.
+  useEffect(() => {
+    if (ready) markHintSeen('maintenance')
+  }, [ready, markHintSeen])
   // Another member's person: the check-in is built from their private weight.
   if (checkIn === null) return null
   return (

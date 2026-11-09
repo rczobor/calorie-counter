@@ -40,6 +40,7 @@ import {
 } from '@/lib/nutrition'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { useMarkHintSeen } from '@/features/hints/hints'
 import { messages } from './history.messages'
 
 export const Route = createFileRoute('/history')({
@@ -98,6 +99,9 @@ function HistoryPageContent() {
     toLocalDateString(addDays(new Date(), -6).getTime()),
   )
   const [today] = useState(() => toLocalDateString(Date.now()))
+  const markHintSeen = useMarkHintSeen()
+  // Opening History is what its hint asks for, so the hint never shows after.
+  useEffect(() => markHintSeen('history'), [markHintSeen])
   const [endDate, setEndDate] = useState(today)
   const [customRangeOpen, setCustomRangeOpen] = useState(false)
 
@@ -411,7 +415,16 @@ function HistoryPageContent() {
               </p>
             </div>
 
-            {isHistoryComplete ? (
+            {isHistoryComplete && loggedDays === 0 ? (
+              // A chart of empty bars and a list of "No meals logged" days
+              // would only repeat the summary above.
+              <section className="inset-group px-4 py-3.5">
+                <h2 className="type-headline">{t.emptyRangeTitle}</h2>
+                <p className="mt-1 type-subhead text-muted-foreground">
+                  {t.emptyRange}
+                </p>
+              </section>
+            ) : isHistoryComplete ? (
               <>
                 <section
                   aria-labelledby="history-chart-title"

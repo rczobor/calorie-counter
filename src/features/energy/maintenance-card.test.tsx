@@ -10,7 +10,9 @@ import { MaintenanceCard } from './maintenance-card'
 type CheckIn = FunctionReturnType<typeof api.energy.checkIn>
 
 const { mutate, checkIn } = vi.hoisted(() => ({
-  mutate: vi.fn(),
+  mutate: vi.fn<(name: string, args: unknown) => Promise<null>>(() =>
+    Promise.resolve(null),
+  ),
   checkIn: { current: undefined as unknown },
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -81,7 +83,7 @@ function show(person: Parameters<typeof MaintenanceCard>[0]['person'] = alex) {
 describe('MaintenanceCard', () => {
   afterEach(() => {
     cleanup()
-    mutate.mockReset()
+    mutate.mockClear()
   })
 
   it('shows the measured maintenance and updates the goal only when asked', () => {
@@ -102,7 +104,10 @@ describe('MaintenanceCard', () => {
         '2180 − 450 to lose 0.5% a week; the trend is slower than planned. Current goal 2000 (−270).',
       ),
     ).toBeTruthy()
-    expect(mutate).not.toHaveBeenCalled()
+    // Seeing the measured maintenance retires Today's hint; the goal waits.
+    expect(mutate.mock.calls).toEqual([
+      ['hints:setSeen', { hint: 'maintenance', seen: true }],
+    ])
 
     fireEvent.click(screen.getByRole('button', { name: 'Update goal' }))
     expect(mutate).toHaveBeenCalledWith('nutrition:updatePersonGoal', {
@@ -195,6 +200,8 @@ describe('MaintenanceCard', () => {
     expect(screen.getByText('0 of 6')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Edit plan' }))
     expect(onOpenCalculator).toHaveBeenCalled()
+    // Still learning, so Today's maintenance hint stays unseen.
+    expect(mutate).not.toHaveBeenCalled()
     cleanup()
 
     show({ ...alex, energyProfile: undefined, goalPlan: undefined })

@@ -19,6 +19,7 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
+import { AssistantEmpty } from '@/features/hints/hints'
 import { messages } from './meal-templates.messages'
 
 type Template = FunctionReturnType<
@@ -400,7 +401,9 @@ export function MealTemplates() {
       <RecordList
         label={t.section}
         loading={templates.status === 'LoadingFirstPage'}
-        empty={t.empty}
+        empty={
+          search.trim() ? t.empty : <AssistantEmpty>{t.none}</AssistantEmpty>
+        }
       >
         {templates.results.map((template) => (
           <RecordRow

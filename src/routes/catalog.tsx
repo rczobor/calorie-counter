@@ -891,7 +891,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 catalogData.isLoading ||
                 catalogData.search.ingredients.isLoading
               }
-              empty={t.noIngredients}
+              empty={
+                ingredientSearch.trim() || showArchived
+                  ? t.noIngredients
+                  : t.ingredientsEmpty
+              }
             >
               {sortedIngredients.map((ingredient) => {
                 const energy = ingredientEnergy(ingredient, locale)

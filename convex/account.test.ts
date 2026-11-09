@@ -58,6 +58,7 @@ describe('account deletion', () => {
 
     const user = asTestUser(t)
     await user.mutation(api.userPreferences.setLocale, { locale: 'hu' })
+    await user.mutation(api.hints.setSeen, { hint: 'history', seen: true })
     const personId = await user.mutation(api.nutrition.createPerson, person)
     const mealId = await user.mutation(api.nutrition.createMeal, {
       personId,

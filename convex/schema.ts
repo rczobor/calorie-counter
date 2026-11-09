@@ -29,6 +29,7 @@ import {
   foodIdentityValidator,
   localeValidator,
 } from './validators'
+import { hintValidator } from './lib/hints'
 
 export default defineSchema({
   // One row per account. Only tokenIdentifier names the identity provider, so
@@ -48,6 +49,13 @@ export default defineSchema({
     version: v.string(),
     acceptedAt: v.number(),
   }).index('by_userId_and_version', ['userId', 'version']),
+  // Feature hints an account has seen (hints.ts), so none shows twice on any
+  // device.
+  seenHints: defineTable({
+    userId: v.id('users'),
+    hint: hintValidator,
+    seenAt: v.number(),
+  }).index('by_userId_and_hint', ['userId', 'hint']),
   mcpPreferences: defineTable({
     userId: v.id('users'),
     ...loggingPreferences.fields,

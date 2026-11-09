@@ -39,6 +39,8 @@ export const messages = defineMessages({
     discardDrafts: 'Discard drafts',
     searchCookedFoods: 'Search cooked foods',
     noCookedFoods: 'No cooked foods found.',
+    nothingCooked:
+      'Nothing cooked yet. Your AI assistant records cooking: tell it what you made and its finished weight.',
     cookedFoodDetail: (grams: string) => `${grams} g cooked · per 100 g`,
     firstMatches: 'First 20 matches. Refine your search for more.',
     loadMoreCookedFoods: 'Load more cooked foods',
@@ -143,6 +145,8 @@ export const messages = defineMessages({
     discardDrafts: 'Piszkozatok elvetése',
     searchCookedFoods: 'Főtt ételek keresése',
     noCookedFoods: 'Nem található főtt étel.',
+    nothingCooked:
+      'Még nincs főtt étel. A főzést az AI-asszisztensed rögzíti: írd meg neki, mit főztél, és mennyi lett a kész tömeg.',
     cookedFoodDetail: (grams: string) => `${grams} g főtt · 100 g-ra`,
     firstMatches: 'Az első 20 találat. A többihez pontosítsd a keresést.',
     loadMoreCookedFoods: 'További főtt ételek betöltése',
