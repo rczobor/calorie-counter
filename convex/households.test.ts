@@ -397,6 +397,36 @@ describe('household sharing', () => {
     ).toBe(versionBefore?.editRevision)
   })
 
+  it('saves a link with a new or edited person in one write', async () => {
+    const { robi, viki, householdId } = await setupHousehold()
+    const robiId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Robi',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-04-04',
+      linkedToMe: true,
+    })
+    expect(await robi.query(api.people.linkedToMe, { householdId })).toBe(
+      robiId,
+    )
+    // Viki can't take Robi's person, so her whole save fails: the rename
+    // doesn't land without the link.
+    await expect(
+      viki.mutation(api.nutrition.updatePerson, {
+        householdId,
+        personId: robiId,
+        expectedEditRevision: 0,
+        name: 'Renamed',
+        effectiveDate: '2026-04-05',
+        linkedToMe: true,
+      }),
+    ).rejects.toThrow('another member')
+    expect(
+      (await robi.query(api.people.get, { householdId, personId: robiId }))
+        ?.name,
+    ).toBe('Robi')
+  })
+
   it('unlinks a member’s person when they leave the household', async () => {
     const { robi, viki, householdId } = await setupHousehold()
     const personId = await robi.mutation(api.nutrition.createPerson, {

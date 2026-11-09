@@ -32,6 +32,11 @@ const sam = {
 let pending = false
 // The viewer's linked person; null shows "Which one is you?".
 let linkedToMe: string | null = 'person-alex'
+// What people.get returns for the person being edited.
+let livePerson: typeof alex & { linkedAccount?: 'you' | 'other' } = alex
+// The last success toast runAction would show.
+let lastSuccess:
+  { text: string; toast?: { action?: { onClick: () => void } } } | undefined
 let activeStatus: 'Exhausted' | 'CanLoadMore' = 'Exhausted'
 const loadMore = vi.fn()
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -48,8 +53,14 @@ vi.mock('@/hooks/use-confirmable-action', () => ({
     handleConfirmDialogOpenChange: vi.fn(),
     confirmPendingAction: vi.fn(),
     confirmAndRunAction: confirm,
-    runAction: async (_label: string, action: () => Promise<unknown>) =>
-      action(),
+    runAction: async (
+      text: string,
+      action: () => Promise<unknown>,
+      toast?: { action?: { onClick: () => void } },
+    ) => {
+      lastSuccess = { text, toast }
+      return action()
+    },
   }),
 }))
 vi.mock('convex/react', () => ({
@@ -68,7 +79,7 @@ vi.mock('convex/react', () => ({
         ? { weightKg: 82.4, measuredOn: '2026-11-01' }
         : getFunctionName(reference) === 'people:linkedToMe'
           ? linkedToMe
-          : alex,
+          : livePerson,
   usePaginatedQuery: (
     reference: Parameters<typeof getFunctionName>[0],
     args: { archived?: boolean } | 'skip',
@@ -106,6 +117,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   pending = false
   linkedToMe = 'person-alex'
+  livePerson = alex
+  lastSuccess = undefined
   activeStatus = 'Exhausted'
   mutate.mockResolvedValue(null)
   confirm.mockImplementation(
@@ -124,6 +137,70 @@ describe('People settings', () => {
     linkedToMe = null
     show()
     expect(screen.getByRole('button', { name: 'I’m Alex' })).toBeTruthy()
+  })
+
+  it('creates a person and links it in one write', async () => {
+    linkedToMe = null
+    show()
+    fireEvent.click(screen.getByRole('button', { name: 'New person' }))
+    fireEvent.change(screen.getByLabelText('Person name'), {
+      target: { value: 'Robi' },
+    })
+    fireEvent.click(screen.getByRole('switch', { name: 'This is me' }))
+    mutate.mockResolvedValue('person-robi')
+    fireEvent.click(screen.getByRole('button', { name: 'Create person' }))
+    await waitFor(() =>
+      expect(mutate.mock.calls.map(([name]) => name)).toEqual([
+        'nutrition:createPerson',
+      ]),
+    )
+    expect(mutate).toHaveBeenCalledWith(
+      'nutrition:createPerson',
+      expect.objectContaining({ name: 'Robi', linkedToMe: true }),
+    )
+    expect(lastSuccess?.text).toBe('Created Robi and linked to your account.')
+    lastSuccess?.toast?.action?.onClick()
+    await waitFor(() =>
+      expect(mutate).toHaveBeenLastCalledWith('nutrition:setPersonLinkedToMe', {
+        personId: 'person-robi',
+        linked: false,
+      }),
+    )
+  })
+
+  it('saves a renamed person and the link together', async () => {
+    show()
+    openAlex()
+    fireEvent.change(screen.getByLabelText('Person name'), {
+      target: { value: 'Alexa' },
+    })
+    fireEvent.click(screen.getByRole('switch', { name: 'This is me' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate.mock.calls.map(([name]) => name)).toEqual([
+        'nutrition:updatePerson',
+      ]),
+    )
+    expect(mutate).toHaveBeenCalledWith(
+      'nutrition:updatePerson',
+      expect.objectContaining({ name: 'Alexa', linkedToMe: true }),
+    )
+  })
+
+  it('follows a link that changed elsewhere while the editor is open', () => {
+    const view = show()
+    openAlex()
+    const toggle = screen.getByRole('switch', { name: 'This is me' })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    livePerson = { ...alex, linkedAccount: 'you' }
+    const Component = Route.options.component as ComponentType
+    view.rerender(<Component />)
+    expect(
+      screen
+        .getByRole('switch', { name: 'This is me' })
+        .getAttribute('aria-checked'),
+    ).toBe('true')
+    expect(screen.queryByText('Unsaved')).toBeNull()
   })
 
   it('links the person to the signed-in account only when the form saves', async () => {
