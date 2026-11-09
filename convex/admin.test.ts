@@ -127,6 +127,19 @@ describe('usage dashboard', () => {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         })
+      // The holdout's day would land far over any goal if it were counted.
+      const holdoutOwner = await ctx.db.get(holdoutPerson)
+      if (holdoutOwner)
+        await ctx.db.insert('dailySummaries', {
+          ownerUserId: holdoutOwner.ownerUserId,
+          householdId: holdoutOwner.householdId,
+          personId: holdoutPerson,
+          eatenOn: day(-2),
+          consumedCalories: 5000,
+          mealCount: 1,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        })
     })
 
     const result = await admin.query(api.admin.engagement, { today })
