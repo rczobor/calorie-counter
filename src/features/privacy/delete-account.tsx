@@ -1,4 +1,4 @@
-import { useClerk } from '@clerk/react'
+import { useClerk, useReverification } from '@clerk/react'
 import { useMutation } from 'convex/react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -17,10 +17,15 @@ import { messages } from './delete-account.messages'
 /** Deletes the Clerk sign-in after the app data is gone; rejects if it stays. */
 function useClerkSignInRemoval() {
   const clerk = useClerk()
+  // Clerk asks an older session to verify again before deleting a user.
+  const deleteUser = useReverification(async () => {
+    if (!clerk.user) throw new Error('No signed-in user.')
+    await clerk.user.delete()
+  })
   return async () => {
     let removed = true
     try {
-      await clerk.user?.delete()
+      await deleteUser()
     } catch {
       removed = false
     }

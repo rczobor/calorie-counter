@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { getFunctionName } from 'convex/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PRIVACY_NOTICE_VERSION } from '../../../convex/lib/privacy'
 import { ConsentGate } from './consent-gate'
@@ -9,7 +10,8 @@ const { consent, accept } = vi.hoisted(() => ({
   accept: vi.fn(),
 }))
 vi.mock('convex/react', () => ({
-  useQuery: () => consent(),
+  useQuery: (reference: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(reference) === 'privacy:consent' ? consent() : [],
   useMutation: () => accept,
 }))
 vi.mock('@tanstack/react-router', () => ({

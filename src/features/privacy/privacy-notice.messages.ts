@@ -48,7 +48,7 @@ export const messages = defineMessages({
     rightsHeading: 'Your rights',
     rights: (email: ReactNode) =>
       rich(
-        'You can ask to see, correct, export or delete your data, restrict or object to its use, and withdraw your consent at any time. You can do most of this in the app; for the rest, write to ',
+        'You can ask to see, correct, export or delete your data, restrict or object to its use, and withdraw your consent at any time. You can see, correct and delete your data in the app; for anything else, write to ',
         email,
         '. You can also complain to your data protection authority; in Hungary that is the NAIH (naih.hu).',
       ),
@@ -106,7 +106,7 @@ export const messages = defineMessages({
     rightsHeading: 'A jogaid',
     rights: (email: ReactNode) =>
       rich(
-        'Kérheted az adataid megtekintését, helyesbítését, kiadását vagy törlését, kezelésük korlátozását, tiltakozhatsz ellene, és bármikor visszavonhatod a hozzájárulásodat. Ennek nagy részét az alkalmazásban is megteheted; a többihez írj a következő címre: ',
+        'Kérheted az adataid megtekintését, helyesbítését, kiadását vagy törlését, kezelésük korlátozását, tiltakozhatsz ellene, és bármikor visszavonhatod a hozzájárulásodat. Az adataidat az alkalmazásban megtekintheted, javíthatod és törölheted; minden máshoz írj a következő címre: ',
         email,
         '. Panaszt tehetsz az adatvédelmi hatóságnál is; Magyarországon ez a NAIH (naih.hu).',
       ),

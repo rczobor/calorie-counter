@@ -121,6 +121,8 @@ try {
         throw new Error('Synthetic sign-in incomplete')
     }
   }, ticket)
+  // A new account consents to the privacy notice before any household data.
+  await page.getByRole('button', { name: 'Agree and continue' }).click()
   await page
     .getByRole('heading', { name: 'Integrations', exact: true })
     .waitFor()

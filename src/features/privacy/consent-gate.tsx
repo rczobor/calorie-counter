@@ -21,6 +21,9 @@ import { messages } from './consent-gate.messages'
 export function ConsentGate({ children }: { children: ReactNode }) {
   const t = useMessages(messages)
   const consent = useQuery(api.privacy.consent, {})
+  // Start the household list now so the gate costs no extra round trip;
+  // HouseholdProvider reuses this subscription.
+  useQuery(api.households.list, {})
   if (consent === undefined) return <PagePlaceholder label={t.checking} />
   return consent.accepted ? children : <ConsentScreen />
 }

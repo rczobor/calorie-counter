@@ -9,22 +9,31 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DeleteAccount } from './delete-account'
 
-const { deleteAccount, removeUser, signOut, toast } = vi.hoisted(() => ({
-  deleteAccount: vi.fn(),
-  removeUser: vi.fn(),
-  signOut: vi.fn(),
-  toast: { success: vi.fn(), error: vi.fn() },
-}))
+const { deleteAccount, removeUser, signOut, toast, clerk } = vi.hoisted(() => {
+  const removeUser = vi.fn()
+  return {
+    deleteAccount: vi.fn(),
+    removeUser,
+    signOut: vi.fn(),
+    toast: { success: vi.fn(), error: vi.fn() },
+    clerk: {
+      user: { delete: removeUser } as { delete: typeof removeUser } | null,
+    },
+  }
+})
 vi.mock('convex/react', () => ({ useMutation: () => deleteAccount }))
 vi.mock('@/integrations/clerk/config', () => ({ isClerkConfigured: true }))
 vi.mock('@clerk/react', () => ({
-  useClerk: () => ({ user: { delete: removeUser }, signOut }),
+  useClerk: () => ({ user: clerk.user, signOut }),
+  // Reverification only adds a prompt when Clerk asks for one.
+  useReverification: (fetcher: () => Promise<void>) => fetcher,
 }))
 vi.mock('sonner', () => ({ toast }))
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  clerk.user = { delete: removeUser }
 })
 
 async function confirmDeletion() {
@@ -64,6 +73,15 @@ describe('account deletion', () => {
       ),
     )
     expect(signOut).toHaveBeenCalled()
+  })
+
+  it('does not claim success when there was no Clerk user to delete', async () => {
+    deleteAccount.mockResolvedValue(null)
+    signOut.mockResolvedValue(undefined)
+    clerk.user = null
+    await confirmDeletion()
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it('keeps the sign-in when the data could not be deleted', async () => {
