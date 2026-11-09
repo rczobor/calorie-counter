@@ -56,7 +56,7 @@ for (const width of [1440, 390]) {
         .getByRole('alertdialog')
         .getByRole('button', { name: 'Delete', exact: true })
         .click()
-      await expect(page.getByText('No meal templates found.')).toBeVisible()
+      await expect(page.getByText('No meal templates yet')).toBeVisible()
     })
   }
 }
