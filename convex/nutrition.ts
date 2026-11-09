@@ -45,6 +45,7 @@ import {
   normalizeRequiredText,
   type NutritionUnit,
 } from './lib/validation'
+import { assertCanChangeGoal } from './lib/personPrivacy'
 import { weightEntriesForPerson } from './weight'
 import {
   energyPlanProblem,
@@ -2039,6 +2040,14 @@ export async function updatePersonForOwner(
   )
   assertExpectedEditRevision(person, args.expectedEditRevision, 'Person')
   assertNonEmpty(args.name, 'Name')
+  // Name and notes stay the household's; the goal is the linked member's.
+  if (
+    args.energyProfile !== undefined ||
+    args.goalPlan !== undefined ||
+    (args.goalKcal !== undefined &&
+      args.goalKcal !== person.currentDailyGoalKcal)
+  )
+    assertCanChangeGoal(person, owner)
   const effectiveDate = normalizeRequiredDate(
     args.effectiveDate,
     'Effective date',
@@ -2051,7 +2060,7 @@ export async function updatePersonForOwner(
     personPatch.notes = normalizeNullableText(args.notes)
   }
   if (args.energyProfile !== undefined || args.goalPlan !== undefined) {
-    const latest = await weightEntriesForPerson(ctx, owner, person._id, {
+    const latest = await weightEntriesForPerson(ctx, owner, person, {
       endDate: effectiveDate,
     })
       .order('desc')
@@ -2135,6 +2144,7 @@ export const updatePersonGoal = mutation({
     if (args.goalKcal === person.currentDailyGoalKcal) {
       return
     }
+    assertCanChangeGoal(person, owner)
     const now = Date.now()
     await ctx.db.patch(args.personId, {
       currentDailyGoalKcal: args.goalKcal,
@@ -2219,13 +2229,15 @@ async function linkPersonToOwner(
   if (person.userId !== undefined && person.userId !== owner.userId)
     throw new DomainError('This person is linked to another member.')
   if (!linked) {
-    if (person.userId) await ctx.db.patch(person._id, { userId: undefined })
+    if (person.userId)
+      await ctx.db.patch(person._id, { userId: undefined, linkedAt: undefined })
     return
   }
   if (person.userId) return
   const previous = await findLinkedPerson(ctx, owner.householdId, owner.userId)
-  if (previous) await ctx.db.patch(previous._id, { userId: undefined })
-  await ctx.db.patch(person._id, { userId: owner.userId })
+  if (previous)
+    await ctx.db.patch(previous._id, { userId: undefined, linkedAt: undefined })
+  await ctx.db.patch(person._id, { userId: owner.userId, linkedAt: Date.now() })
 }
 
 export const deletePerson = mutation({
@@ -2258,7 +2270,13 @@ export const deletePerson = mutation({
             .eq('cookedByPersonId', args.personId),
         )
         .first(),
-      weightEntriesForPerson(ctx, owner, args.personId).first(),
+      // Existence only, so a private weight still blocks deleting the person.
+      ctx.db
+        .query('weightEntries')
+        .withIndex('by_householdId_and_personId_and_measuredOn', (q) =>
+          q.eq('householdId', owner.householdId).eq('personId', args.personId),
+        )
+        .first(),
     ])
     if (mealRefs || cookingRefs || weightRefs) {
       throw new Error(

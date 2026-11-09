@@ -73,6 +73,7 @@ describe('energy check-in', () => {
       personId,
       today: TODAY,
     })
+    if (!checkIn) throw new Error('Expected a check-in.')
     expect(checkIn.estimate).toMatchObject({
       status: 'ready',
       loggedDays: 27,
@@ -121,6 +122,7 @@ describe('energy check-in', () => {
       personId,
       today: TODAY,
     })
+    if (!checkIn) throw new Error('Expected a check-in.')
     if (checkIn.estimate.status !== 'ready') throw new Error('Not ready.')
     expect(checkIn.suggestion).toMatchObject({
       kgPerWeek: 0,

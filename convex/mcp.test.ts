@@ -2623,6 +2623,53 @@ describe('MCP weight tools', () => {
     })
     expect(mcp.lint()).toEqual([])
   })
+
+  it('refuses another member’s private weight', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const robi = asTestUser(t)
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    await robi.mutation(api.nutrition.setPersonLinkedToMe, {
+      personId,
+      linked: true,
+    })
+    const vikiToken = 'https://clerk.example|viki'
+    const assistant = await credential(t, vikiToken)
+    await asTestUserWithToken(t, vikiToken).mutation(
+      api.households.acceptInvitation,
+      { token: await robi.mutation(api.households.invite, { householdId }) },
+    )
+    const today = new Date().toISOString().slice(0, 10)
+    const goal = { personId, expectedEditRevision: 0, effectiveDate: today }
+    for (const [tool, args] of [
+      ['get_weight_history', { householdId, personId }],
+      [
+        'record_weight',
+        { householdId, personId, measuredOn: '2026-11-01', weightKg: 70 },
+      ],
+      ['get_goal', { householdId, personId, localDate: today }],
+      [
+        'preview_goal_change',
+        { householdId, input: { ...goal, goalKcal: 1800 } },
+      ],
+      // Even an unchanged goal: the reply would carry the private profile.
+      ['set_goal', { householdId, input: { ...goal, goalKcal: 2000 } }],
+    ] as const)
+      expect(
+        await (await call(t, assistant.token, tool, args)).json(),
+      ).toMatchObject({
+        result: {
+          isError: true,
+          content: [
+            {
+              text: expect.stringContaining(
+                'Only the member linked to this person',
+              ),
+            },
+          ],
+        },
+      })
+  })
 })
 
 describe('MCP goal tools', () => {

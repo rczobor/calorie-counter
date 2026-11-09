@@ -41,7 +41,7 @@ export const messages = defineMessages({
     removeTitle: 'Remove household access?',
     roleTitle: 'Change household role?',
     removeDescription: (name: string) =>
-      `${name} will lose access to this household. Shared nutrition data will remain.`,
+      `${name} will lose access to this household. Shared nutrition data will remain, except the weight recorded for the person ${name} marked as themselves.`,
     roleDescription: (name: string, role: Role) =>
       `${name} will become a household ${role}. Admins can invite and remove members.`,
     confirm: 'Confirm change',
@@ -82,7 +82,7 @@ export const messages = defineMessages({
     removeTitle: 'Megszünteted a hozzáférést a háztartáshoz?',
     roleTitle: 'Módosítod a szerepkört?',
     removeDescription: (name: string) =>
-      `${name} elveszíti a hozzáférést ehhez a háztartáshoz. A közös táplálkozási adatok megmaradnak.`,
+      `${name} elveszíti a hozzáférést ehhez a háztartáshoz. A közös táplálkozási adatok megmaradnak, kivéve a magaként megjelölt személyhez rögzített testsúlyt.`,
     roleDescription: (name: string, role: Role) =>
       `${name} új szerepköre: ${role === 'admin' ? 'adminisztrátor' : 'tag'}. Az adminisztrátorok meghívhatnak és eltávolíthatnak tagokat.`,
     confirm: 'Megerősítés',

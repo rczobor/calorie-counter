@@ -428,7 +428,7 @@ describe('household sharing', () => {
   })
 
   it('unlinks a member’s person when they leave the household', async () => {
-    const { robi, viki, householdId } = await setupHousehold()
+    const { t, robi, viki, householdId } = await setupHousehold()
     const personId = await robi.mutation(api.nutrition.createPerson, {
       householdId,
       name: 'Viki',
@@ -443,11 +443,14 @@ describe('household sharing', () => {
     const leaving = (
       await viki.query(api.households.members, { householdId })
     ).find((row) => row.isYou)!
+    vi.useFakeTimers()
     await viki.mutation(api.households.updateMember, {
       householdId,
       memberId: leaving._id,
       role: 'remove',
     })
+    // The link holds until Viki's private weight is gone.
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(
       (await robi.query(api.people.get, { householdId, personId }))
         ?.linkedAccount,

@@ -187,6 +187,29 @@ describe('People settings', () => {
     )
   })
 
+  it('locks another member’s goal but keeps their name editable', async () => {
+    livePerson = { ...alex, linkedAccount: 'other' }
+    show()
+    openAlex()
+    expect(
+      screen.queryByRole('spinbutton', { name: 'Daily calorie goal' }),
+    ).toBeNull()
+    expect(screen.getByText('Only Alex can change this goal.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Help me choose' })).toBeNull()
+    fireEvent.change(screen.getByLabelText('Person name'), {
+      target: { value: 'Alexa' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        'nutrition:updatePerson',
+        expect.objectContaining({ name: 'Alexa' }),
+      ),
+    )
+    // Another member's goal isn't sent, even unchanged.
+    expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('goalKcal')
+  })
+
   it('follows a link that changed elsewhere while the editor is open', () => {
     const view = show()
     openAlex()

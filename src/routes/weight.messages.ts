@@ -29,6 +29,9 @@ export const messages = defineMessages({
     unchanged: 'No change',
     editEntry: (date: string, kg: string) => `${date}: ${kg} kg. Edit`,
     goalUpdated: 'Goal updated.',
+    privateTitle: (name: string) => `Private to ${name}`,
+    privateBody: (name: string) => `Only ${name} sees this weight.`,
+    yourWeight: 'Show your weight',
   },
   hu: {
     title: 'Testsúly',
@@ -60,5 +63,8 @@ export const messages = defineMessages({
     unchanged: 'Változatlan',
     editEntry: (date: string, kg: string) => `${date}: ${kg} kg. Szerkesztés`,
     goalUpdated: 'Cél frissítve.',
+    privateTitle: (name: string) => `Csak ${name} látja`,
+    privateBody: (name: string) => `Ezt a testsúlyt csak ${name} látja.`,
+    yourWeight: 'A saját testsúlyod',
   },
 })

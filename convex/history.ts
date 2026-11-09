@@ -6,6 +6,7 @@ import { v } from 'convex/values'
 
 import { query } from './_generated/server'
 import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
+import { goalReasonFor } from './lib/personPrivacy'
 import {
   assertHistoryRange,
   assertPageSize,
@@ -115,6 +116,9 @@ export const goalsForRange = query({
     if (result.length > MAX_RELATED_ROWS) {
       throw new Error('Goal history is too large for the selected range.')
     }
-    return result.map(withoutOwner)
+    return result.map((row) => ({
+      ...withoutOwner(row),
+      reason: goalReasonFor(person, owner, row.reason),
+    }))
   },
 })

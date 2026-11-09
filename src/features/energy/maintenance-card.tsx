@@ -31,7 +31,7 @@ import {
 import { messages } from './maintenance-card.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
-type CheckIn = FunctionReturnType<typeof api.energy.checkIn>
+type CheckIn = NonNullable<FunctionReturnType<typeof api.energy.checkIn>>
 
 /** A suggestion this close to the goal is noise, not a reason to change it. */
 const SUGGEST_FROM_KCAL = 50
@@ -55,6 +55,8 @@ export function MaintenanceCard({
     personId: person._id,
     today,
   })
+  // Another member's person: the check-in is built from their private weight.
+  if (checkIn === null) return null
   return (
     <section
       aria-labelledby="maintenance-heading"

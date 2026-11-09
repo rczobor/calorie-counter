@@ -36,7 +36,7 @@ export const messages = defineMessages({
       'The legal basis is your explicit consent (GDPR Article 6(1)(a) and Article 9(2)(a)), which covers everything this notice describes. The cookieless visit and speed statistics rely on legitimate interest (Article 6(1)(f)).',
     whoHeading: 'Who else sees it',
     who: [
-      'Members of a household you share see that household’s data.',
+      'Members of a household you share see that household’s data, with one exception: once you mark a person as yourself, only you see that person’s body weight and only you can change their goal.',
       'AI assistants you connect, such as ChatGPT or Claude, receive what they ask for on your behalf. Their own privacy terms apply to it.',
       'The service providers that run the app: Clerk (sign-in), Convex (database) and Vercel (hosting and statistics). They process data only on the operator’s instructions, under data processing agreements. Some are based in the United States; transfers rely on the safeguards in those agreements, such as standard contractual clauses or the EU–US Data Privacy Framework.',
       'Nobody else. Your data is never sold or used for advertising.',
@@ -44,7 +44,7 @@ export const messages = defineMessages({
     keepHeading: 'How long it is kept',
     keep: 'Until you delete it or your account. Deleting your account removes it, and every household only you belong to, within minutes. Copies in the providers’ backups disappear as those backups expire.',
     shared:
-      'Data in a household you share stays with its other members when you leave or delete your account. Ask a household admin to remove it, or write to the address above.',
+      'Data in a household you share stays with its other members when you leave it, are removed from it or delete your account. The person marked as you keeps their goal, but the body weight recorded while they were marked as you, and the details behind the goal, are deleted. Ask a household admin to remove the rest, or write to the address above.',
     rightsHeading: 'Your rights',
     rights: (email: ReactNode) =>
       rich(
@@ -94,7 +94,7 @@ export const messages = defineMessages({
       'A jogalap a kifejezett hozzájárulásod (GDPR 6. cikk (1) bekezdés a) pont és 9. cikk (2) bekezdés a) pont), amely mindenre kiterjed, amit ez a tájékoztató leír. A sütik nélküli látogatási és sebességstatisztikák jogalapja a jogos érdek (6. cikk (1) bekezdés f) pont).',
     whoHeading: 'Ki fér még hozzá',
     who: [
-      'A közös háztartásod tagjai látják a háztartás adatait.',
+      'A közös háztartásod tagjai látják a háztartás adatait, egy kivétellel: ha egy személyt magadként jelölsz meg, a testsúlyát csak te látod, és a célját csak te módosíthatod.',
       'Az összekapcsolt AI-asszisztensek (például a ChatGPT vagy a Claude) megkapják, amit a nevedben lekérnek. Ezekre a saját adatvédelmi feltételeik vonatkoznak.',
       'Az alkalmazást működtető szolgáltatók: a Clerk (bejelentkezés), a Convex (adatbázis) és a Vercel (tárhely és statisztikák). Csak az üzemeltető utasítására, adatfeldolgozási szerződés alapján kezelik az adatokat. Egyesek az Egyesült Államokban működnek; az adattovábbítást a szerződésekben foglalt garanciák, például általános adatvédelmi kikötések vagy az EU–USA adatvédelmi keret védik.',
       'Senki más. Az adataidat soha nem adjuk el, és nem használjuk hirdetésre.',
@@ -102,7 +102,7 @@ export const messages = defineMessages({
     keepHeading: 'Meddig őrizzük',
     keep: 'Amíg nem törlöd őket vagy a fiókodat. A fiók törlése perceken belül eltávolítja a fiókodat és minden olyan háztartást, amelynek csak te vagy a tagja. A szolgáltatók biztonsági mentéseiben lévő másolatok a mentések lejártával törlődnek.',
     shared:
-      'Egy közös háztartás adatai a többi tagnál maradnak, ha kilépsz vagy törlöd a fiókodat. Az eltávolításukat kérd a háztartás adminisztrátorától, vagy írj a fenti címre.',
+      'Egy közös háztartás adatai a többi tagnál maradnak, ha kilépsz, eltávolítanak, vagy törlöd a fiókodat. A magadként megjelölt személy célja megmarad, de a megjelölés óta rögzített testsúlya és a cél mögötti adatok törlődnek. A többi adat eltávolítását kérd a háztartás adminisztrátorától, vagy írj a fenti címre.',
     rightsHeading: 'A jogaid',
     rights: (email: ReactNode) =>
       rich(

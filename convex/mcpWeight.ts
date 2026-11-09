@@ -53,7 +53,7 @@ export const getWeightHistory = internalMutation({
           : normalizeRequiredDate(args.endDate, 'End date')
       if (startDate && endDate && startDate > endDate)
         throw new DomainError('Start date must be on or before end date.')
-      const page = await weightEntriesForPerson(ctx, owner, person._id, {
+      const page = await weightEntriesForPerson(ctx, owner, person, {
         startDate,
         endDate,
       })

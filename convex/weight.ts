@@ -4,8 +4,10 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 
+import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
+  internalMutation,
   mutation,
   query,
   type MutationCtx,
@@ -13,10 +15,13 @@ import {
 } from './_generated/server'
 import {
   assertOwnedOrThrow,
+  findLinkedPerson,
+  isOwnedBy,
   ownerFields,
   requireAuthenticatedHousehold,
   type AuthenticatedOwner,
 } from './lib/auth'
+import { assertCanSeeWeight, isAnotherMembers } from './lib/personPrivacy'
 import {
   assertHistoryRange,
   assertPageSize,
@@ -59,25 +64,27 @@ export function normalizeWeightKg(value: number) {
   return value
 }
 
+/** A person's weigh-ins, for a viewer allowed to see them (else it throws). */
 export function weightEntriesForPerson(
   ctx: Pick<QueryCtx, 'db'>,
   owner: AuthenticatedOwner,
-  personId: Id<'people'>,
+  person: Doc<'people'>,
   range: { startDate?: string; endDate?: string } = {},
 ) {
+  assertCanSeeWeight(person, owner)
   return ctx.db
     .query('weightEntries')
     .withIndex('by_householdId_and_personId_and_measuredOn', (q) => {
-      const person = q
+      const scoped = q
         .eq('householdId', owner.householdId)
-        .eq('personId', personId)
+        .eq('personId', person._id)
       if (range.startDate && range.endDate)
-        return person
+        return scoped
           .gte('measuredOn', range.startDate)
           .lte('measuredOn', range.endDate)
-      if (range.startDate) return person.gte('measuredOn', range.startDate)
-      if (range.endDate) return person.lte('measuredOn', range.endDate)
-      return person
+      if (range.startDate) return scoped.gte('measuredOn', range.startDate)
+      if (range.endDate) return scoped.lte('measuredOn', range.endDate)
+      return scoped
     })
 }
 
@@ -108,7 +115,7 @@ export async function recordWeightForOwner(
     )
   const measuredOn = normalizeRequiredDate(input.measuredOn, 'Weight date')
   const weightKg = normalizeWeightKg(input.weightKg)
-  const existing = await weightEntriesForPerson(ctx, owner, person._id, {
+  const existing = await weightEntriesForPerson(ctx, owner, person, {
     startDate: measuredOn,
     endDate: measuredOn,
   }).unique()
@@ -147,6 +154,22 @@ export async function recordWeightForOwner(
   }
 }
 
+/**
+ * The person whose weigh-ins a query may return: in this household and not
+ * another member's. Otherwise the query returns nothing rather than throwing,
+ * so a page open while a person becomes private just shows its private state.
+ */
+async function visiblePerson(
+  ctx: Pick<QueryCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  personId: Id<'people'>,
+) {
+  const person = await ctx.db.get(personId)
+  return isOwnedBy(person, owner) && !isAnotherMembers(person, owner)
+    ? person
+    : null
+}
+
 export const list = query({
   args: {
     householdId: v.optional(v.id('households')),
@@ -157,7 +180,9 @@ export const list = query({
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
-    const result = await weightEntriesForPerson(ctx, owner, args.personId)
+    const person = await visiblePerson(ctx, owner, args.personId)
+    if (!person) return { page: [], isDone: true, continueCursor: '' }
+    const result = await weightEntriesForPerson(ctx, owner, person)
       .order('desc')
       .paginate(args.paginationOpts)
     return { ...result, page: result.page.map(toWeightEntryDto) }
@@ -177,8 +202,10 @@ export const listRange = query({
     const startDate = normalizeRequiredDate(args.startDate, 'Start date')
     const endDate = normalizeRequiredDate(args.endDate, 'End date')
     assertHistoryRange(startDate, endDate)
+    const person = await visiblePerson(ctx, owner, args.personId)
+    if (!person) return []
     // One entry per day, so the range bounds the read.
-    const entries = await weightEntriesForPerson(ctx, owner, args.personId, {
+    const entries = await weightEntriesForPerson(ctx, owner, person, {
       startDate,
       endDate,
     }).take(MAX_HISTORY_DAYS)
@@ -196,7 +223,9 @@ export const latestOnOrBefore = query({
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     const endDate = normalizeRequiredDate(args.date, 'Date')
-    const entry = await weightEntriesForPerson(ctx, owner, args.personId, {
+    const person = await visiblePerson(ctx, owner, args.personId)
+    if (!person) return null
+    const entry = await weightEntriesForPerson(ctx, owner, person, {
       endDate,
     })
       .order('desc')
@@ -235,11 +264,113 @@ export const remove = mutation({
       owner,
       'Weight entry not found.',
     )
+    const person = await ctx.db.get(entry.personId)
+    if (person) assertCanSeeWeight(person, owner)
     if (entry.editRevision !== args.expectedEditRevision)
       throw new DomainError(
         'Weight changed since it was read. Refresh and try again.',
       )
     await ctx.db.delete(entry._id)
+    return null
+  },
+})
+
+/** Weigh-ins deleted per scheduled batch. */
+const DEPARTED_BATCH = 100
+
+/**
+ * Links made before `linkedAt` existed count from the day linking shipped:
+ * nothing was private before it.
+ */
+const LINKING_SHIPPED = Date.UTC(2026, 10, 9)
+
+/**
+ * A member who leaves a household, or deletes their account, takes the
+ * weight of the person linked to them along: it was private to them, and
+ * unlinked it would show to everyone. The person and its other history stay.
+ * The link holds until the weight is gone, so nobody sees it meanwhile.
+ */
+export async function releaseLinkedPerson(
+  ctx: MutationCtx,
+  householdId: Id<'households'>,
+  userId: Id<'users'>,
+) {
+  const linked = await findLinkedPerson(ctx, householdId, userId)
+  if (linked)
+    await ctx.scheduler.runAfter(0, internal.weight.deleteDepartedWeights, {
+      personId: linked._id,
+      userId,
+      // Taken now: an unlink before the job runs would clear linkedAt.
+      since: linked.linkedAt ?? LINKING_SHIPPED,
+    })
+}
+
+export const deleteDepartedWeights = internalMutation({
+  args: {
+    personId: v.id('people'),
+    userId: v.id('users'),
+    since: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const person = await ctx.db.get(args.personId)
+    if (!person) return null
+    // Another member's now; only possible after this one rejoined and left
+    // the person: what is left is theirs.
+    if (person.userId !== undefined && person.userId !== args.userId)
+      return null
+    // Only what was recorded or corrected while linked: the household's
+    // earlier weigh-ins and goal reasons stay shared.
+    const { since } = args
+    const weights = await ctx.db
+      .query('weightEntries')
+      .withIndex('by_householdId_and_personId_and_measuredOn', (q) =>
+        q.eq('householdId', person.householdId).eq('personId', person._id),
+      )
+      .filter((q) =>
+        q.or(
+          q.gte(q.field('createdAt'), since),
+          q.gte(q.field('updatedAt'), since),
+        ),
+      )
+      .take(DEPARTED_BATCH)
+    for (const entry of weights) await ctx.db.delete(entry._id)
+    // Check-in reasons carry maintenance figures, as private as the weight.
+    const reasons =
+      weights.length === DEPARTED_BATCH
+        ? []
+        : await ctx.db
+            .query('personGoalHistory')
+            .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
+              q
+                .eq('householdId', person.householdId)
+                .eq('personId', person._id)
+                .gte('createdAt', since),
+            )
+            .filter((q) => q.neq(q.field('reason'), undefined))
+            .take(DEPARTED_BATCH)
+    for (const row of reasons)
+      await ctx.db.patch(row._id, { reason: undefined })
+    if (weights.length === DEPARTED_BATCH || reasons.length === DEPARTED_BATCH)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.weight.deleteDepartedWeights,
+        args,
+      )
+    else
+      // The profile and target weight were as private as the weight.
+      await ctx.db.patch(person._id, {
+        userId: undefined,
+        linkedAt: undefined,
+        energyProfile: undefined,
+        ...(person.goalPlan?.direction !== 'maintain' &&
+          person.goalPlan && {
+            goalPlan: {
+              direction: person.goalPlan.direction,
+              percentPerWeek: person.goalPlan.percentPerWeek,
+            },
+          }),
+      })
     return null
   },
 })

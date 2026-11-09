@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   ChevronRight,
+  Lock,
   Plus,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -146,19 +147,25 @@ function WeightContent() {
   const person = loadingPeople
     ? undefined
     : (loaded ?? pointLoaded ?? youFirst(people.results)[0])
+  // Another member's person: their weight is private, so nothing is read.
+  const isPrivate = person?.linkedAccount === 'other'
+  const linkedToMe = useQuery(api.people.linkedToMe, isPrivate ? {} : 'skip')
   const personId = person?._id
+  const weightPersonId = isPrivate ? undefined : personId
   const startDate = shiftDate(today, -(rangeDays - 1))
   const range = useQuery(
     api.weight.listRange,
-    personId ? { personId, startDate, endDate: today } : 'skip',
+    weightPersonId
+      ? { personId: weightPersonId, startDate, endDate: today }
+      : 'skip',
   )
   const latest = useQuery(
     api.weight.latestOnOrBefore,
-    personId ? { personId, date: today } : 'skip',
+    weightPersonId ? { personId: weightPersonId, date: today } : 'skip',
   )
   const entries = usePaginatedQuery(
     api.weight.list,
-    personId ? { personId } : 'skip',
+    weightPersonId ? { personId: weightPersonId } : 'skip',
     { initialNumItems: ENTRIES_PAGE_SIZE },
   )
   const options = youFirst([
@@ -169,14 +176,15 @@ function WeightContent() {
     label: p.name,
     you: p.linkedAccount === 'you',
   }))
-  const canRecord = Boolean(person && !person.archived)
+  const canRecord = Boolean(person && !person.archived && !isPrivate)
   // Until the first weigh-in, the range, chart and list would only repeat "none".
   // A future-dated entry has no latest weight yet, but must stay editable.
-  const hasWeights = latest !== null || entries.results.length > 0
+  const hasWeights =
+    !isPrivate && (latest !== null || entries.results.length > 0)
   // The check-in follows the trend; before any weigh-in it shows only for a
   // person who has started a plan, as the way back to it.
   const maintenance =
-    person && !person.archived ? (
+    person && !person.archived && !isPrivate ? (
       <MaintenanceCard
         person={person}
         today={today}
@@ -234,11 +242,37 @@ function WeightContent() {
             aria-label={t.personWeight(person.name)}
             className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 inset-group px-4 py-4"
           >
-            <WeightSummary
-              latest={latest}
-              today={today}
-              archived={person.archived}
-            />
+            {isPrivate ? (
+              <div className="min-w-0 basis-60 grow">
+                <p className="flex items-center gap-2 type-headline">
+                  <Lock
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                  {t.privateTitle(person.name)}
+                </p>
+                <p className="mt-1 type-subhead text-pretty text-muted-foreground">
+                  {t.privateBody(person.name)}
+                </p>
+                {/* Not a dead end: your own weight is one tap away. */}
+                {linkedToMe ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setSelectedPersonId(linkedToMe)}
+                  >
+                    {t.yourWeight}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <WeightSummary
+                latest={latest}
+                today={today}
+                archived={person.archived}
+              />
+            )}
             {canRecord ? (
               <Button
                 variant="outline"

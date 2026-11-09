@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, Plus } from 'lucide-react'
+import { ChevronRight, Lock, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../convex/_generated/api'
@@ -27,20 +27,33 @@ export function WeightGlance({
   personName,
   date,
   today,
+  isPrivate = false,
 }: {
   personId: Id<'people'>
   personName: string
   date: string
   today: string
+  /** Another member's person: their weight is theirs alone. */
+  isPrivate?: boolean
 }) {
   const t = useMessages(messages)
   const locale = useLocale()
   const [recording, setRecording] = useState(false)
-  const day = useQuery(api.weight.listRange, {
-    personId,
-    startDate: date,
-    endDate: date,
-  })
+  const day = useQuery(
+    api.weight.listRange,
+    isPrivate ? 'skip' : { personId, startDate: date, endDate: date },
+  )
+  // A static cell: nothing to open or record.
+  if (isPrivate)
+    return (
+      <div className="flex min-h-12 items-center gap-3 inset-group py-2.5 pr-3.5 pl-4 text-base text-foreground">
+        <span className="flex-1">{t.weight}</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          {t.privateTo(personName)}
+          <Lock aria-hidden="true" className="size-4 shrink-0" />
+        </span>
+      </div>
+    )
   const entry = day?.[0]
   const canRecord = day !== undefined && !entry
 

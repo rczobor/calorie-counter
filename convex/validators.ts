@@ -90,6 +90,9 @@ export const peopleFields = {
   // ownerUserId, which records who created the person. One per account per
   // household.
   userId: v.optional(v.id('users')),
+  // When userId was set. A departing member takes only what was recorded
+  // since; what the household recorded before stays shared.
+  linkedAt: v.optional(v.number()),
   name: v.string(),
   notes: v.optional(v.string()),
   currentDailyGoalKcal: v.number(),

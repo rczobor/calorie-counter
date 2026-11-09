@@ -8,7 +8,8 @@ export const messages = defineMessages({
     description: {
       lead: 'This deletes your account, your sign-in and your AI assistant connections.',
       solo: 'Every household only you belong to goes too, with all its people, meals, weights, goals, foods and recipes.',
-      shared: 'Households you share keep their data for the other members.',
+      shared:
+        'Households you share keep their data for the other members, except the weight recorded for the person you marked as yourself.',
       identity: 'You may be asked to confirm it’s you.',
       warning: 'This can’t be undone.',
     },
@@ -23,7 +24,8 @@ export const messages = defineMessages({
     description: {
       lead: 'Ezzel törlöd a fiókodat, a bejelentkezésedet és az AI-asszisztens-kapcsolataidat.',
       solo: 'Minden olyan háztartás is törlődik, amelynek csak te vagy a tagja, az összes személlyel, étkezéssel, testsúllyal, céllal, étellel és recepttel együtt.',
-      shared: 'A közös háztartások adatai a többi tagnál maradnak.',
+      shared:
+        'A közös háztartások adatai a többi tagnál maradnak, kivéve a magadként megjelölt személyhez rögzített testsúlyt.',
       identity: 'Előfordulhat, hogy újra igazolnod kell magad.',
       warning: 'Ez nem vonható vissza.',
     },
