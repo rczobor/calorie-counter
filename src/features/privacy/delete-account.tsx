@@ -106,7 +106,9 @@ export function DeleteAccount({
             </span>
             <span className="mt-2 block">{t.description.solo}</span>
             <span className="mt-2 block">{t.description.shared}</span>
-            <span className="mt-2 block">{t.description.note}</span>
+            <span className="mt-2 block font-medium text-foreground">
+              {t.description.note}
+            </span>
           </>
         }
         confirmLabel={pending ? t.deleting : t.action}

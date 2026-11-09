@@ -3,7 +3,7 @@ import { defineMessages } from '@/i18n/messages'
 export const messages = defineMessages({
   en: {
     action: 'Delete account',
-    title: 'Delete your account?',
+    title: 'Permanently delete your account?',
     // One fact per line: what goes, what else goes, what stays, then the warning.
     description: {
       lead: 'This permanently deletes your account, your sign-in and your AI assistant connections.',
@@ -18,7 +18,7 @@ export const messages = defineMessages({
   },
   hu: {
     action: 'Fiók törlése',
-    title: 'Törlöd a fiókodat?',
+    title: 'Véglegesen törlöd a fiókodat?',
     description: {
       lead: 'Ezzel véglegesen törlöd a fiókodat, a bejelentkezésedet és az AI-asszisztens-kapcsolataidat.',
       solo: 'Minden olyan háztartás is törlődik, amelynek csak te vagy a tagja, az összes személlyel, étkezéssel, testsúllyal, céllal, étellel és recepttel együtt.',

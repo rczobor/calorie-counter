@@ -63,7 +63,9 @@ describe('consent gate', () => {
     renderGate()
     expect(screen.queryByText('App')).toBeNull()
     expect(
-      screen.getByRole('link', { name: 'Privacy notice' }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: /^Privacy notice Updated / })
+        .getAttribute('href'),
     ).toBe('/privacy')
 
     fireEvent.click(screen.getByRole('button', { name: 'Agree and continue' }))

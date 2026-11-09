@@ -1,7 +1,13 @@
 import { SignOutButton } from '@clerk/react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { ChartNoAxesColumn, ChevronRight, Settings, Users } from 'lucide-react'
+import {
+  ChartNoAxesColumn,
+  ChevronRight,
+  FileText,
+  Settings,
+  Users,
+} from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api } from '../../../convex/_generated/api'
 import { PRIVACY_NOTICE_VERSION } from '../../../convex/lib/privacy'
@@ -11,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { isClerkConfigured } from '@/integrations/clerk/config'
+import { formatDate } from '@/lib/dates'
 import { toErrorMessage } from '@/lib/nutrition'
 import { isE2eMockMode } from '@/testing/e2e/config'
 import { DeleteAccount } from './delete-account'
@@ -67,9 +74,15 @@ function ConsentScreen() {
         <h1 id="consent-title" className="type-large-title">
           {t.title}
         </h1>
-        <p className="mt-3 type-body">{t.body}</p>
+        <p className="mt-4 type-body text-pretty">{t.body}</p>
+        <h2 id="consent-points" className="mt-6 group-label">
+          {t.pointsTitle}
+        </h2>
         {/* Hairlines start at the text, past the leading icons. */}
-        <ul className="mt-6 inset-group inset-rows [--row-inset:3rem]">
+        <ul
+          aria-labelledby="consent-points"
+          className="inset-group inset-rows [--row-inset:3rem]"
+        >
           {POINTS.map(({ key, Icon }) => (
             <li key={key} className="flex items-start gap-3 px-4 py-3">
               <Icon
@@ -82,14 +95,29 @@ function ConsentScreen() {
         </ul>
         <div className="mt-4 inset-group">
           <Link to="/privacy" className={LIST_ROW_CLASS}>
-            <span className="min-w-0 flex-1">{t.readNotice}</span>
+            {/* Its text shares the promises' left edge. */}
+            <FileText
+              className="size-5 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block">{t.readNotice}</span>{' '}
+              {/* Why someone who already agreed is asked again. */}
+              <span className="block type-footnote text-muted-foreground">
+                {t.noticeUpdated(
+                  formatDate(PRIVACY_NOTICE_VERSION, locale, {
+                    year: 'always',
+                  }),
+                )}
+              </span>
+            </span>
             <ChevronRight
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
             />
           </Link>
         </div>
-        <p className="mt-8 type-body">{t.statement}</p>
+        <p className="mt-8 type-body text-pretty">{t.statement}</p>
         {error ? (
           <p role="alert" className="mt-3 type-subhead text-destructive">
             {error}
@@ -112,7 +140,9 @@ function ConsentScreen() {
             </SignOutButton>
           ) : null}
         </div>
-        <p className="mt-8 type-footnote text-muted-foreground">{t.decline}</p>
+        <p className="mt-8 type-subhead text-pretty text-muted-foreground">
+          {t.decline}
+        </p>
         <DeleteAccount variant="link" />
       </section>
     </main>

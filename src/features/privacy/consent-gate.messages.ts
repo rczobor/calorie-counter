@@ -25,10 +25,12 @@ export const messages = defineMessages({
         rich(
           'You can ',
           key('delete your account and data'),
-          ' at any time in Settings.',
+          ' at any time, here or later in Settings.',
         ),
     },
+    pointsTitle: 'Your data',
     readNotice: 'Privacy notice',
+    noticeUpdated: (date: string) => `Updated ${date}`,
     statement:
       'I consent to Calorie Counter processing my health data as described in the privacy notice.',
     agree: 'Agree and continue',
@@ -51,12 +53,13 @@ export const messages = defineMessages({
         ),
       delete: (key: Key) =>
         rich(
-          'A Beállításokban bármikor ',
-          key('törölheted a fiókodat és az adataidat'),
-          '.',
+          key('Törölheted a fiókodat és az adataidat'),
+          ' bármikor, itt vagy később a Beállításokban.',
         ),
     },
+    pointsTitle: 'Az adataid',
     readNotice: 'Adatvédelmi tájékoztató',
+    noticeUpdated: (date: string) => `Frissítve: ${date}`,
     statement:
       'Hozzájárulok, hogy a Calorie Counter az adatvédelmi tájékoztatóban leírtak szerint kezelje az egészségügyi adataimat.',
     agree: 'Elfogadom és folytatom',
