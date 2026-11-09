@@ -7,7 +7,7 @@ export const messages = defineMessages({
     hints: {
       assistant: {
         title: 'Log by chatting',
-        body: 'Tell ChatGPT or Claude what you ate or cooked, and it logs it here.',
+        body: 'Tell ChatGPT or Claude what you ate or cooked, and it does the logging for you.',
         action: 'Set up an assistant',
       },
       history: {
@@ -16,14 +16,14 @@ export const messages = defineMessages({
         action: 'Open History',
       },
       weighIn: {
-        title: 'Find your real maintenance',
-        body: 'Weigh in a few mornings a week to learn what you really burn.',
+        title: 'Learn what you really burn',
+        body: 'Weigh in a few mornings a week, and after two weeks the app measures it.',
         action: 'Record a weigh-in',
       },
       maintenance: {
         title: 'Your maintenance is ready',
         body: 'Your logs and weigh-ins now show what you really burn.',
-        action: 'Check your goal',
+        action: 'See your maintenance',
       },
       invite: {
         title: 'Let others log for themselves',
@@ -47,7 +47,7 @@ export const messages = defineMessages({
     hints: {
       assistant: {
         title: 'Rögzítés csevegve',
-        body: 'Írd meg a ChatGPT-nek vagy a Claude-nak, mit ettél vagy főztél, és itt rögzíti.',
+        body: 'Írd meg a ChatGPT-nek vagy a Claude-nak, mit ettél vagy főztél, és elvégzi helyetted a rögzítést.',
         action: 'Asszisztens beállítása',
       },
       history: {
@@ -56,14 +56,14 @@ export const messages = defineMessages({
         action: 'Előzmények megnyitása',
       },
       weighIn: {
-        title: 'A valódi fenntartó kalóriád',
-        body: 'Mérd meg magad hetente pár reggel, és megtudod, mennyit égetsz valójában.',
+        title: 'Tudd meg, mennyit égetsz',
+        body: 'Mérd meg magad hetente pár reggel, és két hét után az app kiszámolja.',
         action: 'Testsúly rögzítése',
       },
       maintenance: {
         title: 'Megvan a fenntartó kalóriád',
         body: 'A rögzítéseidből és méréseidből már látszik, mennyit égetsz valójában.',
-        action: 'Napi cél ellenőrzése',
+        action: 'Fenntartó kalória megtekintése',
       },
       invite: {
         title: 'Rögzítsenek mások is',
