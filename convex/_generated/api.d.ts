@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as admin from "../admin.js";
 import type * as catalog from "../catalog.js";
 import type * as cooking from "../cooking.js";
@@ -18,6 +19,7 @@ import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dayNutrition from "../lib/dayNutrition.js";
 import type * as lib_energy from "../lib/energy.js";
+import type * as lib_privacy from "../lib/privacy.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpContext from "../mcpContext.js";
@@ -31,6 +33,7 @@ import type * as mcpWeight from "../mcpWeight.js";
 import type * as meals from "../meals.js";
 import type * as nutrition from "../nutrition.js";
 import type * as people from "../people.js";
+import type * as privacy from "../privacy.js";
 import type * as recipes from "../recipes.js";
 import type * as savedFoods from "../savedFoods.js";
 import type * as seed from "../seed.js";
@@ -45,6 +48,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   admin: typeof admin;
   catalog: typeof catalog;
   cooking: typeof cooking;
@@ -55,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/dayNutrition": typeof lib_dayNutrition;
   "lib/energy": typeof lib_energy;
+  "lib/privacy": typeof lib_privacy;
   "lib/validation": typeof lib_validation;
   mcp: typeof mcp;
   mcpContext: typeof mcpContext;
@@ -68,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   meals: typeof meals;
   nutrition: typeof nutrition;
   people: typeof people;
+  privacy: typeof privacy;
   recipes: typeof recipes;
   savedFoods: typeof savedFoods;
   seed: typeof seed;

@@ -7,6 +7,7 @@ import type { Doc, Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
 import { ensurePersonalHousehold } from '../../convex/households'
 import { ensureUserId } from '../../convex/lib/auth'
+import { PRIVACY_NOTICE_VERSION } from '../../convex/lib/privacy'
 
 const modules = import.meta.glob('../../convex/**/*.ts')
 
@@ -58,6 +59,20 @@ export async function testUserId(
   return user._id
 }
 
+/** Records the account's consent, as the in-app consent screen does. */
+export async function acceptPrivacyNotice(
+  t: ReturnType<typeof createConvexTest>,
+  token = TEST_TOKEN_IDENTIFIER,
+) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert('privacyConsents', {
+      userId: await ensureUserId(ctx, token),
+      version: PRIVACY_NOTICE_VERSION,
+      acceptedAt: Date.now(),
+    })
+  })
+}
+
 export function asTestUser(t: ReturnType<typeof createConvexTest>) {
   return asTestUserWithToken(t, TEST_TOKEN_IDENTIFIER)
 }
@@ -72,6 +87,7 @@ export function asTestUserWithToken(
     issuer: 'https://example.test',
   })
   async function bootstrap() {
+    await user.mutation(api.privacy.accept, { version: PRIVACY_NOTICE_VERSION })
     const id = await user.mutation(api.households.ensurePersonal, {})
     const scopes = householdIds.get(t) ?? new Map<string, Id<'households'>>()
     scopes.set(tokenIdentifier, id)

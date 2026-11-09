@@ -1,5 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
+import { hasAcceptedPrivacyNotice } from './privacy'
 import { DomainError } from './validation'
 
 // Account data is keyed by app-owned `users` rows. Only
@@ -113,6 +114,10 @@ export async function requireHouseholdForAccount(
   requestedHouseholdId?: Id<'households'>,
 ): Promise<AuthenticatedOwner> {
   const userId = await findUserId(ctx, tokenIdentifier)
+  // Household data is health data: nothing reads or writes it, assistants
+  // included, before the account accepts the current privacy notice.
+  if (userId && !(await hasAcceptedPrivacyNotice(ctx, userId)))
+    throw new DomainError('Accept the privacy notice in the app to continue.')
   const householdId =
     requestedHouseholdId ??
     (userId ? (await findPersonalHousehold(ctx, userId))?._id : undefined)

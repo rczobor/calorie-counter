@@ -2,6 +2,7 @@ import { PagePlaceholder } from '@/components/page/page-placeholder'
 import { lazy, Suspense, useEffect } from 'react'
 import {
   HeadContent,
+  Link,
   Scripts,
   createRootRoute,
   useRouterState,
@@ -22,6 +23,7 @@ import { useConvexAuth } from 'convex/react'
 import Header, { BottomNavigation } from '../components/Header'
 import { InstallProvider } from '@/features/install/install-provider'
 import { HouseholdProvider } from '@/features/households/household-context'
+import { ConsentGate } from '@/features/privacy/consent-gate'
 
 import ClerkProvider from '../integrations/clerk/provider'
 import {
@@ -177,6 +179,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         state.location.pathname,
       ),
   })
+  // The privacy notice must be readable before sign-in and before consent.
+  const publicPage = useRouterState({
+    select: (state) => state.location.pathname === '/privacy',
+  })
   useEffect(() => {
     markStartup('app')
     if (IS_MAINTENANCE_MODE) unregisterServiceWorkers()
@@ -216,12 +222,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                       landscape content clear of the notch. */}
                   <div className="flex min-h-dvh flex-col pr-[env(safe-area-inset-right)] pb-[calc(4rem+max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem))] pl-[env(safe-area-inset-left)] md:pb-0">
                     <Header />
-                    <AuthGate>
-                      <AccountLocaleSync />
-                      <HouseholdProvider accountPage={accountPage}>
-                        {children}
-                      </HouseholdProvider>
-                    </AuthGate>
+                    {publicPage ? (
+                      children
+                    ) : (
+                      <AuthGate>
+                        <AccountLocaleSync />
+                        <ConsentGate>
+                          <HouseholdProvider accountPage={accountPage}>
+                            {children}
+                          </HouseholdProvider>
+                        </ConsentGate>
+                      </AuthGate>
+                    )}
                     <BottomNavigation />
                   </div>
                 </InstallProvider>
@@ -313,9 +325,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             title={t.signInTitle}
             description={t.signInDescription}
             action={
-              <SignInButton mode="modal">
-                <Button>{t.signIn}</Button>
-              </SignInButton>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <SignInButton mode="modal">
+                  <Button>{t.signIn}</Button>
+                </SignInButton>
+                <Link
+                  to="/privacy"
+                  className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-2"
+                >
+                  {t.privacyNotice}
+                </Link>
+              </div>
             }
           />
         </Show>

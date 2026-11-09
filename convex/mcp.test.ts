@@ -36,6 +36,7 @@ import {
 } from './mcpValidators'
 import { formulaMaintenance, goalForPlan, shiftDay } from './lib/energy'
 import {
+  acceptPrivacyNotice,
   createConvexTest,
   asTestUser,
   asTestUserWithToken,
@@ -76,6 +77,8 @@ async function credential(
   grantedScopes = scopes,
 ) {
   const token = `test-${crypto.randomUUID()}`
+  // Connecting an assistant happens inside the app, after consent.
+  await acceptPrivacyNotice(t, owner)
   const id = await t.mutation(components.mcp.grants.createApiKey, {
     userId: owner,
     name: 'Test assistant',
@@ -1531,6 +1534,25 @@ describe('MCP household authorization', () => {
 })
 
 describe('MCP upgrade compatibility', () => {
+  it('refuses household tools until the account accepts the privacy notice', async () => {
+    const t = setup()
+    const token = `test-${crypto.randomUUID()}`
+    await t.mutation(components.mcp.grants.createApiKey, {
+      userId: TEST_TOKEN_IDENTIFIER,
+      name: 'Connected before consent',
+      scopes,
+      resource: 'https://mcp.example.test/mcp',
+      hash: await sha256(token),
+    })
+    const response = await call(t, token, 'get_logging_context', {})
+    expect(JSON.stringify(await response.json())).toContain(
+      'Accept the privacy notice in the app to continue.',
+    )
+    expect(await t.run((ctx) => ctx.db.query('households').collect())).toEqual(
+      [],
+    )
+  })
+
   it.each(['list_households', 'get_logging_context', 'search_foods'])(
     'bootstraps an existing connection on its first %s call without a browser visit',
     async (tool) => {

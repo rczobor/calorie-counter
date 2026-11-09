@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { InstallEntry } from '@/features/install/install-entry'
 import { LanguageSetting } from '@/features/language/language-setting'
+import { DeleteAccount } from '@/features/privacy/delete-account'
 import { intlLocale, useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import ThemeSelector from '@/components/theme-selector'
@@ -73,6 +74,15 @@ function SettingsPage() {
           <SettingsLink to="/cooking" title={t.cooking} />
         </div>
       </section>
+      <section aria-labelledby="settings-privacy" className="mt-8">
+        <h2 id="settings-privacy" className="group-label">
+          {t.privacy}
+        </h2>
+        <div className="inset-group inset-rows">
+          <SettingsLink to="/privacy" title={t.privacyNotice} />
+          <DeleteAccount />
+        </div>
+      </section>
       {isSuperAdmin ? (
         <section aria-labelledby="settings-admin" className="mt-8">
           <h2 id="settings-admin" className="group-label">
@@ -100,6 +110,7 @@ function SettingsLink({
     | '/catalog'
     | '/cooking'
     | '/settings/archived-meals'
+    | '/privacy'
     | '/settings/usage'
   title: string
 }) {

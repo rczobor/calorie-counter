@@ -82,10 +82,20 @@ export type MockState = {
   connected: boolean
   weights: Array<Doc<'weightEntries'>>
   locale: FunctionReturnType<typeof api.userPreferences.getLocale>
+  privacyAccepted: boolean
 }
 
 // The account's language outlives a reload, as it does on the server.
 const ACCOUNT_LOCALE_KEY = 'e2e-account-locale'
+
+// `localStorage['e2e-privacy-consent'] = 'pending'` shows the consent screen;
+// every other session starts with consent given.
+function readPrivacyAccepted() {
+  return (
+    typeof localStorage === 'undefined' ||
+    localStorage.getItem('e2e-privacy-consent') !== 'pending'
+  )
+}
 
 function readAccountLocale(): MockState['locale'] {
   // The dev server also renders this module, where there is no storage.
@@ -249,6 +259,7 @@ function createInitialState(): MockState {
     connected: true,
     weights: [],
     locale: readAccountLocale(),
+    privacyAccepted: readPrivacyAccepted(),
   }
 }
 
@@ -656,8 +667,11 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
 
   const functionName = getFunctionName(query)
+  // Consent is checked before the household list, so it waits with it.
   if (
-    functionName === 'households:list' ? hold === 'household' : hold === 'data'
+    functionName === 'households:list' || functionName === 'privacy:consent'
+      ? hold === 'household'
+      : hold === 'data'
   )
     return undefined
   if (functionName === 'households:list')
@@ -701,6 +715,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
     return createUsageData(
       (args as { today: string }).today,
     ) as FunctionReturnType<Query>
+  if (functionName === 'privacy:consent')
+    return {
+      accepted: snapshot.privacyAccepted,
+    } as FunctionReturnType<Query>
   if (functionName === 'meals:getDayNutrition') {
     const input = args as { personId: Id<'people'>; eatenOn: string }
     return dayNutrition(
@@ -1050,6 +1068,14 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
         >
         localStorage.setItem(ACCOUNT_LOCALE_KEY, locale)
         publish({ ...state, locale })
+        return null as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'privacy:accept') {
+        publish({ ...state, privacyAccepted: true })
+        return null as FunctionReturnType<Mutation>
+      }
+      if (functionName === 'account:deleteMyAccount') {
+        publish({ ...state, privacyAccepted: false })
         return null as FunctionReturnType<Mutation>
       }
       if (functionName === 'mcp:revokeConnection') {

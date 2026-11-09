@@ -4,12 +4,15 @@ import { env, query, type QueryCtx } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import { findUserId, listMemberships } from './lib/auth'
 import { shiftDay } from './lib/energy'
+import { hasAcceptedPrivacyNotice } from './lib/privacy'
 import { DomainError, normalizeRequiredDate } from './lib/validation'
 
 // The usage dashboard reads every account, so only the accounts listed in
 // SUPER_ADMIN_USER_IDS (comma-separated `users` ids) may open it. It reports
 // whether people log, never what they eat: no food names, calories or weights
-// leave this module per account.
+// leave this module per account. Like every other read of household data, it
+// skips accounts that have not accepted the current privacy notice, and their
+// households unless a consenting member shares them.
 
 const WINDOW_DAYS = 28
 const NEW_ACCOUNT_DAYS = 14
@@ -22,11 +25,11 @@ const NEAR_GOAL_SHARE = 0.1
 
 // One query reads everything, so the caps add up to a budget well inside a
 // Convex transaction (32,000 documents, 4,096 index reads, 16 MiB):
-//   200 accounts × (10 memberships + 1 latest meal)     2,200 docs
+//   200 accounts × (consent + 10 memberships + 1 meal)  2,400 docs
 //   meals shared by every account                      8,000
 //   foods 2,000 + batches 500 + day summaries 2,000    4,500
 //   200 people × (1 person + 10 goals)                 2,200
-// About 17,000 documents and 1,000 index reads at most. Reads take the newest
+// About 17,500 documents and 1,200 index reads at most. Reads take the newest
 // rows first; past a cap the page says its figures are partial.
 const MAX_ACCOUNTS = 200
 const MAX_MEMBERSHIPS = 10
@@ -81,6 +84,8 @@ const accountValidator = v.object({
 
 const engagementValidator = v.object({
   accounts: v.array(accountValidator),
+  /** Accounts left out until they accept the current privacy notice. */
+  awaitingConsent: v.number(),
   /** Some reads hit their cap, so some figures cover only part of the data. */
   partial: v.boolean(),
   totals: v.object({
@@ -102,6 +107,8 @@ const engagementValidator = v.object({
   }),
 })
 
+// Ids of `users` rows: an admin who deletes their account and signs up again
+// gets a new id, which must be added here again.
 function superAdminIds() {
   return new Set(
     (env.SUPER_ADMIN_USER_IDS ?? '')
@@ -235,11 +242,13 @@ async function readAccount(
     },
     meals,
     mealsRead: recentMeals.length,
+    householdIds: memberships.map((row) => row.householdId),
   }
 }
 
 async function countGoalDays(
   ctx: QueryCtx,
+  households: Set<Id<'households'>>,
   since: number,
   windowStart: string,
   yesterday: string,
@@ -252,6 +261,7 @@ async function countGoalDays(
       .take(MAX_DAY_SUMMARIES)
   ).filter(
     (row) =>
+      households.has(row.householdId) &&
       row.mealCount > 0 &&
       row.eatenOn >= windowStart &&
       row.eatenOn <= yesterday,
@@ -329,7 +339,12 @@ export const engagement = query({
     // One after another, so the accounts share the meal budget.
     const rows = []
     let mealBudget = MEAL_BUDGET
+    let awaitingConsent = 0
     for (const user of users) {
+      if (!(await hasAcceptedPrivacyNotice(ctx, user._id))) {
+        awaitingConsent += 1
+        continue
+      }
       const row = await readAccount(
         ctx,
         user,
@@ -350,6 +365,7 @@ export const engagement = query({
           (a.name ?? '').localeCompare(b.name ?? ''),
       )
     const meals = rows.flatMap((row) => row.meals)
+    const households = new Set(rows.flatMap((row) => row.householdIds))
 
     // Meals count by the day they were eaten, foods and batches by the UTC
     // day they were entered, so a backdated meal's foods may fall in another
@@ -369,6 +385,7 @@ export const engagement = query({
       // in UTC; the date filter inside drops the extra rows.
       countGoalDays(
         ctx,
+        households,
         dayStart(shiftDay(windowStart, -1)),
         windowStart,
         shiftDay(today, -1),
@@ -380,10 +397,12 @@ export const engagement = query({
       customByWeight: 0,
       fixedCalories: 0,
     }
-    for (const item of items) itemCounts[item.sourceType] += 1
+    for (const item of items)
+      if (households.has(item.householdId)) itemCounts[item.sourceType] += 1
 
     return {
       accounts,
+      awaitingConsent,
       partial:
         users.length === MAX_ACCOUNTS ||
         rows.some((row) => row.account.partial) ||
@@ -397,7 +416,9 @@ export const engagement = query({
           (meal) => !meal.archived && (meal.editRevision ?? 0) > 0,
         ).length,
         items: itemCounts,
-        cookSessions: cookSessions.length,
+        cookSessions: cookSessions.filter((session) =>
+          households.has(session.householdId),
+        ).length,
         goalDays: goals.goalDays,
       },
     }
