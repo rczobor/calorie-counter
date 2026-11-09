@@ -64,7 +64,7 @@ describe('consent gate', () => {
     expect(screen.queryByText('App')).toBeNull()
     expect(
       screen
-        .getByRole('link', { name: 'Read the privacy notice' })
+        .getByRole('link', { name: /^Privacy notice Updated / })
         .getAttribute('href'),
     ).toBe('/privacy')
 

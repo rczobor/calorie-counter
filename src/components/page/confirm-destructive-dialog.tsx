@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import {
   AlertDialog,
@@ -17,7 +18,8 @@ type ConfirmDestructiveDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
-  description?: string
+  /** Phrasing content only: the description renders as a paragraph. */
+  description?: ReactNode
   title?: string
   confirmLabel?: string
   disabled?: boolean

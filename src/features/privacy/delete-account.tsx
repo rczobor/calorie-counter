@@ -1,5 +1,6 @@
 import { useClerk, useReverification } from '@clerk/react'
 import { useMutation } from 'convex/react'
+import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../../convex/_generated/api'
@@ -83,10 +84,14 @@ export function DeleteAccount({
         className={cn(
           variant === 'row'
             ? cn(LIST_ROW_CLASS, 'w-full text-left text-destructive')
-            : 'min-h-11 type-subhead text-muted-foreground underline underline-offset-2',
+            : // A destructive text action carries its icon and colour.
+              'inline-flex min-h-11 items-center gap-1.5 type-subhead font-medium text-destructive',
         )}
         onClick={() => setOpen(true)}
       >
+        {variant === 'link' ? (
+          <Trash2 className="size-4" aria-hidden="true" />
+        ) : null}
         {t.action}
       </button>
       <ConfirmDestructiveDialog
@@ -94,7 +99,19 @@ export function DeleteAccount({
         onOpenChange={setOpen}
         onConfirm={() => void confirm()}
         title={t.title}
-        description={t.description}
+        description={
+          // Natural wrapping: balanced lines split these facts into fragments.
+          <span className="block text-pretty">
+            <span className="block text-foreground">{t.description.lead}</span>{' '}
+            <span className="mt-2 block">{t.description.solo}</span>{' '}
+            <span className="mt-2 block">{t.description.shared}</span>{' '}
+            <span className="mt-2 block">{t.description.identity}</span>{' '}
+            {/* The warning ends the dialog, on its own line, in foreground. */}
+            <span className="mt-2 block font-medium text-foreground">
+              {t.description.warning}
+            </span>
+          </span>
+        }
         confirmLabel={pending ? t.deleting : t.action}
         disabled={pending}
       />
