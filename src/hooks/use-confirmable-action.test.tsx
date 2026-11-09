@@ -28,7 +28,7 @@ describe('useConfirmableAction', () => {
     })
 
     expect(action).toHaveBeenCalledTimes(1)
-    expect(toastSuccess).toHaveBeenCalledWith('Saved.')
+    expect(toastSuccess).toHaveBeenCalledWith('Saved.', undefined)
   })
 
   it('opens confirmation and executes pending action', async () => {
@@ -53,7 +53,7 @@ describe('useConfirmableAction', () => {
     })
 
     expect(action).toHaveBeenCalledTimes(1)
-    expect(toastSuccess).toHaveBeenCalledWith('Deleted.')
+    expect(toastSuccess).toHaveBeenCalledWith('Deleted.', undefined)
   })
 
   it('ignores duplicate actions while one is running', async () => {

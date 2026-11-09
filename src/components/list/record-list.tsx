@@ -69,6 +69,8 @@ type RecordRowProps = {
   value?: ReactNode
   unit?: string
   archived?: boolean
+  /** A status badge after the title, such as the signed-in member's "You". */
+  badge?: ReactNode
   /**
    * Makes the row its own tap target, with a trailing chevron (a check
    * instead for picker rows). Without it the row is static content, for
@@ -92,6 +94,7 @@ export function RecordRow({
   value,
   unit,
   archived = false,
+  badge,
   onOpen,
   verb,
   selected,
@@ -115,6 +118,7 @@ export function RecordRow({
             {/* Its own element, so the visible title is findable by its text alone. */}
             <span>{title}</span>
           </span>{' '}
+          {badge}
           {archived ? <ArchivedBadge /> : null}
         </span>{' '}
         {detail ? (

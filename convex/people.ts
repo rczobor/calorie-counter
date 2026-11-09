@@ -4,9 +4,13 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 
-import type { Doc } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { query } from './_generated/server'
-import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
+import {
+  findLinkedPerson,
+  requireAuthenticatedHousehold,
+  withoutOwner,
+} from './lib/auth'
 import { readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
@@ -27,10 +31,19 @@ const personDto = v.object({
   archived: v.boolean(),
   editRevision: v.number(),
   createdAt: v.number(),
+  // Whose account this person is linked to, from the viewer's side.
+  linkedAccount: v.optional(v.union(v.literal('you'), v.literal('other'))),
 })
 
-function personWithoutOwner(person: Doc<'people'>) {
-  return { ...withoutOwner(person), editRevision: person.editRevision ?? 0 }
+function personWithoutOwner(person: Doc<'people'>, viewer: Id<'users'>) {
+  const { userId, ...fields } = withoutOwner(person)
+  return {
+    ...fields,
+    editRevision: person.editRevision ?? 0,
+    ...(userId && {
+      linkedAccount: userId === viewer ? ('you' as const) : ('other' as const),
+    }),
+  }
 }
 
 const personWithTodayDto = personDto.extend({
@@ -69,7 +82,12 @@ export const list = query({
         q.eq('householdId', owner.householdId).eq('archived', args.archived),
       )
       .paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(personWithoutOwner) }
+    return {
+      ...result,
+      page: result.page.map((person) =>
+        personWithoutOwner(person, owner.userId),
+      ),
+    }
   },
 })
 
@@ -87,7 +105,7 @@ export const get = query({
     if (person?.householdId !== owner.householdId) {
       return null
     }
-    return personWithoutOwner(person)
+    return personWithoutOwner(person, owner.userId)
   },
 })
 
@@ -121,7 +139,7 @@ export const listWithToday = query({
           )
           .unique()
         return {
-          ...personWithoutOwner(person),
+          ...personWithoutOwner(person, owner.userId),
           consumedCalories: summary?.consumedCalories ?? 0,
         }
       }),
@@ -152,7 +170,7 @@ export const listForDay = query({
       result.page.map(async (person) => {
         const summary = await readDayNutrition(ctx, owner, person._id, eatenOn)
         return {
-          ...personWithoutOwner(person),
+          ...personWithoutOwner(person, owner.userId),
           consumedCalories: summary.consumedCalories,
           goalKcal: summary.goalKcal,
           remainingCalories: summary.remainingCalories,
@@ -192,7 +210,22 @@ export const search = query({
               .eq('archived', args.archived),
           )
           .take(MAX_SEARCH_RESULTS)
-    return rows.map(personWithoutOwner)
+    return rows.map((person) => personWithoutOwner(person, owner.userId))
+  },
+})
+
+/**
+ * The person the viewer linked to themselves in this household, or null. The
+ * list asks "Which one is you?" until there is one, even when that person is
+ * archived or on a later page.
+ */
+export const linkedToMe = query({
+  args: { householdId: v.optional(v.id('households')) },
+  returns: v.union(v.null(), v.id('people')),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    const person = await findLinkedPerson(ctx, owner.householdId, owner.userId)
+    return person?._id ?? null
   },
 })
 

@@ -38,6 +38,7 @@ import {
 } from '@/features/households/convex-hooks'
 import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
+import { youFirst } from '@/features/households/you-first'
 import {
   RecordWeightDialog,
   type WeightDialogRequest,
@@ -144,7 +145,7 @@ function WeightContent() {
   // Record would save to the wrong person.
   const person = loadingPeople
     ? undefined
-    : (loaded ?? pointLoaded ?? people.results[0])
+    : (loaded ?? pointLoaded ?? youFirst(people.results)[0])
   const personId = person?._id
   const startDate = shiftDate(today, -(rangeDays - 1))
   const range = useQuery(
@@ -160,10 +161,14 @@ function WeightContent() {
     personId ? { personId } : 'skip',
     { initialNumItems: ENTRIES_PAGE_SIZE },
   )
-  const options = [
+  const options = youFirst([
     ...people.results,
     ...(pointLoaded && !loaded ? [pointLoaded] : []),
-  ].map((p) => ({ value: p._id, label: p.name }))
+  ]).map((p) => ({
+    value: p._id,
+    label: p.name,
+    you: p.linkedAccount === 'you',
+  }))
   const canRecord = Boolean(person && !person.archived)
   // Until the first weigh-in, the range, chart and list would only repeat "none".
   // A future-dated entry has no latest weight yet, but must stay editable.

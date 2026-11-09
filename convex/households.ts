@@ -12,6 +12,7 @@ import {
 } from './_generated/server'
 import {
   ensureUserId,
+  findLinkedPerson,
   findMembership,
   findPersonalHousehold,
   findUserId,
@@ -176,8 +177,16 @@ export const updateMember = mutation({
           'Promote another admin before leaving or changing the last admin.',
         )
     }
-    if (args.role === 'remove') await ctx.db.delete(member._id)
-    else await ctx.db.patch(member._id, { role: args.role })
+    if (args.role === 'remove') {
+      await ctx.db.delete(member._id)
+      // The person stays with the household; only the account link goes.
+      const linked = await findLinkedPerson(
+        ctx,
+        args.householdId,
+        member.userId,
+      )
+      if (linked) await ctx.db.patch(linked._id, { userId: undefined })
+    } else await ctx.db.patch(member._id, { role: args.role })
     return null
   },
 })

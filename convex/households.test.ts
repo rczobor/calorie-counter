@@ -351,6 +351,84 @@ describe('household sharing', () => {
     ).toHaveLength(1)
   })
 
+  it('lets each member link one person to themselves and nobody else', async () => {
+    const { robi, viki, householdId } = await setupHousehold()
+    const create = (name: string) =>
+      robi.mutation(api.nutrition.createPerson, {
+        householdId,
+        name,
+        currentDailyGoalKcal: 2000,
+        effectiveDate: '2026-04-04',
+      })
+    const robiId = await create('Robi')
+    const otherId = await create('Other')
+    const link = (user: typeof robi, personId: typeof robiId, linked = true) =>
+      user.mutation(api.nutrition.setPersonLinkedToMe, {
+        householdId,
+        personId,
+        linked,
+      })
+    const linkedAccount = async (user: typeof robi, personId: typeof robiId) =>
+      (await user.query(api.people.get, { householdId, personId }))
+        ?.linkedAccount
+
+    expect(await robi.query(api.people.linkedToMe, { householdId })).toBeNull()
+    await link(robi, otherId)
+    // Linking another person moves the account's link.
+    await link(robi, robiId)
+    expect(await robi.query(api.people.linkedToMe, { householdId })).toBe(
+      robiId,
+    )
+    expect(await viki.query(api.people.linkedToMe, { householdId })).toBeNull()
+    expect(await linkedAccount(robi, otherId)).toBeUndefined()
+    expect(await linkedAccount(robi, robiId)).toBe('you')
+    expect(await linkedAccount(viki, robiId)).toBe('other')
+    await expect(link(viki, robiId)).rejects.toThrow('another member')
+    await expect(link(viki, robiId, false)).rejects.toThrow('another member')
+    const versionBefore = await robi.query(api.people.get, {
+      householdId,
+      personId: robiId,
+    })
+    await link(robi, robiId, false)
+    expect(await linkedAccount(robi, robiId)).toBeUndefined()
+    expect(
+      (await robi.query(api.people.get, { householdId, personId: robiId }))
+        ?.editRevision,
+    ).toBe(versionBefore?.editRevision)
+  })
+
+  it('unlinks a member’s person when they leave the household', async () => {
+    const { robi, viki, householdId } = await setupHousehold()
+    const personId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Viki',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-04-04',
+    })
+    await viki.mutation(api.nutrition.setPersonLinkedToMe, {
+      householdId,
+      personId,
+      linked: true,
+    })
+    const leaving = (
+      await viki.query(api.households.members, { householdId })
+    ).find((row) => row.isYou)!
+    await viki.mutation(api.households.updateMember, {
+      householdId,
+      memberId: leaving._id,
+      role: 'remove',
+    })
+    expect(
+      (await robi.query(api.people.get, { householdId, personId }))
+        ?.linkedAccount,
+    ).toBeUndefined()
+    await robi.mutation(api.nutrition.setPersonLinkedToMe, {
+      householdId,
+      personId,
+      linked: true,
+    })
+  })
+
   it('keeps invitations hashed, single-use, revocable, and expired on the server', async () => {
     const t = createConvexTest()
     const robi = asTestUser(t)

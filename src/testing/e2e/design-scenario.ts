@@ -654,20 +654,24 @@ export function createDesignData(
   return {
     dashboard: {
       people: [
-        // Alex used the goal calculator to lose 0.5% a week.
-        person(alexId, 'Alex', 2000, {
-          energyProfile: {
-            sex: 'female',
-            birthYear: 1988,
-            heightCm: 170,
-            activity: 'lowActive',
-          },
-          goalPlan: {
-            direction: 'lose',
-            percentPerWeek: 0.5,
-            targetWeightKg: 75,
-          },
-        }),
+        // Alex is the signed-in account and used the goal calculator to lose
+        // 0.5% a week.
+        {
+          ...person(alexId, 'Alex', 2000, {
+            energyProfile: {
+              sex: 'female',
+              birthYear: 1988,
+              heightCm: 170,
+              activity: 'lowActive',
+            },
+            goalPlan: {
+              direction: 'lose',
+              percentPerWeek: 0.5,
+              targetWeightKg: 75,
+            },
+          }),
+          userId: ownerUserId,
+        },
         // Viki keeps weight steady and has never weighed in here.
         person(vikiId, 'Viki', 1500, {
           energyProfile: {
