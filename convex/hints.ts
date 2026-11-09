@@ -107,7 +107,7 @@ export const eligible = query({
         linked !== null &&
         buildCheckIn({
           today,
-          ...(await readCheckInData(ctx, owner, linked._id, today)),
+          ...(await readCheckInData(ctx, owner, linked, today)),
           profile: linked.energyProfile,
           plan: linked.goalPlan,
         }).estimate.status === 'ready',
