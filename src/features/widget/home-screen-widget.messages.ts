@@ -20,7 +20,7 @@ export const messages = defineMessages({
     previewLabel: (person: string) =>
       `Widget preview: ${person}’s calories left today`,
     previewDescription:
-      'Calories left today, on your Home Screen. It updates about every 15 minutes.',
+      'Calories left today, on your Home Screen or Lock Screen. It updates about every 15 minutes.',
     openScriptable: 'Open Scriptable',
     scriptLabel: 'Widget script',
     showScript: 'Show script',
@@ -39,12 +39,14 @@ export const messages = defineMessages({
     stepInstallAfter: ' from the App Store.',
     groupHere: 'Here',
     groupScriptable: 'In Scriptable',
-    groupHomeScreen: 'On your Home Screen',
+    groupHomeScreen: 'On your Home Screen or Lock Screen',
     // [Brackets] mark the controls to tap; they render as key tokens.
     stepPaste:
       'Open a new script with the button below (or tap [+] in Scriptable), paste the script and name it Calories.',
     stepAdd:
       'Long-press an empty spot, tap [Edit], then [Add Widget]. Choose Scriptable, pick a size and tap [Add Widget].',
+    stepAddLock:
+      'Or on the Lock Screen: long-press it, tap [Customize], then [Lock Screen], tap the widget area and choose Scriptable.',
     stepEdit:
       'Long-press the new widget, tap [Edit Widget] and choose Calories as its [Script].',
     unconfigured: 'No script chosen',
@@ -57,6 +59,8 @@ export const messages = defineMessages({
     script: {
       left: 'kcal left',
       over: 'kcal over',
+      leftShort: 'left',
+      overShort: 'over',
       goal: 'Daily goal: {goal} kcal',
       failed: 'Couldn’t load today’s calories.',
     },
@@ -80,7 +84,7 @@ export const messages = defineMessages({
     previewLabel: (person: string) =>
       `Widget előnézete · ${person}: mára maradt kalória`,
     previewDescription:
-      'A mára maradt kalória a kezdőképernyőn. Nagyjából 15 percenként frissül.',
+      'A mára maradt kalória a kezdőképernyőn vagy a zárolási képernyőn. Nagyjából 15 percenként frissül.',
     openScriptable: 'Scriptable megnyitása',
     scriptLabel: 'Widget-szkript',
     showScript: 'Szkript megjelenítése',
@@ -100,12 +104,14 @@ export const messages = defineMessages({
     stepInstallAfter: ' alkalmazást az App Store‑ból.',
     groupHere: 'Itt',
     groupScriptable: 'A Scriptable-ben',
-    groupHomeScreen: 'A kezdőképernyőn',
+    groupHomeScreen: 'A kezdő- vagy a zárolási képernyőn',
     // A [szögletes zárójel] a megérintendő vezérlőt jelöli.
     stepPaste:
       'Nyiss egy új szkriptet a lenti gombbal (vagy a Scriptable-ben a [+] gombbal), illeszd be a szkriptet, és nevezd el így: Kalória.',
     stepAdd:
       'Tartsd lenyomva egy üres helyet, koppints a [Szerkesztés], majd a [Widget hozzáadása] lehetőségre. Válaszd a Scriptable-t, válassz méretet, és koppints a [Widget hozzáadása] gombra.',
+    stepAddLock:
+      'Vagy a zárolási képernyőn: tartsd lenyomva, koppints a [Testreszabás], majd a [Zárolási képernyő] lehetőségre, koppints a widgetek helyére, és válaszd a Scriptable-t.',
     stepEdit:
       'Tartsd lenyomva az új widgetet, koppints a [Widget szerkesztése] lehetőségre, és a [Script] mezőben válaszd a Kalória szkriptet.',
     unconfigured: 'Nincs kiválasztott szkript',
@@ -118,6 +124,8 @@ export const messages = defineMessages({
     script: {
       left: 'kcal maradt',
       over: 'kcal túllépés',
+      leftShort: 'maradt',
+      overShort: 'túllépés',
       goal: 'Napi cél: {goal} kcal',
       failed: 'Nem sikerült betölteni a mai kalóriákat.',
     },

@@ -2,6 +2,55 @@ import { cn } from '@/lib/utils'
 import type { WidgetScriptText } from './scriptable-script'
 
 /**
+ * The widget's ring, as the script draws it: teal for what is left, emptying
+ * through the day; over the goal, a berry arc on a berry track for how far
+ * over, as a share of the goal. Here it uses the app's own tokens, which
+ * follow the theme.
+ */
+function WidgetRing({
+  consumed,
+  goal,
+  size,
+}: {
+  consumed: number
+  goal: number
+  size: number
+}) {
+  const left = goal > 0 ? (goal - consumed) / goal : -1
+  const width = size * 0.2
+  const circle = {
+    cx: size / 2,
+    cy: size / 2,
+    r: (size - width) / 2,
+    fill: 'none',
+    strokeWidth: width,
+    pathLength: 100,
+  }
+  const arc = left >= 0 ? left : Math.min(1, Math.max(0.05, -left))
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      className="shrink-0 -rotate-90"
+    >
+      <circle
+        {...circle}
+        className={left >= 0 ? 'stroke-track' : 'stroke-kcal-over-surface'}
+      />
+      {arc > 0 ? (
+        <circle
+          {...circle}
+          className={left >= 0 ? 'stroke-kcal-left-bar' : 'stroke-kcal-over'}
+          strokeLinecap={arc >= 1 ? undefined : 'round'}
+          strokeDasharray={`${Math.min(1, arc) * 100} 100`}
+        />
+      ) : null}
+    </svg>
+  )
+}
+
+/**
  * The small Home Screen widget as the Scriptable script draws it, from the
  * same text and the app's left / over colours, so people see what they get
  * before creating a private key. Keep it in step with `widgetScript`. The
@@ -13,6 +62,7 @@ import type { WidgetScriptText } from './scriptable-script'
  */
 export function WidgetPreview({
   person,
+  consumed,
   remaining,
   goal,
   text,
@@ -22,6 +72,7 @@ export function WidgetPreview({
 }: {
   person: string
   /** Undefined while loading. */
+  consumed?: number
   remaining?: number
   goal?: number
   text: WidgetScriptText
@@ -47,14 +98,24 @@ export function WidgetPreview({
         </span>
       ) : (
         <>
-          <span className="truncate type-footnote font-semibold text-muted-foreground">
-            {person}
-          </span>
+          {/* The name and the ring share the top row, as in the script. */}
+          <div className="flex items-start gap-1">
+            <span className="min-w-0 flex-1 truncate type-footnote font-semibold text-foreground">
+              {person}
+            </span>
+            {consumed !== undefined && goal !== undefined ? (
+              <WidgetRing
+                consumed={consumed}
+                goal={goal}
+                size={compact ? 32 : 40}
+              />
+            ) : null}
+          </div>
           <span className="flex-1" />
           <span
             className={cn(
               'leading-none font-bold tracking-tight tabular-nums',
-              compact ? 'text-[2rem]' : 'text-[2.5rem]',
+              compact ? 'text-[1.75rem]' : 'text-[2.25rem]',
               over ? 'text-kcal-over' : 'text-kcal-left',
             )}
           >
@@ -62,9 +123,8 @@ export function WidgetPreview({
           </span>
           <span
             className={cn(
-              'mt-0.5 font-medium',
+              'mt-0.5 font-medium text-muted-foreground',
               compact ? 'text-xs' : 'text-sm',
-              over ? 'text-kcal-over' : 'text-muted-foreground',
             )}
           >
             {over ? text.over : text.left}
