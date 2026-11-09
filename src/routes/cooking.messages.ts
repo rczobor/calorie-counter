@@ -39,7 +39,7 @@ export const messages = defineMessages({
     discardDrafts: 'Discard drafts',
     searchCookedFoods: 'Search cooked foods',
     noCookedFoods: 'No cooked foods found.',
-    nothingCookedTitle: 'Nothing cooked yet',
+    nothingCookedTitle: 'No cooked foods yet',
     nothingCooked:
       'Tell your AI assistant what you cooked, then log any portion by weight.',
     cookedFoodDetail: (grams: string) => `${grams} g cooked · per 100 g`,

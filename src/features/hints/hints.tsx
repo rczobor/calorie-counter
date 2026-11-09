@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import {
-  ChartColumn,
+  Clock,
   Gauge,
   MessageCircle,
   Smartphone,
@@ -20,7 +20,7 @@ import { messages } from './hints.messages'
 
 export const HINT_DETAILS = {
   assistant: { icon: MessageCircle, to: '/settings/integrations' },
-  history: { icon: ChartColumn, to: '/history' },
+  history: { icon: Clock, to: '/history' },
   weighIn: { icon: Weight, to: '/weight' },
   maintenance: { icon: Gauge, to: '/weight' },
   invite: { icon: UserPlus, to: '/household' },
