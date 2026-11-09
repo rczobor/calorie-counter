@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import {
   Clock,
+  Copy,
   Gauge,
   MessageCircle,
   Smartphone,
@@ -9,8 +10,11 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { toast } from 'sonner'
 import { api } from '../../../convex/_generated/api'
 import type { Hint } from '../../../convex/lib/hints'
+import { ShowArchivedButton } from '@/components/list/list-toolbar'
+import { EmptyState } from '@/components/page/empty-state'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { InstallEntry } from '@/features/install/install-entry'
@@ -98,16 +102,79 @@ export function TodayHint({
   return visible ? <HintCard hint={slot} onFinish={finish} /> : null
 }
 
-/** The action for empty lists only the AI assistant fills (cooking, reusable foods, templates). */
-export function AssistantSetupLink() {
+/**
+ * The empty state of a list only the AI assistant fills (cooking, reusable
+ * foods, templates): what belongs there, one request to copy into the
+ * assistant, and its setup only for accounts without one connected.
+ */
+export function AssistantListEmpty({
+  title,
+  children,
+  example,
+  onShowArchived,
+}: {
+  title: string
+  children: string
+  /** A request the user can paste into ChatGPT or Claude. */
+  example: string
+  /** Lists with an archive: the toolbar hides its switch while empty. */
+  onShowArchived?: () => void
+}) {
   const t = useMessages(messages)
+  const connected = useQuery(api.hints.assistantConnected, {})
   return (
-    <Link
-      to="/settings/integrations"
-      className={buttonVariants({ variant: 'outline', size: 'sm' })}
+    <EmptyState
+      title={title}
+      example={<AssistantExample text={example} />}
+      action={
+        connected === false || onShowArchived ? (
+          <>
+            {connected === false ? (
+              <Link
+                to="/settings/integrations"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                {t.hints.assistant.action}
+              </Link>
+            ) : null}
+            {onShowArchived ? (
+              <ShowArchivedButton onClick={onShowArchived} />
+            ) : null}
+          </>
+        ) : null
+      }
     >
-      {t.hints.assistant.action}
-    </Link>
+      {children}
+    </EmptyState>
+  )
+}
+
+/** A quoted request in a quiet well, with Copy on the same line. */
+function AssistantExample({ text }: { text: string }) {
+  const t = useMessages(messages)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(t.copied)
+    } catch {
+      toast.error(t.copyFailed)
+    }
+  }
+  return (
+    <div className="flex items-start gap-2 rounded-xl bg-recessed py-2 pr-1 pl-3">
+      <p className="min-w-0 flex-1 py-1.5 type-subhead text-foreground select-text">
+        {t.quoted(text)}
+      </p>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={t.copyExample}
+        className="text-muted-foreground"
+        onClick={() => void copy()}
+      >
+        <Copy />
+      </Button>
+    </div>
   )
 }
 

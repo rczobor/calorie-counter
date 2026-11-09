@@ -13,7 +13,11 @@ import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfigMissingState } from '@/components/page/page-states'
 import { Field, UnitInput } from '@/components/list/field'
-import { ListToolbar, LoadMoreButton } from '@/components/list/list-toolbar'
+import {
+  ListToolbar,
+  LoadMoreButton,
+  ShowArchivedButton,
+} from '@/components/list/list-toolbar'
 import {
   RecordList,
   RecordRow,
@@ -827,6 +831,13 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     checked: showArchived,
     onCheckedChange: setShowArchived,
   }
+  // A library with no ingredients yet: nothing to search or sort.
+  const noIngredientsYet =
+    !ingredientSearch.trim() &&
+    !showArchived &&
+    !catalogData.isLoading &&
+    !catalogData.search.ingredients.isLoading &&
+    sortedIngredients.length === 0
 
   // One dialog instance, rendered inside whichever sheet is open so it stacks
   // above that sheet's focus trap.
@@ -885,6 +896,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 onClick: openNewIngredient,
               }}
               archived={archivedToggle}
+              empty={noIngredientsYet}
             />
             <RecordList
               label={t.ingredients}
@@ -893,12 +905,19 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                 catalogData.search.ingredients.isLoading
               }
               empty={
-                ingredientSearch.trim() || showArchived ? (
-                  t.noIngredients
-                ) : (
-                  <EmptyState title={t.ingredientsEmptyTitle}>
+                noIngredientsYet ? (
+                  <EmptyState
+                    title={t.ingredientsEmptyTitle}
+                    action={
+                      <ShowArchivedButton
+                        onClick={() => archivedToggle.onCheckedChange(true)}
+                      />
+                    }
+                  >
                     {t.ingredientsEmpty}
                   </EmptyState>
+                ) : (
+                  t.noIngredients
                 )
               }
             >

@@ -14,8 +14,8 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
 import { useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
-import { EmptyState } from '@/components/page/empty-state'
-import { AssistantSetupLink } from '@/features/hints/hints'
+import { AssistantListEmpty } from '@/features/hints/hints'
+import { messages as hintsMessages } from '@/features/hints/hints.messages'
 import { messages } from './saved-foods.messages'
 
 const PAGE_SIZE = 20
@@ -76,6 +76,8 @@ export function SavedFoods({
     active.status === 'LoadingFirstPage' ||
     (showArchived && archived.status === 'LoadingFirstPage')
   const open = foods.find((food) => food._id === openId)
+  const nothingYet = !term && !showArchived && !loading && foods.length === 0
+  const hintCopy = useMessages(hintsMessages)
 
   return (
     <section className="space-y-3" aria-label={t.section}>
@@ -90,17 +92,22 @@ export function SavedFoods({
           checked: showArchived,
           onCheckedChange: onShowArchivedChange,
         }}
+        empty={nothingYet}
       />
       <RecordList
         label={t.section}
         loading={loading}
         empty={
-          term || showArchived ? (
-            t.empty
-          ) : (
-            <EmptyState title={t.noneTitle} action={<AssistantSetupLink />}>
+          nothingYet ? (
+            <AssistantListEmpty
+              title={t.noneTitle}
+              example={hintCopy.examples.savedFood}
+              onShowArchived={() => onShowArchivedChange(true)}
+            >
               {t.none}
-            </EmptyState>
+            </AssistantListEmpty>
+          ) : (
+            t.empty
           )
         }
       >

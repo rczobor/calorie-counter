@@ -65,8 +65,8 @@ import {
   toLocalDateString,
   toTimestampFromDate,
 } from '@/lib/nutrition'
-import { EmptyState } from '@/components/page/empty-state'
-import { AssistantSetupLink } from '@/features/hints/hints'
+import { AssistantListEmpty } from '@/features/hints/hints'
+import { messages as hintsMessages } from '@/features/hints/hints.messages'
 import { messages } from './cooking.messages'
 
 const PAGE_SIZE = 20
@@ -510,6 +510,10 @@ function CookedFoodList({
       (showArchived && archivedSearchRows === undefined)
     : page.status === 'LoadingFirstPage' ||
       (showArchived && archivePage.status === 'LoadingFirstPage')
+  // Nothing cooked yet: no search, no archive shown, and not one batch's foods.
+  const nothingYet =
+    !term && !showArchived && !sessionId && !loading && foods.length === 0
+  const hintCopy = useMessages(hintsMessages)
 
   const detailRef = useRef<HTMLElement>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -542,20 +546,26 @@ function CookedFoodList({
             },
           }}
           archived={archivedToggle}
+          empty={nothingYet}
         />
         <RecordList
           label={t.cookedFoods}
           loading={loading}
           empty={
-            term || showArchived || sessionId ? (
-              t.noCookedFoods
-            ) : (
-              <EmptyState
+            nothingYet ? (
+              <AssistantListEmpty
                 title={t.nothingCookedTitle}
-                action={<AssistantSetupLink />}
+                example={hintCopy.examples.cooking}
+                onShowArchived={
+                  archivedToggle
+                    ? () => archivedToggle.onCheckedChange(true)
+                    : undefined
+                }
               >
                 {t.nothingCooked}
-              </EmptyState>
+              </AssistantListEmpty>
+            ) : (
+              t.noCookedFoods
             )
           }
         >
@@ -950,6 +960,8 @@ function SessionList({
   const loading = term
     ? found === undefined || (showArchived && foundArchived === undefined)
     : active.status === 'LoadingFirstPage'
+  const nothingYet = !term && !showArchived && !loading && rows.length === 0
+  const hintCopy = useMessages(hintsMessages)
   return (
     <section aria-label={t.cookingBatches} className="space-y-3">
       <ListToolbar
@@ -960,20 +972,22 @@ function SessionList({
           onValueChange: setSearch,
         }}
         archived={archivedToggle}
+        empty={nothingYet}
       />
       <RecordList
         label={t.batches}
         loading={loading}
         empty={
-          term || showArchived ? (
-            t.noBatches
-          ) : (
-            <EmptyState
+          nothingYet ? (
+            <AssistantListEmpty
               title={t.nothingCookedTitle}
-              action={<AssistantSetupLink />}
+              example={hintCopy.examples.cooking}
+              onShowArchived={() => archivedToggle.onCheckedChange(true)}
             >
               {t.nothingCooked}
-            </EmptyState>
+            </AssistantListEmpty>
+          ) : (
+            t.noBatches
           )
         }
       >

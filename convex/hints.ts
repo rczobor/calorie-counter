@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 
+import { components } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { env, mutation, query, type QueryCtx } from './_generated/server'
 import { readCheckInData } from './energy'
@@ -7,6 +8,7 @@ import {
   findLinkedPerson,
   findMembership,
   requireAuthenticatedHousehold,
+  requireAuthenticatedUser,
 } from './lib/auth'
 import { buildCheckIn } from './lib/energy'
 import { HINTS, hintValidator, type Hint } from './lib/hints'
@@ -51,6 +53,30 @@ async function loggedDaysBefore(
   return days
 }
 
+/** Whether the account has an AI assistant connected right now. */
+async function hasAssistant(ctx: QueryCtx) {
+  // Connection grants are keyed by the Clerk identity (see mcp.ts); revoking
+  // one deletes it, so any grant is a live connection.
+  const { tokenIdentifier } = await requireAuthenticatedUser(ctx)
+  const grants = await ctx.runQuery(components.mcp.grants.list, {
+    userId: tokenIdentifier,
+  })
+  return grants.length > 0
+}
+
+/**
+ * Whether an AI assistant is connected, so the lists only it fills offer its
+ * setup only to accounts without one.
+ */
+export const assistantConnected = query({
+  args: { householdId: v.optional(v.id('households')) },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    await requireAuthenticatedHousehold(ctx, args.householdId)
+    return await hasAssistant(ctx)
+  },
+})
+
 /**
  * The hints the account qualifies for and hasn't seen, in priority order.
  * The client adds the device-only check (iPhone) and shows at most
@@ -82,7 +108,8 @@ export const eligible = query({
       assistant: async () =>
         days >= DAYS_FOR.assistant &&
         Boolean(env.MCP_CONSENT_URL) &&
-        // Any recorded assistant write means it's already in use.
+        // A connection, or any recorded assistant write, means it's in use.
+        !(await hasAssistant(ctx)) &&
         !(await ctx.db
           .query('mcpOperations')
           .withIndex('by_ownerUserId_and_connectionId_and_key', (q) =>

@@ -8,12 +8,18 @@ const { mutate, server, device } = vi.hoisted(() => ({
   mutate: vi.fn<(name: string, args: unknown) => Promise<null>>(() =>
     Promise.resolve(null),
   ),
-  server: { eligible: undefined as Hint[] | undefined },
+  server: {
+    eligible: undefined as Hint[] | undefined,
+    connected: undefined as boolean | undefined,
+  },
   device: { platform: 'other', suggest: false },
 }))
 
 vi.mock('@/features/households/convex-hooks', () => ({
-  useQuery: () => server.eligible,
+  useQuery: (reference: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(reference) === 'hints:assistantConnected'
+      ? server.connected
+      : server.eligible,
   useMutation:
     (reference: Parameters<typeof getFunctionName>[0]) => (args: unknown) =>
       mutate(getFunctionName(reference), args),
@@ -24,11 +30,12 @@ vi.mock('@/features/install/install-provider', () => ({
 vi.mock('@/features/install/install-entry', () => ({
   InstallEntry: () => <p>Install suggestion</p>,
 }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, ...props }: { to: string }) => <a href={to} {...props} />,
 }))
 
-import { resetHintLaunch, TodayHint } from './hints'
+import { AssistantListEmpty, resetHintLaunch, TodayHint } from './hints'
 
 function show(visible = true) {
   return render(<TodayHint today="2026-04-10" visible={visible} />)
@@ -101,5 +108,47 @@ describe('TodayHint', () => {
     show()
     expect(screen.getByText('Install suggestion')).toBeTruthy()
     expect(mutate).not.toHaveBeenCalled()
+  })
+})
+
+describe('AssistantListEmpty', () => {
+  afterEach(() => cleanup())
+
+  function showEmpty() {
+    return render(
+      <AssistantListEmpty
+        title="Nothing cooked yet"
+        example="Save my chili as a batch."
+      >
+        Tell your AI assistant what you cooked.
+      </AssistantListEmpty>,
+    )
+  }
+
+  it('offers setup only to accounts without an assistant', () => {
+    server.connected = false
+    showEmpty()
+    expect(
+      screen.getByRole('link', { name: 'Set up an assistant' }),
+    ).toBeTruthy()
+
+    cleanup()
+    server.connected = true
+    showEmpty()
+    expect(
+      screen.queryByRole('link', { name: 'Set up an assistant' }),
+    ).toBeNull()
+    expect(screen.getByText('“Save my chili as a batch.”')).toBeTruthy()
+  })
+
+  it('copies the example request', async () => {
+    server.connected = true
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.assign(navigator, { clipboard: { writeText } })
+    showEmpty()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Copy example request' }),
+    )
+    expect(writeText).toHaveBeenCalledWith('Save my chili as a batch.')
   })
 })

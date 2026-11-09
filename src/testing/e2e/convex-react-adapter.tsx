@@ -131,7 +131,8 @@ function asNewAccount(initial: MockState): MockState {
     mealDetails: {},
     templates: [],
     hasSavedFood: false,
-    connected: false,
+    // `localStorage['e2e-assistant'] = 'connected'` keeps an assistant.
+    connected: localStorage.getItem('e2e-assistant') === 'connected',
   }
 }
 
@@ -756,6 +757,8 @@ export function useQuery<Query extends FunctionReference<'query'>>(
           ]
         : []
     ) as FunctionReturnType<Query>
+  if (functionName === 'hints:assistantConnected')
+    return snapshot.connected as FunctionReturnType<Query>
   if (functionName === 'hints:eligible')
     return snapshot.hints.filter(
       (hint) => !snapshot.seenHints.includes(hint),

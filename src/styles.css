@@ -39,6 +39,10 @@
   --destructive: oklch(0.55 0.21 27);
   /* Hairline separators (decorative, like iOS). */
   --border: oklch(0.885 0.005 286);
+  /* The outlined capsule (secondary actions, chips): a white fill with the
+     hairline rim. */
+  --control: oklch(1 0 0);
+  --control-edge: oklch(0.885 0.005 286);
   /* Field outlines are meaningful boundaries: 3.5:1 on white, 3.1:1 on background. */
   --input: oklch(0.63 0.008 286);
   --ring: oklch(0.55 0.18 42);
@@ -124,6 +128,11 @@
   --accent-foreground: oklch(0.98 0.002 286);
   --destructive: oklch(0.7 0.18 22); /* 5.9:1 on card */
   --border: oklch(0.34 0.0034 286);
+  /* One step above a cell (#2c2c2e on #1c1c1e) with a translucent white rim,
+     so an outlined capsule reads the same on the black page and inside a
+     cell; the cell-coloured fill vanished into the cell. */
+  --control: oklch(0.294 0.0036 286);
+  --control-edge: oklch(1 0 0 / 14%);
   --input: oklch(0.56 0.006 286); /* 3.7:1 on card, 4.5:1 on background */
   --ring: oklch(0.74 0.16 48);
   /* A disabled primary is iOS's grey fill: translucent, so it always sits one
@@ -193,6 +202,7 @@
   --secondary: oklch(0.349 0.0034 286);
   --accent: oklch(0.38 0.004 286);
   --border: oklch(0.39 0.0034 286);
+  --control: oklch(0.349 0.0034 286);
   --popover: oklch(0.349 0.0034 286);
   /* Field and switch outlines stay meaningful on the lighter cells: 3.5:1 on
      a cell, 4.3:1 on the sheet. */
@@ -392,6 +402,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-control: var(--control);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   /* One radius scale: badges 8, menu rows 10, notes 12, cells, cards and

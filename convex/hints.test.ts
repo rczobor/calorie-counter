@@ -1,9 +1,11 @@
 // @vitest-environment edge-runtime
+import mcpTest from '@convex-dev/mcp/test'
 import { describe, expect, it, vi } from 'vitest'
 
-import { api } from './_generated/api'
+import { api, components } from './_generated/api'
 import {
   asTestUser,
+  TEST_TOKEN_IDENTIFIER,
   createConvexTest,
   testHouseholdId,
   testUserId,
@@ -18,6 +20,7 @@ const today = '2026-04-10'
 
 async function setup() {
   const t = createConvexTest()
+  mcpTest.register(t)
   const user = asTestUser(t)
   const personId = await user.mutation(api.nutrition.createPerson, {
     name: 'Alex',
@@ -56,6 +59,23 @@ describe('feature hints', () => {
     await user.mutation(api.hints.setSeen, { hint: 'history' })
     await user.mutation(api.hints.setSeen, { hint: 'history' })
     expect(await eligible()).toEqual(['assistant'])
+  })
+
+  it('skip the assistant once one is connected, before it logs anything', async () => {
+    const { t, user, logOn, eligible } = await setup()
+    await logOn('2026-04-07', '2026-04-08', '2026-04-09')
+    expect(await user.query(api.hints.assistantConnected, {})).toBe(false)
+    expect(await eligible()).toEqual(['assistant', 'history'])
+
+    await t.mutation(components.mcp.grants.createApiKey, {
+      userId: TEST_TOKEN_IDENTIFIER,
+      name: 'Assistant',
+      scopes: ['nutrition:read'],
+      resource: 'https://mcp.example.test/mcp',
+      hash: 'hash',
+    })
+    expect(await user.query(api.hints.assistantConnected, {})).toBe(true)
+    expect(await eligible()).toEqual(['history'])
   })
 
   it('wait for logged days even when maintenance comes from earlier data', async () => {
