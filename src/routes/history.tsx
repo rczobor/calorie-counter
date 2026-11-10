@@ -40,6 +40,8 @@ import {
 } from '@/lib/nutrition'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { useMarkHintSeen } from '@/features/hints/hints'
+import { EmptyState } from '@/components/page/empty-state'
 import { messages } from './history.messages'
 
 export const Route = createFileRoute('/history')({
@@ -98,6 +100,9 @@ function HistoryPageContent() {
     toLocalDateString(addDays(new Date(), -6).getTime()),
   )
   const [today] = useState(() => toLocalDateString(Date.now()))
+  const markHintSeen = useMarkHintSeen()
+  // Opening History is what its hint asks for, so the hint never shows after.
+  useEffect(() => markHintSeen('history'), [markHintSeen])
   const [endDate, setEndDate] = useState(today)
   const [customRangeOpen, setCustomRangeOpen] = useState(false)
 
@@ -377,80 +382,93 @@ function HistoryPageContent() {
           <HistorySkeleton label={t.loadingRange} />
         ) : (
           <>
-            <div className="inset-group">
-              <div className="grid grid-cols-2">
-                <div className="px-4 py-3">
-                  <p className="type-footnote text-muted-foreground">
-                    {t.dailyAverage}
-                  </p>
-                  <p className="mt-0.5">
-                    {loggedDays > 0 ? (
-                      <Value size="stat" value={Math.round(avgConsumed)} />
-                    ) : (
-                      <span className="type-title">–</span>
-                    )}
-                  </p>
+            {/* An empty range has no average to show; its card says so. */}
+            {isHistoryComplete && loggedDays === 0 ? null : (
+              <div className="inset-group">
+                <div className="grid grid-cols-2">
+                  <div className="px-4 py-3">
+                    <p className="type-footnote text-muted-foreground">
+                      {t.dailyAverage}
+                    </p>
+                    <p className="mt-0.5">
+                      {loggedDays > 0 ? (
+                        <Value size="stat" value={Math.round(avgConsumed)} />
+                      ) : (
+                        <span className="type-title">–</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="border-l px-4 py-3">
+                    <p className="type-footnote text-muted-foreground">
+                      {t.daysWithMeals}
+                    </p>
+                    <p className="mt-0.5">
+                      <Value
+                        size="stat"
+                        value={loggedDays}
+                        unit={t.ofDays(rows.length)}
+                      />
+                    </p>
+                  </div>
                 </div>
-                <div className="border-l px-4 py-3">
-                  <p className="type-footnote text-muted-foreground">
-                    {t.daysWithMeals}
-                  </p>
-                  <p className="mt-0.5">
-                    <Value
-                      size="stat"
-                      value={loggedDays}
-                      unit={t.ofDays(rows.length)}
-                    />
-                  </p>
-                </div>
-              </div>
-              {/* The caption sits inside the card it explains. A day with a
+                {/* The caption sits inside the card it explains. A day with a
                   logged zero-calorie meal still counts. */}
-              <p className="border-t px-4 py-2.5 type-footnote text-muted-foreground">
-                {t.averageNote}
-              </p>
-            </div>
+                <p className="border-t px-4 py-2.5 type-footnote text-muted-foreground">
+                  {t.averageNote}
+                </p>
+              </div>
+            )}
 
             {isHistoryComplete ? (
               <>
-                <section
-                  aria-labelledby="history-chart-title"
-                  className="inset-group px-4 pt-3.5 pb-1"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <h2 id="history-chart-title" className="type-headline">
-                      {t.dailyCalories}
-                    </h2>
-                    <ChartLegend rows={rows} />
-                  </div>
-                  <HistoryChart
-                    rows={rows}
-                    selectedDate={selectedDay?.date}
-                    onSelect={setSelectedDate}
-                  />
-                  {/* Names the selected day and opens it. Its figures are
-                      already on the bar and in the Days row below. */}
-                  {selectedDay ? (
-                    <div className="-mx-4 mt-1 flex items-center justify-between gap-3 border-t px-4 py-2.5">
-                      <p className="min-w-0 truncate type-headline">
-                        {formatDate(selectedDay.date, locale)}
-                      </p>
-                      <a
-                        href={dayHref(selectedDay.date)}
-                        className={cn(
-                          buttonVariants({ variant: 'outline', size: 'sm' }),
-                          'pr-3',
-                        )}
-                      >
-                        {t.viewDay}
-                        <ChevronRight
-                          aria-hidden="true"
-                          className="text-muted-foreground"
-                        />
-                      </a>
+                {loggedDays === 0 ? (
+                  // A chart of empty bars says nothing; the Days rows below
+                  // stay, so a missed day can still be opened and logged.
+                  <section className="inset-group px-4 py-3.5">
+                    <EmptyState title={t.emptyRangeTitle}>
+                      {t.emptyRange}
+                    </EmptyState>
+                  </section>
+                ) : (
+                  <section
+                    aria-labelledby="history-chart-title"
+                    className="inset-group px-4 pt-3.5 pb-1"
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <h2 id="history-chart-title" className="type-headline">
+                        {t.dailyCalories}
+                      </h2>
+                      <ChartLegend rows={rows} />
                     </div>
-                  ) : null}
-                </section>
+                    <HistoryChart
+                      rows={rows}
+                      selectedDate={selectedDay?.date}
+                      onSelect={setSelectedDate}
+                    />
+                    {/* Names the selected day and opens it. Its figures are
+                      already on the bar and in the Days row below. */}
+                    {selectedDay ? (
+                      <div className="-mx-4 mt-1 flex items-center justify-between gap-3 border-t px-4 py-2.5">
+                        <p className="min-w-0 truncate type-headline">
+                          {formatDate(selectedDay.date, locale)}
+                        </p>
+                        <a
+                          href={dayHref(selectedDay.date)}
+                          className={cn(
+                            buttonVariants({ variant: 'outline', size: 'sm' }),
+                            'pr-3',
+                          )}
+                        >
+                          {t.viewDay}
+                          <ChevronRight
+                            aria-hidden="true"
+                            className="text-muted-foreground"
+                          />
+                        </a>
+                      </div>
+                    ) : null}
+                  </section>
+                )}
 
                 <section aria-labelledby="history-days">
                   <h2 id="history-days" className="type-title">

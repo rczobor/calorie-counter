@@ -59,6 +59,9 @@ export const messages = defineMessages({
     searchIngredients: 'Search ingredients',
     sortIngredients: 'Sort ingredients',
     noIngredients: 'No ingredients found.',
+    ingredientsEmptyTitle: 'No ingredients yet',
+    ingredientsEmpty:
+      'Add foods you weigh, with calories per 100\u00a0g, to use them in meals and recipes.',
     notCounted: 'Not counted',
     loadMoreIngredients: 'Load more ingredients',
     editIngredient: 'Edit ingredient',
@@ -210,6 +213,9 @@ export const messages = defineMessages({
     searchIngredients: 'Alapanyagok keresése',
     sortIngredients: 'Alapanyagok rendezése',
     noIngredients: 'Nem található alapanyag.',
+    ingredientsEmptyTitle: 'Még nincs alapanyag',
+    ingredientsEmpty:
+      'Add hozzá a grammra mért ételeidet a 100\u00a0g-onkénti kalóriájukkal, és étkezésekben, receptekben is használhatod őket.',
     notCounted: 'Kalória kihagyva',
     loadMoreIngredients: 'További alapanyagok betöltése',
     editIngredient: 'Alapanyag szerkesztése',

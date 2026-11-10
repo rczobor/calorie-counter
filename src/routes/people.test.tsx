@@ -310,6 +310,19 @@ describe('People settings', () => {
     openAlex()
     expect(await screen.findByText('Initial goal')).toBeTruthy()
   })
+  it('asks for a reason only once the goal changes', () => {
+    show()
+    openAlex()
+    expect(screen.queryByLabelText('Goal change reason')).toBeNull()
+    fireEvent.change(screen.getByLabelText('Daily calorie goal'), {
+      target: { value: '1900' },
+    })
+    expect(screen.getByLabelText('Goal change reason')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Daily calorie goal'), {
+      target: { value: '2000.5' },
+    })
+    expect(screen.queryByLabelText('Goal change reason')).toBeNull()
+  })
   it('opens creation explicitly and preserves fractional goals on a name-only edit', async () => {
     show()
     openAlex()

@@ -128,17 +128,19 @@ export function RecordRow({
           </span>
         ) : null}
       </span>{' '}
-      {value !== undefined || selected || chevron ? (
+      {value !== undefined || selected !== undefined || chevron ? (
         // Values, the check and the chevron share one trailing column, so
         // the title takes every free pixel before it wraps.
         <span className="flex shrink-0 items-center gap-1.5">
           {value !== undefined ? (
             <Value value={value} unit={unit} className="text-right" />
           ) : null}
-          {selected ? (
+          {selected !== undefined ? (
+            // Every picker row keeps the check's slot, so values stay in one
+            // column whichever row is chosen.
             <Check
               aria-hidden="true"
-              className="size-5 text-foreground"
+              className={cn('size-5 text-foreground', !selected && 'invisible')}
               strokeWidth={2.5}
             />
           ) : null}

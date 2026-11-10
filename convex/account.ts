@@ -14,6 +14,7 @@ import {
 } from './lib/auth'
 import { MAX_WIDGETS } from './widgets'
 import { releaseLinkedPerson } from './weight'
+import { HINTS } from './lib/hints'
 
 // Deleting an account is the one place that hard-deletes history: the person
 // withdrew consent, so their data has to go, not be archived. A household
@@ -230,6 +231,11 @@ export const deleteMyAccount = mutation({
       .withIndex('by_userId_and_householdId', (q) => q.eq('userId', userId))
       .take(MAX_WIDGETS)
     for (const row of widgets) await ctx.db.delete(row._id)
+    const hints = await ctx.db
+      .query('seenHints')
+      .withIndex('by_userId_and_hint', (q) => q.eq('userId', userId))
+      .take(HINTS.length)
+    for (const row of hints) await ctx.db.delete(row._id)
     await ctx.db.delete(userId)
     await ctx.scheduler.runAfter(0, internal.account.deleteOperations, {
       userId,

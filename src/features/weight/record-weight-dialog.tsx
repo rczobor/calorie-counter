@@ -1,6 +1,6 @@
 import { Drawer } from '@base-ui/react/drawer'
 import type { FunctionReturnType } from 'convex/server'
-import { Trash2, X } from 'lucide-react'
+import { Trash2, TriangleAlert, X } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -164,7 +164,14 @@ export function RecordWeightDialog({
           )}
           {!editing && existing ? (
             // Said before the field, so nobody replaces a weight unawares.
-            <p className="px-4 type-subhead text-foreground" role="status">
+            <p
+              className="flex items-start gap-1.5 px-4 type-footnote text-foreground"
+              role="status"
+            >
+              <TriangleAlert
+                aria-hidden="true"
+                className="mt-0.5 size-3.5 shrink-0 text-caution"
+              />
               {t.replacesExisting(formatKg(existing.weightKg, locale))}
             </p>
           ) : null}

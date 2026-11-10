@@ -3,6 +3,8 @@ import { defineMessages } from '@/i18n/messages'
 export const messages = defineMessages({
   en: {
     section: 'Reusable foods',
+    noneTitle: 'No reusable foods yet',
+    none: 'Ask your AI assistant to save packaged foods or fixed portions for one-step logging.',
     search: 'Search reusable foods',
     empty:
       'No reusable foods found. Ask your AI assistant to remember a logged food to save it here.',
@@ -23,6 +25,8 @@ export const messages = defineMessages({
   },
   hu: {
     section: 'Mentett ételek',
+    noneTitle: 'Még nincs mentett étel',
+    none: 'Kérd meg az AI-asszisztensedet, hogy mentse el a csomagolt ételeket és állandó adagokat egylépéses rögzítéshez.',
     search: 'Mentett ételek keresése',
     empty:
       'Nem található mentett étel. Kérd meg az AI-asszisztensedet, hogy jegyezzen meg egy rögzített ételt, és itt megjelenik.',

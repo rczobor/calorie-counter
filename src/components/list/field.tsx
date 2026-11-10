@@ -38,25 +38,45 @@ export function Field({
   )
 }
 
-/** A number field that shows its unit inside the field ("kcal", "g"). */
+/**
+ * A number field that shows its unit inside the field, right after the
+ * digits ("2000 kcal"), never pinned to the far edge where a wide field
+ * would separate them. An invisible copy of the value, in the field's own
+ * type, sets where the unit starts.
+ */
 export function UnitInput({
   unit,
   className,
   ...props
-}: ComponentProps<typeof Input> & { unit: string }) {
+}: ComponentProps<typeof Input> & {
+  unit: string
+  /** Type classes only (such as font-semibold): the unit's position copies it. */
+  className?: string
+}) {
+  const shown = String(props.value ?? '') || String(props.placeholder ?? '')
+  // The right padding only holds the unit for a full field, so narrow fields
+  // (the logging sheet's grams) keep room for their digits.
+  const roomForUnit =
+    unit.length <= 1 ? 'pr-8' : unit.length <= 2 ? 'pr-10' : 'pr-12'
   return (
-    <div className="relative">
+    // A few digits and a unit: on wide screens the field stays that size.
+    <div className="relative md:max-w-60">
       <Input
         type="number"
         inputMode="decimal"
         {...props}
-        className={cn('pr-12 tabular-nums', className)}
+        className={cn(roomForUnit, 'tabular-nums', className)}
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 type-subhead text-muted-foreground"
+        className="pointer-events-none absolute inset-y-0 right-2 left-0 flex items-center overflow-hidden pl-[calc(1rem+1px)] text-base whitespace-pre tabular-nums md:text-sm"
       >
-        {unit}
+        {/* Matches the field's padding, size and weight, so it ends where the
+            typed value ends. */}
+        <span className={cn('invisible', className)}>{shown}</span>
+        <span className="ml-1.5 type-subhead text-muted-foreground">
+          {unit}
+        </span>
       </span>
     </div>
   )

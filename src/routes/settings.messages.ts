@@ -15,6 +15,7 @@ export const messages = defineMessages({
     widgetCount: (count: number) =>
       `${count} ${count === 1 ? 'widget' : 'widgets'}`,
     household: 'Household',
+    tips: 'Tips',
     dataMaintenance: 'Data maintenance',
     archivedMeals: 'Archived meals',
     foodLibrary: 'Food library',
@@ -51,6 +52,7 @@ export const messages = defineMessages({
     noWidgets: 'Nincs',
     widgetCount: (count: number) => `${count} widget`,
     household: 'Háztartás',
+    tips: 'Tippek',
     dataMaintenance: 'Adatkezelés',
     archivedMeals: 'Archivált étkezések',
     foodLibrary: 'Ételtár',

@@ -309,7 +309,8 @@ export function GoalCalculator({
                   inputMode="numeric"
                   autoComplete="off"
                   placeholder={t.birthYearPlaceholder}
-                  className="tabular-nums"
+                  // Sized like the number fields beside it.
+                  className="tabular-nums md:max-w-60"
                   value={birthYear}
                   onChange={(event) => setBirthYear(event.target.value)}
                   aria-invalid={errors.birthYear ? true : undefined}

@@ -21,13 +21,16 @@ export type ArchivedToggle = {
  * Without one, Show archived joins the search row, so no control sits alone
  * on a half-empty row. Search, sort and Show archived don't fit one 360px
  * row, so that trio puts sort and Show archived on row 2 together. Pages pass
- * what they have, not markup.
+ * what they have, not markup. An `empty` list (nothing yet, no search, no
+ * archive shown) keeps only the create action: there is nothing to search,
+ * and its empty state offers a quiet Show archived instead.
  */
 export function ListToolbar<Sort extends string = string>({
-  search,
-  sort,
+  search: searchProp,
+  sort: sortProp,
   create,
-  archived,
+  archived: archivedProp,
+  empty = false,
 }: {
   search?: {
     label: string
@@ -44,8 +47,14 @@ export function ListToolbar<Sort extends string = string>({
   }
   create?: { noun: string; onClick: () => void; disabled?: boolean }
   archived?: ArchivedToggle
+  empty?: boolean
 }) {
   const t = useMessages(messages)
+  const search = empty ? undefined : searchProp
+  const sort = empty ? undefined : sortProp
+  const archived = empty ? undefined : archivedProp
+  // Nothing left to show: no empty row, so the page keeps its rhythm.
+  if (!search && !create && !archived) return null
   const crowded = Boolean(search && sort && archived && !create)
   const secondRow = Boolean(create) || crowded || !search
   const sortControl = sort ? (
@@ -109,6 +118,22 @@ export function ListToolbar<Sort extends string = string>({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** Show archived for an empty list, whose toolbar hides the switch. */
+export function ShowArchivedButton({ onClick }: { onClick: () => void }) {
+  const t = useMessages(messages)
+  return (
+    // Leading its row, the text keeps the content edge.
+    <Button
+      variant="ghost"
+      size="sm"
+      className="first:-ml-3.5"
+      onClick={onClick}
+    >
+      {t.showArchived}
+    </Button>
   )
 }
 

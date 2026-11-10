@@ -21,6 +21,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as WeightRouteImport } from './routes/weight'
 import { Route as SettingsArchivedMealsRouteImport } from './routes/settings.archived-meals'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
+import { Route as SettingsTipsRouteImport } from './routes/settings.tips'
 import { Route as SettingsUsageRouteImport } from './routes/settings.usage'
 import { Route as SettingsWidgetRouteImport } from './routes/settings.widget'
 
@@ -84,6 +85,11 @@ const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsTipsRoute = SettingsTipsRouteImport.update({
+  id: '/tips',
+  path: '/tips',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsUsageRoute = SettingsUsageRouteImport.update({
   id: '/usage',
   path: '/usage',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/weight': typeof WeightRoute
   '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/tips': typeof SettingsTipsRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/widget': typeof SettingsWidgetRoute
 }
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/weight': typeof WeightRoute
   '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/tips': typeof SettingsTipsRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/widget': typeof SettingsWidgetRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/weight': typeof WeightRoute
   '/settings/archived-meals': typeof SettingsArchivedMealsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/tips': typeof SettingsTipsRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/widget': typeof SettingsWidgetRoute
 }
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/weight'
     | '/settings/archived-meals'
     | '/settings/integrations'
+    | '/settings/tips'
     | '/settings/usage'
     | '/settings/widget'
   fileRoutesByTo: FileRoutesByTo
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/weight'
     | '/settings/archived-meals'
     | '/settings/integrations'
+    | '/settings/tips'
     | '/settings/usage'
     | '/settings/widget'
   id:
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/weight'
     | '/settings/archived-meals'
     | '/settings/integrations'
+    | '/settings/tips'
     | '/settings/usage'
     | '/settings/widget'
   fileRoutesById: FileRoutesById
@@ -294,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIntegrationsRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/tips': {
+      id: '/settings/tips'
+      path: '/tips'
+      fullPath: '/settings/tips'
+      preLoaderRoute: typeof SettingsTipsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/usage': {
       id: '/settings/usage'
       path: '/usage'
@@ -314,6 +333,7 @@ declare module '@tanstack/react-router' {
 interface SettingsRouteChildren {
   SettingsArchivedMealsRoute: typeof SettingsArchivedMealsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
+  SettingsTipsRoute: typeof SettingsTipsRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
   SettingsWidgetRoute: typeof SettingsWidgetRoute
 }
@@ -321,6 +341,7 @@ interface SettingsRouteChildren {
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsArchivedMealsRoute: SettingsArchivedMealsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
+  SettingsTipsRoute: SettingsTipsRoute,
   SettingsUsageRoute: SettingsUsageRoute,
   SettingsWidgetRoute: SettingsWidgetRoute,
 }

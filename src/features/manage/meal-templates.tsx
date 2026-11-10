@@ -19,6 +19,8 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
+import { AssistantListEmpty } from '@/features/hints/hints'
+import { messages as hintsMessages } from '@/features/hints/hints.messages'
 import { messages } from './meal-templates.messages'
 
 type Template = FunctionReturnType<
@@ -386,9 +388,17 @@ export function MealTemplates() {
     { initialNumItems: 20 },
   )
   const open = templates.results.find((template) => template._id === openId)
+  const nothingYet =
+    !search.trim() &&
+    templates.status !== 'LoadingFirstPage' &&
+    templates.results.length === 0
+  const hintCopy = useMessages(hintsMessages)
   return (
     <section aria-label={t.section} className="space-y-3">
-      <p className="type-subhead text-muted-foreground">{t.intro}</p>
+      {/* The empty state says this itself. */}
+      {nothingYet ? null : (
+        <p className="type-subhead text-muted-foreground">{t.intro}</p>
+      )}
       <ListToolbar
         search={{
           label: t.search,
@@ -396,11 +406,23 @@ export function MealTemplates() {
           value: search,
           onValueChange: setSearch,
         }}
+        empty={nothingYet}
       />
       <RecordList
         label={t.section}
         loading={templates.status === 'LoadingFirstPage'}
-        empty={t.empty}
+        empty={
+          nothingYet ? (
+            <AssistantListEmpty
+              title={t.noneTitle}
+              example={hintCopy.examples.template}
+            >
+              {t.none}
+            </AssistantListEmpty>
+          ) : (
+            t.empty
+          )
+        }
       >
         {templates.results.map((template) => (
           <RecordRow

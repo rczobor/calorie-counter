@@ -52,7 +52,7 @@ describe('RecordWeightDialog', () => {
     sameDay.current = [recorded]
     const onClose = open({ kind: 'new', date: '2026-11-08' })
     expect(
-      screen.getByText(/This day already has 82.4 kg. Saving replaces it./),
+      screen.getByText(/Replaces the 82.4 kg already recorded for this day./),
     ).toBeTruthy()
 
     fireEvent.change(screen.getByLabelText('Weight'), {

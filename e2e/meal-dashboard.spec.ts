@@ -224,7 +224,8 @@ test('reusable foods can be inspected, archived, and restored without editing pa
   ).toBeVisible()
   await page.getByRole('button', { name: 'Archive', exact: true }).click()
   await expect(page.getByRole('button', { name: /^Vitamins\b/ })).toHaveCount(0)
-  await page.getByRole('switch', { name: 'Show archived' }).click()
+  // The list is empty now, so Show archived is a quiet button in its empty state.
+  await page.getByRole('button', { name: 'Show archived' }).click()
   await page.getByRole('button', { name: /^Vitamins Archived\b/ }).click()
   await page.getByRole('button', { name: 'Restore', exact: true }).click()
   await expect(

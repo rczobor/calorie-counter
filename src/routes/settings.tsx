@@ -62,6 +62,7 @@ function SettingsPage() {
           <SettingsLink to="/settings/integrations" title={t.assistants} />
           <SettingsLink to="/household" title={t.household} />
           <LanguageSetting />
+          <SettingsLink to="/settings/tips" title={t.tips} />
         </div>
       </section>
       {/* Setting the app up on this phone: installing it, then its widget. */}
@@ -128,6 +129,7 @@ function SettingsLink({
     | '/weight'
     | '/settings/integrations'
     | '/settings/widget'
+    | '/settings/tips'
     | '/household'
     | '/catalog'
     | '/cooking'

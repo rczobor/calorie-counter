@@ -70,7 +70,10 @@ describe('Food library sections', () => {
 
     await screen.findByRole('heading', { name: 'Ingredients', level: 1 })
     expect(router.state.location.search).toEqual({ section: 'ingredients' })
-    expect(screen.getByLabelText('Search ingredients')).toBeTruthy()
+    // An empty library keeps only the create action above its empty state.
+    expect(screen.getByRole('button', { name: 'New ingredient' })).toBeTruthy()
+    expect(screen.getByText('No ingredients yet')).toBeTruthy()
+    expect(screen.queryByLabelText('Search ingredients')).toBeNull()
 
     fireEvent.click(screen.getByRole('link', { name: 'Food library' }))
 

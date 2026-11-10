@@ -21,6 +21,7 @@ import {
   CHECK_IN_LOOKBACK_DAYS,
   shiftDay,
 } from '../../../convex/lib/energy'
+import { HINTS, type Hint } from '../../../convex/lib/hints'
 
 type DashboardData = {
   people: Array<Doc<'people'>>
@@ -84,6 +85,10 @@ export type MockState = {
   weights: Array<Doc<'weightEntries'>>
   locale: FunctionReturnType<typeof api.userPreferences.getLocale>
   privacyAccepted: boolean
+  hasSavedFood: boolean
+  /** Hints the account qualifies for; the server derives these from usage. */
+  hints: Hint[]
+  seenHints: Hint[]
 }
 
 // The account's language outlives a reload, as it does on the server.
@@ -96,6 +101,39 @@ function readPrivacyAccepted() {
     typeof localStorage === 'undefined' ||
     localStorage.getItem('e2e-privacy-consent') !== 'pending'
   )
+}
+
+// `localStorage['e2e-hints'] = 'assistant,history'` qualifies those hints.
+function readHints(): Hint[] {
+  if (typeof localStorage === 'undefined') return []
+  const listed = (localStorage.getItem('e2e-hints') ?? '').split(',')
+  return HINTS.filter((hint) => listed.includes(hint))
+}
+
+// `localStorage['e2e-new-account'] = 'true'` starts with people and goals but
+// nothing logged, cooked or saved yet, for the empty states.
+function asNewAccount(initial: MockState): MockState {
+  if (
+    typeof localStorage === 'undefined' ||
+    localStorage.getItem('e2e-new-account') !== 'true'
+  )
+    return initial
+  return {
+    ...initial,
+    dashboard: {
+      ...initial.dashboard,
+      ingredients: [],
+      cookSessions: [],
+      cookedFoods: [],
+      meals: [],
+      mealItems: [],
+    },
+    mealDetails: {},
+    templates: [],
+    hasSavedFood: false,
+    // `localStorage['e2e-assistant'] = 'connected'` keeps an assistant.
+    connected: localStorage.getItem('e2e-assistant') === 'connected',
+  }
 }
 
 function readAccountLocale(): MockState['locale'] {
@@ -262,16 +300,20 @@ function createInitialState(): MockState {
     weights: [],
     locale: readAccountLocale(),
     privacyAccepted: readPrivacyAccepted(),
+    hasSavedFood: true,
+    hints: readHints(),
+    seenHints: [],
   }
 }
 
-let state: MockState =
+let state: MockState = asNewAccount(
   import.meta.env.VITE_E2E_SCENARIO === 'design'
     ? {
         ...createInitialState(),
         ...createDesignData(Date.now(), ownerUserId, householdId),
       }
-    : createInitialState()
+    : createInitialState(),
+)
 const listeners = new Set<() => void>()
 
 // `?e2eHold=session|household|data` freezes one loading layer so design
@@ -546,6 +588,7 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
   } else if (functionName === 'savedFoods:list') {
     const input = args as { archived: boolean; search?: string }
     results =
+      snapshot.hasSavedFood &&
       input.archived === snapshot.savedFoodArchived &&
       (!input.search || 'vitamins'.includes(input.search.toLowerCase()))
         ? [
@@ -713,6 +756,12 @@ export function useQuery<Query extends FunctionReference<'query'>>(
             },
           ]
         : []
+    ) as FunctionReturnType<Query>
+  if (functionName === 'hints:assistantConnected')
+    return snapshot.connected as FunctionReturnType<Query>
+  if (functionName === 'hints:eligible')
+    return snapshot.hints.filter(
+      (hint) => !snapshot.seenHints.includes(hint),
     ) as FunctionReturnType<Query>
   if (functionName === 'widgets:list')
     return snapshot.widgets as FunctionReturnType<Query>
@@ -910,6 +959,11 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
     async (args: FunctionArgs<Mutation>) => {
       if (functionName === 'households:ensurePersonal')
         return 'e2e-household' as FunctionReturnType<Mutation>
+      if (functionName === 'hints:setSeen') {
+        const { hint } = args as FunctionArgs<typeof api.hints.setSeen>
+        publish({ ...state, seenHints: [...state.seenHints, hint] })
+        return null as FunctionReturnType<Mutation>
+      }
       if (functionName === 'weight:record') {
         const input = args as FunctionArgs<typeof api.weight.record>
         const existing = state.weights.find(
