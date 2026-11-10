@@ -48,8 +48,16 @@ export function UnitInput({
   unit,
   className,
   ...props
-}: ComponentProps<typeof Input> & { unit: string }) {
+}: ComponentProps<typeof Input> & {
+  unit: string
+  /** Type classes only (such as font-semibold): the unit's position copies it. */
+  className?: string
+}) {
   const shown = String(props.value ?? '') || String(props.placeholder ?? '')
+  // The right padding only holds the unit for a full field, so narrow fields
+  // (the logging sheet's grams) keep room for their digits.
+  const roomForUnit =
+    unit.length <= 1 ? 'pr-8' : unit.length <= 2 ? 'pr-10' : 'pr-12'
   return (
     // A few digits and a unit: on wide screens the field stays that size.
     <div className="relative md:max-w-60">
@@ -57,11 +65,11 @@ export function UnitInput({
         type="number"
         inputMode="decimal"
         {...props}
-        className={cn('pr-12 tabular-nums', className)}
+        className={cn(roomForUnit, 'tabular-nums', className)}
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-4 left-0 flex items-center overflow-hidden pl-[calc(1rem+1px)] text-base whitespace-pre tabular-nums md:text-sm"
+        className="pointer-events-none absolute inset-y-0 right-2 left-0 flex items-center overflow-hidden pl-[calc(1rem+1px)] text-base whitespace-pre tabular-nums md:text-sm"
       >
         {/* Matches the field's padding, size and weight, so it ends where the
             typed value ends. */}

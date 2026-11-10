@@ -130,10 +130,7 @@ function PeopleContent() {
   // A reason belongs to a goal change: hidden and never sent without one.
   const goalReason = goalChanged ? reason.trim() || undefined : undefined
   const profileDirty =
-    name !== (editing?.name ?? '') ||
-    goalChanged ||
-    goalReason !== undefined ||
-    plan !== null
+    name !== (editing?.name ?? '') || goalChanged || plan !== null
   const dirty = editing !== undefined && (profileDirty || linkPending)
   // Another member's person: the household sees the goal, only they change it.
   const goalLocked = live?.linkedAccount === 'other'
@@ -225,6 +222,7 @@ function PeopleContent() {
             name,
             currentDailyGoalKcal: Number(goal),
             effectiveDate,
+            // The calculator's reason starts a new person's goal history.
             reason: reason.trim() || undefined,
             ...plan,
             linkedToMe: linkChange,

@@ -1216,7 +1216,9 @@ function MealEditorContent({
                   {closePanel}
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
+                  {/* Stops growing with the field on wide screens, so the
+                      result stays beside it. */}
+                  <div className="min-w-0 flex-1 md:w-60 md:flex-none">
                     <UnitInput
                       unit="g"
                       type="number"
@@ -1279,24 +1281,21 @@ function MealEditorContent({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="quickCalories">{t.calories}</Label>
-                    <div>
-                      <UnitInput
-                        unit="kcal"
-                        id="quickCalories"
-                        type="number"
-                        inputMode="numeric"
-                        aria-label={t.quickAddCalories}
-                        autoFocus={Boolean(itemQuickName)}
-                        value={itemQuickCalories}
-                        onChange={(event) =>
-                          setItemQuickCalories(event.target.value)
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && canQuickAdd)
-                            addQuickItem()
-                        }}
-                      />
-                    </div>
+                    <UnitInput
+                      unit="kcal"
+                      id="quickCalories"
+                      type="number"
+                      inputMode="numeric"
+                      aria-label={t.quickAddCalories}
+                      autoFocus={Boolean(itemQuickName)}
+                      value={itemQuickCalories}
+                      onChange={(event) =>
+                        setItemQuickCalories(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && canQuickAdd) addQuickItem()
+                      }}
+                    />
                   </div>
                   <Button
                     className="col-span-full sm:col-span-1 sm:self-end"
