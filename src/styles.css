@@ -43,6 +43,9 @@
      hairline rim. */
   --control: oklch(1 0 0);
   --control-edge: oklch(0.885 0.005 286);
+  /* Text fields: the control fill, so a field and a capsule side by side
+     share one surface; the stronger --input border marks the field. */
+  --field: oklch(1 0 0);
   /* Field outlines are meaningful boundaries: 3.5:1 on white, 3.1:1 on background. */
   --input: oklch(0.63 0.008 286);
   --ring: oklch(0.55 0.18 42);
@@ -133,6 +136,7 @@
      cell; the cell-coloured fill vanished into the cell. */
   --control: oklch(0.294 0.0036 286);
   --control-edge: oklch(1 0 0 / 14%);
+  --field: oklch(0.294 0.0036 286);
   --input: oklch(0.56 0.006 286); /* 3.7:1 on card, 4.5:1 on background */
   --ring: oklch(0.74 0.16 48);
   /* A disabled primary is iOS's grey fill: translucent, so it always sits one
@@ -203,6 +207,9 @@
   --accent: oklch(0.38 0.004 286);
   --border: oklch(0.39 0.0034 286);
   --control: oklch(0.349 0.0034 286);
+  /* In a sheet a field is a translucent lift: level with the cells on the
+     sheet, one step up inside a cell, never the brightest block. */
+  --field: oklch(1 0 0 / 7%);
   --popover: oklch(0.349 0.0034 286);
   /* Field and switch outlines stay meaningful on the lighter cells: 3.5:1 on
      a cell, 4.3:1 on the sheet. */
@@ -403,6 +410,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-control: var(--control);
+  --color-field: var(--field);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   /* One radius scale: badges 8, menu rows 10, notes 12, cells, cards and

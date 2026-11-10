@@ -38,12 +38,18 @@ export function Field({
   )
 }
 
-/** A number field that shows its unit inside the field ("kcal", "g"). */
+/**
+ * A number field that shows its unit inside the field, right after the
+ * digits ("2000 kcal"), never pinned to the far edge where a wide field
+ * would separate them. An invisible copy of the value, in the field's own
+ * type, sets where the unit starts.
+ */
 export function UnitInput({
   unit,
   className,
   ...props
 }: ComponentProps<typeof Input> & { unit: string }) {
+  const shown = String(props.value ?? '') || String(props.placeholder ?? '')
   return (
     <div className="relative">
       <Input
@@ -54,9 +60,14 @@ export function UnitInput({
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 type-subhead text-muted-foreground"
+        className="pointer-events-none absolute inset-y-0 right-4 left-0 flex items-center overflow-hidden pl-[calc(1rem+1px)] text-base whitespace-pre tabular-nums md:text-sm"
       >
-        {unit}
+        {/* Matches the field's padding, size and weight, so it ends where the
+            typed value ends. */}
+        <span className={cn('invisible', className)}>{shown}</span>
+        <span className="ml-1.5 type-subhead text-muted-foreground">
+          {unit}
+        </span>
       </span>
     </div>
   )
