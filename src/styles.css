@@ -206,9 +206,10 @@
   --secondary: oklch(0.349 0.0034 286);
   --accent: oklch(0.38 0.004 286);
   --border: oklch(0.39 0.0034 286);
-  --control: oklch(0.349 0.0034 286);
-  /* In a sheet a field is a translucent lift: level with the cells on the
-     sheet, one step up inside a cell, never the brightest block. */
+  /* In a sheet, fields and capsules share a translucent lift: level with
+     the cells on the sheet, one step up inside a cell, never the brightest
+     block, so a picker never outranks the field beside it. */
+  --control: oklch(1 0 0 / 7%);
   --field: oklch(1 0 0 / 7%);
   --popover: oklch(0.349 0.0034 286);
   /* Field and switch outlines stay meaningful on the lighter cells: 3.5:1 on

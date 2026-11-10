@@ -16,6 +16,7 @@ import type { Id } from '../../../convex/_generated/dataModel'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
+import { UnitInput } from '@/components/list/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PersonPicker } from '@/features/households/person-picker'
@@ -1215,8 +1216,9 @@ function MealEditorContent({
                   {closePanel}
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <div className="relative min-w-0 flex-1">
-                    <Input
+                  <div className="min-w-0 flex-1">
+                    <UnitInput
+                      unit="g"
                       type="number"
                       inputMode="decimal"
                       autoFocus
@@ -1226,16 +1228,12 @@ function MealEditorContent({
                           : t.ingredientGrams
                       }
                       placeholder={t.amount}
-                      className="pr-8"
                       value={itemWeight}
                       onChange={(event) => setItemWeight(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') upsertDraftItem()
                       }}
                     />
-                    <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-base text-muted-foreground md:text-sm">
-                      g
-                    </span>
                   </div>
                   <span
                     className="w-20 shrink-0 text-right text-base font-semibold text-foreground tabular-nums"
@@ -1281,14 +1279,14 @@ function MealEditorContent({
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="quickCalories">{t.calories}</Label>
-                    <div className="relative">
-                      <Input
+                    <div>
+                      <UnitInput
+                        unit="kcal"
                         id="quickCalories"
                         type="number"
                         inputMode="numeric"
                         aria-label={t.quickAddCalories}
                         autoFocus={Boolean(itemQuickName)}
-                        className="pr-12"
                         value={itemQuickCalories}
                         onChange={(event) =>
                           setItemQuickCalories(event.target.value)
@@ -1298,9 +1296,6 @@ function MealEditorContent({
                             addQuickItem()
                         }}
                       />
-                      <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-base text-muted-foreground md:text-sm">
-                        kcal
-                      </span>
                     </div>
                   </div>
                   <Button
