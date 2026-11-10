@@ -51,7 +51,8 @@ export function UnitInput({
 }: ComponentProps<typeof Input> & { unit: string }) {
   const shown = String(props.value ?? '') || String(props.placeholder ?? '')
   return (
-    <div className="relative">
+    // A few digits and a unit: on wide screens the field stays that size.
+    <div className="relative md:max-w-60">
       <Input
         type="number"
         inputMode="decimal"

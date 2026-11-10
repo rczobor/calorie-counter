@@ -126,10 +126,13 @@ function PeopleContent() {
   const isMe =
     live?.linkedAccount === 'other' ? false : (isMeChoice ?? savedIsMe)
   const linkPending = isMe !== savedIsMe
+  const goalChanged = goal !== String(editing?.currentDailyGoalKcal ?? 2200)
+  // A reason belongs to a goal change: hidden and never sent without one.
+  const goalReason = goalChanged ? reason.trim() || undefined : undefined
   const profileDirty =
     name !== (editing?.name ?? '') ||
-    goal !== String(editing?.currentDailyGoalKcal ?? 2200) ||
-    reason !== '' ||
+    goalChanged ||
+    goalReason !== undefined ||
     plan !== null
   const dirty = editing !== undefined && (profileDirty || linkPending)
   // Another member's person: the household sees the goal, only they change it.
@@ -234,7 +237,7 @@ function PeopleContent() {
             // Another member's goal isn't ours to send, even unchanged.
             ...(!goalLocked && {
               goalKcal: Number(goal),
-              reason: reason.trim() || undefined,
+              reason: goalReason,
               ...plan,
             }),
             effectiveDate,
@@ -384,7 +387,9 @@ function PeopleContent() {
                   hint={
                     plan
                       ? t.savedWithGoal(describePlan(plan.goalPlan, locale))
-                      : t.goalHint
+                      : editing
+                        ? t.goalHint
+                        : t.goalHintNew
                   }
                 >
                   <UnitInput
@@ -412,7 +417,7 @@ function PeopleContent() {
                   {t.helpMeChoose}
                 </Button>
               )}
-              {editing && !goalLocked ? (
+              {editing && !goalLocked && goalChanged ? (
                 <Field label={t.reasonLabel} htmlFor="goal-reason">
                   <Input
                     id="goal-reason"

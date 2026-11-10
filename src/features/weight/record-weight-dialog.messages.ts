@@ -14,7 +14,7 @@ export const messages = defineMessages({
     date: 'Date',
     dateLabel: 'Weight date',
     replacesExisting: (kg: string) =>
-      `This day already has ${kg} kg. Saving replaces it.`,
+      `Replaces the ${kg}\u00a0kg already recorded for this day.`,
     weight: 'Weight',
     delete: 'Delete',
     save: 'Save weight',
@@ -34,8 +34,7 @@ export const messages = defineMessages({
     deleted: 'Testsúly törölve.',
     date: 'Dátum',
     dateLabel: 'Mérés dátuma',
-    replacesExisting: (kg: string) =>
-      `Ezen a napon már van mérés: ${kg} kg. A mentés felülírja.`,
+    replacesExisting: (kg: string) => `Felülírja a napi mérést: ${kg}\u00a0kg.`,
     weight: 'Testsúly',
     delete: 'Törlés',
     save: 'Mentés',
