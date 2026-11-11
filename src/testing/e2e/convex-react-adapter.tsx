@@ -528,16 +528,13 @@ function dayNutrition(
     0,
   )
   const goalKcal = person?.currentDailyGoalKcal ?? 0
-  const covered = meals.filter((meal) => meal.macros)
+  const covered = meals.flatMap((meal) => (meal.macros ? [meal.macros] : []))
   const macros = covered.length
     ? {
-        proteinG: covered.reduce((sum, m) => sum + m.macros!.proteinG, 0),
-        carbsG: covered.reduce((sum, m) => sum + m.macros!.carbsG, 0),
-        fatG: covered.reduce((sum, m) => sum + m.macros!.fatG, 0),
-        coveredCalories: covered.reduce(
-          (sum, m) => sum + m.macros!.coveredCalories,
-          0,
-        ),
+        proteinG: covered.reduce((sum, m) => sum + m.proteinG, 0),
+        carbsG: covered.reduce((sum, m) => sum + m.carbsG, 0),
+        fatG: covered.reduce((sum, m) => sum + m.fatG, 0),
+        coveredCalories: covered.reduce((sum, m) => sum + m.coveredCalories, 0),
       }
     : undefined
   return {

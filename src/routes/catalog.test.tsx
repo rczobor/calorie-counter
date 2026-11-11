@@ -90,6 +90,7 @@ const fractionalIngredient = {
   _id: 'ingredient-fractional' as Id<'ingredients'>,
   name: 'Oat milk',
   kcalPer100: 52.5,
+  macros: { proteinG: 1, carbsG: 6.5, fatG: 1.5 },
 }
 
 const notCountedIngredient = {
@@ -611,6 +612,36 @@ describe('Catalog route', () => {
     expect(
       screen.getByRole('button', { name: /^Edit Oats Mill · Staples / }),
     ).toBeTruthy()
+  })
+
+  it('edits macros per 100 and saves none while calories are ignored', async () => {
+    renderCatalogRoute()
+
+    openRecord('Oat milk')
+    expect(screen.getByLabelText('Protein')).toHaveProperty('value', '1')
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '1.2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({
+          macros: { proteinG: 1, carbsG: 6.5, fatG: 1.2 },
+        }),
+      }),
+    )
+
+    mutationCalls.length = 0
+    openRecord('Oat milk')
+    fireEvent.click(screen.getByRole('switch', { name: 'Ignore calories' }))
+    // The fieldset disables its fields without setting their own property.
+    expect(screen.getByLabelText('Protein').matches(':disabled')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({ ignoreCalories: true, macros: null }),
+      }),
+    )
   })
 
   it('keeps fractional kcal/100 when an ingredient is edited', async () => {

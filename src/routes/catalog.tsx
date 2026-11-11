@@ -1152,7 +1152,8 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   below never jumps; ignored calories save no macros. */}
               <fieldset
                 className="mt-4 min-w-0"
-                disabled={isRunning || ingredientIgnoreCalories}
+                disabled={ingredientIgnoreCalories}
+                aria-describedby="ingredient-macros-hint"
               >
                 {/* Sits on its fields: space goes above it (a fieldset's
                     padding would land between the legend and the fields). */}
@@ -1170,7 +1171,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                         id={`ingredient-${key}`}
                         unit="g"
                         min="0"
-                        step="0.1"
+                        step="any"
                         value={ingredientMacros[key]}
                         onChange={(event) =>
                           setIngredientMacros((current) => ({
@@ -1182,7 +1183,10 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                     </Field>
                   ))}
                 </div>
-                <p className="mt-1.5 px-4 type-footnote text-muted-foreground">
+                <p
+                  id="ingredient-macros-hint"
+                  className="mt-1.5 px-4 type-footnote text-muted-foreground"
+                >
                   {ingredientIgnoreCalories ? t.macrosIgnored : t.macrosHint}
                 </p>
               </fieldset>
