@@ -1151,11 +1151,12 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
               {/* Stays in place while calories are ignored, so the switch
                   below never jumps; ignored calories save no macros. */}
               <fieldset
-                className="min-w-0 pt-4"
+                className="mt-4 min-w-0"
                 disabled={isRunning || ingredientIgnoreCalories}
               >
-                {/* Sits on its fields: less space below than above. */}
-                <legend className="group-label pb-0.5">
+                {/* Sits on its fields: space goes above it (a fieldset's
+                    padding would land between the legend and the fields). */}
+                <legend className="group-label pb-1">
                   {t.macrosLegend(ingredientKcalBasisUnit)}
                 </legend>
                 <div className="grid grid-cols-3 gap-3">
