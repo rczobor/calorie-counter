@@ -41,6 +41,42 @@ import { cn } from '@/lib/utils'
 import { messages } from './people.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
+
+const macroGoalFields = [
+  { key: 'proteinGPerKg', unit: 'perKg' },
+  { key: 'carbsG', unit: 'g' },
+  { key: 'fatG', unit: 'g' },
+] as const
+const macroGoalLabel = {
+  proteinGPerKg: 'proteinGoal',
+  carbsG: 'carbsGoal',
+  fatG: 'fatGoal',
+} as const
+type MacroGoalDraft = Record<(typeof macroGoalFields)[number]['key'], string>
+const emptyMacroGoals: MacroGoalDraft = {
+  proteinGPerKg: '',
+  carbsG: '',
+  fatG: '',
+}
+
+function macroGoalDraft(goals: Person['macroGoals']): MacroGoalDraft {
+  return {
+    proteinGPerKg: goals?.proteinGPerKg?.toString() ?? '',
+    carbsG: goals?.carbsG?.toString() ?? '',
+    fatG: goals?.fatG?.toString() ?? '',
+  }
+}
+
+// Empty fields are no goal; no goals at all clears them.
+function parseMacroGoals(draft: MacroGoalDraft) {
+  const value = (text: string) => (text.trim() ? Number(text) : undefined)
+  const goals = {
+    proteinGPerKg: value(draft.proteinGPerKg),
+    carbsG: value(draft.carbsG),
+    fatG: value(draft.fatG),
+  }
+  return Object.values(goals).some((goal) => goal !== undefined) ? goals : null
+}
 const PAGE_SIZE = 20
 export const Route = createFileRoute('/people')({
   ssr: false,
@@ -59,6 +95,7 @@ function PeopleContent() {
   const [editing, setEditing] = useState<Person | null>()
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
+  const [macroGoals, setMacroGoals] = useState(emptyMacroGoals)
   const [reason, setReason] = useState('')
   // The switch's unsaved choice; null follows the saved link, which can
   // change on another device while the editor is open.
@@ -127,10 +164,16 @@ function PeopleContent() {
     live?.linkedAccount === 'other' ? false : (isMeChoice ?? savedIsMe)
   const linkPending = isMe !== savedIsMe
   const goalChanged = goal !== String(editing?.currentDailyGoalKcal ?? 2200)
+  const macroGoalsChanged =
+    JSON.stringify(macroGoals) !==
+    JSON.stringify(macroGoalDraft(editing?.macroGoals))
   // A reason belongs to a goal change: hidden and never sent without one.
   const goalReason = goalChanged ? reason.trim() || undefined : undefined
   const profileDirty =
-    name !== (editing?.name ?? '') || goalChanged || plan !== null
+    name !== (editing?.name ?? '') ||
+    goalChanged ||
+    macroGoalsChanged ||
+    plan !== null
   const dirty = editing !== undefined && (profileDirty || linkPending)
   // Another member's person: the household sees the goal, only they change it.
   const goalLocked = live?.linkedAccount === 'other'
@@ -225,6 +268,7 @@ function PeopleContent() {
             // The calculator's reason starts a new person's goal history.
             reason: reason.trim() || undefined,
             ...plan,
+            macroGoals: parseMacroGoals(macroGoals) ?? undefined,
             linkedToMe: linkChange,
           })
         else if (profileDirty)
@@ -237,6 +281,9 @@ function PeopleContent() {
               goalKcal: Number(goal),
               reason: goalReason,
               ...plan,
+              ...(macroGoalsChanged && {
+                macroGoals: parseMacroGoals(macroGoals),
+              }),
             }),
             effectiveDate,
             linkedToMe: linkChange,
@@ -254,6 +301,7 @@ function PeopleContent() {
     setEditing(person)
     setName(person?.name ?? '')
     setGoal(String(person?.currentDailyGoalKcal ?? 2200))
+    setMacroGoals(macroGoalDraft(person?.macroGoals))
     setReason('')
     setPlan(null)
     setIsMeChoice(null)
@@ -426,6 +474,37 @@ function PeopleContent() {
                   />
                 </Field>
               ) : null}
+              {goalLocked ? null : (
+                <fieldset className="mt-4 min-w-0">
+                  <legend className="group-label pb-1">{t.macroGoals}</legend>
+                  <div className="grid grid-cols-3 gap-3">
+                    {macroGoalFields.map(({ key, unit }) => (
+                      <Field
+                        key={key}
+                        label={t[macroGoalLabel[key]]}
+                        htmlFor={`person-${key}`}
+                      >
+                        <UnitInput
+                          id={`person-${key}`}
+                          unit={unit === 'perKg' ? t.perKgUnit : unit}
+                          min="0"
+                          step="any"
+                          value={macroGoals[key]}
+                          onChange={(event) =>
+                            setMacroGoals((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 px-4 type-footnote text-muted-foreground">
+                    {t.macroGoalsHint}
+                  </p>
+                </fieldset>
+              )}
               {editing && selected !== null ? (
                 <section aria-labelledby="goal-history-title" className="pt-1">
                   <h3 id="goal-history-title" className="group-label">

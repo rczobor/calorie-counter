@@ -451,7 +451,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     get_day: tool({
       description:
-        'Read a person’s meals and full daily calorie totals for an explicit YYYY-MM-DD date. Totals cover the full day; the meal list is paginated at 20 rows. macros sums protein, carbohydrate and fat over the foods that have them, and macros.coveredCalories is how much of the day’s kcal those foods make up: report it with the grams, never as the whole day. Resolve the person using get_logging_context first.',
+        'Read a person’s meals and full daily calorie totals for an explicit YYYY-MM-DD date. Totals cover the full day; the meal list is paginated at 20 rows. macros sums protein, carbohydrate and fat over the foods that have them, and macros.coveredCalories is how much of the day’s kcal those foods make up: report it with the grams, never as the whole day. macroTargets are the person’s macro goals in grams; protein’s follows the latest weigh-in, so it and proteinPerKg are absent without one or for another member’s private weight. Resolve the person using get_logging_context first.',
       args: {
         householdId: v.optional(v.id('households')),
         personId: v.id('people'),

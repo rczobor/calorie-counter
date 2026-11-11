@@ -16,6 +16,7 @@ import {
   expectedNutritionSnapshotValidator,
   energyProfileValidator,
   goalPlanValidator,
+  macroGoalsValidator,
   macroGramsValidator,
   mealSourceValidator,
 } from './validators'
@@ -23,6 +24,7 @@ import {
   combineMacroTotals,
   isZeroMacroTotals,
   macroGrams,
+  normalizeMacroGoals,
   resolveInputMacros,
   scaleMacros,
   sameMacroGrams,
@@ -2093,6 +2095,7 @@ export const createPerson = mutation({
     effectiveDate: v.string(),
     energyProfile: v.optional(energyProfileValidator),
     goalPlan: v.optional(goalPlanValidator),
+    macroGoals: v.optional(macroGoalsValidator),
     reason: v.optional(v.string()),
     // Links the new person to the caller in the same transaction.
     linkedToMe: v.optional(v.boolean()),
@@ -2121,6 +2124,7 @@ export const createPerson = mutation({
       currentDailyGoalKcal: args.currentDailyGoalKcal,
       energyProfile: args.energyProfile,
       goalPlan: args.goalPlan,
+      macroGoals: args.macroGoals && normalizeMacroGoals(args.macroGoals),
       editRevision: 0,
       archived: false,
       createdAt: now,
@@ -2157,6 +2161,8 @@ const updatePersonInput = v.object({
   // Omitted keeps the saved value; a null plan clears it.
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
+  // Omitted keeps the saved goals; null clears them.
+  macroGoals: v.optional(v.union(macroGoalsValidator, v.null())),
 })
 
 /**
@@ -2177,9 +2183,19 @@ export async function updatePersonForOwner(
   assertExpectedEditRevision(person, args.expectedEditRevision, 'Person')
   assertNonEmpty(args.name, 'Name')
   // Name and notes stay the household's; the goal is the linked member's.
+  const macroGoals =
+    args.macroGoals === undefined
+      ? person.macroGoals
+      : args.macroGoals === null
+        ? undefined
+        : normalizeMacroGoals(args.macroGoals)
+  const macroGoalsChanged =
+    JSON.stringify(macroGoals ?? null) !==
+    JSON.stringify(person.macroGoals ?? null)
   if (
     args.energyProfile !== undefined ||
     args.goalPlan !== undefined ||
+    macroGoalsChanged ||
     (args.goalKcal !== undefined &&
       args.goalKcal !== person.currentDailyGoalKcal)
   )
@@ -2192,6 +2208,7 @@ export async function updatePersonForOwner(
     name: args.name.trim(),
     editRevision: nextEditRevision(person, 'Person'),
   }
+  if (macroGoalsChanged) personPatch.macroGoals = macroGoals
   if (args.notes !== undefined) {
     personPatch.notes = normalizeNullableText(args.notes)
   }

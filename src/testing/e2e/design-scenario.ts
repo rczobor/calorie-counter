@@ -770,6 +770,8 @@ export function createDesignData(
               targetWeightKg: 75,
             },
           }),
+          // Protein follows body weight; carbs have no goal.
+          macroGoals: { proteinGPerKg: 1.6, fatG: 70 },
           userId: ownerUserId,
         },
         // Viki keeps weight steady and has never weighed in here.

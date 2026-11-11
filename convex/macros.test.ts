@@ -5,6 +5,7 @@ import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
   insertCookSession,
   insertIngredient,
@@ -489,5 +490,77 @@ describe('macronutrients in the ingredient editor', () => {
     expect(
       await user.query(api.catalog.getIngredient, { ingredientId: createdId }),
     ).toMatchObject({ macros: { proteinG: 13, carbsG: 60, fatG: 7 } })
+  })
+})
+
+describe('macro goals', () => {
+  it('derives the protein target from the latest weigh-in, privately', async () => {
+    const t = setup()
+    const robi = asTestUser(t)
+    const viki = asTestUserWithToken(t, 'https://clerk.example|viki')
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const token = await robi.mutation(api.households.invite, { householdId })
+    await viki.mutation(api.households.acceptInvitation, { token })
+    const personId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Robi',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-04-04',
+      linkedToMe: true,
+    })
+    await robi.mutation(api.weight.record, {
+      householdId,
+      personId,
+      measuredOn: '2026-04-04',
+      weightKg: 82,
+    })
+    const setGoals = (
+      member: typeof robi,
+      revision: number,
+      macroGoals: { proteinGPerKg?: number; fatG?: number } | null,
+    ) =>
+      member.mutation(api.nutrition.updatePerson, {
+        householdId,
+        personId,
+        expectedEditRevision: revision,
+        name: 'Robi',
+        effectiveDate: '2026-04-05',
+        macroGoals,
+      })
+    await setGoals(robi, 0, { proteinGPerKg: 1.6, fatG: 70 })
+    await robi.mutation(api.nutrition.createMeal, {
+      householdId,
+      personId,
+      eatenOn: '2026-04-05',
+      items: [
+        {
+          sourceType: 'fixedCalories',
+          name: 'Skyr',
+          calories: 200,
+          macros: { proteinG: 41, carbsG: 8, fatG: 0.4 },
+        },
+      ],
+    })
+    const day = (member: typeof robi) =>
+      member.query(api.meals.getDayNutrition, {
+        householdId,
+        personId,
+        eatenOn: '2026-04-05',
+      })
+
+    const own = await day(robi)
+    expect(own.macroTargets?.proteinG).toBeCloseTo(131.2, 6)
+    expect(own.macroTargets?.fatG).toBe(70)
+    expect(own.proteinPerKg).toBe(0.5)
+    // The protein target in grams would give another member the weight away.
+    const shared = await day(viki)
+    expect(shared.macroTargets).toEqual({ fatG: 70 })
+    expect(shared.proteinPerKg).toBeUndefined()
+    await expect(setGoals(viki, 1, { fatG: 60 })).rejects.toThrow(
+      'Only the member linked to this person',
+    )
+
+    await setGoals(robi, 1, null)
+    expect((await day(robi)).macroTargets).toBeUndefined()
   })
 })

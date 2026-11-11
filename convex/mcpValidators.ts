@@ -67,6 +67,14 @@ export const dailySummary = v.object({
   mealCount: v.number(),
   remainingCalories: v.number(),
   macros: v.optional(macroTotalsValidator),
+  macroTargets: v.optional(
+    v.object({
+      proteinG: v.optional(v.number()),
+      carbsG: v.optional(v.number()),
+      fatG: v.optional(v.number()),
+    }),
+  ),
+  proteinPerKg: v.optional(v.number()),
   capturedAt: v.number(),
 })
 export const mcpMealItem = v.union(
@@ -435,6 +443,8 @@ export const dayResult = v.object({
   eatenOn: v.string(),
   consumedCalories: v.number(),
   macros: v.optional(macroTotalsValidator),
+  macroTargets: dailySummary.fields.macroTargets,
+  proteinPerKg: v.optional(v.number()),
   goalKcal: v.number(),
   mealCount: v.number(),
   meals: v.array(

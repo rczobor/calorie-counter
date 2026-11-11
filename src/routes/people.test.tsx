@@ -208,6 +208,26 @@ describe('People settings', () => {
     )
     // Another member's goal isn't sent, even unchanged.
     expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('goalKcal')
+    expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('macroGoals')
+    expect(screen.queryByText('Macro goals')).toBeNull()
+  })
+
+  it('saves macro goals, with protein per kg of body weight', async () => {
+    show()
+    openAlex()
+    fireEvent.change(screen.getByLabelText('Protein'), {
+      target: { value: '1.6' },
+    })
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '70' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        'nutrition:updatePerson',
+        expect.objectContaining({
+          macroGoals: { proteinGPerKg: 1.6, carbsG: undefined, fatG: 70 },
+        }),
+      ),
+    )
   })
 
   it('follows a link that changed elsewhere while the editor is open', () => {

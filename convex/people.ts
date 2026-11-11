@@ -12,7 +12,7 @@ import {
   withoutOwner,
 } from './lib/auth'
 import { goalReasonFor } from './lib/personPrivacy'
-import { readDayNutrition } from './lib/dayNutrition'
+import { dayNutrition, readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
   MAX_SEARCH_RESULTS,
@@ -22,6 +22,7 @@ import {
 import {
   energyProfileValidator,
   goalPlanValidator,
+  macroGoalsValidator,
   macroTotalsValidator,
 } from './validators'
 
@@ -33,6 +34,7 @@ const personDto = v.object({
   currentDailyGoalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  macroGoals: v.optional(macroGoalsValidator),
   archived: v.boolean(),
   editRevision: v.number(),
   createdAt: v.number(),
@@ -79,6 +81,8 @@ const personWithTodayDto = personDto.extend({
 
 const personWithDayDto = personWithTodayDto.extend({
   macros: v.optional(macroTotalsValidator),
+  macroTargets: dayNutrition.fields.macroTargets,
+  proteinPerKg: v.optional(v.number()),
   goalKcal: v.number(),
   remainingCalories: v.number(),
   mealCount: v.number(),
@@ -201,6 +205,8 @@ export const listForDay = query({
           ...personWithoutOwner(person, owner.userId),
           consumedCalories: summary.consumedCalories,
           macros: summary.macros,
+          macroTargets: summary.macroTargets,
+          proteinPerKg: summary.proteinPerKg,
           goalKcal: summary.goalKcal,
           remainingCalories: summary.remainingCalories,
           mealCount: summary.mealCount,

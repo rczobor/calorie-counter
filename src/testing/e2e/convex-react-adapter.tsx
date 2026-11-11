@@ -537,12 +537,31 @@ function dayNutrition(
         coveredCalories: covered.reduce((sum, m) => sum + m.coveredCalories, 0),
       }
     : undefined
+  // As the server does: protein's goal and per-kg figure need a weigh-in,
+  // and another member's weight stays private.
+  const weight =
+    person && (!person.userId || person.userId === ownerUserId)
+      ? weightsFor(snapshot, personId)
+          .filter((entry) => entry.measuredOn <= eatenOn)
+          .at(-1)
+      : undefined
+  const goals = person?.macroGoals
   return {
     personId,
     person: person?.name ?? '',
     eatenOn,
     consumedCalories,
     macros,
+    macroTargets: goals && {
+      proteinG:
+        goals.proteinGPerKg !== undefined && weight
+          ? goals.proteinGPerKg * weight.weightKg
+          : undefined,
+      carbsG: goals.carbsG,
+      fatG: goals.fatG,
+    },
+    proteinPerKg:
+      macros && weight ? macros.proteinG / weight.weightKg : undefined,
     goalKcal,
     remainingCalories: goalKcal - consumedCalories,
     mealCount: meals.length,

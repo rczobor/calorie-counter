@@ -39,6 +39,35 @@ export function normalizeMacroGrams(
 }
 
 // Atwater factors. Fiber, alcohol and sugar alcohols explain small gaps.
+const MAX_PROTEIN_G_PER_KG = 5
+const MAX_DAILY_GRAMS = 2000
+
+/** Positive goals within human ranges; an empty set of goals is none. */
+export function normalizeMacroGoals(goals: {
+  proteinGPerKg?: number
+  carbsG?: number
+  fatG?: number
+}) {
+  const check = (value: number | undefined, max: number, name: string) => {
+    if (value === undefined) return undefined
+    if (!Number.isFinite(value) || value <= 0 || value > max)
+      throw new DomainError(`${name} must be above 0 and at most ${max}.`)
+    return Math.round(value * 10) / 10
+  }
+  const normalized = {
+    proteinGPerKg: check(
+      goals.proteinGPerKg,
+      MAX_PROTEIN_G_PER_KG,
+      'Protein goal (g/kg)',
+    ),
+    carbsG: check(goals.carbsG, MAX_DAILY_GRAMS, 'Carbohydrate goal (g)'),
+    fatG: check(goals.fatG, MAX_DAILY_GRAMS, 'Fat goal (g)'),
+  }
+  return Object.values(normalized).some((value) => value !== undefined)
+    ? normalized
+    : undefined
+}
+
 export function caloriesFromMacros(macros: MacroGrams) {
   return Math.round(4 * macros.proteinG + 4 * macros.carbsG + 9 * macros.fatG)
 }

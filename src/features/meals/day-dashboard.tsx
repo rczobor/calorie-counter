@@ -40,7 +40,7 @@ import { WeightGlance } from '@/features/weight/weight-glance'
 import { TodayHint } from '@/features/hints/hints'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { IntakeBar } from '@/features/meals/intake-bar'
-import { MacroSummary } from '@/features/meals/macro-summary'
+import { MacrosCard } from '@/features/meals/macros-card'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
@@ -541,10 +541,6 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                     figure(focused.goalKcal),
                   )}
                 </p>
-                <MacroSummary
-                  macros={focused.macros}
-                  consumedCalories={focused.consumedCalories}
-                />
               </>
             ) : loadingPerson ? (
               <div role="status" aria-label={t.loadingDailyIntake}>
@@ -565,6 +561,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </p>
             )}
           </section>
+        ) : null}
+        {!archived && focused && !loadingPerson ? (
+          <MacrosCard day={focused} />
         ) : null}
         {!archived && selected && !loadingPerson ? (
           <div className="mt-3">
