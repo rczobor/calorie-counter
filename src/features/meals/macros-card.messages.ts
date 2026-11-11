@@ -9,7 +9,6 @@ export const messages = defineMessages({
     protein: 'Protein',
     carbs: 'Carbs',
     fat: 'Fat',
-    grams: (grams: Figure) => rich(grams, ' g'),
     ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
     // The calorie card's words: "801 kcal left", "Goal reached".
     left: (grams: Figure) => rich(grams, ' g left'),
@@ -17,7 +16,7 @@ export const messages = defineMessages({
     goalReached: 'Reached',
     meal: 'Meal',
     noMacros: 'No macros',
-    noGoal: 'No goal',
+    macroGrams: (label: string, grams: string) => `${label} ${grams} g`,
     proteinPerKg: (perKg: string) => `Protein: ${perKg} g/kg`,
     proteinPerKgOfGoal: (perKg: string, goal: string) =>
       `Protein: ${perKg} / ${goal} g/kg`,
@@ -32,13 +31,12 @@ export const messages = defineMessages({
     protein: 'Fehérje',
     carbs: 'Szénhidrát',
     fat: 'Zsír',
-    grams: (grams: Figure) => rich(grams, ' g'),
     ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
     left: (grams: Figure) => rich(grams, ' g maradt'),
     goalReached: 'Elérve',
     meal: 'Étkezés',
     noMacros: 'Nincs makró',
-    noGoal: 'Nincs cél',
+    macroGrams: (label: string, grams: string) => `${label} ${grams} g`,
     // Grams per kilogram of body weight, as Hungarian dietetics writes it.
     proteinPerKg: (perKg: string) => `Fehérje: ${perKg} g/ttkg`,
     proteinPerKgOfGoal: (perKg: string, goal: string) =>

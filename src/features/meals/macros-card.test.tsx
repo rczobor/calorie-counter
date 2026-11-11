@@ -8,7 +8,7 @@ afterEach(cleanup)
 const macros = { proteinG: 51, carbsG: 156, fatG: 71, coveredCalories: 1600 }
 
 describe('day macros card', () => {
-  it('says what is left for macros with a goal and grams for the rest', () => {
+  it('gives each goal a column and lists the other macros below', () => {
     const onOpen = vi.fn()
     render(
       <MacrosCard
@@ -22,10 +22,11 @@ describe('day macros card', () => {
     )
     const card = screen.getByRole('button', { name: /Show macros by meal/ })
     expect(card.textContent).toContain('Protein81 g left51 / 132 g')
-    expect(card.textContent).toContain('CarbsNo goal156 g')
     // Past a goal is not an error: it is reached.
     expect(card.textContent).toContain('FatReached71 / 70 g')
-    expect(card.textContent).toContain('Protein: 0.6 / 1.6 g/kg')
+    expect(card.textContent).toContain('Carbs 156 g')
+    // Protein per kg lives in the sheet, not on Today.
+    expect(card.textContent).not.toContain('g/kg')
     fireEvent.click(card)
     expect(onOpen).toHaveBeenCalled()
   })
@@ -34,8 +35,21 @@ describe('day macros card', () => {
     render(
       <MacrosCard day={{ macroTargets: { carbsG: 250 } }} onOpen={vi.fn()} />,
     )
+    const card = screen.getByRole('button')
+    expect(card.textContent).toContain('Carbs250 g left0 / 250 g')
+    expect(card.textContent).toContain('Protein 0 g · Fat 0 g')
+  })
+
+  it('lists grams only when no goal has a target in grams', () => {
+    // Another member's protein goal: its grams would give their weight away.
+    render(
+      <MacrosCard
+        day={{ macros, macroTargets: { proteinGPerKg: 1.6 } }}
+        onOpen={vi.fn()}
+      />,
+    )
     expect(screen.getByRole('button').textContent).toContain(
-      'Carbs250 g left0 / 250 g',
+      'Protein 51 g · Carbs 156 g · Fat 71 g',
     )
   })
 

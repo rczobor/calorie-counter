@@ -5,6 +5,7 @@ import type { Infer } from 'convex/values'
 import { Value } from '@/components/nutrition/value'
 import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { intakeBarGeometry } from '@/features/meals/intake-bar'
 import { intlLocale, useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
@@ -39,34 +40,34 @@ function oneDecimal(locale: Locale) {
  */
 export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
   const t = useMessages(messages)
-  const locale = useLocale()
   const { macros, macroTargets: targets } = day
   if (!targets) return null
-  const decimal = oneDecimal(locale)
-  const columns = [
+  const macroList = [
     {
       key: 'protein',
       label: t.protein,
-      eaten: macros?.proteinG ?? 0,
+      eaten: Math.round(macros?.proteinG ?? 0),
       goal: targets.proteinG,
     },
     {
       key: 'carbs',
       label: t.carbs,
-      eaten: macros?.carbsG ?? 0,
+      eaten: Math.round(macros?.carbsG ?? 0),
       goal: targets.carbsG,
     },
-    { key: 'fat', label: t.fat, eaten: macros?.fatG ?? 0, goal: targets.fatG },
+    {
+      key: 'fat',
+      label: t.fat,
+      eaten: Math.round(macros?.fatG ?? 0),
+      goal: targets.fatG,
+    },
   ]
-  const perKg =
-    day.proteinPerKg === undefined
-      ? undefined
-      : targets.proteinGPerKg === undefined
-        ? t.proteinPerKg(decimal.format(day.proteinPerKg))
-        : t.proteinPerKgOfGoal(
-            decimal.format(day.proteinPerKg),
-            decimal.format(targets.proteinGPerKg),
-          )
+  // The strip is about the goals the person chose; the other macros are
+  // one quiet line below them.
+  const withGoal = macroList.flatMap(({ goal, ...macro }) =>
+    goal === undefined ? [] : [{ ...macro, goal: Math.round(goal) }],
+  )
+  const others = macroList.filter((macro) => macro.goal === undefined)
   return (
     <button
       type="button"
@@ -76,24 +77,23 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
     >
       <span className="sr-only">{t.showByMeal}</span>
       <span className="min-w-0 flex-1">
-        <span className="grid grid-cols-3 gap-3">
-          {columns.map((column) => {
-            // What is left comes from the figures shown, so the lines agree.
-            const eaten = Math.round(column.eaten)
-            const goal =
-              column.goal === undefined ? undefined : Math.round(column.goal)
-            return (
-              <span key={column.key} className="min-w-0">
+        {withGoal.length ? (
+          <span
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: `repeat(${withGoal.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {withGoal.map((macro) => (
+              <span key={macro.key} className="min-w-0">
                 <span className="block type-footnote text-muted-foreground">
-                  {column.label}
+                  {macro.label}
                 </span>
-                {/* One meaning per line across the columns: the status
-                    against the goal, then what was eaten. */}
+                {/* What is left comes from the figures shown, so the lines
+                    agree. */}
                 <span className="flex items-center gap-1 type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
-                  {goal === undefined ? (
-                    t.noGoal
-                  ) : eaten < goal ? (
-                    t.left(figure(goal - eaten))
+                  {macro.eaten < macro.goal ? (
+                    t.left(figure(macro.goal - macro.eaten))
                   ) : (
                     <>
                       <Check aria-hidden="true" className="size-3.5 shrink-0" />
@@ -103,23 +103,24 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                     </>
                   )}
                 </span>
-                {goal === undefined ? (
-                  <span className="mt-1.5 block h-1.5" aria-hidden="true" />
-                ) : (
-                  <MacroBar eaten={column.eaten} goal={column.goal ?? 0} />
-                )}
+                <MacroBar eaten={macro.eaten} goal={macro.goal} />
                 <span className="mt-1 block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
-                  {goal === undefined
-                    ? t.grams(String(eaten))
-                    : t.ofGoal(String(eaten), String(goal))}
+                  {t.ofGoal(String(macro.eaten), String(macro.goal))}
                 </span>
               </span>
-            )
-          })}
-        </span>
-        {perKg ? (
-          <span className="mt-1.5 block type-footnote text-muted-foreground tabular-nums">
-            {perKg}
+            ))}
+          </span>
+        ) : null}
+        {others.length ? (
+          <span
+            className={cn(
+              'block type-footnote text-muted-foreground tabular-nums',
+              withGoal.length && 'mt-1.5',
+            )}
+          >
+            {others
+              .map((macro) => t.macroGrams(macro.label, String(macro.eaten)))
+              .join(' · ')}
           </span>
         ) : null}
       </span>
@@ -185,12 +186,14 @@ type Meal = Pick<Doc<'meals'>, '_id' | 'name' | 'totalCalories' | 'macros'>
  * link shows only for people the viewer may edit.
  */
 export function MacrosByMealSheet({
+  day,
   meals,
   loading,
   personId,
   canEditGoals,
   onClose,
 }: {
+  day: Day
   meals: Meal[]
   loading: boolean
   personId: Id<'people'>
@@ -198,6 +201,19 @@ export function MacrosByMealSheet({
   onClose: () => void
 }) {
   const t = useMessages(messages)
+  const locale = useLocale()
+  const decimal = oneDecimal(locale)
+  // Protein per kg of the day's weigh-in, against its goal when there is one.
+  const goalPerKg = day.macroTargets?.proteinGPerKg
+  const perKg =
+    day.proteinPerKg === undefined
+      ? undefined
+      : goalPerKg === undefined
+        ? t.proteinPerKg(decimal.format(day.proteinPerKg))
+        : t.proteinPerKgOfGoal(
+            decimal.format(day.proteinPerKg),
+            decimal.format(goalPerKg),
+          )
   const keys = ['proteinG', 'carbsG', 'fatG'] as const
   const columns = keys.map((key) =>
     apportion(meals.map((meal) => meal.macros?.[key] ?? 0)),
@@ -307,6 +323,11 @@ export function MacrosByMealSheet({
             ))}
           </table>
         )}
+        {perKg ? (
+          <p className="mt-3 px-4 type-footnote text-muted-foreground tabular-nums">
+            {perKg}
+          </p>
+        ) : null}
         {canEditGoals ? (
           <Button
             variant="outline"

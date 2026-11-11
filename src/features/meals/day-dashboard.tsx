@@ -568,6 +568,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         ) : null}
         {macrosOpen && selected ? (
           <MacrosByMealSheet
+            day={focused ?? {}}
             meals={meals.results}
             loading={meals.status === 'LoadingFirstPage'}
             personId={selected._id}
