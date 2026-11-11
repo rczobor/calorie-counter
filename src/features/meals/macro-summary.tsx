@@ -33,10 +33,10 @@ export function MacroSummary({
     [t.fat, macros.fatG],
   ] as const
   return (
-    <section aria-label={t.macros} className="mt-4 border-t pt-4">
+    <section aria-label={t.macros} className="mt-3 border-t pt-3">
       {/* Read before the grams, so a partial total is known as partial. */}
       {coverage < FULL_COVERAGE ? (
-        <p className="mb-2 type-footnote text-muted-foreground tabular-nums">
+        <p className="mb-1 type-footnote font-medium text-muted-foreground tabular-nums">
           {t.coverage(Math.round(coverage * 100).toString())}
         </p>
       ) : null}
