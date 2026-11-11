@@ -528,11 +528,24 @@ function dayNutrition(
     0,
   )
   const goalKcal = person?.currentDailyGoalKcal ?? 0
+  const covered = meals.filter((meal) => meal.macros)
+  const macros = covered.length
+    ? {
+        proteinG: covered.reduce((sum, m) => sum + m.macros!.proteinG, 0),
+        carbsG: covered.reduce((sum, m) => sum + m.macros!.carbsG, 0),
+        fatG: covered.reduce((sum, m) => sum + m.macros!.fatG, 0),
+        coveredCalories: covered.reduce(
+          (sum, m) => sum + m.macros!.coveredCalories,
+          0,
+        ),
+      }
+    : undefined
   return {
     personId,
     person: person?.name ?? '',
     eatenOn,
     consumedCalories,
+    macros,
     goalKcal,
     remainingCalories: goalKcal - consumedCalories,
     mealCount: meals.length,
