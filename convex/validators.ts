@@ -112,6 +112,14 @@ export const macroGoalsValidator = v.object({
   fatG: v.optional(v.number()),
 })
 
+// A day's macro goals in grams, plus protein's goal per kg it came from.
+export const macroTargetsValidator = v.object({
+  proteinG: v.optional(v.number()),
+  proteinGPerKg: v.optional(v.number()),
+  carbsG: v.optional(v.number()),
+  fatG: v.optional(v.number()),
+})
+
 export const peopleFields = {
   ...ownerFields,
   // The member account this person is, set only by that member. Unlike

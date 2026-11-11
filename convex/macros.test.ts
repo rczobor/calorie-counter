@@ -554,7 +554,8 @@ describe('macro goals', () => {
     expect(own.proteinPerKg).toBe(0.5)
     // The protein target in grams would give another member the weight away.
     const shared = await day(viki)
-    expect(shared.macroTargets).toEqual({ fatG: 70 })
+    // The goal itself stays the household's to see, as the calorie goal does.
+    expect(shared.macroTargets).toEqual({ proteinGPerKg: 1.6, fatG: 70 })
     expect(shared.proteinPerKg).toBeUndefined()
     await expect(setGoals(viki, 1, { fatG: 60 })).rejects.toThrow(
       'Only the member linked to this person',

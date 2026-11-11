@@ -3,7 +3,7 @@ import type { Id } from '../_generated/dataModel'
 import type { QueryCtx } from '../_generated/server'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './auth'
 import { isAnotherMembers } from './personPrivacy'
-import { macroTotalsValidator } from '../validators'
+import { macroTargetsValidator, macroTotalsValidator } from '../validators'
 
 export const dayNutrition = v.object({
   personId: v.id('people'),
@@ -13,13 +13,7 @@ export const dayNutrition = v.object({
   macros: v.optional(macroTotalsValidator),
   // The day's macro goals in grams. Protein's needs a weigh-in, and neither
   // it nor protein per kg is given for another member's private weight.
-  macroTargets: v.optional(
-    v.object({
-      proteinG: v.optional(v.number()),
-      carbsG: v.optional(v.number()),
-      fatG: v.optional(v.number()),
-    }),
-  ),
+  macroTargets: v.optional(macroTargetsValidator),
   proteinPerKg: v.optional(v.number()),
   goalKcal: v.number(),
   mealCount: v.number(),
@@ -87,6 +81,7 @@ export async function readDayNutrition(
         goals.proteinGPerKg !== undefined && weight
           ? goals.proteinGPerKg * weight.weightKg
           : undefined,
+      proteinGPerKg: goals.proteinGPerKg,
       carbsG: goals.carbsG,
       fatG: goals.fatG,
     },

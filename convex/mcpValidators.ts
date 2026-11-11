@@ -7,6 +7,7 @@ import {
   foodIdentityValidator,
   historicalMealItemInput,
   macroGramsValidator,
+  macroTargetsValidator,
   macroTotalsValidator,
   macrosValidator,
   energyProfileValidator,
@@ -67,13 +68,7 @@ export const dailySummary = v.object({
   mealCount: v.number(),
   remainingCalories: v.number(),
   macros: v.optional(macroTotalsValidator),
-  macroTargets: v.optional(
-    v.object({
-      proteinG: v.optional(v.number()),
-      carbsG: v.optional(v.number()),
-      fatG: v.optional(v.number()),
-    }),
-  ),
+  macroTargets: v.optional(macroTargetsValidator),
   proteinPerKg: v.optional(v.number()),
   capturedAt: v.number(),
 })

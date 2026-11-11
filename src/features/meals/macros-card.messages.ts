@@ -11,6 +11,7 @@ export const messages = defineMessages({
     ofGoal: (grams: ReactNode, goal: ReactNode) =>
       rich(grams, ' / ', goal, ' g'),
     perKg: (grams: string) => `${grams} g/kg`,
+    perKgOfGoal: (grams: string, goal: string) => `${grams} / ${goal} g/kg`,
   },
   hu: {
     macros: 'Makrók',
@@ -21,5 +22,6 @@ export const messages = defineMessages({
       rich(grams, ' / ', goal, ' g'),
     // Grams per kilogram of body weight, as Hungarian dietetics writes it.
     perKg: (grams: string) => `${grams} g/ttkg`,
+    perKgOfGoal: (grams: string, goal: string) => `${grams} / ${goal} g/ttkg`,
   },
 })

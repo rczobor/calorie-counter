@@ -18,13 +18,13 @@ describe('day macros card', () => {
       <MacrosCard
         day={{
           macros,
-          macroTargets: { proteinG: 131.2, fatG: 70 },
+          macroTargets: { proteinG: 131.2, proteinGPerKg: 1.6, fatG: 70 },
           proteinPerKg: 1.12,
         }}
       />,
     )
     const card = screen.getByRole('region', { name: 'Macros' })
-    expect(card.textContent).toContain('Protein1.1 g/kg ·92 / 131 g')
+    expect(card.textContent).toContain('Protein1.1 / 1.6 g/kg92 / 131 g')
     expect(card.textContent).toContain('Carbs180 g')
     expect(card.textContent).toContain('Fat60 / 70 g')
   })

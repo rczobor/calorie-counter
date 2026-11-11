@@ -557,6 +557,7 @@ function dayNutrition(
         goals.proteinGPerKg !== undefined && weight
           ? goals.proteinGPerKg * weight.weightKg
           : undefined,
+      proteinGPerKg: goals.proteinGPerKg,
       carbsG: goals.carbsG,
       fatG: goals.fatG,
     },

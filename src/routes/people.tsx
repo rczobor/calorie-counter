@@ -541,6 +541,7 @@ function PeopleContent() {
                           unit={unit === 'perKg' ? t.perKgUnit : unit}
                           min="0"
                           step="any"
+                          placeholder={t.noGoal}
                           value={macroGoals[key]}
                           onChange={(event) =>
                             setMacroGoals((current) => ({
