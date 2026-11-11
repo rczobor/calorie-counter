@@ -2,12 +2,14 @@ import { v } from 'convex/values'
 import type { Id } from '../_generated/dataModel'
 import type { QueryCtx } from '../_generated/server'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './auth'
+import { macroTotalsValidator } from '../validators'
 
 export const dayNutrition = v.object({
   personId: v.id('people'),
   person: v.string(),
   eatenOn: v.string(),
   consumedCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   goalKcal: v.number(),
   mealCount: v.number(),
   remainingCalories: v.number(),
@@ -53,6 +55,7 @@ export async function readDayNutrition(
     person: person.name,
     eatenOn,
     consumedCalories,
+    macros: summary?.macros,
     goalKcal,
     mealCount: summary?.mealCount ?? 0,
     remainingCalories: goalKcal - consumedCalories,

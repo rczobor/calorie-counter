@@ -16,8 +16,20 @@ import {
   expectedNutritionSnapshotValidator,
   energyProfileValidator,
   goalPlanValidator,
+  macroGramsValidator,
   mealSourceValidator,
 } from './validators'
+import {
+  combineMacroTotals,
+  isZeroMacroTotals,
+  macroGrams,
+  resolveInputMacros,
+  scaleMacros,
+  scaleOptionalMacros,
+  settleMacroTotals,
+  type MacroGrams,
+  type MacroTotals,
+} from './lib/macros'
 import {
   assertOwnedOrThrow,
   type AuthenticatedOwner,
@@ -233,6 +245,8 @@ export const cookedFoodIngredientValidator = v.union(
     referenceUnit: nutritionUnitValidator,
     countedAmount: v.optional(v.number()),
     saveToCatalog: v.optional(v.boolean()),
+    // Per 100 of kcalBasisUnit; null clears them.
+    macros: v.optional(v.union(macroGramsValidator, v.null())),
     nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
@@ -268,6 +282,8 @@ export const mealItemInputValidator = v.union(
     ignoreCalories: v.boolean(),
     consumedWeightGrams: v.number(),
     saveToCatalog: v.optional(v.boolean()),
+    // Per 100 g; null clears them.
+    macros: v.optional(v.union(macroGramsValidator, v.null())),
     nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
@@ -287,6 +303,8 @@ export const mealItemInputValidator = v.union(
     ...mealEvidenceFields,
     name: v.string(),
     calories: v.number(),
+    // For the whole item; null clears them.
+    macros: v.optional(v.union(macroGramsValidator, v.null())),
     nutritionProvenance: v.optional(nutritionProvenanceValidator),
     notes: optionalNullableStringValidator,
   }),
@@ -415,6 +433,7 @@ type CookedIngredientSnapshotBase = {
   ingredientKcalBasisUnitSnapshot: NutritionUnit
   ignoreCaloriesSnapshot: boolean
   ingredientCaloriesSnapshot: number
+  macrosSnapshot?: MacroGrams
   notes?: string
 }
 
@@ -438,6 +457,7 @@ type WeightedMealItemSnapshot = {
   kcalBasisUnitSnapshot: NutritionUnit
   ignoreCaloriesSnapshot: boolean
   caloriesSnapshot: number
+  macrosSnapshot?: MacroGrams
   notes?: string
 }
 
@@ -462,6 +482,7 @@ type MealItemSnapshot =
       nutritionProvenance?: NutritionProvenance
       nameSnapshot: string
       caloriesSnapshot: number
+      macrosSnapshot?: MacroGrams
       notes?: string
     }
 
@@ -667,6 +688,21 @@ export async function buildCookedFoodNutrition(
     options?.persistAllCustomIngredients ?? false
   let totalRawWeightGrams = 0
   let totalCalories = 0
+  // A batch has macros only when every line that adds calories has them.
+  let totalMacros: MacroGrams | undefined = { proteinG: 0, carbsG: 0, fatG: 0 }
+  const addLineMacros = (
+    macros: MacroGrams | undefined,
+    countedAmount: number | undefined,
+    ignoreCalories: boolean,
+  ) => {
+    if (ignoreCalories || countedAmount === undefined || !totalMacros) return
+    const added = macros && scaleMacros(macros, countedAmount / 100)
+    totalMacros = added && {
+      proteinG: totalMacros.proteinG + added.proteinG,
+      carbsG: totalMacros.carbsG + added.carbsG,
+      fatG: totalMacros.fatG + added.fatG,
+    }
+  }
   const ingredientSnapshots: CookedIngredientSnapshot[] = []
   for (const line of ingredients) {
     assertPositive(line.referenceAmount, 'Ingredient amount')
@@ -713,6 +749,14 @@ export async function buildCookedFoodNutrition(
           totalCalories + ingredientCalories,
           'Cooked food total calories',
         )
+        const macrosSnapshot = existing.ignoreCaloriesSnapshot
+          ? undefined
+          : existing.macrosSnapshot
+        addLineMacros(
+          macrosSnapshot,
+          countedAmount,
+          existing.ignoreCaloriesSnapshot,
+        )
         ingredientSnapshots.push({
           existingCookedFoodIngredientId: existing._id,
           sourceType: 'ingredient',
@@ -726,6 +770,7 @@ export async function buildCookedFoodNutrition(
             existing.ingredientKcalBasisUnitSnapshot,
           ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
           ingredientCaloriesSnapshot: ingredientCalories,
+          macrosSnapshot,
           notes: normalizeInputNotes(line.notes, existing.notes),
         })
         continue
@@ -772,6 +817,10 @@ export async function buildCookedFoodNutrition(
         totalCalories + ingredientCalories,
         'Cooked food total calories',
       )
+      const macrosSnapshot = ignoreCalories
+        ? undefined
+        : macroGrams(ingredient.macros)
+      addLineMacros(macrosSnapshot, countedAmount, ignoreCalories)
       ingredientSnapshots.push({
         sourceType: 'ingredient',
         ingredientId: ingredient._id,
@@ -783,6 +832,7 @@ export async function buildCookedFoodNutrition(
         ingredientKcalBasisUnitSnapshot: ingredient.kcalBasisUnit,
         ignoreCaloriesSnapshot: ignoreCalories,
         ingredientCaloriesSnapshot: ingredientCalories,
+        macrosSnapshot,
         notes: normalizeInputNotes(line.notes),
       })
       continue
@@ -852,6 +902,17 @@ export async function buildCookedFoodNutrition(
         totalCalories + ingredientCalories,
         'Cooked food total calories',
       )
+      const macrosSnapshot = resolveInputMacros(line.macros, {
+        per100Grams: kcalBasisUnit === 'g',
+        ignoreCalories,
+        existing: {
+          macros: existing.macrosSnapshot,
+          caloriesUnchanged:
+            normalizedKcalPer100 === existing.ingredientKcalPer100Snapshot &&
+            kcalBasisUnit === existing.ingredientKcalBasisUnitSnapshot,
+        },
+      })
+      addLineMacros(macrosSnapshot, countedAmount, ignoreCalories)
       ingredientSnapshots.push({
         existingCookedFoodIngredientId: existing._id,
         sourceType: 'custom',
@@ -864,6 +925,7 @@ export async function buildCookedFoodNutrition(
         ingredientKcalBasisUnitSnapshot: kcalBasisUnit,
         ignoreCaloriesSnapshot: ignoreCalories,
         ingredientCaloriesSnapshot: ingredientCalories,
+        macrosSnapshot,
         notes: normalizeInputNotes(line.notes, existing.notes),
       })
       continue
@@ -924,6 +986,11 @@ export async function buildCookedFoodNutrition(
       totalCalories + ingredientCalories,
       'Cooked food total calories',
     )
+    const macrosSnapshot = resolveInputMacros(line.macros, {
+      per100Grams: kcalBasisUnit === 'g',
+      ignoreCalories,
+    })
+    addLineMacros(macrosSnapshot, countedAmount, ignoreCalories)
     ingredientSnapshots.push({
       sourceType: 'custom',
       ingredientId: savedIngredientId,
@@ -935,6 +1002,7 @@ export async function buildCookedFoodNutrition(
       ingredientKcalBasisUnitSnapshot: kcalBasisUnit,
       ignoreCaloriesSnapshot: ignoreCalories,
       ingredientCaloriesSnapshot: ingredientCalories,
+      macrosSnapshot,
       notes: normalizeInputNotes(line.notes),
     })
   }
@@ -954,6 +1022,10 @@ export async function buildCookedFoodNutrition(
     totalRawWeightGrams,
     totalCalories,
     kcalPer100: cookedFoodCalorieDensity(totalCalories, finishedWeightGrams),
+    macros:
+      totalCalories > 0
+        ? scaleOptionalMacros(totalMacros, 100 / finishedWeightGrams)
+        : undefined,
     ingredientSnapshots,
   }
 }
@@ -1219,6 +1291,7 @@ async function insertCookedIngredientSnapshots(
           snapshot.ingredientKcalBasisUnitSnapshot,
         ignoreCaloriesSnapshot: snapshot.ignoreCaloriesSnapshot,
         ingredientCaloriesSnapshot: snapshot.ingredientCaloriesSnapshot,
+        macrosSnapshot: snapshot.macrosSnapshot,
         nutritionProvenance: snapshot.nutritionProvenance,
         notes: snapshot.notes,
       }
@@ -1269,6 +1342,7 @@ async function reconcileCookedIngredientSnapshots(
           snapshot.ingredientKcalBasisUnitSnapshot,
         ignoreCaloriesSnapshot: snapshot.ignoreCaloriesSnapshot,
         ingredientCaloriesSnapshot: snapshot.ingredientCaloriesSnapshot,
+        macrosSnapshot: snapshot.macrosSnapshot,
         nutritionProvenance: snapshot.nutritionProvenance,
         notes: snapshot.notes,
       }
@@ -1425,7 +1499,15 @@ export async function buildMealItemSnapshots(
                 'Consumed servings',
               )
         if (snapshot.sourceType === 'fixedCalories')
-          return { ...snapshot, caloriesSnapshot, servingCount }
+          return {
+            ...snapshot,
+            caloriesSnapshot,
+            servingCount,
+            macrosSnapshot: scaleOptionalMacros(
+              snapshot.macrosSnapshot,
+              item.multiplier,
+            ),
+          }
         return {
           ...snapshot,
           caloriesSnapshot,
@@ -1460,6 +1542,7 @@ export async function buildMealItemSnapshots(
             kcalBasisUnitSnapshot: existing.kcalBasisUnitSnapshot,
             ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
             caloriesSnapshot: calories,
+            macrosSnapshot: existing.macrosSnapshot,
             notes: normalizeInputNotes(item.notes, existing.notes),
           }
         }
@@ -1510,6 +1593,9 @@ export async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: kcalBasisUnit,
           ignoreCaloriesSnapshot: ignoreCalories,
           caloriesSnapshot: calories,
+          macrosSnapshot: ignoreCalories
+            ? undefined
+            : macroGrams(ingredient.macros),
           notes: normalizeInputNotes(item.notes),
         }
       }
@@ -1589,6 +1675,18 @@ export async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: kcalBasisUnit,
           ignoreCaloriesSnapshot: item.ignoreCalories,
           caloriesSnapshot: calories,
+          macrosSnapshot: resolveInputMacros(item.macros, {
+            per100Grams: true,
+            ignoreCalories: item.ignoreCalories,
+            existing:
+              existing?.sourceType === 'customByWeight'
+                ? {
+                    macros: existing.macrosSnapshot,
+                    caloriesUnchanged:
+                      existing.kcalPer100Snapshot === normalizedKcalPer100,
+                  }
+                : undefined,
+          }),
           notes: normalizeInputNotes(
             item.notes,
             existing?.sourceType === 'customByWeight'
@@ -1614,6 +1712,14 @@ export async function buildMealItemSnapshots(
             item.calories,
             'Meal item calories',
           ),
+          macrosSnapshot: resolveInputMacros(item.macros, {
+            per100Grams: false,
+            ignoreCalories: false,
+            existing: existing && {
+              macros: existing.macrosSnapshot,
+              caloriesUnchanged: existing.caloriesSnapshot === item.calories,
+            },
+          }),
           notes: normalizeInputNotes(item.notes, existing?.notes),
         }
       }
@@ -1642,6 +1748,7 @@ export async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: existing.kcalBasisUnitSnapshot,
           ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
           caloriesSnapshot: calories,
+          macrosSnapshot: existing.macrosSnapshot,
           notes: normalizeInputNotes(item.notes, existing.notes),
         }
       }
@@ -1677,6 +1784,7 @@ export async function buildMealItemSnapshots(
         kcalBasisUnitSnapshot: 'g' as const,
         ignoreCaloriesSnapshot: false,
         caloriesSnapshot: calories,
+        macrosSnapshot: cookedFood.macros,
         notes: normalizeInputNotes(item.notes),
       }
     }),
@@ -1739,6 +1847,7 @@ function mealItemDocument(
     foodIdentity: snapshot.foodIdentity,
     servingCount: snapshot.servingCount,
     caloriesSnapshot: snapshot.caloriesSnapshot,
+    macrosSnapshot: snapshot.macrosSnapshot,
     nutritionProvenance: snapshot.nutritionProvenance,
     notes: snapshot.notes,
   }
@@ -1794,6 +1903,22 @@ async function writeMealItemSnapshots(
   )
 }
 
+export function sumMealItemMacros(snapshots: MealItemSnapshot[]) {
+  return settleMacroTotals(
+    snapshots.reduce<MacroTotals | undefined>((total, item) => {
+      if (!item.macrosSnapshot) return total
+      const grams =
+        item.sourceType === 'fixedCalories'
+          ? item.macrosSnapshot
+          : scaleMacros(item.macrosSnapshot, item.consumedWeightGrams / 100)
+      return combineMacroTotals(total, {
+        ...grams,
+        coveredCalories: item.caloriesSnapshot,
+      })
+    }, undefined),
+  )
+}
+
 export function sumMealItemCalories(snapshots: MealItemSnapshot[]) {
   return snapshots.reduce(
     (total, item) =>
@@ -1827,12 +1952,16 @@ async function adjustDailySummary(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
   key: { personId: Id<'people'>; eatenOn: string },
-  delta: { consumedCalories: number; mealCount: number },
+  delta: { consumedCalories: number; mealCount: number; macros?: MacroTotals },
   now: number,
 ) {
   assertFiniteDerived(delta.consumedCalories, 'Daily summary calorie change')
   assertSafeDerivedInteger(delta.mealCount, 'Daily summary meal count change')
-  if (delta.consumedCalories === 0 && delta.mealCount === 0) {
+  if (
+    delta.consumedCalories === 0 &&
+    delta.mealCount === 0 &&
+    isZeroMacroTotals(delta.macros)
+  ) {
     return
   }
   const current = await db
@@ -1854,9 +1983,14 @@ async function adjustDailySummary(
     }
     return
   }
+  // Days summarized before macros existed simply start from no macros.
+  const macros = settleMacroTotals(
+    combineMacroTotals(current?.macros, delta.macros),
+  )
   if (current) {
     await db.patch(current._id, {
       consumedCalories: Math.max(0, consumedCalories),
+      macros,
       mealCount,
       updatedAt: now,
     })
@@ -1866,6 +2000,7 @@ async function adjustDailySummary(
     ...ownerFields(owner),
     ...key,
     consumedCalories,
+    macros,
     mealCount,
     createdAt: now,
     updatedAt: now,
@@ -3251,6 +3386,7 @@ export async function createCookedFoodForOwner(
     totalRawWeightGrams: nutrition.totalRawWeightGrams,
     totalCalories: nutrition.totalCalories,
     kcalPer100: nutrition.kcalPer100,
+    macros: nutrition.macros,
     nutritionProvenance: combineNutritionProvenance(
       summarizeEstimates(nutrition.ingredientSnapshots),
       args.nutritionProvenance,
@@ -3341,6 +3477,11 @@ export async function prepareCookedFoodWeightCorrection(
       food.totalCalories,
       input.finishedWeightGrams,
     ),
+    // The batch's total macros stay put; only their density changes.
+    macros: scaleOptionalMacros(
+      food.macros,
+      food.finishedWeightGrams / input.finishedWeightGrams,
+    ),
   }
 }
 
@@ -3350,11 +3491,12 @@ export async function correctCookedFoodWeightForOwner(
   input: Parameters<typeof prepareCookedFoodWeightCorrection>[2],
 ) {
   const correction = await prepareCookedFoodWeightCorrection(ctx, owner, input)
-  const { food, finishedWeightGrams, kcalPer100 } = correction
+  const { food, finishedWeightGrams, kcalPer100, macros } = correction
   // Only the yield changes. Ingredient evidence and existing meal snapshots stay intact.
   await ctx.db.patch(food._id, {
     finishedWeightGrams,
     kcalPer100,
+    macros,
     editRevision: nextEditRevision(food, 'Cooked food'),
   })
   await touchCookSession(ctx, owner, food.cookSessionId)
@@ -3456,6 +3598,7 @@ export const updateCookedFood = mutation({
       totalRawWeightGrams: nutrition.totalRawWeightGrams,
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
+      macros: nutrition.macros,
       nutritionProvenance:
         combineNutritionProvenance(
           summarizeEstimates(nutrition.ingredientSnapshots),
@@ -3575,6 +3718,7 @@ export async function createMealForOwner(
   const itemSnapshots = await buildMealItemSnapshots(ctx.db, owner, args.items)
   const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
   const totalCalories = sumMealItemCalories(itemSnapshots)
+  const macros = sumMealItemMacros(itemSnapshots)
   const mealId = await ctx.db.insert('meals', {
     ...ownerFields(owner),
     personId: args.personId,
@@ -3583,6 +3727,7 @@ export async function createMealForOwner(
     notes: normalizeOptionalText(args.notes, 'Meal notes', MAX_NOTES_LENGTH),
     archived: false,
     totalCalories,
+    macros,
     itemCount: itemSnapshots.length,
     editRevision: 0,
     createdAt: now,
@@ -3593,7 +3738,7 @@ export async function createMealForOwner(
     ctx.db,
     owner,
     { personId: args.personId, eatenOn },
-    { consumedCalories: totalCalories, mealCount: 1 },
+    { consumedCalories: totalCalories, mealCount: 1, macros },
     now,
   )
   return mealId
@@ -3665,6 +3810,7 @@ export async function updateMealForOwner(
     existingItemsById,
   })
   const totalCalories = sumMealItemCalories(snapshots)
+  const macros = sumMealItemMacros(snapshots)
   const eatenOn = normalizeRequiredDate(args.eatenOn, 'Meal date')
   const mealPatch: {
     personId: Id<'people'>
@@ -3672,6 +3818,7 @@ export async function updateMealForOwner(
     eatenOn: string
     notes?: string
     totalCalories: number
+    macros: MacroTotals | undefined
     itemCount: number
     editRevision: number
   } = {
@@ -3679,6 +3826,7 @@ export async function updateMealForOwner(
     name: normalizeOptionalText(args.name, 'Meal name', MAX_NAME_LENGTH),
     eatenOn,
     totalCalories,
+    macros,
     itemCount: snapshots.length,
     editRevision: nextEditRevision(meal, 'Meal'),
   }
@@ -3716,6 +3864,7 @@ export async function updateMealForOwner(
         {
           consumedCalories: totalCalories - meal.totalCalories,
           mealCount: 0,
+          macros: combineMacroTotals(macros, meal.macros, -1),
         },
         now,
       )
@@ -3724,14 +3873,18 @@ export async function updateMealForOwner(
         ctx.db,
         owner,
         oldKey,
-        { consumedCalories: -meal.totalCalories, mealCount: -1 },
+        {
+          consumedCalories: -meal.totalCalories,
+          mealCount: -1,
+          macros: combineMacroTotals(undefined, meal.macros, -1),
+        },
         now,
       )
       await adjustDailySummary(
         ctx.db,
         owner,
         newKey,
-        { consumedCalories: totalCalories, mealCount: 1 },
+        { consumedCalories: totalCalories, mealCount: 1, macros },
         now,
       )
     }
@@ -3785,6 +3938,11 @@ export const setMealArchived = mutation({
           ? -meal.totalCalories
           : meal.totalCalories,
         mealCount: args.archived ? -1 : 1,
+        macros: combineMacroTotals(
+          undefined,
+          meal.macros,
+          args.archived ? -1 : 1,
+        ),
       },
       Date.now(),
     )
@@ -3824,7 +3982,11 @@ export const deleteMeal = mutation({
         ctx.db,
         owner,
         { personId: meal.personId, eatenOn: meal.eatenOn },
-        { consumedCalories: -meal.totalCalories, mealCount: -1 },
+        {
+          consumedCalories: -meal.totalCalories,
+          mealCount: -1,
+          macros: combineMacroTotals(undefined, meal.macros, -1),
+        },
         Date.now(),
       )
     }

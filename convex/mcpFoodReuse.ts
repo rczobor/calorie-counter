@@ -47,6 +47,7 @@ import {
   buildMealItemSnapshots,
 } from './nutrition'
 import { foodIdentityValidator } from './validators'
+import { macroGrams, scaleMacros, scaleOptionalMacros } from './lib/macros'
 import { prepareMeal, resolveMealItems } from './mcpOperations'
 
 export function savedFoodIdentityKey(
@@ -80,6 +81,24 @@ function reusableNutrition(
         ignoreCalories: item.caloriesSnapshot === 0,
       }
     : { kind: 'fixedCalories', calories: perServing }
+}
+
+// Same basis as reusableNutrition: per 100 g or ml, or per serving.
+function reusableMacros(
+  item: Doc<'mealItems'>,
+  nutrition: Doc<'mcpSavedFoods'>['nutrition'],
+): Doc<'mcpSavedFoods'>['macros'] {
+  if (!item.macrosSnapshot) return undefined
+  const perServing =
+    item.sourceType === 'fixedCalories'
+      ? scaleMacros(item.macrosSnapshot, 1 / (item.servingCount ?? 1))
+      : item.macrosSnapshot
+  return {
+    ...(nutrition.kind === 'byVolume'
+      ? scaleMacros(perServing, 100)
+      : perServing),
+    nutritionProvenance: item.nutritionProvenance,
+  }
 }
 
 function reusableIdentity(item: Doc<'mealItems'>) {
@@ -415,12 +434,14 @@ export async function freezeTemplateItems(
         ...common,
         sourceType: 'fixedCalories',
         calories: snapshot.caloriesSnapshot,
+        macros: snapshot.macrosSnapshot,
       }
     return {
       ...common,
       sourceType: 'customByWeight',
       kcalPer100: snapshot.kcalPer100Snapshot,
       ignoreCalories: snapshot.ignoreCaloriesSnapshot,
+      macros: snapshot.macrosSnapshot,
       consumedWeightGrams: snapshot.consumedWeightGrams,
     }
   })
@@ -836,6 +857,10 @@ export async function resolveSavedMealItem(
         ...common,
         sourceType: 'fixedCalories',
         calories,
+        macros: scaleOptionalMacros(
+          macroGrams(food.macros),
+          item.portion.ml / 100,
+        ),
         servingCount: item.portion.ml,
       },
       expectedSnapshot,
@@ -851,6 +876,7 @@ export async function resolveSavedMealItem(
         sourceType: 'customByWeight',
         kcalPer100: food.nutrition.kcalPer100,
         ignoreCalories: food.nutrition.ignoreCalories,
+        macros: macroGrams(food.macros),
         consumedWeightGrams: item.portion.grams,
       },
       expectedSnapshot,
@@ -867,6 +893,10 @@ export async function resolveSavedMealItem(
       ...common,
       sourceType: 'fixedCalories',
       calories,
+      macros: scaleOptionalMacros(
+        macroGrams(food.macros),
+        item.portion.servings,
+      ),
       servingCount: item.portion.servings,
     },
     expectedSnapshot,
@@ -954,6 +984,7 @@ export async function resolveCookedIngredient(
       kcalPer100: food.kcalPer100,
       kcalBasisUnit: 'g',
       ignoreCalories: food.kcalPer100 === 0,
+      macros: food.macros,
       referenceAmount: item.consumedWeightGrams,
       referenceUnit: 'g',
       countedAmount: item.consumedWeightGrams,
@@ -1067,11 +1098,8 @@ export const saveFoodFromMeal = internalMutation({
         throw new ConvexError(
           'Fixed foods need a serving or ml basis; grams require a weighted food.',
         )
-      const nutrition = reusableNutrition({
-        ...item,
-        foodIdentity,
-        servingCount: sourceServings,
-      })
+      const reusable = { ...item, foodIdentity, servingCount: sourceServings }
+      const nutrition = reusableNutrition(reusable)
       await limiter.limit(ctx, 'writes', {
         key: owner.userId,
         throws: true,
@@ -1127,6 +1155,7 @@ export const saveFoodFromMeal = internalMutation({
           foodIdentity,
           nutrition,
           nutritionProvenance: item.nutritionProvenance,
+          macros: reusableMacros(reusable, nutrition),
           sourceMealId: meal._id,
           sourceItemId: item._id,
           createdAt: Date.now(),

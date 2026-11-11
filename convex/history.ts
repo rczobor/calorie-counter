@@ -7,6 +7,7 @@ import { v } from 'convex/values'
 import { query } from './_generated/server'
 import { requireAuthenticatedHousehold, withoutOwner } from './lib/auth'
 import { goalReasonFor } from './lib/personPrivacy'
+import { macroTotalsValidator } from './validators'
 import {
   assertHistoryRange,
   assertPageSize,
@@ -20,6 +21,7 @@ const summaryDto = v.object({
   personId: v.id('people'),
   eatenOn: v.string(),
   consumedCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   mealCount: v.number(),
   createdAt: v.number(),
   updatedAt: v.number(),
