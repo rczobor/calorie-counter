@@ -7,9 +7,11 @@ import {
   foodIdentityValidator,
   historicalMealItemInput,
   macroGramsValidator,
+  macroTargetsValidator,
   macroTotalsValidator,
   macrosValidator,
   energyProfileValidator,
+  macroGoalsValidator,
   goalPlanValidator,
 } from './validators'
 
@@ -67,6 +69,8 @@ export const dailySummary = v.object({
   mealCount: v.number(),
   remainingCalories: v.number(),
   macros: v.optional(macroTotalsValidator),
+  macroTargets: v.optional(macroTargetsValidator),
+  proteinPerKg: v.optional(v.number()),
   capturedAt: v.number(),
 })
 export const mcpMealItem = v.union(
@@ -435,6 +439,8 @@ export const dayResult = v.object({
   eatenOn: v.string(),
   consumedCalories: v.number(),
   macros: v.optional(macroTotalsValidator),
+  macroTargets: dailySummary.fields.macroTargets,
+  proteinPerKg: v.optional(v.number()),
   goalKcal: v.number(),
   mealCount: v.number(),
   meals: v.array(
@@ -605,6 +611,7 @@ const goalState = v.object({
   goalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  macroGoals: v.optional(macroGoalsValidator),
 })
 
 export const goalStatusResult = v.object({
@@ -615,6 +622,7 @@ export const goalStatusResult = v.object({
   currentGoalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  macroGoals: v.optional(macroGoalsValidator),
   history: v.array(
     v.object({
       effectiveDate: v.string(),
@@ -635,6 +643,8 @@ export const goalChangeInput = v.object({
   energyProfile: v.optional(energyProfileValidator),
   // Omitted keeps the saved plan; null clears it.
   goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
+  // Omitted keeps the saved macro goals; null clears them.
+  macroGoals: v.optional(v.union(macroGoalsValidator, v.null())),
   reason: v.optional(v.string()),
 })
 

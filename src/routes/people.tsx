@@ -23,6 +23,7 @@ import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { describePlan } from '@/features/energy/energy-format'
 import { WhichOneIsYou } from '@/features/households/which-one-is-you'
@@ -32,6 +33,7 @@ import {
   type CalculatorChoice,
 } from '@/features/energy/goal-calculator'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { formatAmount } from '@/i18n/format'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
@@ -41,9 +43,49 @@ import { cn } from '@/lib/utils'
 import { messages } from './people.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
+
+// Protein is grams a day (no weigh-ins needed) or grams per kg of body weight.
+type ProteinUnit = 'perDay' | 'perKg'
+type MacroGoalDraft = {
+  protein: string
+  proteinUnit: ProteinUnit
+  carbsG: string
+  fatG: string
+}
+const emptyMacroGoals: MacroGoalDraft = {
+  protein: '',
+  proteinUnit: 'perDay',
+  carbsG: '',
+  fatG: '',
+}
+
+function macroGoalDraft(goals: Person['macroGoals']): MacroGoalDraft {
+  return {
+    protein: (goals?.proteinG ?? goals?.proteinGPerKg)?.toString() ?? '',
+    proteinUnit: goals?.proteinGPerKg === undefined ? 'perDay' : 'perKg',
+    carbsG: goals?.carbsG?.toString() ?? '',
+    fatG: goals?.fatG?.toString() ?? '',
+  }
+}
+
+// Empty fields are no goal; no goals at all clears them.
+function parseMacroGoals(draft: MacroGoalDraft) {
+  const value = (text: string) => (text.trim() ? Number(text) : undefined)
+  const protein = value(draft.protein)
+  const goals = {
+    proteinG: draft.proteinUnit === 'perDay' ? protein : undefined,
+    proteinGPerKg: draft.proteinUnit === 'perKg' ? protein : undefined,
+    carbsG: value(draft.carbsG),
+    fatG: value(draft.fatG),
+  }
+  return Object.values(goals).some((goal) => goal !== undefined) ? goals : null
+}
 const PAGE_SIZE = 20
 export const Route = createFileRoute('/people')({
   ssr: false,
+  // `edit` opens that person's editor, as Today's macro goals link does.
+  validateSearch: (search: Record<string, unknown>): { edit?: string } =>
+    typeof search.edit === 'string' ? { edit: search.edit } : {},
   component: PeoplePage,
 })
 
@@ -59,6 +101,9 @@ function PeopleContent() {
   const [editing, setEditing] = useState<Person | null>()
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
+  const [macroGoals, setMacroGoals] = useState(emptyMacroGoals)
+  // The weigh-in a protein goal follows is today's, as of opening the page.
+  const [today] = useState(() => toLocalDateString(Date.now()))
   const [reason, setReason] = useState('')
   // The switch's unsaved choice; null follows the saved link, which can
   // change on another device while the editor is open.
@@ -93,6 +138,29 @@ function PeopleContent() {
     api.people.get,
     editing ? { personId: editing._id } : 'skip',
   )
+  const { edit } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  // Opens the linked person once their row loads, then drops the link so a
+  // reload or Back doesn't reopen it.
+  const [openedLink, setOpenedLink] = useState<string>()
+  const linkedPerson =
+    edit && edit !== openedLink
+      ? people.find((person) => person._id === edit)
+      : undefined
+  if (linkedPerson) {
+    setOpenedLink(linkedPerson._id)
+    beginEdit(linkedPerson)
+  }
+  // A link to someone not among the loaded people (archived, or past the
+  // first page) is dropped once the list has loaded.
+  const linkUnusable =
+    edit !== undefined &&
+    active.status !== 'LoadingFirstPage' &&
+    !people.some((person) => person._id === edit)
+  useEffect(() => {
+    if ((openedLink && edit === openedLink) || linkUnusable)
+      void navigate({ search: {}, replace: true })
+  }, [edit, linkUnusable, navigate, openedLink])
   // A person removed elsewhere has no goal history to load.
   const history = usePaginatedQuery(
     api.people.listGoalHistory,
@@ -127,13 +195,33 @@ function PeopleContent() {
     live?.linkedAccount === 'other' ? false : (isMeChoice ?? savedIsMe)
   const linkPending = isMe !== savedIsMe
   const goalChanged = goal !== String(editing?.currentDailyGoalKcal ?? 2200)
+  // Compares parsed goals, so a unit switch on an empty field isn't a change.
+  const macroGoalsChanged =
+    JSON.stringify(parseMacroGoals(macroGoals)) !==
+    JSON.stringify(parseMacroGoals(macroGoalDraft(editing?.macroGoals)))
   // A reason belongs to a goal change: hidden and never sent without one.
   const goalReason = goalChanged ? reason.trim() || undefined : undefined
   const profileDirty =
-    name !== (editing?.name ?? '') || goalChanged || plan !== null
+    name !== (editing?.name ?? '') ||
+    goalChanged ||
+    macroGoalsChanged ||
+    plan !== null
   const dirty = editing !== undefined && (profileDirty || linkPending)
   // Another member's person: the household sees the goal, only they change it.
   const goalLocked = live?.linkedAccount === 'other'
+  // What a protein goal per kg comes to today, from the latest weigh-in.
+  const currentWeight = useQuery(
+    api.weight.latestOnOrBefore,
+    editing && !goalLocked ? { personId: editing._id, date: today } : 'skip',
+  )
+  const proteinPerKgGoal = Number(macroGoals.protein)
+  const proteinGrams =
+    currentWeight &&
+    macroGoals.proteinUnit === 'perKg' &&
+    macroGoals.protein.trim() &&
+    proteinPerKgGoal > 0
+      ? proteinPerKgGoal * currentWeight.weightKg
+      : undefined
   const linkGroup = useRef<HTMLElement>(null)
   // A pending link change grows the caption and footer past the sticky action
   // bar on a phone; once it renders, scroll the sheet to show the group.
@@ -225,6 +313,7 @@ function PeopleContent() {
             // The calculator's reason starts a new person's goal history.
             reason: reason.trim() || undefined,
             ...plan,
+            macroGoals: parseMacroGoals(macroGoals) ?? undefined,
             linkedToMe: linkChange,
           })
         else if (profileDirty)
@@ -237,6 +326,9 @@ function PeopleContent() {
               goalKcal: Number(goal),
               reason: goalReason,
               ...plan,
+              ...(macroGoalsChanged && {
+                macroGoals: parseMacroGoals(macroGoals),
+              }),
             }),
             effectiveDate,
             linkedToMe: linkChange,
@@ -254,6 +346,7 @@ function PeopleContent() {
     setEditing(person)
     setName(person?.name ?? '')
     setGoal(String(person?.currentDailyGoalKcal ?? 2200))
+    setMacroGoals(macroGoalDraft(person?.macroGoals))
     setReason('')
     setPlan(null)
     setIsMeChoice(null)
@@ -457,6 +550,92 @@ function PeopleContent() {
                   ) : null}
                 </section>
               ) : null}
+              {goalLocked ? null : (
+                <fieldset className="mt-1 min-w-0">
+                  <legend className="group-label pb-1">{t.macroGoals}</legend>
+                  {/* Protein leads: it is the macro most people set. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label={t.proteinGoal} htmlFor="person-protein">
+                      <UnitInput
+                        id="person-protein"
+                        unit={
+                          macroGoals.proteinUnit === 'perKg' ? t.perKgUnit : 'g'
+                        }
+                        min="0"
+                        step="any"
+                        value={macroGoals.protein}
+                        onChange={(event) =>
+                          setMacroGoals((current) => ({
+                            ...current,
+                            protein: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label={t.proteinPer}>
+                      <Select
+                        ariaLabel={t.proteinUnit}
+                        className="w-full"
+                        value={macroGoals.proteinUnit}
+                        onValueChange={(value) => {
+                          const proteinUnit =
+                            value === 'perKg' ? 'perKg' : 'perDay'
+                          // 140 g a day means nothing per kg: start over.
+                          setMacroGoals((current) =>
+                            current.proteinUnit === proteinUnit
+                              ? current
+                              : { ...current, proteinUnit, protein: '' },
+                          )
+                        }}
+                        options={[
+                          { value: 'perDay', label: t.perDay },
+                          { value: 'perKg', label: t.perKgBodyWeight },
+                        ]}
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Field label={t.carbsGoal} htmlFor="person-carbsG">
+                      <UnitInput
+                        id="person-carbsG"
+                        unit="g"
+                        min="0"
+                        step="any"
+                        value={macroGoals.carbsG}
+                        onChange={(event) =>
+                          setMacroGoals((current) => ({
+                            ...current,
+                            carbsG: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label={t.fatGoal} htmlFor="person-fatG">
+                      <UnitInput
+                        id="person-fatG"
+                        unit="g"
+                        min="0"
+                        step="any"
+                        value={macroGoals.fatG}
+                        onChange={(event) =>
+                          setMacroGoals((current) => ({
+                            ...current,
+                            fatG: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <p className="mt-1.5 px-4 type-footnote text-muted-foreground tabular-nums">
+                    {proteinGrams === undefined
+                      ? t.macroGoalsHint
+                      : t.proteinGoalGrams(
+                          Math.round(proteinGrams).toString(),
+                          formatAmount(currentWeight?.weightKg ?? 0, locale),
+                        )}
+                  </p>
+                </fieldset>
+              )}
               <section
                 ref={linkGroup}
                 aria-labelledby="person-account-title"

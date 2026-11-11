@@ -38,6 +38,56 @@ export function normalizeMacroGrams(
   return grams
 }
 
+const MAX_PROTEIN_G_PER_KG = 5
+const MAX_DAILY_GRAMS = 2000
+
+/** Positive goals within human ranges; an empty set of goals is none. */
+type MacroGoals = {
+  proteinG?: number
+  proteinGPerKg?: number
+  carbsG?: number
+  fatG?: number
+}
+
+export function normalizeMacroGoals(goals: MacroGoals) {
+  if (goals.proteinG !== undefined && goals.proteinGPerKg !== undefined)
+    throw new DomainError(
+      'Set the protein goal in grams a day or per kg of body weight, not both.',
+    )
+  const check = (value: number | undefined, max: number, name: string) => {
+    if (value === undefined) return undefined
+    const rounded = Math.round(value * 10) / 10
+    if (!Number.isFinite(rounded) || rounded <= 0 || rounded > max)
+      throw new DomainError(`${name} must be above 0 and at most ${max}.`)
+    return rounded
+  }
+  const normalized = {
+    proteinG: check(goals.proteinG, MAX_DAILY_GRAMS, 'Protein goal (g)'),
+    proteinGPerKg: check(
+      goals.proteinGPerKg,
+      MAX_PROTEIN_G_PER_KG,
+      'Protein goal (g/kg)',
+    ),
+    carbsG: check(goals.carbsG, MAX_DAILY_GRAMS, 'Carbohydrate goal (g)'),
+    fatG: check(goals.fatG, MAX_DAILY_GRAMS, 'Fat goal (g)'),
+  }
+  return Object.values(normalized).some((value) => value !== undefined)
+    ? normalized
+    : undefined
+}
+
+export function sameMacroGoals(
+  a: MacroGoals | undefined,
+  b: MacroGoals | undefined,
+) {
+  return (
+    a?.proteinG === b?.proteinG &&
+    a?.proteinGPerKg === b?.proteinGPerKg &&
+    a?.carbsG === b?.carbsG &&
+    a?.fatG === b?.fatG
+  )
+}
+
 // Atwater factors. Fiber, alcohol and sugar alcohols explain small gaps.
 export function caloriesFromMacros(macros: MacroGrams) {
   return Math.round(4 * macros.proteinG + 4 * macros.carbsG + 9 * macros.fatG)
@@ -50,6 +100,10 @@ export function macroGrams(
   return macros
     ? { proteinG: macros.proteinG, carbsG: macros.carbsG, fatG: macros.fatG }
     : undefined
+}
+
+export function sameMacroGrams(a: MacroGrams, b: MacroGrams) {
+  return a.proteinG === b.proteinG && a.carbsG === b.carbsG && a.fatG === b.fatG
 }
 
 export function scaleMacros(macros: MacroGrams, factor: number): MacroGrams {

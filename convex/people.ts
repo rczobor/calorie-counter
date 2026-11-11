@@ -12,14 +12,20 @@ import {
   withoutOwner,
 } from './lib/auth'
 import { goalReasonFor } from './lib/personPrivacy'
-import { readDayNutrition } from './lib/dayNutrition'
+import { dayNutrition, readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
+  MAX_PAGE_SIZE,
   MAX_SEARCH_RESULTS,
   normalizeSearch,
   normalizeRequiredDate,
 } from './lib/validation'
-import { energyProfileValidator, goalPlanValidator } from './validators'
+import {
+  energyProfileValidator,
+  goalPlanValidator,
+  macroGoalsValidator,
+  macroTotalsValidator,
+} from './validators'
 
 const personDto = v.object({
   _id: v.id('people'),
@@ -29,6 +35,7 @@ const personDto = v.object({
   currentDailyGoalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  macroGoals: v.optional(macroGoalsValidator),
   archived: v.boolean(),
   editRevision: v.number(),
   createdAt: v.number(),
@@ -74,6 +81,9 @@ const personWithTodayDto = personDto.extend({
 })
 
 const personWithDayDto = personWithTodayDto.extend({
+  macros: v.optional(macroTotalsValidator),
+  macroTargets: dayNutrition.fields.macroTargets,
+  proteinPerKg: v.optional(v.number()),
   goalKcal: v.number(),
   remainingCalories: v.number(),
   mealCount: v.number(),
@@ -195,6 +205,9 @@ export const listForDay = query({
         return {
           ...personWithoutOwner(person, owner.userId),
           consumedCalories: summary.consumedCalories,
+          macros: summary.macros,
+          macroTargets: summary.macroTargets,
+          proteinPerKg: summary.proteinPerKg,
           goalKcal: summary.goalKcal,
           remainingCalories: summary.remainingCalories,
           mealCount: summary.mealCount,
@@ -234,6 +247,26 @@ export const search = query({
           )
           .take(MAX_SEARCH_RESULTS)
     return rows.map((person) => personWithoutOwner(person, owner.userId))
+  },
+})
+
+/**
+ * Whether anyone active in the household tracks macros, which they opt into by
+ * setting a macro goal. Until then the app shows no macro fields.
+ */
+export const tracksMacros = query({
+  args: { householdId: v.optional(v.id('households')) },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    const people = await ctx.db
+      .query('people')
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', false),
+      )
+      // Households hold a handful of people; this bounds a pathological one.
+      .take(MAX_PAGE_SIZE)
+    return people.some((person) => person.macroGoals !== undefined)
   },
 })
 

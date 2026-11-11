@@ -528,11 +528,42 @@ function dayNutrition(
     0,
   )
   const goalKcal = person?.currentDailyGoalKcal ?? 0
+  const covered = meals.flatMap((meal) => (meal.macros ? [meal.macros] : []))
+  const macros = covered.length
+    ? {
+        proteinG: covered.reduce((sum, m) => sum + m.proteinG, 0),
+        carbsG: covered.reduce((sum, m) => sum + m.carbsG, 0),
+        fatG: covered.reduce((sum, m) => sum + m.fatG, 0),
+        coveredCalories: covered.reduce((sum, m) => sum + m.coveredCalories, 0),
+      }
+    : undefined
+  // As the server does: a per-kg protein goal and the intake per kg need a
+  // weigh-in, and another member's weight stays private.
+  const weight =
+    person && (!person.userId || person.userId === ownerUserId)
+      ? weightsFor(snapshot, personId)
+          .filter((entry) => entry.measuredOn <= eatenOn)
+          .at(-1)
+      : undefined
+  const goals = person?.macroGoals
   return {
     personId,
     person: person?.name ?? '',
     eatenOn,
     consumedCalories,
+    macros,
+    macroTargets: goals && {
+      proteinG:
+        goals.proteinG ??
+        (goals.proteinGPerKg !== undefined && weight
+          ? goals.proteinGPerKg * weight.weightKg
+          : undefined),
+      proteinGPerKg: goals.proteinGPerKg,
+      carbsG: goals.carbsG,
+      fatG: goals.fatG,
+    },
+    proteinPerKg:
+      macros && weight ? macros.proteinG / weight.weightKg : undefined,
     goalKcal,
     remainingCalories: goalKcal - consumedCalories,
     mealCount: meals.length,
@@ -890,6 +921,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
   if (functionName === 'mcp:getAuthRequest')
     return null as FunctionReturnType<Query>
+  if (functionName === 'people:tracksMacros')
+    return snapshot.dashboard.people.some(
+      (person) => !person.archived && person.macroGoals,
+    ) as FunctionReturnType<Query>
   if (functionName === 'people:linkedToMe')
     return (snapshot.dashboard.people.find(
       (person) => person.userId === ownerUserId,
@@ -1057,6 +1092,10 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
             input.goalPlan === undefined
               ? person.goalPlan
               : (input.goalPlan ?? undefined),
+          macroGoals:
+            input.macroGoals === undefined
+              ? person.macroGoals
+              : (input.macroGoals ?? undefined),
           editRevision: (person.editRevision ?? 0) + 1,
         }
         publish({

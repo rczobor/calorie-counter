@@ -16,6 +16,16 @@ import {
 import type { MockState } from './convex-react-adapter'
 
 type Provenance = NonNullable<Doc<'mealItems'>['nutritionProvenance']>
+type Macros = { proteinG: number; carbsG: number; fatG: number }
+const macroGrams = ([proteinG, carbsG, fatG]: readonly [
+  number,
+  number,
+  number,
+]) => ({
+  proteinG,
+  carbsG,
+  fatG,
+})
 type FoodIdentity = NonNullable<Doc<'mealItems'>['foodIdentity']>
 
 type ItemSpec =
@@ -28,6 +38,7 @@ type ItemSpec =
       grams: number
       brand?: string
       provenance?: Provenance
+      macros?: Macros
     }
   | {
       from: 'fixed'
@@ -37,6 +48,7 @@ type ItemSpec =
       servingLabel?: string
       brand?: string
       provenance?: Provenance
+      macros?: Macros
     }
 
 type MealSpec = { name: string; at: string; items: ItemSpec[] }
@@ -72,6 +84,26 @@ const ingredients = {
   spinach: ['Spinach', 23],
 } as const satisfies Record<string, readonly [string, number, ('g' | 'ml')?]>
 
+// Protein, carbs and fat per 100 g (or ml). Like a real catalog part way
+// through filling in macros, some foods have none: the day card then says how
+// much of the day the grams cover.
+const ingredientMacros: Partial<
+  Record<keyof typeof ingredients, readonly [number, number, number]>
+> = {
+  egg: [12.6, 0.7, 9.9],
+  butter: [0.9, 0.1, 81],
+  cheddar: [25, 1.3, 33],
+  banana: [1.1, 22.8, 0.3],
+  apple: [0.3, 13.8, 0.2],
+  yogurt: [9.7, 3.9, 2],
+  oats: [13.2, 67.7, 6.5],
+  milk: [3.4, 4.8, 1.7],
+  rice: [2.7, 28.2, 0.3],
+  honey: [0.3, 82.4, 0],
+  peanutButter: [25, 20, 50],
+  sourCream: [2.4, 4.6, 19],
+}
+
 // One batch per cooking session, named after the dish, cooked `daysAgo`.
 const cooked = {
   lasagna: {
@@ -79,10 +111,29 @@ const cooked = {
     grams: 2600,
     kcal: 5200,
     daysAgo: 1,
+    macros: [11, 17, 10],
   },
-  chili: { name: 'Chili con carne', grams: 2400, kcal: 2880, daysAgo: 3 },
-  dahl: { name: 'Red lentil dahl', grams: 1800, kcal: 1980, daysAgo: 5 },
-  tikka: { name: 'Chicken tikka masala', grams: 2400, kcal: 3360, daysAgo: 6 },
+  chili: {
+    name: 'Chili con carne',
+    grams: 2400,
+    kcal: 2880,
+    daysAgo: 3,
+    macros: [9, 8, 5.5],
+  },
+  dahl: {
+    name: 'Red lentil dahl',
+    grams: 1800,
+    kcal: 1980,
+    daysAgo: 5,
+    macros: [6, 15, 3],
+  },
+  tikka: {
+    name: 'Chicken tikka masala',
+    grams: 2400,
+    kcal: 3360,
+    daysAgo: 6,
+    macros: [12, 6, 7.5],
+  },
   soup: { name: 'Pumpkin soup', grams: 2000, kcal: 1100, daysAgo: 8 },
   traybake: {
     name: 'Roasted vegetable tray bake',
@@ -107,6 +158,7 @@ const fixed = (
   calories: number,
   provenance: Provenance,
   serving?: { count: number; label: string; brand?: string },
+  macros?: Macros,
 ): ItemSpec => ({
   from: 'fixed',
   name,
@@ -115,6 +167,7 @@ const fixed = (
   servings: serving?.count,
   servingLabel: serving?.label,
   brand: serving?.brand,
+  macros,
 })
 const sourdough = (grams: number): ItemSpec => ({
   from: 'custom',
@@ -123,6 +176,7 @@ const sourdough = (grams: number): ItemSpec => ({
   grams,
   brand: 'Corner Bakery',
   provenance: label('254 kcal per 100 g.'),
+  macros: macroGrams([9, 50, 1.5]),
 })
 const flatWhite = fixed(
   'Flat white',
@@ -272,11 +326,8 @@ const meals = {
         'Chocolate protein shake',
         180,
         label('180 kcal per 330 ml bottle.'),
-        {
-          count: 1,
-          label: 'bottle',
-          brand: 'Shake Co.',
-        },
+        { count: 1, label: 'bottle', brand: 'Shake Co.' },
+        macroGrams([20, 15, 4.5]),
       ),
     ],
   },
@@ -426,6 +477,23 @@ const vikiId = 'bbbbbbbbbbbbbbbbbbbb' as Id<'people'>
 const samId = 'cccccccccccccccccccc' as Id<'people'>
 const samUserId = 'e2e-sam' as Id<'users'>
 
+// Grams eaten per item, summed with the kcal of the items that had macros.
+function mealMacros(items: Array<Doc<'mealItems'>>) {
+  let total: Doc<'meals'>['macros']
+  for (const item of items) {
+    if (!item.macrosSnapshot) continue
+    const scale =
+      item.sourceType === 'fixedCalories' ? 1 : item.consumedWeightGrams / 100
+    total = {
+      proteinG: (total?.proteinG ?? 0) + item.macrosSnapshot.proteinG * scale,
+      carbsG: (total?.carbsG ?? 0) + item.macrosSnapshot.carbsG * scale,
+      fatG: (total?.fatG ?? 0) + item.macrosSnapshot.fatG * scale,
+      coveredCalories: (total?.coveredCalories ?? 0) + item.caloriesSnapshot,
+    }
+  }
+  return total
+}
+
 function dateKey(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
   const day = `${date.getDate()}`.padStart(2, '0')
@@ -453,14 +521,21 @@ export function createDesignData(
   }
   const owner = { ownerUserId, householdId }
 
-  const ingredientDocs = Object.entries(ingredients).map(
-    ([id, [name, kcalPer100, unit]]) =>
-      createIngredientDoc(`design-ingredient-${id}`, name, {
-        ...owner,
-        kcalPer100,
-        kcalBasisUnit: unit ?? 'g',
-      }),
-  )
+  const ingredientDocs = (
+    Object.keys(ingredients) as Array<keyof typeof ingredients>
+  ).map((id) => {
+    const [name, kcalPer100, unit] = ingredients[id]
+    const macros = ingredientMacros[id]
+    return createIngredientDoc(`design-ingredient-${id}`, name, {
+      ...owner,
+      kcalPer100,
+      kcalBasisUnit: unit ?? 'g',
+      macros: macros && {
+        ...macroGrams(macros),
+        nutritionProvenance: label('Per 100 g as printed.'),
+      },
+    })
+  })
   const sessionDocs = Object.entries(cooked).map(([id, food]) => {
     const cookedAt = at(food.daysAgo, '17:30')
     return createCookSessionDoc(`design-session-${id}`, food.name, {
@@ -481,6 +556,7 @@ export function createDesignData(
         totalRawWeightGrams: food.grams,
         totalCalories: food.kcal,
         kcalPer100: (food.kcal / food.grams) * 100,
+        macros: 'macros' in food ? macroGrams(food.macros) : undefined,
         createdAt: at(food.daysAgo, '18:30').getTime(),
       },
     ),
@@ -511,6 +587,8 @@ export function createDesignData(
         kcalPer100Snapshot: kcalPer100,
         kcalBasisUnitSnapshot: unit ?? 'g',
         ignoreCaloriesSnapshot: false,
+        macrosSnapshot:
+          ingredientMacros[spec.id] && macroGrams(ingredientMacros[spec.id]!),
       } satisfies Doc<'mealItems'>
     }
     if (spec.from === 'cooked') {
@@ -526,6 +604,7 @@ export function createDesignData(
         kcalPer100Snapshot: kcalPer100,
         kcalBasisUnitSnapshot: 'g',
         ignoreCaloriesSnapshot: false,
+        macrosSnapshot: 'macros' in food ? macroGrams(food.macros) : undefined,
       } satisfies Doc<'mealItems'>
     }
     if (spec.from === 'custom') {
@@ -538,6 +617,7 @@ export function createDesignData(
         kcalPer100Snapshot: spec.kcalPer100,
         kcalBasisUnitSnapshot: 'g',
         ignoreCaloriesSnapshot: false,
+        macrosSnapshot: spec.macros,
         nutritionProvenance: spec.provenance,
         foodIdentity: spec.brand
           ? { basis: 'g', brand: spec.brand }
@@ -557,6 +637,7 @@ export function createDesignData(
       sourceType: 'fixedCalories',
       nameSnapshot: spec.name,
       caloriesSnapshot: spec.calories,
+      macrosSnapshot: spec.macros,
       servingCount: spec.servings,
       nutritionProvenance: spec.provenance,
       foodIdentity,
@@ -591,6 +672,7 @@ export function createDesignData(
         (sum, item) => sum + item.caloriesSnapshot,
         0,
       ),
+      macros: mealMacros(items),
       itemCount: items.length,
       editRevision: 0,
       createdAt,
@@ -688,6 +770,8 @@ export function createDesignData(
               targetWeightKg: 75,
             },
           }),
+          // Protein follows body weight; carbs have no goal.
+          macroGoals: { proteinGPerKg: 1.6, fatG: 70 },
           userId: ownerUserId,
         },
         // Viki keeps weight steady and has never weighed in here.

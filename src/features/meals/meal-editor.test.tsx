@@ -992,6 +992,7 @@ describe('Meal editor', () => {
               sourceType: 'fixedCalories',
               name: 'Almond croissant',
               calories: 420,
+              macros: { proteinG: 8, carbsG: 40, fatG: 25 },
               nutritionProvenance: {
                 kind: 'estimate',
                 source: 'Assistant estimate',
@@ -1004,6 +1005,7 @@ describe('Meal editor', () => {
               kcalPer100: 45,
               ignoreCalories: false,
               consumedWeightGrams: 200,
+              macros: { proteinG: 1, carbsG: 6.5, fatG: 1.5 },
             },
           ],
         },
@@ -1051,7 +1053,17 @@ describe('Meal editor', () => {
             name: 'Oat milk',
             consumedWeightGrams: 200,
             saveToCatalog: false,
+            macros: { proteinG: 1, carbsG: 6.5, fatG: 1.5 },
           }),
+        ],
+      }),
+    )
+    // The croissant's macros described 420 kcal, not the corrected 380.
+    expect(mutations.createMeal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.not.objectContaining({ macros: expect.anything() }),
+          expect.anything(),
         ],
       }),
     )

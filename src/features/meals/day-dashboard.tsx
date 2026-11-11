@@ -40,6 +40,7 @@ import { WeightGlance } from '@/features/weight/weight-glance'
 import { TodayHint } from '@/features/hints/hints'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { IntakeBar } from '@/features/meals/intake-bar'
+import { MacrosByMealSheet, MacrosCard } from '@/features/meals/macros-card'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
@@ -129,6 +130,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   const [showHousehold, setShowHousehold] = useState(false)
   const householdButton = useRef<HTMLButtonElement>(null)
   const [openMealId, setOpenMealId] = useState<Id<'meals'> | null>(null)
+  const [macrosOpen, setMacrosOpen] = useState(false)
   const [editor, setEditor] = useState<EditorRequest | null>(null)
   const [editorPending, setEditorPending] = useState(false)
   const [draft, setDraft] = useState(() =>
@@ -560,6 +562,19 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               </p>
             )}
           </section>
+        ) : null}
+        {!archived && focused && !loadingPerson ? (
+          <MacrosCard day={focused} onOpen={() => setMacrosOpen(true)} />
+        ) : null}
+        {macrosOpen && selected ? (
+          <MacrosByMealSheet
+            day={focused ?? {}}
+            meals={meals.results}
+            loading={meals.status === 'LoadingFirstPage'}
+            personId={selected._id}
+            canEditGoals={selected.linkedAccount !== 'other'}
+            onClose={() => setMacrosOpen(false)}
+          />
         ) : null}
         {!archived && selected && !loadingPerson ? (
           <div className="mt-3">

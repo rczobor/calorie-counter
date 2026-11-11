@@ -17,6 +17,7 @@ const ingredientLoadMore = vi.fn()
 const recipeLoadMore = vi.fn()
 const queryCalls: Array<{ name: string; args: unknown }> = []
 const mutationCalls: Array<{ name: string; args: unknown }> = []
+let tracksMacros = true
 
 let paginationStatus: PaginationStatus = 'CanLoadMore'
 
@@ -90,6 +91,7 @@ const fractionalIngredient = {
   _id: 'ingredient-fractional' as Id<'ingredients'>,
   name: 'Oat milk',
   kcalPer100: 52.5,
+  macros: { proteinG: 1, carbsG: 6.5, fatG: 1.5 },
 }
 
 const notCountedIngredient = {
@@ -242,6 +244,9 @@ vi.mock('convex/react', () => ({
     if (name === 'recipes:getCurrent') {
       return recipeDetailResult
     }
+    if (name === 'people:tracksMacros') {
+      return tracksMacros
+    }
     if (name === 'catalog:searchIngredients') {
       return [
         {
@@ -273,6 +278,7 @@ beforeEach(() => {
   vi.spyOn(CatalogRoute, 'useSearch').mockImplementation(() => ({ section }))
   queryCalls.length = 0
   mutationCalls.length = 0
+  tracksMacros = true
   paginationStatus = 'CanLoadMore'
   recipeDetailResult = recipeDetail
 })
@@ -611,6 +617,55 @@ describe('Catalog route', () => {
     expect(
       screen.getByRole('button', { name: /^Edit Oats Mill · Staples / }),
     ).toBeTruthy()
+  })
+
+  it('edits macros per 100 and saves none while calories are ignored', async () => {
+    renderCatalogRoute()
+
+    openRecord('Oat milk')
+    expect(screen.getByLabelText('Protein')).toHaveProperty('value', '1')
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '1.2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({
+          macros: { proteinG: 1, carbsG: 6.5, fatG: 1.2 },
+        }),
+      }),
+    )
+
+    mutationCalls.length = 0
+    openRecord('Oat milk')
+    fireEvent.click(screen.getByRole('switch', { name: 'Ignore calories' }))
+    // The fieldset disables its fields without setting their own property.
+    expect(screen.getByLabelText('Protein').matches(':disabled')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({ ignoreCalories: true, macros: null }),
+      }),
+    )
+  })
+
+  it('shows no macro fields until someone in the household tracks macros', async () => {
+    tracksMacros = false
+    renderCatalogRoute()
+    openRecord('Oats')
+    expect(screen.queryByLabelText('Protein')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+    // Hidden fields send nothing, so macros an assistant stored are kept.
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({ ingredientId: ingredient._id }),
+      }),
+    )
+    expect(
+      mutationCalls.find((call) => call.name === 'nutrition:updateIngredient')
+        ?.args,
+    ).toHaveProperty('macros', undefined)
   })
 
   it('keeps fractional kcal/100 when an ingredient is edited', async () => {

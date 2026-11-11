@@ -238,5 +238,8 @@ export function projectDailySummary(
       mealCount === 0
         ? undefined
         : settleMacroTotals(combineMacroTotals(summary.macros, macrosDelta)),
+    // Measured against the day's protein before the change; read the day
+    // again after saving for the new figure.
+    proteinPerKg: undefined,
   }
 }

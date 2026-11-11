@@ -19,6 +19,9 @@ type ExistingIngredientMealItemDraft = {
   notes?: string
 }
 
+// Grams on the item's calorie basis: per 100 g, or the whole fixed item.
+type MacroGrams = { proteinG: number; carbsG: number; fatG: number }
+
 type CustomIngredientMealItemDraft = {
   sourceType: 'customByWeight'
   existingMealItemId?: Id<'mealItems'>
@@ -29,6 +32,7 @@ type CustomIngredientMealItemDraft = {
   ignoreCalories: boolean
   consumedWeightGrams: number
   saveToCatalog: boolean
+  macros?: MacroGrams
   notes?: string
 }
 
@@ -37,6 +41,7 @@ type FixedCaloriesMealItemDraft = {
   existingMealItemId?: Id<'mealItems'>
   name: string
   calories: number
+  macros?: MacroGrams
   notes?: string
 }
 
@@ -96,9 +101,20 @@ function isNutritionUnit(value: unknown) {
   return NUTRITION_UNITS.some((unit) => unit === value)
 }
 
+function isOptionalMacros(value: unknown) {
+  return (
+    value === undefined ||
+    (isRecord(value) &&
+      isNonNegativeNumber(value.proteinG) &&
+      isNonNegativeNumber(value.carbsG) &&
+      isNonNegativeNumber(value.fatG))
+  )
+}
+
 function isMealItem(value: unknown): value is DraftMealItem {
   if (
     !isRecord(value) ||
+    !isOptionalMacros(value.macros) ||
     !isOptionalString(value.existingMealItemId) ||
     !isOptionalString(value.notes) ||
     (value.nutritionProvenance !== undefined &&

@@ -1188,6 +1188,8 @@ export const getDay = internalMutation({
         context: await describeContext(ctx, owner),
         consumedCalories: summary.consumedCalories,
         macros: summary.macros,
+        macroTargets: summary.macroTargets,
+        proteinPerKg: summary.proteinPerKg,
         goalKcal: summary.goalKcal,
         mealCount: summary.mealCount,
         meals: meals.page.map((meal) => ({

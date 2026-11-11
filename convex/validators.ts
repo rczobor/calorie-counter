@@ -104,6 +104,23 @@ export const goalPlanValidator = v.union(
   }),
 )
 
+// A person's optional daily macro goals. Protein is grams a day, or grams per
+// kg of body weight from the latest weigh-in on or before the day; not both.
+export const macroGoalsValidator = v.object({
+  proteinG: v.optional(v.number()),
+  proteinGPerKg: v.optional(v.number()),
+  carbsG: v.optional(v.number()),
+  fatG: v.optional(v.number()),
+})
+
+// A day's macro goals in grams, plus protein's goal per kg it came from.
+export const macroTargetsValidator = v.object({
+  proteinG: v.optional(v.number()),
+  proteinGPerKg: v.optional(v.number()),
+  carbsG: v.optional(v.number()),
+  fatG: v.optional(v.number()),
+})
+
 export const peopleFields = {
   ...ownerFields,
   // The member account this person is, set only by that member. Unlike
@@ -118,6 +135,8 @@ export const peopleFields = {
   currentDailyGoalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  // The current goals; unlike the calorie goal, they keep no dated history.
+  macroGoals: v.optional(macroGoalsValidator),
   editRevision: v.optional(v.number()),
   archived: v.boolean(),
   createdAt: v.number(),

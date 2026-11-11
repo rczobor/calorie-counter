@@ -161,12 +161,18 @@ export const readDay = internalQuery({
       return { status: 'removed' as const }
     return {
       status: 'ok' as const,
-      day: await readDayNutrition(
-        ctx,
-        { userId: row.userId, householdId: row.householdId },
-        row.personId,
-        args.eatenOn,
-      ),
+      // Daily totals only: protein targets and per-kg figures give the
+      // weight away to whoever holds the token.
+      day: {
+        ...(await readDayNutrition(
+          ctx,
+          { userId: row.userId, householdId: row.householdId },
+          row.personId,
+          args.eatenOn,
+        )),
+        macroTargets: undefined,
+        proteinPerKg: undefined,
+      },
     }
   },
 })

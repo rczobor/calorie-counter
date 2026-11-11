@@ -111,6 +111,10 @@ Use these terms everywhere so the same thing always has the same name.
 | daily goal                    | napi cél                               |
 | kcal left / kcal over         | kcal maradt / kcal túllépés            |
 | Goal reached                  | Cél elérve                             |
+| Reached (a macro, short)      | Elérve                                 |
+| macros / macro goals          | makrók / makrócélok                    |
+| protein / carbs / fat         | fehérje / szénhidrát / zsír            |
+| g/kg (of body weight)         | g/ttkg                                 |
 | People & goals                | Személyek és célok                     |
 | person / people               | személy / személyek                    |
 | household                     | háztartás                              |

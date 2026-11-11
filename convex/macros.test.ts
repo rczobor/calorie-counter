@@ -5,6 +5,7 @@ import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
   insertCookSession,
   insertIngredient,
@@ -441,5 +442,158 @@ describe('macronutrients over MCP', () => {
     // New calories without macros cannot keep macros for the old ones.
     await correct(150, undefined)
     expect((await summaryFor(t, personId))?.macros).toBeUndefined()
+  })
+})
+
+describe('macronutrients in the ingredient editor', () => {
+  it('saves the grams the app shows and keeps their source while unchanged', async () => {
+    const t = setup()
+    const user = asTestUser(t)
+    const ingredientId = await insertIngredient(t, {
+      name: 'Greek yogurt',
+      kcalPer100: 100,
+      macros: yogurt,
+    })
+    const stored = () =>
+      t.run(async (ctx) => (await ctx.db.get(ingredientId))?.macros ?? null)
+    const save = (
+      revision: number,
+      kcalPer100: number,
+      macros: { proteinG: number; carbsG: number; fatG: number } | null,
+    ) =>
+      user.mutation(api.nutrition.updateIngredient, {
+        ingredientId,
+        expectedEditRevision: revision,
+        name: 'Greek yogurt',
+        kcalPer100,
+        ignoreCalories: false,
+        macros,
+      })
+
+    // A new calorie figure saved with the same grams keeps the label source.
+    await save(0, 97, { proteinG: 10, carbsG: 4, fatG: 5 })
+    expect(await stored()).toEqual(yogurt)
+    await save(1, 97, { proteinG: 9, carbsG: 4, fatG: 5 })
+    expect(await stored()).toEqual({ proteinG: 9, carbsG: 4, fatG: 5 })
+    await save(2, 97, null)
+    expect(await stored()).toBeNull()
+
+    expect(
+      await user.query(api.catalog.getIngredient, { ingredientId }),
+    ).not.toHaveProperty('macros')
+    const createdId = await user.mutation(api.nutrition.createIngredient, {
+      name: 'Oats',
+      kcalPer100: 380,
+      ignoreCalories: false,
+      macros: { proteinG: 13, carbsG: 60, fatG: 7 },
+    })
+    expect(
+      await user.query(api.catalog.getIngredient, { ingredientId: createdId }),
+    ).toMatchObject({ macros: { proteinG: 13, carbsG: 60, fatG: 7 } })
+  })
+})
+
+describe('macro goals', () => {
+  it('derives the protein target from the latest weigh-in, privately', async () => {
+    const t = setup()
+    const robi = asTestUser(t)
+    const viki = asTestUserWithToken(t, 'https://clerk.example|viki')
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const token = await robi.mutation(api.households.invite, { householdId })
+    await viki.mutation(api.households.acceptInvitation, { token })
+    const personId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Robi',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-04-04',
+      linkedToMe: true,
+    })
+    await robi.mutation(api.weight.record, {
+      householdId,
+      personId,
+      measuredOn: '2026-04-04',
+      weightKg: 82,
+    })
+    const setGoals = (
+      member: typeof robi,
+      revision: number,
+      macroGoals: { proteinGPerKg?: number; fatG?: number } | null,
+    ) =>
+      member.mutation(api.nutrition.updatePerson, {
+        householdId,
+        personId,
+        expectedEditRevision: revision,
+        name: 'Robi',
+        effectiveDate: '2026-04-05',
+        macroGoals,
+      })
+    const tracks = () => viki.query(api.people.tracksMacros, { householdId })
+    // Macros are opt-in: a goal is what switches them on for the household.
+    expect(await tracks()).toBe(false)
+    await setGoals(robi, 0, { proteinGPerKg: 1.6, fatG: 70 })
+    expect(await tracks()).toBe(true)
+    await robi.mutation(api.nutrition.createMeal, {
+      householdId,
+      personId,
+      eatenOn: '2026-04-05',
+      items: [
+        {
+          sourceType: 'fixedCalories',
+          name: 'Skyr',
+          calories: 200,
+          macros: { proteinG: 41, carbsG: 8, fatG: 0.4 },
+        },
+      ],
+    })
+    const day = (member: typeof robi) =>
+      member.query(api.meals.getDayNutrition, {
+        householdId,
+        personId,
+        eatenOn: '2026-04-05',
+      })
+
+    const own = await day(robi)
+    expect(own.macroTargets?.proteinG).toBeCloseTo(131.2, 6)
+    expect(own.macroTargets?.fatG).toBe(70)
+    expect(own.proteinPerKg).toBe(0.5)
+    // The protein target in grams would give another member the weight away.
+    const shared = await day(viki)
+    // The goal itself stays the household's to see, as the calorie goal does.
+    expect(shared.macroTargets).toEqual({ proteinGPerKg: 1.6, fatG: 70 })
+    expect(shared.proteinPerKg).toBeUndefined()
+    await expect(setGoals(viki, 1, { fatG: 60 })).rejects.toThrow(
+      'Only the member linked to this person',
+    )
+
+    await setGoals(robi, 1, null)
+    expect((await day(robi)).macroTargets).toBeUndefined()
+    expect(await tracks()).toBe(false)
+  })
+
+  it('takes a protein goal in grams a day without any weigh-in', async () => {
+    const t = setup()
+    const robi = asTestUser(t)
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const create = (macroGoals: {
+      proteinG?: number
+      proteinGPerKg?: number
+    }) =>
+      robi.mutation(api.nutrition.createPerson, {
+        householdId,
+        name: 'Robi',
+        currentDailyGoalKcal: 2000,
+        effectiveDate: '2026-04-04',
+        macroGoals,
+      })
+    await expect(create({ proteinG: 140, proteinGPerKg: 1.6 })).rejects.toThrow(
+      'not both',
+    )
+    const personId = await create({ proteinG: 140 })
+    const day = await robi.query(api.meals.getDayNutrition, {
+      householdId,
+      personId,
+      eatenOn: '2026-04-05',
+    })
+    expect(day.macroTargets).toEqual({ proteinG: 140 })
   })
 })

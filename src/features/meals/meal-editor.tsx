@@ -77,6 +77,7 @@ function frozenToDraft(item: FrozenTemplateItem): DraftMealItem {
       sourceType: 'fixedCalories',
       name: item.name,
       calories: item.calories,
+      macros: item.macros,
       notes: item.notes,
       nutritionProvenance: item.nutritionProvenance,
     }
@@ -89,9 +90,29 @@ function frozenToDraft(item: FrozenTemplateItem): DraftMealItem {
     ignoreCalories: item.ignoreCalories,
     consumedWeightGrams: item.consumedWeightGrams,
     saveToCatalog: false,
+    macros: item.macros,
     notes: item.notes,
     nutritionProvenance: item.nutritionProvenance,
   }
+}
+
+// Macros describe the calories they came with, so an edit keeps them only
+// while those calories stay the same, as the server does.
+function keptMacros(item: DraftMealItem, replacement: DraftMealItem) {
+  if (
+    item.sourceType === 'customByWeight' &&
+    replacement.sourceType === 'customByWeight' &&
+    item.kcalPer100 === replacement.kcalPer100 &&
+    !replacement.ignoreCalories
+  )
+    return item.macros
+  if (
+    item.sourceType === 'fixedCalories' &&
+    replacement.sourceType === 'fixedCalories' &&
+    item.calories === replacement.calories
+  )
+    return item.macros
+  return undefined
 }
 
 function frozenCalories(item: FrozenTemplateItem) {
@@ -615,8 +636,10 @@ function MealEditorContent({
           if (!sameReference) return replacement
           // A correction keeps the food's source, as the server does for saved
           // items; a food added from a template has no saved item to fall back on.
+          const macros = keptMacros(item, replacement)
           return {
             ...replacement,
+            ...(macros ? { macros } : {}),
             nutritionProvenance: item.nutritionProvenance,
             ...(item.existingMealItemId
               ? { existingMealItemId: item.existingMealItemId }

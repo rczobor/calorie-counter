@@ -60,6 +60,14 @@ import { messages } from './catalog.messages'
 
 const SEARCH_MAX_LENGTH = 100
 
+const emptyMacroDraft = { proteinG: '', carbsG: '', fatG: '' }
+const macroFieldKeys = ['proteinG', 'carbsG', 'fatG'] as const
+const macroFieldLabel = {
+  proteinG: 'protein',
+  carbsG: 'carbs',
+  fatG: 'fat',
+} as const
+
 const INGREDIENT_SORTS = ['name', 'kcal-desc', 'kcal-asc'] as const
 type IngredientSort = (typeof INGREDIENT_SORTS)[number]
 
@@ -234,6 +242,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     useState<NutritionUnit>('g')
   const [ingredientIgnoreCalories, setIngredientIgnoreCalories] =
     useState(false)
+  const [ingredientMacros, setIngredientMacros] = useState(emptyMacroDraft)
   const [ingredientGroupId, setIngredientGroupId] = useState<
     Id<'foodGroups'> | ''
   >('')
@@ -377,6 +386,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     setIngredientKcal('')
     setIngredientKcalBasisUnit('g')
     setIngredientIgnoreCalories(false)
+    setIngredientMacros(emptyMacroDraft)
     setIngredientGroupId('')
     setEditingIngredientGroup(null)
     setIngredientNotes('')
@@ -486,6 +496,10 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
   const editingIngredient = ingredients.find(
     (ingredient) => ingredient._id === editingIngredientId,
   )
+  // Macros are opt-in: their fields show once someone in the household has a
+  // macro goal, or for a food that already has macros.
+  const tracksMacros = useQuery(api.people.tracksMacros, {})
+  const showMacros = Boolean(tracksMacros || editingIngredient?.macros)
   const editingRecipe = recipes.find((recipe) => recipe._id === editingRecipeId)
 
   const openGroup = (group: CatalogFoodGroup) => {
@@ -510,6 +524,15 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     setIngredientKcal(String(ingredient.kcalPer100))
     setIngredientKcalBasisUnit(ingredient.kcalBasisUnit)
     setIngredientIgnoreCalories(ingredient.ignoreCalories)
+    setIngredientMacros(
+      ingredient.macros
+        ? {
+            proteinG: String(ingredient.macros.proteinG),
+            carbsG: String(ingredient.macros.carbsG),
+            fatG: String(ingredient.macros.fatG),
+          }
+        : emptyMacroDraft,
+    )
     setIngredientGroupId(ingredient.groupId ?? '')
     setEditingIngredientGroup(
       ingredient.groupId && ingredient.groupName
@@ -571,12 +594,29 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     void runAction(
       editingIngredientId ? t.ingredientUpdated : t.ingredientCreated,
       async () => {
+        const macroFields = Object.values(ingredientMacros).filter((value) =>
+          value.trim(),
+        ).length
+        if (!ingredientIgnoreCalories && macroFields > 0 && macroFields < 3)
+          throw new Error(t.macrosIncomplete)
         const payload = {
           name: ingredientName,
           brand: ingredientBrand.trim() || undefined,
           kcalPer100: Number(ingredientKcal),
           kcalBasisUnit: ingredientKcalBasisUnit,
           ignoreCalories: ingredientIgnoreCalories,
+          // Hidden fields send nothing, so stored macros stay while the
+          // calories do; ignored calories carry none, and empty fields clear
+          // them.
+          macros: !showMacros
+            ? undefined
+            : ingredientIgnoreCalories || macroFields === 0
+              ? null
+              : {
+                  proteinG: Number(ingredientMacros.proteinG),
+                  carbsG: Number(ingredientMacros.carbsG),
+                  fatG: Number(ingredientMacros.fatG),
+                },
           groupId: ingredientGroupId || undefined,
           notes: ingredientNotes.trim() || undefined,
         }
@@ -1115,6 +1155,50 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   />
                 </Field>
               </div>
+              {/* Stays in place while calories are ignored, so the switch
+                  below never jumps; ignored calories save no macros. */}
+              {showMacros ? (
+                <fieldset
+                  className="mt-4 min-w-0"
+                  disabled={ingredientIgnoreCalories}
+                  aria-describedby="ingredient-macros-hint"
+                >
+                  {/* Sits on its fields: space goes above it (a fieldset's
+                    padding would land between the legend and the fields). */}
+                  <legend className="group-label pb-1">
+                    {t.macrosLegend(ingredientKcalBasisUnit)}
+                  </legend>
+                  <div className="grid grid-cols-3 gap-3">
+                    {macroFieldKeys.map((key) => (
+                      <Field
+                        key={key}
+                        label={t[macroFieldLabel[key]]}
+                        htmlFor={`ingredient-${key}`}
+                      >
+                        <UnitInput
+                          id={`ingredient-${key}`}
+                          unit="g"
+                          min="0"
+                          step="any"
+                          value={ingredientMacros[key]}
+                          onChange={(event) =>
+                            setIngredientMacros((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                  <p
+                    id="ingredient-macros-hint"
+                    className="mt-1.5 px-4 type-footnote text-muted-foreground"
+                  >
+                    {ingredientIgnoreCalories ? t.macrosIgnored : t.macrosHint}
+                  </p>
+                </fieldset>
+              ) : null}
               <Field label={t.group}>
                 <Select
                   ariaLabel={t.ingredientGroup}

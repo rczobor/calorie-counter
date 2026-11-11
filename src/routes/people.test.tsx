@@ -33,7 +33,10 @@ let pending = false
 // The viewer's linked person; null shows "Which one is you?".
 let linkedToMe: string | null = 'person-alex'
 // What people.get returns for the person being edited.
-let livePerson: typeof alex & { linkedAccount?: 'you' | 'other' } = alex
+let livePerson: typeof alex & {
+  linkedAccount?: 'you' | 'other'
+  macroGoals?: { proteinGPerKg?: number; fatG?: number }
+} = alex
 // The last success toast runAction would show.
 let lastSuccess:
   { text: string; toast?: { action?: { onClick: () => void } } } | undefined
@@ -99,7 +102,7 @@ vi.mock('convex/react', () => ({
         loadMore,
       }
     return {
-      results: args.archived ? [sam] : [alex],
+      results: args.archived ? [sam] : [livePerson],
       status: activeStatus,
       loadMore,
     }
@@ -125,8 +128,13 @@ beforeEach(() => {
     (_message: string, _label: string, action: () => Promise<unknown>) =>
       action(),
   )
+  search = {}
+  vi.spyOn(Route, 'useSearch').mockImplementation(() => search)
+  vi.spyOn(Route, 'useNavigate').mockImplementation(() => navigate)
 })
 afterEach(cleanup)
+let search: { edit?: string } = {}
+const navigate = vi.fn()
 
 describe('People settings', () => {
   it('asks which person is you until you link one', () => {
@@ -208,6 +216,59 @@ describe('People settings', () => {
     )
     // Another member's goal isn't sent, even unchanged.
     expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('goalKcal')
+    expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('macroGoals')
+    expect(screen.queryByText('Macro goals')).toBeNull()
+  })
+
+  it('opens a person from a link, as Today’s macro goals link does', () => {
+    search = { edit: 'person-alex' }
+    show()
+    expect(screen.getByLabelText('Person name')).toHaveProperty('value', 'Alex')
+    expect(navigate).toHaveBeenCalledWith({ search: {}, replace: true })
+  })
+
+  it('saves a protein goal in grams a day by default', async () => {
+    show()
+    openAlex()
+    fireEvent.change(screen.getByLabelText('Protein'), {
+      target: { value: '140' },
+    })
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '70' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        'nutrition:updatePerson',
+        expect.objectContaining({
+          macroGoals: {
+            proteinG: 140,
+            proteinGPerKg: undefined,
+            carbsG: undefined,
+            fatG: 70,
+          },
+        }),
+      ),
+    )
+  })
+
+  it('keeps a protein goal per kg of body weight per kg', async () => {
+    livePerson = { ...alex, macroGoals: { proteinGPerKg: 1.6, fatG: 70 } }
+    show()
+    openAlex()
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '60' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        'nutrition:updatePerson',
+        expect.objectContaining({
+          macroGoals: {
+            proteinG: undefined,
+            proteinGPerKg: 1.6,
+            carbsG: undefined,
+            fatG: 60,
+          },
+        }),
+      ),
+    )
   })
 
   it('follows a link that changed elsewhere while the editor is open', () => {

@@ -1,0 +1,85 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type { Id } from '../../../convex/_generated/dataModel'
+import { apportion, MacrosByMealSheet, MacrosCard } from './macros-card'
+
+afterEach(cleanup)
+
+const macros = { proteinG: 51, carbsG: 156, fatG: 71, coveredCalories: 1600 }
+
+describe('day macros card', () => {
+  it('gives each goal a column and lists the other macros below', () => {
+    const onOpen = vi.fn()
+    render(
+      <MacrosCard
+        day={{
+          macros,
+          macroTargets: { proteinG: 132, proteinGPerKg: 1.6, fatG: 70 },
+          proteinPerKg: 0.62,
+        }}
+        onOpen={onOpen}
+      />,
+    )
+    const card = screen.getByRole('button', { name: /Show macros by meal/ })
+    expect(card.textContent).toContain('Protein81 g left51 / 132 g')
+    // Past a goal is not an error: it is reached.
+    expect(card.textContent).toContain('FatReached71 / 70 g')
+    expect(card.textContent).toContain('Carbs 156 g')
+    // Protein per kg lives in the sheet, not on Today.
+    expect(card.textContent).not.toContain('g/kg')
+    fireEvent.click(card)
+    expect(onOpen).toHaveBeenCalled()
+  })
+
+  it('shows goals on a day with nothing logged yet', () => {
+    render(
+      <MacrosCard day={{ macroTargets: { carbsG: 250 } }} onOpen={vi.fn()} />,
+    )
+    const card = screen.getByRole('button')
+    expect(card.textContent).toContain('Carbs250 g left0 / 250 g')
+    expect(card.textContent).toContain('Protein 0 g · Fat 0 g')
+  })
+
+  it('lists grams only when no goal has a target in grams', () => {
+    // Another member's protein goal: its grams would give their weight away.
+    render(
+      <MacrosCard
+        day={{ macros, macroTargets: { proteinGPerKg: 1.6 } }}
+        onOpen={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button').textContent).toContain(
+      'Protein 51 g · Carbs 156 g · Fat 71 g',
+    )
+  })
+
+  it('stays hidden for a person without macro goals, even with macros', () => {
+    const { container } = render(
+      <MacrosCard day={{ macros }} onOpen={vi.fn()} />,
+    )
+    expect(container.textContent).toBe('')
+  })
+
+  it('rounds each meal so the meals add up to the day', () => {
+    // 36.6 + 15.3 rounds to 37 + 15 = 52 and the day to 51.9 = 52; plain
+    // rounding of 36.4 + 15.4 would give 51 against a day of 52.
+    expect(apportion([36.6, 15.3])).toEqual({ total: 52, parts: [37, 15] })
+    expect(apportion([36.4, 15.45])).toEqual({ total: 52, parts: [36, 16] })
+    expect(apportion([0, 0])).toEqual({ total: 0, parts: [0, 0] })
+  })
+
+  it('shows protein per kg against its goal in the sheet', () => {
+    render(
+      <MacrosByMealSheet
+        day={{ proteinPerKg: 0.64, macroTargets: { proteinGPerKg: 1.6 } }}
+        meals={[]}
+        loading={false}
+        personId={'person-alex' as Id<'people'>}
+        canEditGoals={false}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Protein: 0.6 / 1.6 g/kg')).toBeTruthy()
+  })
+})
