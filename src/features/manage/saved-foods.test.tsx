@@ -106,12 +106,11 @@ describe('Reusable food library', () => {
     })
     expect(calls).toContainEqual({ archived: false, search: 'vitamins' })
   })
-  it('writes recorded decimals the Hungarian way', () => {
-    applySavedLocale('hu')
-    nutrition = { kind: 'byVolume', kcalPer100: 52.5 }
+  it('shows a derived rate as whole kcal', () => {
+    nutrition = { kind: 'byVolume', kcalPer100: 118.34862385321101 }
     render(<SavedFoods showArchived={false} onShowArchivedChange={vi.fn()} />)
     expect(
-      screen.getByRole('button', { name: 'Vitamins / 100 ml 52,5 kcal' }),
+      screen.getByRole('button', { name: 'Vitamins per 100 ml 118 kcal' }),
     ).toBeTruthy()
   })
 })

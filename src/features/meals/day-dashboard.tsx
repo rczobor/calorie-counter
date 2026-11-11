@@ -64,7 +64,11 @@ import {
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatDate, linkedDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
-import { toLocalDateString, toTimestampFromDate } from '@/lib/nutrition'
+import {
+  formatKcal,
+  toLocalDateString,
+  toTimestampFromDate,
+} from '@/lib/nutrition'
 import { formatAmount } from '@/i18n/format'
 import { useLocale, type Locale } from '@/i18n/locale'
 import { messages } from './day-dashboard.messages'
@@ -835,7 +839,7 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
             </p>
             {item.sourceType !== 'fixedCalories' ? (
               <p className="type-footnote text-muted-foreground tabular-nums">
-                {`${formatAmount(item.consumedWeightGrams, locale)} g · ${formatAmount(item.kcalPer100Snapshot, locale)} kcal/100 ${item.kcalBasisUnitSnapshot}`}
+                {`${formatAmount(item.consumedWeightGrams, locale)} g · ${formatKcal(item.kcalPer100Snapshot)} kcal/100 ${item.kcalBasisUnitSnapshot}`}
               </p>
             ) : item.foodIdentity?.servingLabel ? (
               <p className="type-footnote text-muted-foreground tabular-nums">

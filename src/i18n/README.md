@@ -57,6 +57,7 @@ return <h2>{t.title}</h2>
 - Decimals follow the language: `82.4` in English, `82,4` in Hungarian. An
   entered amount keeps all its digits with `formatAmount(value, locale)` from
   `@/i18n/format`. Whole numbers stay ungrouped in both (`2150 kcal`).
+  Calorie figures are whole kcal with `formatKcal(value)` from `@/lib/nutrition`.
 
 ## Hungarian style
 
