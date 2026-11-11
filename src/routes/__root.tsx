@@ -32,7 +32,9 @@ import {
   sharedClerkUiUrl,
 } from '../integrations/clerk/config'
 
-import ConvexProvider from '../integrations/convex/provider'
+import ConvexProvider, {
+  hasPendingConvexWrites,
+} from '../integrations/convex/provider'
 import { convexUrl, isConvexConfigured } from '../integrations/convex/config'
 import { ThemeProvider } from '../components/theme-provider'
 import { Button } from '../components/ui/button'
@@ -186,7 +188,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     markStartup('app')
     if (IS_MAINTENANCE_MODE) unregisterServiceWorkers()
-    else if (import.meta.env.PROD && !isE2eMockMode) registerServiceWorker()
+    else if (import.meta.env.PROD && !isE2eMockMode)
+      registerServiceWorker(hasPendingConvexWrites)
   }, [])
   return (
     <html lang={locale} suppressHydrationWarning>

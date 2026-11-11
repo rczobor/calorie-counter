@@ -15,10 +15,26 @@ const CLERK_LOADER = /^\/npm\/@clerk\/[^/]+@\d+\/dist\/[^/]+\.js$/
 // OAuth consent must always come from the network with its framing headers.
 const NETWORK_ONLY_PAGES = new Set(['/connect'])
 
-// No skipWaiting: a running page may still lazy-load chunks of its own build,
-// so a new worker takes over only after every old page has closed.
+// No automatic skipWaiting: a running page may still lazy-load chunks of its
+// own build, and activating deletes that build's cache.
 self.addEventListener('install', (event) => {
   event.waitUntil(precache())
+})
+
+// A page about to reload into this build asks it to take over early. Only the
+// asking page may be open, so no other page loses its chunks. A closing tab
+// also asks, and may already be gone from the list.
+self.addEventListener('message', (event) => {
+  if (event.data !== 'activate') return
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windows) =>
+        windows.length === 1 && windows[0].id === event.source?.id
+          ? self.skipWaiting()
+          : null,
+      ),
+  )
 })
 
 self.addEventListener('activate', (event) => {
