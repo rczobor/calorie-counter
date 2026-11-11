@@ -85,11 +85,13 @@ export function BottomNavigation() {
   return (
     <SignedInOnly>
       {/* Floats over the content; the installed iPhone app tucks it just above
-          the home indicator, browsers keep a small gap. Only the glass itself
-          blurs what is behind it. */}
+          the home indicator, browsers keep a small gap. The glass blurs what is
+          behind it; below the capsule a strip blurs too, so text scrolling
+          under the home indicator never shows sharp. Content above and beside
+          the capsule stays sharp. */}
       <nav
         aria-label={t.primaryNavigation}
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] before:absolute before:inset-x-0 before:bottom-0 before:h-[max(0.75rem,env(safe-area-inset-bottom)_-_0.5rem)] before:mask-t-from-50% before:backdrop-blur-md md:hidden [@media(prefers-reduced-transparency:reduce)]:before:backdrop-blur-none"
       >
         <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2">
           <div className="glass relative flex min-w-0 flex-1 items-center rounded-full p-1">

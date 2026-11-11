@@ -17,6 +17,7 @@ const ingredientLoadMore = vi.fn()
 const recipeLoadMore = vi.fn()
 const queryCalls: Array<{ name: string; args: unknown }> = []
 const mutationCalls: Array<{ name: string; args: unknown }> = []
+let tracksMacros = true
 
 let paginationStatus: PaginationStatus = 'CanLoadMore'
 
@@ -242,6 +243,9 @@ vi.mock('convex/react', () => ({
     }
     if (name === 'recipes:getCurrent') {
       return recipeDetailResult
+    }
+    if (name === 'people:tracksMacros') {
+      return tracksMacros
     }
     if (name === 'catalog:searchIngredients') {
       return [
@@ -642,6 +646,14 @@ describe('Catalog route', () => {
         args: expect.objectContaining({ ignoreCalories: true, macros: null }),
       }),
     )
+  })
+
+  it('shows no macro fields until someone in the household tracks macros', () => {
+    tracksMacros = false
+    renderCatalogRoute()
+    openRecord('Oats')
+    expect(screen.queryByLabelText('Protein')).toBeNull()
+    tracksMacros = true
   })
 
   it('keeps fractional kcal/100 when an ingredient is edited', async () => {

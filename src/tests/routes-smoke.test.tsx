@@ -38,6 +38,8 @@ describe('browse-first route shells', () => {
     expect(screen.queryByLabelText('Meal name')).toBeNull()
   })
   it('opens people settings without a creation form', () => {
+    vi.spyOn(People, 'useSearch').mockReturnValue({})
+    vi.spyOn(People, 'useNavigate').mockReturnValue(vi.fn())
     const Page = People.options.component as ComponentType
     render(<Page />)
     expect(

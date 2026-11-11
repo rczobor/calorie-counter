@@ -81,6 +81,9 @@ function parseMacroGoals(draft: MacroGoalDraft) {
 const PAGE_SIZE = 20
 export const Route = createFileRoute('/people')({
   ssr: false,
+  // `edit` opens that person's editor, as Today's macro goals link does.
+  validateSearch: (search: Record<string, unknown>): { edit?: string } =>
+    typeof search.edit === 'string' ? { edit: search.edit } : {},
   component: PeoplePage,
 })
 
@@ -97,8 +100,8 @@ function PeopleContent() {
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
   const [macroGoals, setMacroGoals] = useState(emptyMacroGoals)
-  // The day the editor opened, for the weigh-in a protein goal follows.
-  const [openedOn, setOpenedOn] = useState<string | null>(null)
+  // The weigh-in a protein goal follows is today's, as of opening the page.
+  const [today] = useState(() => toLocalDateString(Date.now()))
   const [reason, setReason] = useState('')
   // The switch's unsaved choice; null follows the saved link, which can
   // change on another device while the editor is open.
@@ -133,6 +136,23 @@ function PeopleContent() {
     api.people.get,
     editing ? { personId: editing._id } : 'skip',
   )
+  const { edit } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  // Opens the linked person once their row loads, then drops the link so a
+  // reload or Back doesn't reopen it.
+  const [openedLink, setOpenedLink] = useState<string>()
+  const linkedPerson =
+    edit && edit !== openedLink
+      ? people.find((person) => person._id === edit)
+      : undefined
+  if (linkedPerson) {
+    setOpenedLink(linkedPerson._id)
+    beginEdit(linkedPerson)
+  }
+  useEffect(() => {
+    if (openedLink && edit === openedLink)
+      void navigate({ search: {}, replace: true })
+  }, [edit, navigate, openedLink])
   // A person removed elsewhere has no goal history to load.
   const history = usePaginatedQuery(
     api.people.listGoalHistory,
@@ -183,9 +203,7 @@ function PeopleContent() {
   // What a protein goal per kg comes to today, from the latest weigh-in.
   const currentWeight = useQuery(
     api.weight.latestOnOrBefore,
-    editing && openedOn && !goalLocked
-      ? { personId: editing._id, date: openedOn }
-      : 'skip',
+    editing && !goalLocked ? { personId: editing._id, date: today } : 'skip',
   )
   const proteinPerKgGoal = Number(macroGoals.proteinGPerKg)
   const proteinGrams =
@@ -340,10 +358,7 @@ function PeopleContent() {
           create={{
             noun: t.personNoun,
             disabled: isRunning,
-            onClick: () => {
-              beginEdit(null)
-              setOpenedOn(toLocalDateString(Date.now()))
-            },
+            onClick: () => beginEdit(null),
           }}
           archived={{
             checked: showArchived,
@@ -375,10 +390,7 @@ function PeopleContent() {
               unit={t.kcalPerDay}
               archived={person.archived}
               disabled={isRunning}
-              onOpen={() => {
-                beginEdit(person)
-                setOpenedOn(toLocalDateString(Date.now()))
-              }}
+              onOpen={() => beginEdit(person)}
             />
           ))}
         </RecordList>

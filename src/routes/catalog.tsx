@@ -496,6 +496,10 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
   const editingIngredient = ingredients.find(
     (ingredient) => ingredient._id === editingIngredientId,
   )
+  // Macros are opt-in: their fields show once someone in the household has a
+  // macro goal, or for a food that already has macros.
+  const tracksMacros = useQuery(api.people.tracksMacros, {})
+  const showMacros = Boolean(tracksMacros || editingIngredient?.macros)
   const editingRecipe = recipes.find((recipe) => recipe._id === editingRecipeId)
 
   const openGroup = (group: CatalogFoodGroup) => {
@@ -601,9 +605,11 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
           kcalPer100: Number(ingredientKcal),
           kcalBasisUnit: ingredientKcalBasisUnit,
           ignoreCalories: ingredientIgnoreCalories,
-          // Ignored calories carry no macros, and empty fields clear them.
-          macros:
-            ingredientIgnoreCalories || macroFields === 0
+          // Hidden fields send nothing, so stored macros stay; ignored
+          // calories carry none, and empty fields clear them.
+          macros: !showMacros
+            ? undefined
+            : ingredientIgnoreCalories || macroFields === 0
               ? null
               : {
                   proteinG: Number(ingredientMacros.proteinG),
@@ -1150,46 +1156,48 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
               </div>
               {/* Stays in place while calories are ignored, so the switch
                   below never jumps; ignored calories save no macros. */}
-              <fieldset
-                className="mt-4 min-w-0"
-                disabled={ingredientIgnoreCalories}
-                aria-describedby="ingredient-macros-hint"
-              >
-                {/* Sits on its fields: space goes above it (a fieldset's
-                    padding would land between the legend and the fields). */}
-                <legend className="group-label pb-1">
-                  {t.macrosLegend(ingredientKcalBasisUnit)}
-                </legend>
-                <div className="grid grid-cols-3 gap-3">
-                  {macroFieldKeys.map((key) => (
-                    <Field
-                      key={key}
-                      label={t[macroFieldLabel[key]]}
-                      htmlFor={`ingredient-${key}`}
-                    >
-                      <UnitInput
-                        id={`ingredient-${key}`}
-                        unit="g"
-                        min="0"
-                        step="any"
-                        value={ingredientMacros[key]}
-                        onChange={(event) =>
-                          setIngredientMacros((current) => ({
-                            ...current,
-                            [key]: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                  ))}
-                </div>
-                <p
-                  id="ingredient-macros-hint"
-                  className="mt-1.5 px-4 type-footnote text-muted-foreground"
+              {showMacros ? (
+                <fieldset
+                  className="mt-4 min-w-0"
+                  disabled={ingredientIgnoreCalories}
+                  aria-describedby="ingredient-macros-hint"
                 >
-                  {ingredientIgnoreCalories ? t.macrosIgnored : t.macrosHint}
-                </p>
-              </fieldset>
+                  {/* Sits on its fields: space goes above it (a fieldset's
+                    padding would land between the legend and the fields). */}
+                  <legend className="group-label pb-1">
+                    {t.macrosLegend(ingredientKcalBasisUnit)}
+                  </legend>
+                  <div className="grid grid-cols-3 gap-3">
+                    {macroFieldKeys.map((key) => (
+                      <Field
+                        key={key}
+                        label={t[macroFieldLabel[key]]}
+                        htmlFor={`ingredient-${key}`}
+                      >
+                        <UnitInput
+                          id={`ingredient-${key}`}
+                          unit="g"
+                          min="0"
+                          step="any"
+                          value={ingredientMacros[key]}
+                          onChange={(event) =>
+                            setIngredientMacros((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                  <p
+                    id="ingredient-macros-hint"
+                    className="mt-1.5 px-4 type-footnote text-muted-foreground"
+                  >
+                    {ingredientIgnoreCalories ? t.macrosIgnored : t.macrosHint}
+                  </p>
+                </fieldset>
+              ) : null}
               <Field label={t.group}>
                 <Select
                   ariaLabel={t.ingredientGroup}

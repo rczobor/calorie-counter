@@ -125,8 +125,13 @@ beforeEach(() => {
     (_message: string, _label: string, action: () => Promise<unknown>) =>
       action(),
   )
+  search = {}
+  vi.spyOn(Route, 'useSearch').mockImplementation(() => search)
+  vi.spyOn(Route, 'useNavigate').mockImplementation(() => navigate)
 })
 afterEach(cleanup)
+let search: { edit?: string } = {}
+const navigate = vi.fn()
 
 describe('People settings', () => {
   it('asks which person is you until you link one', () => {
@@ -210,6 +215,13 @@ describe('People settings', () => {
     expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('goalKcal')
     expect(mutate.mock.lastCall?.[1]).not.toHaveProperty('macroGoals')
     expect(screen.queryByText('Macro goals')).toBeNull()
+  })
+
+  it('opens a person from a link, as Today’s macro goals link does', () => {
+    search = { edit: 'person-alex' }
+    show()
+    expect(screen.getByLabelText('Person name')).toHaveProperty('value', 'Alex')
+    expect(navigate).toHaveBeenCalledWith({ search: {}, replace: true })
   })
 
   it('saves macro goals, with protein per kg of body weight', async () => {

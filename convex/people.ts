@@ -15,6 +15,7 @@ import { goalReasonFor } from './lib/personPrivacy'
 import { dayNutrition, readDayNutrition } from './lib/dayNutrition'
 import {
   assertPageSize,
+  MAX_PAGE_SIZE,
   MAX_SEARCH_RESULTS,
   normalizeSearch,
   normalizeRequiredDate,
@@ -246,6 +247,26 @@ export const search = query({
           )
           .take(MAX_SEARCH_RESULTS)
     return rows.map((person) => personWithoutOwner(person, owner.userId))
+  },
+})
+
+/**
+ * Whether anyone active in the household tracks macros, which they opt into by
+ * setting a macro goal. Until then the app shows no macro fields.
+ */
+export const tracksMacros = query({
+  args: { householdId: v.optional(v.id('households')) },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
+    const people = await ctx.db
+      .query('people')
+      .withIndex('by_householdId_and_archived_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('archived', false),
+      )
+      // Households hold a handful of people; this bounds a pathological one.
+      .take(MAX_PAGE_SIZE)
+    return people.some((person) => person.macroGoals !== undefined)
   },
 })
 

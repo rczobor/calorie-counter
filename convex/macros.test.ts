@@ -527,7 +527,11 @@ describe('macro goals', () => {
         effectiveDate: '2026-04-05',
         macroGoals,
       })
+    const tracks = () => viki.query(api.people.tracksMacros, { householdId })
+    // Macros are opt-in: a goal is what switches them on for the household.
+    expect(await tracks()).toBe(false)
     await setGoals(robi, 0, { proteinGPerKg: 1.6, fatG: 70 })
+    expect(await tracks()).toBe(true)
     await robi.mutation(api.nutrition.createMeal, {
       householdId,
       personId,
@@ -563,5 +567,6 @@ describe('macro goals', () => {
 
     await setGoals(robi, 1, null)
     expect((await day(robi)).macroTargets).toBeUndefined()
+    expect(await tracks()).toBe(false)
   })
 })

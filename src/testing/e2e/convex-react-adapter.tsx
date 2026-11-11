@@ -920,6 +920,10 @@ export function useQuery<Query extends FunctionReference<'query'>>(
   }
   if (functionName === 'mcp:getAuthRequest')
     return null as FunctionReturnType<Query>
+  if (functionName === 'people:tracksMacros')
+    return snapshot.dashboard.people.some(
+      (person) => !person.archived && person.macroGoals,
+    ) as FunctionReturnType<Query>
   if (functionName === 'people:linkedToMe')
     return (snapshot.dashboard.people.find(
       (person) => person.userId === ownerUserId,
@@ -1087,6 +1091,10 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
             input.goalPlan === undefined
               ? person.goalPlan
               : (input.goalPlan ?? undefined),
+          macroGoals:
+            input.macroGoals === undefined
+              ? person.macroGoals
+              : (input.macroGoals ?? undefined),
           editRevision: (person.editRevision ?? 0) + 1,
         }
         publish({
