@@ -33,6 +33,7 @@ function setup({
   build = 'b1',
   network = new Map<string, () => Promise<Response>>(),
   storageFull = false,
+  windows = ['page'],
 } = {}) {
   const stores = new Map<string, Map<string, Response>>()
   const open = (name: string) => {
@@ -71,6 +72,10 @@ function setup({
     location: new URL(ORIGIN),
     addEventListener: (type: string, listener: Listener) =>
       listeners.set(type, listener),
+    clients: {
+      matchAll: vi.fn(async () => windows.map((id) => ({ id }))),
+    },
+    skipWaiting: vi.fn(async () => undefined),
   }
   new Function(
     'self',
@@ -86,11 +91,17 @@ function setup({
   async function dispatch(
     type: string,
     request?: Partial<FakeRequest>,
-    { background = true } = {},
+    {
+      background = true,
+      data,
+      source,
+    }: { background?: boolean; data?: unknown; source?: { id: string } } = {},
   ) {
     const pending: Promise<unknown>[] = []
     let response: Promise<Response> | undefined
     listeners.get(type)!({
+      data,
+      source,
       request: request && {
         method: 'GET',
         mode: 'cors',
@@ -105,7 +116,7 @@ function setup({
     if (background) await Promise.all(pending)
     return result
   }
-  return { stores, fetch, network, dispatch }
+  return { stores, fetch, network, dispatch, self }
 }
 
 function liveNetwork(entry = '/assets/index-1.js') {
@@ -180,6 +191,22 @@ describe('service worker', () => {
     await expect(
       dispatch('fetch', { url: '/history', mode: 'navigate' }),
     ).rejects.toThrow('offline')
+  })
+
+  it('takes over early only when the asking page is the only one open', async () => {
+    const ask = { data: 'activate', source: { id: 'page' } }
+    const alone = setup()
+    await alone.dispatch('message', undefined, ask)
+    expect(alone.self.skipWaiting).toHaveBeenCalled()
+
+    const withOtherTab = setup({ windows: ['page', 'other'] })
+    await withOtherTab.dispatch('message', undefined, ask)
+    expect(withOtherTab.self.skipWaiting).not.toHaveBeenCalled()
+
+    // A closing tab asks while the list already holds only the other tab.
+    const closing = setup({ windows: ['other'] })
+    await closing.dispatch('message', undefined, ask)
+    expect(closing.self.skipWaiting).not.toHaveBeenCalled()
   })
 
   it('leaves OAuth consent and API traffic to the network', async () => {

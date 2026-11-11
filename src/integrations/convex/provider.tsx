@@ -19,6 +19,11 @@ function getConvexClient() {
   return convexClient
 }
 
+/** Mutations and actions still waiting on the server, lost if the page reloads. */
+export function hasPendingConvexWrites() {
+  return convexClient?.connectionState().hasInflightRequests ?? false
+}
+
 export default function AppConvexProvider({
   children,
 }: {
