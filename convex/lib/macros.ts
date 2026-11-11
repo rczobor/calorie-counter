@@ -38,7 +38,6 @@ export function normalizeMacroGrams(
   return grams
 }
 
-// Atwater factors. Fiber, alcohol and sugar alcohols explain small gaps.
 const MAX_PROTEIN_G_PER_KG = 5
 const MAX_DAILY_GRAMS = 2000
 
@@ -50,9 +49,10 @@ export function normalizeMacroGoals(goals: {
 }) {
   const check = (value: number | undefined, max: number, name: string) => {
     if (value === undefined) return undefined
-    if (!Number.isFinite(value) || value <= 0 || value > max)
+    const rounded = Math.round(value * 10) / 10
+    if (!Number.isFinite(rounded) || rounded <= 0 || rounded > max)
       throw new DomainError(`${name} must be above 0 and at most ${max}.`)
-    return Math.round(value * 10) / 10
+    return rounded
   }
   const normalized = {
     proteinGPerKg: check(
@@ -68,6 +68,18 @@ export function normalizeMacroGoals(goals: {
     : undefined
 }
 
+export function sameMacroGoals(
+  a: { proteinGPerKg?: number; carbsG?: number; fatG?: number } | undefined,
+  b: { proteinGPerKg?: number; carbsG?: number; fatG?: number } | undefined,
+) {
+  return (
+    a?.proteinGPerKg === b?.proteinGPerKg &&
+    a?.carbsG === b?.carbsG &&
+    a?.fatG === b?.fatG
+  )
+}
+
+// Atwater factors. Fiber, alcohol and sugar alcohols explain small gaps.
 export function caloriesFromMacros(macros: MacroGrams) {
   return Math.round(4 * macros.proteinG + 4 * macros.carbsG + 9 * macros.fatG)
 }

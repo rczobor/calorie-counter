@@ -145,18 +145,6 @@ function PeopleContent() {
       ? { personId: editing._id, date: calculatingOn }
       : 'skip',
   )
-  // What a protein goal per kg comes to today, from the latest weigh-in.
-  const currentWeight = useQuery(
-    api.weight.latestOnOrBefore,
-    editing && openedOn && editing.linkedAccount !== 'other'
-      ? { personId: editing._id, date: openedOn }
-      : 'skip',
-  )
-  const proteinPerKgGoal = Number(macroGoals.proteinGPerKg)
-  const proteinGrams =
-    currentWeight && macroGoals.proteinGPerKg.trim() && proteinPerKgGoal > 0
-      ? proteinPerKgGoal * currentWeight.weightKg
-      : undefined
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
   const setArchived = useMutation(api.nutrition.setPersonArchived)
@@ -192,6 +180,18 @@ function PeopleContent() {
   const dirty = editing !== undefined && (profileDirty || linkPending)
   // Another member's person: the household sees the goal, only they change it.
   const goalLocked = live?.linkedAccount === 'other'
+  // What a protein goal per kg comes to today, from the latest weigh-in.
+  const currentWeight = useQuery(
+    api.weight.latestOnOrBefore,
+    editing && openedOn && !goalLocked
+      ? { personId: editing._id, date: openedOn }
+      : 'skip',
+  )
+  const proteinPerKgGoal = Number(macroGoals.proteinGPerKg)
+  const proteinGrams =
+    currentWeight && macroGoals.proteinGPerKg.trim() && proteinPerKgGoal > 0
+      ? proteinPerKgGoal * currentWeight.weightKg
+      : undefined
   const linkGroup = useRef<HTMLElement>(null)
   // A pending link change grows the caption and footer past the sticky action
   // bar on a phone; once it renders, scroll the sheet to show the group.

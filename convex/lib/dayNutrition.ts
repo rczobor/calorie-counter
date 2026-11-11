@@ -79,7 +79,7 @@ export async function readDayNutrition(
     macroTargets: goals && {
       proteinG:
         goals.proteinGPerKg !== undefined && weight
-          ? goals.proteinGPerKg * weight.weightKg
+          ? Math.round(goals.proteinGPerKg * weight.weightKg * 10) / 10
           : undefined,
       proteinGPerKg: goals.proteinGPerKg,
       carbsG: goals.carbsG,

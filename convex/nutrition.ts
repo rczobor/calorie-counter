@@ -26,6 +26,7 @@ import {
   macroGrams,
   normalizeMacroGoals,
   resolveInputMacros,
+  sameMacroGoals,
   scaleMacros,
   sameMacroGrams,
   scaleOptionalMacros,
@@ -2189,9 +2190,7 @@ export async function updatePersonForOwner(
       : args.macroGoals === null
         ? undefined
         : normalizeMacroGoals(args.macroGoals)
-  const macroGoalsChanged =
-    JSON.stringify(macroGoals ?? null) !==
-    JSON.stringify(person.macroGoals ?? null)
+  const macroGoalsChanged = !sameMacroGoals(macroGoals, person.macroGoals)
   if (
     args.energyProfile !== undefined ||
     args.goalPlan !== undefined ||
