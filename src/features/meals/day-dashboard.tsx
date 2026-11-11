@@ -46,6 +46,7 @@ import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { EditorDialog } from '@/components/page/editor-dialog'
 import { EstimateNotice } from '@/components/nutrition/estimate-notice'
+import { RollingFigure } from '@/components/nutrition/rolling-figure'
 import { Balance, Value } from '@/components/nutrition/value'
 import { Button } from '@/components/ui/button'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
@@ -501,8 +502,14 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   )}
                 >
                   <span className="type-display">
-                    {overGoal ? '+' : ''}
-                    {Math.abs(focused.remainingCalories).toFixed(0)}
+                    {/* Rolls as meals change this balance. Crossing the goal
+                        swaps the figure instead: rolling 120 left to 30 over
+                        would count down and read as progress. */}
+                    <RollingFigure
+                      key={`${focused._id}:${date}:${overGoal}`}
+                      value={Math.abs(focused.remainingCalories)}
+                      prefix={overGoal ? '+' : undefined}
+                    />
                     {atGoal ? (
                       <span className="ml-1.5 type-title font-semibold tracking-normal">
                         kcal
@@ -564,7 +571,12 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           </section>
         ) : null}
         {!archived && focused && !loadingPerson ? (
-          <MacrosCard day={focused} onOpen={() => setMacrosOpen(true)} />
+          // Another person or day is a new card, so its figures do not roll.
+          <MacrosCard
+            key={`${focused._id}:${date}`}
+            day={focused}
+            onOpen={() => setMacrosOpen(true)}
+          />
         ) : null}
         {macrosOpen && selected ? (
           <MacrosByMealSheet

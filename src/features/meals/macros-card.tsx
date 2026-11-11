@@ -2,6 +2,8 @@ import { Drawer } from '@base-ui/react/drawer'
 import { Link } from '@tanstack/react-router'
 import { Check, ChevronRight, X } from 'lucide-react'
 import type { Infer } from 'convex/values'
+import type { ReactNode } from 'react'
+import { RollingFigure } from '@/components/nutrition/rolling-figure'
 import { Value } from '@/components/nutrition/value'
 import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
@@ -19,7 +21,7 @@ type Day = Pick<
   'macros' | 'macroTargets' | 'proteinPerKg'
 >
 
-const figure = (value: number | string) => (
+const figure = (value: ReactNode) => (
   <span className="type-subhead font-semibold text-foreground">{value}</span>
 )
 
@@ -93,7 +95,11 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                     agree. */}
                 <span className="flex items-center gap-1 type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
                   {macro.eaten < macro.goal ? (
-                    t.left(figure(macro.goal - macro.eaten))
+                    t.left(
+                      figure(
+                        <RollingFigure value={macro.goal - macro.eaten} />,
+                      ),
+                    )
                   ) : (
                     <>
                       <Check aria-hidden="true" className="size-3.5 shrink-0" />

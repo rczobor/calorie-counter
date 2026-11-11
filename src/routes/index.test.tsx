@@ -197,6 +197,33 @@ describe('Today intake dashboard', () => {
       ).toBeTruthy()
     },
   )
+  it('rolls the balance only while it changes in place', () => {
+    const Page = Route.options.component as ComponentType
+    const view = show()
+    const balance = () =>
+      screen
+        .getByRole('region', { name: /intake$/ })
+        .querySelector('[data-number-flow]')
+    const before = balance()
+    // A meal logged for the same person and day updates the same figure.
+    consumedCalories = 1500
+    view.rerender(<Page />)
+    expect(balance()).toBe(before)
+    expect(screen.getByText('700')).toBeTruthy()
+    // Crossing the goal swaps it rather than counting down to the overage.
+    consumedCalories = 2300
+    view.rerender(<Page />)
+    const over = balance()
+    expect(over).not.toBe(before)
+    expect(screen.getByText('+100')).toBeTruthy()
+    // Another day or person is a new figure, not a change to this one.
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
+    const yesterday = balance()
+    expect(yesterday).not.toBe(over)
+    fireEvent.click(screen.getByRole('button', { name: /^Switch person/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Sam/ }))
+    expect(balance()).not.toBe(yesterday)
+  })
   it('shows server totals independently of loaded meals without mounting entry dependencies', () => {
     show()
     expect(screen.getAllByText('950')).toHaveLength(1)
