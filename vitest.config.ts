@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
+    setupFiles: ['src/testing/vitest-setup.tsx'],
     watch: false,
     include: [
       'src/**/*.test.ts',
