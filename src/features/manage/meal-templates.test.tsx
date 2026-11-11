@@ -32,6 +32,7 @@ const template = {
       name: 'Cookie',
       calories: 200,
       servingCount: 2,
+      macros: { proteinG: 4, carbsG: 30, fatG: 8 },
       foodIdentity: { basis: 'serving', servingLabel: 'cookies' },
     },
   ],
@@ -113,7 +114,13 @@ describe('meal template management', () => {
                 nutritionProvenance: undefined,
               },
             },
-            { ...template.items[1], calories: 100, servingCount: 1 },
+            {
+              ...template.items[1],
+              calories: 100,
+              servingCount: 1,
+              // Whole-item macros halve with the calories.
+              macros: { proteinG: 2, carbsG: 15, fatG: 4 },
+            },
           ],
         },
       }),

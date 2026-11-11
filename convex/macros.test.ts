@@ -383,4 +383,63 @@ describe('macronutrients over MCP', () => {
       }),
     ).toMatchObject({ consumedCalories: 400, macros: twoBars })
   })
+
+  it('lets a correction resend macros when it changes an item’s calories', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const mealId = await asTestUser(t).mutation(api.nutrition.createMeal, {
+      personId,
+      eatenOn: '2026-11-10',
+      items: [
+        {
+          sourceType: 'fixedCalories',
+          name: 'Protein bar',
+          calories: 200,
+          macros: { proteinG: 20, carbsG: 20, fatG: 6 },
+        },
+      ],
+    })
+    const correct = async (
+      calories: number,
+      macros: { proteinG: number; carbsG: number; fatG: number } | undefined,
+    ) => {
+      const meal = await t.mutation(internal.mcpMealCorrections.getMeal, {
+        user: mcpUser,
+        mealId,
+      })
+      await t.mutation(internal.mcpMealCorrections.correctMeal, {
+        user: mcpUser,
+        input: {
+          mealId,
+          expectedEditRevision: meal.editRevision,
+          itemChanges: [
+            {
+              kind: 'fixedCalories',
+              itemId: meal.items[0].id,
+              calories,
+              macros,
+            },
+          ],
+        },
+        operationKey: `half-${calories}`,
+      })
+      return meal
+    }
+    // The assistant sees the item's macros before correcting it.
+    const before = await correct(100, { proteinG: 10, carbsG: 10, fatG: 3 })
+    expect(before.items[0].macros).toEqual({
+      proteinG: 20,
+      carbsG: 20,
+      fatG: 6,
+    })
+    expect((await summaryFor(t, personId))?.macros).toEqual({
+      proteinG: 10,
+      carbsG: 10,
+      fatG: 3,
+      coveredCalories: 100,
+    })
+    // New calories without macros cannot keep macros for the old ones.
+    await correct(150, undefined)
+    expect((await summaryFor(t, personId))?.macros).toBeUndefined()
+  })
 })

@@ -143,6 +143,7 @@ function describeItem(
     name: item.nameSnapshot,
     sourceType: item.sourceType,
     calories: item.caloriesSnapshot,
+    macros: item.macrosSnapshot,
     ...(item.sourceType === 'fixedCalories'
       ? {}
       : {
@@ -255,6 +256,7 @@ async function prepareCorrection(
         name: change.name ?? existing.name,
         calories: change.calories,
         servingCount: change.servingCount ?? existing.servingCount,
+        macros: change.macros,
       }
     }
     if (existing.sourceType !== 'customByWeight')
@@ -266,6 +268,7 @@ async function prepareCorrection(
       ...provenance,
       name: change.name ?? existing.name,
       kcalPer100: change.kcalPer100,
+      macros: change.macros,
       consumedWeightGrams:
         change.consumedWeightGrams ?? existing.consumedWeightGrams,
     }

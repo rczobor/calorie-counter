@@ -338,11 +338,17 @@ function TemplateSheet({
                                 item.consumedWeightGrams,
                         },
                       ]
+                    const scale = quantity / (item.servingCount ?? 1)
                     return [
                       {
                         ...item,
-                        calories:
-                          (item.calories * quantity) / (item.servingCount ?? 1),
+                        calories: item.calories * scale,
+                        // Fixed items record macros for the whole item too.
+                        macros: item.macros && {
+                          proteinG: item.macros.proteinG * scale,
+                          carbsG: item.macros.carbsG * scale,
+                          fatG: item.macros.fatG * scale,
+                        },
                         servingCount: quantity,
                       },
                     ]

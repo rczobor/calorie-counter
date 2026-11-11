@@ -272,6 +272,8 @@ export const mealCorrectionInput = v.object({
         name: v.optional(v.string()),
         calories: v.number(),
         servingCount: v.optional(v.number()),
+        // For the whole item; null removes them.
+        macros: v.optional(v.union(macroGramsValidator, v.null())),
         ...correctionProvenance,
       }),
       v.object({
@@ -280,6 +282,8 @@ export const mealCorrectionInput = v.object({
         name: v.optional(v.string()),
         kcalPer100: v.number(),
         consumedWeightGrams: v.optional(v.number()),
+        // Per 100 g; null removes them.
+        macros: v.optional(v.union(macroGramsValidator, v.null())),
         ...correctionProvenance,
       }),
     ),
@@ -299,6 +303,8 @@ export const mealCorrectionItem = v.object({
   consumedWeightGrams: v.optional(v.number()),
   kcalPer100: v.optional(v.number()),
   calories: v.number(),
+  // Per 100 g like kcalPer100, or for the whole fixed item like calories.
+  macros: v.optional(macroGramsValidator),
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
 })
 const mealCorrectionSummary = {
