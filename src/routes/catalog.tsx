@@ -1151,7 +1151,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
               {/* Stays in place while calories are ignored, so the switch
                   below never jumps; ignored calories save no macros. */}
               <fieldset
-                className="min-w-0 pt-2"
+                className="min-w-0 pt-3"
                 disabled={isRunning || ingredientIgnoreCalories}
               >
                 <legend className="group-label">

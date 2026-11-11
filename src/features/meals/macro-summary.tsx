@@ -34,21 +34,22 @@ export function MacroSummary({
   ] as const
   return (
     <section aria-label={t.macros} className="mt-4 border-t pt-4">
+      {/* Read before the grams, so a partial total is known as partial. */}
+      {coverage < FULL_COVERAGE ? (
+        <p className="mb-2 type-footnote text-muted-foreground tabular-nums">
+          {t.coverage(Math.round(coverage * 100).toString())}
+        </p>
+      ) : null}
       <dl className="grid grid-cols-3 gap-3">
         {rows.map(([label, grams]) => (
           <div key={label} className="min-w-0">
             <dt className="type-footnote text-muted-foreground">{label}</dt>
             <dd>
-              <Value value={Math.round(grams)} unit="g" />
+              <Value value={Math.round(grams)} unit="g" size="child" />
             </dd>
           </div>
         ))}
       </dl>
-      {coverage < FULL_COVERAGE ? (
-        <p className="mt-2 type-footnote text-muted-foreground tabular-nums">
-          {t.coverage(Math.round(coverage * 100).toString())}
-        </p>
-      ) : null}
     </section>
   )
 }
