@@ -1,7 +1,7 @@
 import type { Infer } from 'convex/values'
 import { Value } from '@/components/nutrition/value'
-import { formatAmount } from '@/i18n/format'
-import { useLocale } from '@/i18n/locale'
+import { intakeBarGeometry } from '@/features/meals/intake-bar'
+import { intlLocale, useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import type { dayNutrition } from '../../../convex/lib/dayNutrition'
 import { messages } from './macros-card.messages'
@@ -26,6 +26,11 @@ export function MacrosCard({ day }: { day: Day }) {
   const locale = useLocale()
   const { macros, macroTargets: targets } = day
   if (!macros && !targets) return null
+  // One decimal always, so 1.0 never reads as a rounded goal.
+  const oneDecimal = new Intl.NumberFormat(intlLocale(locale), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })
   const rows = [
     {
       key: 'protein',
@@ -35,9 +40,7 @@ export function MacrosCard({ day }: { day: Day }) {
       note:
         day.proteinPerKg === undefined
           ? undefined
-          : t.perKg(
-              formatAmount(Math.round(day.proteinPerKg * 10) / 10, locale),
-            ),
+          : t.perKg(oneDecimal.format(day.proteinPerKg)),
     },
     {
       key: 'carbs',
@@ -52,40 +55,60 @@ export function MacrosCard({ day }: { day: Day }) {
       {rows.map((row, index) => (
         <div
           key={row.key}
-          className={index ? 'ml-4 border-t py-2.5 pr-4' : 'px-4 py-2.5'}
+          className={
+            index
+              ? 'ml-4 flex min-h-11 flex-col justify-center border-t py-2 pr-4'
+              : 'flex min-h-11 flex-col justify-center px-4 py-2'
+          }
         >
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-base text-foreground">
-              {row.label}
+            <span className="text-base text-foreground">{row.label}</span>
+            <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+              {/* Beside the intake it measures, so it never reads as the goal. */}
               {row.note ? (
-                <span className="ml-2 type-footnote text-muted-foreground tabular-nums">
-                  {row.note}
+                <span className="type-footnote text-muted-foreground tabular-nums">
+                  {row.note} ·
                 </span>
               ) : null}
+              {row.goal === undefined ? (
+                <Value value={Math.round(row.grams)} unit="g" />
+              ) : (
+                <span className="type-subhead text-muted-foreground tabular-nums">
+                  {t.ofGoal(figure(row.grams), figure(row.goal))}
+                </span>
+              )}
             </span>
-            {row.goal === undefined ? (
-              <Value value={Math.round(row.grams)} unit="g" />
-            ) : (
-              <span className="type-subhead whitespace-nowrap text-muted-foreground tabular-nums">
-                {t.ofGoal(figure(row.grams), figure(row.goal))}
-              </span>
-            )}
           </div>
           {row.goal === undefined ? null : (
-            <div
-              aria-hidden="true"
-              className="mt-2 h-1.5 overflow-hidden rounded-full bg-track"
-            >
-              <div
-                className="h-full rounded-full bg-muted-foreground"
-                style={{
-                  width: `${Math.min(100, (row.grams / row.goal) * 100)}%`,
-                }}
-              />
-            </div>
+            <MacroBar grams={row.grams} goal={row.goal} />
           )}
         </div>
       ))}
     </section>
+  )
+}
+
+/**
+ * A neutral bar: going past a macro goal is no error, so it keeps one ink.
+ * Past the goal the bar is the intake and a tick marks the goal, as the
+ * calorie bar does, so 71 / 70 and 120 / 70 look different.
+ */
+function MacroBar({ grams, goal }: { grams: number; goal: number }) {
+  const bar = intakeBarGeometry(grams, goal)
+  return (
+    <div aria-hidden="true" className="relative mt-1.5">
+      <div className="h-1.5 overflow-hidden rounded-full bg-track">
+        <div
+          className="h-full rounded-full bg-muted-foreground dark:bg-muted-foreground/60"
+          style={{ width: `${bar.over ? 100 : bar.fill}%` }}
+        />
+      </div>
+      {bar.over ? (
+        <div
+          className="absolute -inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-card"
+          style={{ left: `${bar.tick}%` }}
+        />
+      ) : null}
+    </div>
   )
 }

@@ -32,6 +32,7 @@ import {
   type CalculatorChoice,
 } from '@/features/energy/goal-calculator'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
+import { formatAmount } from '@/i18n/format'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
@@ -142,6 +143,18 @@ function PeopleContent() {
       ? { personId: editing._id, date: calculatingOn }
       : 'skip',
   )
+  // What a protein goal per kg comes to today, from the latest weigh-in.
+  const currentWeight = useQuery(
+    api.weight.latestOnOrBefore,
+    editing && editing.linkedAccount !== 'other'
+      ? { personId: editing._id, date: toLocalDateString(Date.now()) }
+      : 'skip',
+  )
+  const proteinPerKgGoal = Number(macroGoals.proteinGPerKg)
+  const proteinGrams =
+    currentWeight && macroGoals.proteinGPerKg.trim() && proteinPerKgGoal > 0
+      ? proteinPerKgGoal * currentWeight.weightKg
+      : undefined
   const createPerson = useMutation(api.nutrition.createPerson)
   const updatePerson = useMutation(api.nutrition.updatePerson)
   const setArchived = useMutation(api.nutrition.setPersonArchived)
@@ -474,37 +487,6 @@ function PeopleContent() {
                   />
                 </Field>
               ) : null}
-              {goalLocked ? null : (
-                <fieldset className="mt-4 min-w-0">
-                  <legend className="group-label pb-1">{t.macroGoals}</legend>
-                  <div className="grid grid-cols-3 gap-3">
-                    {macroGoalFields.map(({ key, unit }) => (
-                      <Field
-                        key={key}
-                        label={t[macroGoalLabel[key]]}
-                        htmlFor={`person-${key}`}
-                      >
-                        <UnitInput
-                          id={`person-${key}`}
-                          unit={unit === 'perKg' ? t.perKgUnit : unit}
-                          min="0"
-                          step="any"
-                          value={macroGoals[key]}
-                          onChange={(event) =>
-                            setMacroGoals((current) => ({
-                              ...current,
-                              [key]: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 px-4 type-footnote text-muted-foreground">
-                    {t.macroGoalsHint}
-                  </p>
-                </fieldset>
-              )}
               {editing && selected !== null ? (
                 <section aria-labelledby="goal-history-title" className="pt-1">
                   <h3 id="goal-history-title" className="group-label">
@@ -536,6 +518,42 @@ function PeopleContent() {
                   ) : null}
                 </section>
               ) : null}
+              {goalLocked ? null : (
+                <fieldset className="mt-4 min-w-0">
+                  <legend className="group-label pb-1">{t.macroGoals}</legend>
+                  <div className="grid grid-cols-3 gap-3">
+                    {macroGoalFields.map(({ key, unit }) => (
+                      <Field
+                        key={key}
+                        label={t[macroGoalLabel[key]]}
+                        htmlFor={`person-${key}`}
+                      >
+                        <UnitInput
+                          id={`person-${key}`}
+                          unit={unit === 'perKg' ? t.perKgUnit : unit}
+                          min="0"
+                          step="any"
+                          value={macroGoals[key]}
+                          onChange={(event) =>
+                            setMacroGoals((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 px-4 type-footnote text-muted-foreground tabular-nums">
+                    {proteinGrams === undefined
+                      ? t.macroGoalsHint
+                      : t.proteinGoalGrams(
+                          Math.round(proteinGrams).toString(),
+                          formatAmount(currentWeight?.weightKg ?? 0, locale),
+                        )}
+                  </p>
+                </fieldset>
+              )}
               <section
                 ref={linkGroup}
                 aria-labelledby="person-account-title"
