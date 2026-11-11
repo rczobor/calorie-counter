@@ -19,12 +19,12 @@ describe('day macro summary', () => {
     expect(summary.textContent).toContain('Protein92 g')
     expect(summary.textContent).toContain('Carbs180 g')
     expect(summary.textContent).toContain('Fat60 g')
-    expect(summary.textContent).toContain('Logged kcal with macros: 80%')
+    expect(summary.textContent).toContain('Macros cover 80% of logged kcal')
   })
 
   it('drops the coverage line when every food has macros', () => {
     render(<MacroSummary macros={macros} consumedCalories={1600} />)
-    expect(screen.queryByText(/Logged kcal with macros/)).toBeNull()
+    expect(screen.queryByText(/Macros cover/)).toBeNull()
   })
 
   it('shows nothing on a day without macros', () => {

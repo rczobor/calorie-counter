@@ -55,6 +55,7 @@ export const messages = defineMessages({
     ignoreCalories: 'Ignore calories',
     macrosLegend: (unit: NutritionUnit) => `Macros per 100 ${unit}`,
     macrosHint: 'Optional. Fill in all three, or leave them empty.',
+    macrosIgnored: 'Ignored calories have no macros.',
     macrosIncomplete:
       'Fill in protein, carbs and fat, or leave all three empty.',
     protein: 'Protein',
@@ -216,6 +217,7 @@ export const messages = defineMessages({
     ignoreCalories: 'Kalória kihagyása',
     macrosLegend: (unit: NutritionUnit) => `Makrók / 100 ${huBasisUnit(unit)}`,
     macrosHint: 'Nem kötelező. Töltsd ki mind a hármat, vagy hagyd üresen.',
+    macrosIgnored: 'Kihagyott kalóriához nem tartozik makró.',
     macrosIncomplete:
       'Add meg a fehérjét, a szénhidrátot és a zsírt, vagy hagyd üresen mind a hármat.',
     protein: 'Fehérje',

@@ -1,4 +1,5 @@
 import type { FunctionReturnType } from 'convex/server'
+import { Value } from '@/components/nutrition/value'
 import { useMessages } from '@/i18n/messages'
 import type { api } from '../../../convex/_generated/api'
 import { messages } from './macro-summary.messages'
@@ -32,13 +33,13 @@ export function MacroSummary({
     [t.fat, macros.fatG],
   ] as const
   return (
-    <section aria-label={t.macros} className="mt-4 border-t pt-3">
-      <dl className="grid grid-cols-3 gap-3 tabular-nums">
+    <section aria-label={t.macros} className="mt-4 border-t pt-4">
+      <dl className="grid grid-cols-3 gap-3">
         {rows.map(([label, grams]) => (
           <div key={label} className="min-w-0">
             <dt className="type-footnote text-muted-foreground">{label}</dt>
-            <dd className="type-headline font-semibold">
-              {t.grams(Math.round(grams).toString())}
+            <dd>
+              <Value value={Math.round(grams)} unit="g" />
             </dd>
           </div>
         ))}

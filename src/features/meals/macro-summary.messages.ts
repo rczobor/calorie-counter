@@ -6,16 +6,14 @@ export const messages = defineMessages({
     protein: 'Protein',
     carbs: 'Carbs',
     fat: 'Fat',
-    grams: (grams: string) => `${grams} g`,
     // Some foods have no macros, so the grams cover part of the day.
-    coverage: (percent: string) => `Logged kcal with macros: ${percent}%`,
+    coverage: (percent: string) => `Macros cover ${percent}% of logged kcal`,
   },
   hu: {
     macros: 'Makrók',
     protein: 'Fehérje',
     carbs: 'Szénhidrát',
     fat: 'Zsír',
-    grams: (grams: string) => `${grams} g`,
-    coverage: (percent: string) => `Makróval rögzített kcal: ${percent}%`,
+    coverage: (percent: string) => `Makrókkal lefedett kcal: ${percent}%`,
   },
 })

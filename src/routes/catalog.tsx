@@ -1148,39 +1148,42 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   />
                 </Field>
               </div>
-              {ingredientIgnoreCalories ? null : (
-                <fieldset className="min-w-0 space-y-1.5">
-                  <legend className="px-4 type-subhead font-medium text-foreground">
-                    {t.macrosLegend(ingredientKcalBasisUnit)}
-                  </legend>
-                  <div className="grid grid-cols-3 gap-3">
-                    {macroFieldKeys.map((key) => (
-                      <Field
-                        key={key}
-                        label={t[macroFieldLabel[key]]}
-                        htmlFor={`ingredient-${key}`}
-                      >
-                        <UnitInput
-                          id={`ingredient-${key}`}
-                          unit="g"
-                          min="0"
-                          step="0.1"
-                          value={ingredientMacros[key]}
-                          onChange={(event) =>
-                            setIngredientMacros((current) => ({
-                              ...current,
-                              [key]: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                    ))}
-                  </div>
-                  <p className="px-4 type-footnote text-muted-foreground">
-                    {t.macrosHint}
-                  </p>
-                </fieldset>
-              )}
+              {/* Stays in place while calories are ignored, so the switch
+                  below never jumps; ignored calories save no macros. */}
+              <fieldset
+                className="min-w-0 pt-2"
+                disabled={isRunning || ingredientIgnoreCalories}
+              >
+                <legend className="group-label">
+                  {t.macrosLegend(ingredientKcalBasisUnit)}
+                </legend>
+                <div className="grid grid-cols-3 gap-3">
+                  {macroFieldKeys.map((key) => (
+                    <Field
+                      key={key}
+                      label={t[macroFieldLabel[key]]}
+                      htmlFor={`ingredient-${key}`}
+                    >
+                      <UnitInput
+                        id={`ingredient-${key}`}
+                        unit="g"
+                        min="0"
+                        step="0.1"
+                        value={ingredientMacros[key]}
+                        onChange={(event) =>
+                          setIngredientMacros((current) => ({
+                            ...current,
+                            [key]: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  ))}
+                </div>
+                <p className="mt-1.5 px-4 type-footnote text-muted-foreground">
+                  {ingredientIgnoreCalories ? t.macrosIgnored : t.macrosHint}
+                </p>
+              </fieldset>
               <Field label={t.group}>
                 <Select
                   ariaLabel={t.ingredientGroup}
