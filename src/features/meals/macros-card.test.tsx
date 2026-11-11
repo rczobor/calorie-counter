@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { apportion, MacrosCard } from './macros-card'
+import type { Id } from '../../../convex/_generated/dataModel'
+import { apportion, MacrosByMealSheet, MacrosCard } from './macros-card'
 
 afterEach(cleanup)
 
@@ -66,5 +67,19 @@ describe('day macros card', () => {
     expect(apportion([36.6, 15.3])).toEqual({ total: 52, parts: [37, 15] })
     expect(apportion([36.4, 15.45])).toEqual({ total: 52, parts: [36, 16] })
     expect(apportion([0, 0])).toEqual({ total: 0, parts: [0, 0] })
+  })
+
+  it('shows protein per kg against its goal in the sheet', () => {
+    render(
+      <MacrosByMealSheet
+        day={{ proteinPerKg: 0.64, macroTargets: { proteinGPerKg: 1.6 } }}
+        meals={[]}
+        loading={false}
+        personId={'person-alex' as Id<'people'>}
+        canEditGoals={false}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Protein: 0.6 / 1.6 g/kg')).toBeTruthy()
   })
 })

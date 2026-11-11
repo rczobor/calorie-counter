@@ -32,11 +32,11 @@ function oneDecimal(locale: Locale) {
 }
 
 /**
- * The day's protein, carbs and fat beside each other, for a person who set a
- * macro goal: setting one is how macros are switched on. A macro with a goal
- * says what is still to eat and shows a neutral bar (the left / over colours
- * belong to calories); one without shows its grams. Tapping opens the
- * day's macros by meal.
+ * The day's macros for a person who set a macro goal: setting one is how
+ * macros are switched on. Each macro with a goal gets a column that says what
+ * is still to eat over a neutral bar (the left / over colours belong to
+ * calories); the others share one line below. Tapping opens the day's macros
+ * by meal.
  */
 export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
   const t = useMessages(messages)
@@ -118,9 +118,13 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
               withGoal.length && 'mt-1.5',
             )}
           >
-            {others
-              .map((macro) => t.macroGrams(macro.label, String(macro.eaten)))
-              .join(' · ')}
+            {others.map((macro, index) => (
+              // Breaks fall between items, never inside "Szénhidrát 156 g".
+              <span key={macro.key} className="whitespace-nowrap">
+                {index ? ' · ' : ''}
+                {t.macroGrams(macro.label, String(macro.eaten))}
+              </span>
+            ))}
           </span>
         ) : null}
       </span>
@@ -323,7 +327,7 @@ export function MacrosByMealSheet({
             ))}
           </table>
         )}
-        {perKg ? (
+        {perKg && !loading ? (
           <p className="mt-3 px-4 type-footnote text-muted-foreground tabular-nums">
             {perKg}
           </p>
