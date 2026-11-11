@@ -1,5 +1,6 @@
 import type { Infer } from 'convex/values'
 import { Value } from '@/components/nutrition/value'
+import { cn } from '@/lib/utils'
 import { intakeBarGeometry } from '@/features/meals/intake-bar'
 import { intlLocale, useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
@@ -61,7 +62,11 @@ export function MacrosCard({ day }: { day: Day }) {
       {rows.map((row, index) => (
         <div
           key={row.key}
-          className={index ? 'ml-4 border-t py-2.5 pr-4' : 'px-4 py-2.5'}
+          // Rows share one height; a row without a goal centres its text.
+          className={cn(
+            'flex min-h-14 flex-col justify-center py-2',
+            index ? 'ml-4 border-t pr-4' : 'px-4',
+          )}
         >
           <div className="flex items-baseline justify-between gap-3">
             <span className="flex items-baseline gap-2">
@@ -73,15 +78,16 @@ export function MacrosCard({ day }: { day: Day }) {
               ) : null}
             </span>
             {row.goal === undefined ? (
-              <Value value={Math.round(row.grams)} unit="g" />
+              <Value value={Math.round(row.grams)} unit="g" size="child" />
             ) : (
               <span className="type-subhead whitespace-nowrap text-muted-foreground tabular-nums">
                 {t.ofGoal(figure(row.grams), figure(row.goal))}
               </span>
             )}
           </div>
-          {/* Every row keeps the bar's slot, so rows without a goal match. */}
-          <MacroBar grams={row.grams} goal={row.goal} />
+          {row.goal === undefined ? null : (
+            <MacroBar grams={row.grams} goal={row.goal} />
+          )}
         </div>
       ))}
     </section>
@@ -93,12 +99,10 @@ export function MacrosCard({ day }: { day: Day }) {
  * Past the goal the bar is the intake and a tick, taller than the bar like
  * the calorie bar's, marks the goal, so 71 / 70 and 120 / 70 look different.
  */
-function MacroBar({ grams, goal }: { grams: number; goal?: number }) {
-  if (goal === undefined)
-    return <div aria-hidden="true" className="mt-2 h-1.5" />
+function MacroBar({ grams, goal }: { grams: number; goal: number }) {
   const bar = intakeBarGeometry(grams, goal)
   return (
-    <div aria-hidden="true" className="relative mt-2">
+    <div aria-hidden="true" className="relative mt-1.5">
       <div className="h-1.5 overflow-hidden rounded-full bg-track">
         <div
           className="h-full rounded-full bg-muted-foreground/55"
