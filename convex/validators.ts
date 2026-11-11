@@ -13,14 +13,24 @@ export const nutritionProvenanceValidator = v.object({
   assumptions: v.string(),
 })
 
-// Grams per macronutrient on the same basis as the food's calories: per 100
-// of its calorie unit, or per serving for a fixed-calorie saved food. Only
-// catalog foods hold them; meals and daily totals do not use them yet.
-export const macrosValidator = v.object({
+// Grams per macronutrient on the same basis as the calorie figure beside it:
+// per 100 of a calorie unit, or for the whole serving or item when the
+// calories are a fixed total.
+export const macroGramsValidator = v.object({
   proteinG: v.number(),
   carbsG: v.number(),
   fatG: v.number(),
-  nutritionProvenance: nutritionProvenanceValidator,
+})
+
+// Catalog macros, with the evidence an assistant supplied for them.
+export const macrosValidator = macroGramsValidator.extend({
+  nutritionProvenance: v.optional(nutritionProvenanceValidator),
+})
+
+// Macro grams summed over the foods that have macros, and the calories those
+// foods account for, so a partial total is never mistaken for a full one.
+export const macroTotalsValidator = macroGramsValidator.extend({
+  coveredCalories: v.number(),
 })
 
 export const foodIdentityValidator = v.object({
@@ -234,6 +244,8 @@ export const cookedFoodsFields = {
   totalRawWeightGrams: v.number(),
   totalCalories: v.number(),
   kcalPer100: v.number(),
+  // Per 100 g, only when every counted ingredient had macros.
+  macros: v.optional(macroGramsValidator),
   editRevision: v.optional(v.number()),
   notes: v.optional(v.string()),
   archived: v.boolean(),
@@ -252,6 +264,7 @@ const cookedFoodIngredientCommonFields = {
   ingredientKcalBasisUnitSnapshot: nutritionUnitValidator,
   ignoreCaloriesSnapshot: v.boolean(),
   ingredientCaloriesSnapshot: v.number(),
+  macrosSnapshot: v.optional(macroGramsValidator),
   notes: v.optional(v.string()),
 }
 
@@ -283,6 +296,7 @@ export const mealsFields = {
   notes: v.optional(v.string()),
   archived: v.boolean(),
   totalCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   itemCount: v.number(),
   editRevision: v.optional(v.number()),
   createdAt: v.number(),
@@ -297,6 +311,7 @@ const mealItemCommonFields = {
   mealId: v.id('meals'),
   nameSnapshot: v.string(),
   caloriesSnapshot: v.number(),
+  macrosSnapshot: v.optional(macroGramsValidator),
   notes: v.optional(v.string()),
 }
 
@@ -344,6 +359,7 @@ export const dailySummariesFields = {
   personId: v.id('people'),
   eatenOn: v.string(),
   consumedCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   mealCount: v.number(),
   createdAt: v.number(),
   updatedAt: v.number(),

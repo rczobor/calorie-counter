@@ -15,6 +15,7 @@ import {
   normalizeSearch,
 } from './lib/validation'
 import {
+  macroGramsValidator,
   nutritionUnitValidator,
   nutritionProvenanceValidator,
 } from './validators'
@@ -91,6 +92,7 @@ const cookedFoodDto = v.object({
   totalRawWeightGrams: v.number(),
   totalCalories: v.number(),
   kcalPer100: v.number(),
+  macros: v.optional(macroGramsValidator),
   notes: v.optional(v.string()),
   archived: v.boolean(),
   editRevision: v.number(),
@@ -117,6 +119,7 @@ const cookedIngredientCommon = {
   ingredientKcalBasisUnitSnapshot: nutritionUnitValidator,
   ignoreCaloriesSnapshot: v.boolean(),
   ingredientCaloriesSnapshot: v.number(),
+  macrosSnapshot: v.optional(macroGramsValidator),
   notes: v.optional(v.string()),
 }
 

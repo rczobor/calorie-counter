@@ -36,6 +36,7 @@ import {
 import {
   buildMealItemSnapshots,
   sumMealItemCalories,
+  sumMealItemMacros,
   buildCookedFoodNutrition,
   prepareCookedFoodWeightCorrection,
   correctCookedFoodWeightForOwner,
@@ -301,6 +302,7 @@ export async function prepareMeal(
     normalized.eatenOn,
   )
   const totalCalories = sumMealItemCalories(snapshots)
+  const macros = sumMealItemMacros(snapshots)
   return {
     writeInput: { ...normalized, items },
     preview: {
@@ -320,8 +322,10 @@ export async function prepareMeal(
         dailySummary,
         totalCalories,
         1,
+        macros,
       ),
       totalCalories,
+      macros,
       items: snapshots.map((item) => ({
         name: item.nameSnapshot,
         calories: item.caloriesSnapshot,
@@ -547,6 +551,7 @@ async function prepareCooking(
       name: output.name.trim(),
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
+      macros: nutrition.macros,
       finishedWeightGrams: output.finishedWeightGrams,
       nutritionProvenance: combineNutritionProvenance(
         summarizeEstimates(nutrition.ingredientSnapshots),
@@ -940,6 +945,7 @@ export const searchFoods = internalMutation({
             name: food.name,
             kcalPer100: food.kcalPer100,
             kcalBasisUnit: 'g' as const,
+            macros: food.macros,
             nutritionProvenance: food.nutritionProvenance,
             sessionId: session._id,
             cookedAt: session.cookedAt,
@@ -1063,6 +1069,7 @@ export const getFoodDetails = internalMutation({
             name: food.name,
             kcalPer100: food.kcalPer100,
             kcalBasisUnit: 'g' as const,
+            macros: food.macros,
             sessionId: session._id,
             cookedAt: session.cookedAt,
           },
@@ -1180,6 +1187,7 @@ export const getDay = internalMutation({
         eatenOn,
         context: await describeContext(ctx, owner),
         consumedCalories: summary.consumedCalories,
+        macros: summary.macros,
         goalKcal: summary.goalKcal,
         mealCount: summary.mealCount,
         meals: meals.page.map((meal) => ({

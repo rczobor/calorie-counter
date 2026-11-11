@@ -2,6 +2,7 @@ import { vMcpUser } from '@convex-dev/mcp'
 import { v, type Infer } from 'convex/values'
 import { internalMutation, type MutationCtx } from './_generated/server'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
+import { caloriesFromMacros, normalizeMacroGrams } from './lib/macros'
 import { DomainError } from './lib/validation'
 import { describeContext, domainResult, requireMcpOwner } from './mcpContext'
 import { canonical, limiter } from './mcpOperations'
@@ -15,24 +16,6 @@ import type { macrosValidator } from './validators'
 
 type Macros = Infer<typeof macrosValidator>
 type Input = Infer<typeof foodMacrosInput>
-
-// Generous enough for 100 pieces of a dense food, small enough to catch typos.
-const MAX_MACRO_GRAMS = 100_000
-// Label rounding can push a 100 g food a little over 100 g of macros.
-const MAX_GRAMS_PER_100_G = 101
-
-function normalizeGrams(value: number, name: string) {
-  if (!Number.isFinite(value) || value < 0 || value > MAX_MACRO_GRAMS)
-    throw new DomainError(
-      `${name} must be between 0 and ${MAX_MACRO_GRAMS} grams.`,
-    )
-  return Math.round(value * 10) / 10
-}
-
-// Atwater factors. Fiber, alcohol and sugar alcohols explain small gaps.
-function caloriesFromMacros(macros: Omit<Macros, 'nutritionProvenance'>) {
-  return Math.round(4 * macros.proteinG + 4 * macros.carbsG + 9 * macros.fatG)
-}
 
 async function loadFood(
   ctx: MutationCtx,
@@ -95,11 +78,6 @@ async function prepareMacros(
   owner: AuthenticatedOwner,
   input: Input,
 ) {
-  const grams = {
-    proteinG: normalizeGrams(input.proteinG, 'Protein'),
-    carbsG: normalizeGrams(input.carbsG, 'Carbohydrate'),
-    fatG: normalizeGrams(input.fatG, 'Fat'),
-  }
   const nutritionProvenance = normalizeNutritionProvenance(
     input.nutritionProvenance,
   )
@@ -110,13 +88,9 @@ async function prepareMacros(
     throw new DomainError(
       'Cannot add macronutrients to a food whose calories are ignored.',
     )
-  if (
-    loaded.food.basis === 'g' &&
-    grams.proteinG + grams.carbsG + grams.fatG > MAX_GRAMS_PER_100_G
-  )
-    throw new DomainError(
-      'Protein, carbohydrate and fat cannot add up to more than 100 g per 100 g.',
-    )
+  const grams = normalizeMacroGrams(input, {
+    per100Grams: loaded.food.basis === 'g',
+  })
   const macroKcal = caloriesFromMacros(grams)
   const { kcal } = loaded.food
   const warnings =

@@ -1,6 +1,7 @@
 import { vMcpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
+import { combineMacroTotals } from './lib/macros'
 import {
   internalMutation,
   type MutationCtx,
@@ -27,6 +28,7 @@ import {
   buildMealItemSnapshots,
   getEditRevision,
   sumMealItemCalories,
+  sumMealItemMacros,
   updateMealForOwner,
   type mealItemInputValidator,
 } from './nutrition'
@@ -302,6 +304,7 @@ async function prepareCorrection(
   const sameDay =
     person._id === current.person._id && args.eatenOn === current.meal.eatenOn
   const afterCalories = sumMealItemCalories(snapshots)
+  const afterMacros = sumMealItemMacros(snapshots)
   const dailySummaries = [
     {
       before: beforeDay,
@@ -311,6 +314,11 @@ async function prepareCorrection(
           ? afterCalories - current.meal.totalCalories
           : -current.meal.totalCalories,
         sameDay ? 0 : -1,
+        combineMacroTotals(
+          sameDay ? afterMacros : undefined,
+          current.meal.macros,
+          -1,
+        ),
       ),
     },
   ]
@@ -323,7 +331,7 @@ async function prepareCorrection(
     )
     dailySummaries.push({
       before: destination,
-      after: projectDailySummary(destination, afterCalories, 1),
+      after: projectDailySummary(destination, afterCalories, 1, afterMacros),
     })
   }
   return {

@@ -137,9 +137,16 @@ creation or device-code flow is exposed in this release.
   approval; a retry of a save already applied changes nothing, and a food that
   changed since the preview fails. `search_foods`, `discover_foods` and
   `get_food_details` return the stored `macros`. Changing an ingredient's
-  calories in the app clears its macros. Meals, cooked batches and daily totals
-  do not use macronutrients yet. Reading uses `nutrition:read` and saving
-  `meals:write`, so a connection only needs a metadata refresh.
+  calories in the app clears its macros. Reading uses `nutrition:read` and
+  saving `meals:write`, so a connection only needs a metadata refresh.
+- Meals and cooking carry those macros forward. A meal item copies the macros
+  of its ingredient, saved food or cooked batch, and `customByWeight` and
+  `fixedCalories` items accept their own `macros` (per 100 g, or for the whole
+  item). A cooked batch gets macros per 100 g only when every counted
+  ingredient has them. Meals, `get_day` and the preview summaries report
+  `macros` with `coveredCalories`, the kcal of the foods that had macros, so a
+  partial total is never read as the whole day. Meals logged before macros
+  existed have none.
 - Read `suggest_reusable_foods` for a logged meal. It offers at most five
   identifiable repeats supported by up to 50 matching item records per food,
   considering the first ten foods and the same person. It never saves anything;
@@ -325,7 +332,8 @@ evaluation and must be recorded as run or not run.
    `preview_goal_change` and `set_goal` on existing scopes; it needs only a
    metadata refresh. Version 1.8.0 adds `preview_food_macros` and
    `set_food_macros` and optional catalog `macros` fields, also on existing
-   scopes with no backfill.
+   scopes with no backfill. Version 1.9.0 carries macros into meals, cooked
+   batches and daily totals; it needs only a metadata refresh.
 2. For each separately created personal ChatGPT connection, open **Plugins**,
    select the existing Calorie Counter connection, and choose **Refresh**. Verify
    that `set_logging_preferences` and `save_food_from_meal` are advertised.

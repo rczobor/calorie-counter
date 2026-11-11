@@ -8,6 +8,11 @@ import {
 import type { Id } from './_generated/dataModel'
 import { ensurePersonalHousehold } from './households'
 import { calculateDailySummaryChange } from './nutrition'
+import {
+  combineMacroTotals,
+  settleMacroTotals,
+  type MacroTotals,
+} from './lib/macros'
 import { readDayNutrition } from './lib/dayNutrition'
 import { DomainError } from './lib/validation'
 import {
@@ -218,6 +223,7 @@ export function projectDailySummary(
   summary: Infer<typeof dailySummary>,
   calorieDelta: number,
   mealCountDelta = 0,
+  macrosDelta?: MacroTotals,
 ): Infer<typeof dailySummary> {
   const { consumedCalories, mealCount } = calculateDailySummaryChange(summary, {
     consumedCalories: calorieDelta,
@@ -228,5 +234,9 @@ export function projectDailySummary(
     consumedCalories,
     mealCount,
     remainingCalories: summary.goalKcal - consumedCalories,
+    macros:
+      mealCount === 0
+        ? undefined
+        : settleMacroTotals(combineMacroTotals(summary.macros, macrosDelta)),
   }
 }

@@ -6,6 +6,8 @@ import {
   mealEvidenceFields,
   foodIdentityValidator,
   historicalMealItemInput,
+  macroGramsValidator,
+  macroTotalsValidator,
   macrosValidator,
   energyProfileValidator,
   goalPlanValidator,
@@ -64,6 +66,7 @@ export const dailySummary = v.object({
   goalKcal: v.number(),
   mealCount: v.number(),
   remainingCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   capturedAt: v.number(),
 })
 export const mcpMealItem = v.union(
@@ -98,12 +101,16 @@ export const mcpMealItem = v.union(
     name: v.string(),
     kcalPer100: v.number(),
     ignoreCalories: v.boolean(),
+    // Per 100 g, like kcalPer100.
+    macros: v.optional(macroGramsValidator),
     ...weighted,
   }),
   v.object({
     sourceType: v.literal('fixedCalories'),
     name: v.string(),
     calories: v.number(),
+    // For the whole item, like calories.
+    macros: v.optional(macroGramsValidator),
     ...notes,
   }),
 )
@@ -142,6 +149,8 @@ export const mcpCookingIngredient = v.union(
     kcalPer100: v.number(),
     kcalBasisUnit: nutritionUnitValidator,
     ignoreCalories: v.boolean(),
+    // Per 100 of kcalBasisUnit, like kcalPer100.
+    macros: v.optional(macroGramsValidator),
     ...cookingAmount,
   }),
 )
@@ -173,6 +182,7 @@ export const mealPreview = v.object({
   dailySummary: v.optional(dailySummary),
   projectedDailySummary: v.optional(dailySummary),
   totalCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   items: v.array(
     v.object({
       name: v.string(),
@@ -189,6 +199,7 @@ export const cookingPreview = v.object({
       name: v.string(),
       totalCalories: v.number(),
       kcalPer100: v.number(),
+      macros: v.optional(macroGramsValidator),
       finishedWeightGrams: v.number(),
       nutritionProvenance: v.optional(nutritionProvenanceValidator),
     }),
@@ -417,6 +428,7 @@ export const dayResult = v.object({
   person: v.string(),
   eatenOn: v.string(),
   consumedCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   goalKcal: v.number(),
   mealCount: v.number(),
   meals: v.array(

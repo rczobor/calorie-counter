@@ -18,6 +18,8 @@ import {
   mealEvidenceFields,
   mealSourceValidator,
   nutritionProvenanceValidator,
+  macroGramsValidator,
+  macroTotalsValidator,
 } from './validators'
 
 const mealDto = v.object({
@@ -29,6 +31,7 @@ const mealDto = v.object({
   notes: v.optional(v.string()),
   archived: v.boolean(),
   totalCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   itemCount: v.number(),
   editRevision: v.number(),
   createdAt: v.number(),
@@ -47,6 +50,7 @@ const mealItemCommon = {
   mealId: v.id('meals'),
   nameSnapshot: v.string(),
   caloriesSnapshot: v.number(),
+  macrosSnapshot: v.optional(macroGramsValidator),
   notes: v.optional(v.string()),
 }
 
@@ -87,6 +91,7 @@ const summaryDto = v.object({
   personId: v.id('people'),
   eatenOn: v.string(),
   consumedCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
   mealCount: v.number(),
   createdAt: v.number(),
   updatedAt: v.number(),
