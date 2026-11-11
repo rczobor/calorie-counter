@@ -605,8 +605,9 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
           kcalPer100: Number(ingredientKcal),
           kcalBasisUnit: ingredientKcalBasisUnit,
           ignoreCalories: ingredientIgnoreCalories,
-          // Hidden fields send nothing, so stored macros stay; ignored
-          // calories carry none, and empty fields clear them.
+          // Hidden fields send nothing, so stored macros stay while the
+          // calories do; ignored calories carry none, and empty fields clear
+          // them.
           macros: !showMacros
             ? undefined
             : ingredientIgnoreCalories || macroFields === 0

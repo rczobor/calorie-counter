@@ -96,8 +96,10 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                     t.left(figure(goal - eaten))
                   ) : (
                     <>
-                      <Check aria-hidden="true" className="size-3.5" />
-                      {figure(t.goalReached)}
+                      <Check aria-hidden="true" className="size-3.5 shrink-0" />
+                      <span className="font-semibold text-foreground">
+                        {t.goalReached}
+                      </span>
                     </>
                   )}
                 </span>
@@ -108,7 +110,7 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                 )}
                 <span className="mt-1 block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
                   {goal === undefined
-                    ? t.grams(figure(eaten))
+                    ? t.grams(String(eaten))
                     : t.ofGoal(String(eaten), String(goal))}
                 </span>
               </span>
@@ -184,11 +186,13 @@ type Meal = Pick<Doc<'meals'>, '_id' | 'name' | 'totalCalories' | 'macros'>
  */
 export function MacrosByMealSheet({
   meals,
+  loading,
   personId,
   canEditGoals,
   onClose,
 }: {
   meals: Meal[]
+  loading: boolean
   personId: Id<'people'>
   canEditGoals: boolean
   onClose: () => void
@@ -219,14 +223,14 @@ export function MacrosByMealSheet({
         </Drawer.Close>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {meals.length === 0 ? (
+        {loading ? null : meals.length === 0 ? (
           <p className="py-4 type-subhead text-muted-foreground">{t.noMeals}</p>
         ) : (
           <table className="w-full inset-group">
             <thead>
               <tr className="type-footnote text-muted-foreground">
                 <th scope="col" className="py-2 pl-4 text-left font-normal">
-                  <span className="sr-only">{t.byMeal}</span>
+                  <span className="sr-only">{t.meal}</span>
                 </th>
                 <th scope="col" className={`py-2 font-normal ${cell}`}>
                   {t.protein}
@@ -266,7 +270,7 @@ export function MacrosByMealSheet({
                     colSpan={4}
                     className="px-4 pt-2.5 text-left text-base font-normal text-foreground"
                   >
-                    {meal.name}
+                    {meal.name?.trim() || t.meal}
                   </th>
                 </tr>
                 <tr>

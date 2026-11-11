@@ -569,6 +569,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         {macrosOpen && selected ? (
           <MacrosByMealSheet
             meals={meals.results}
+            loading={meals.status === 'LoadingFirstPage'}
             personId={selected._id}
             canEditGoals={selected.linkedAccount !== 'other'}
             onClose={() => setMacrosOpen(false)}

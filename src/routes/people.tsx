@@ -149,10 +149,16 @@ function PeopleContent() {
     setOpenedLink(linkedPerson._id)
     beginEdit(linkedPerson)
   }
+  // A link to someone not among the loaded people (archived, or past the
+  // first page) is dropped once the list has loaded.
+  const linkUnusable =
+    edit !== undefined &&
+    active.status !== 'LoadingFirstPage' &&
+    !people.some((person) => person._id === edit)
   useEffect(() => {
-    if (openedLink && edit === openedLink)
+    if ((openedLink && edit === openedLink) || linkUnusable)
       void navigate({ search: {}, replace: true })
-  }, [edit, navigate, openedLink])
+  }, [edit, linkUnusable, navigate, openedLink])
   // A person removed elsewhere has no goal history to load.
   const history = usePaginatedQuery(
     api.people.listGoalHistory,

@@ -24,7 +24,7 @@ describe('day macros card', () => {
     expect(card.textContent).toContain('Protein81 g left51 / 132 g')
     expect(card.textContent).toContain('CarbsNo goal156 g')
     // Past a goal is not an error: it is reached.
-    expect(card.textContent).toContain('FatGoal reached71 / 70 g')
+    expect(card.textContent).toContain('FatReached71 / 70 g')
     expect(card.textContent).toContain('Protein: 0.6 / 1.6 g/kg')
     fireEvent.click(card)
     expect(onOpen).toHaveBeenCalled()

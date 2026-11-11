@@ -278,6 +278,7 @@ beforeEach(() => {
   vi.spyOn(CatalogRoute, 'useSearch').mockImplementation(() => ({ section }))
   queryCalls.length = 0
   mutationCalls.length = 0
+  tracksMacros = true
   paginationStatus = 'CanLoadMore'
   recipeDetailResult = recipeDetail
 })
@@ -648,12 +649,23 @@ describe('Catalog route', () => {
     )
   })
 
-  it('shows no macro fields until someone in the household tracks macros', () => {
+  it('shows no macro fields until someone in the household tracks macros', async () => {
     tracksMacros = false
     renderCatalogRoute()
     openRecord('Oats')
     expect(screen.queryByLabelText('Protein')).toBeNull()
-    tracksMacros = true
+    fireEvent.click(screen.getByRole('button', { name: 'Save ingredient' }))
+    // Hidden fields send nothing, so macros an assistant stored are kept.
+    await waitFor(() =>
+      expect(mutationCalls).toContainEqual({
+        name: 'nutrition:updateIngredient',
+        args: expect.objectContaining({ ingredientId: ingredient._id }),
+      }),
+    )
+    expect(
+      mutationCalls.find((call) => call.name === 'nutrition:updateIngredient')
+        ?.args,
+    ).toHaveProperty('macros', undefined)
   })
 
   it('keeps fractional kcal/100 when an ingredient is edited', async () => {

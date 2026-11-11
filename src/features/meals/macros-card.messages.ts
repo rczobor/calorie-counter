@@ -6,7 +6,6 @@ type Figure = ReactNode
 
 export const messages = defineMessages({
   en: {
-    macros: 'Macros',
     protein: 'Protein',
     carbs: 'Carbs',
     fat: 'Fat',
@@ -14,7 +13,9 @@ export const messages = defineMessages({
     ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
     // The calorie card's words: "801 kcal left", "Goal reached".
     left: (grams: Figure) => rich(grams, ' g left'),
-    goalReached: 'Goal reached',
+    // Short, so it fits a phone's third of the strip beside its check.
+    goalReached: 'Reached',
+    meal: 'Meal',
     noMacros: 'No macros',
     noGoal: 'No goal',
     proteinPerKg: (perKg: string) => `Protein: ${perKg} g/kg`,
@@ -28,14 +29,14 @@ export const messages = defineMessages({
     close: 'Close',
   },
   hu: {
-    macros: 'Makrók',
     protein: 'Fehérje',
     carbs: 'Szénhidrát',
     fat: 'Zsír',
     grams: (grams: Figure) => rich(grams, ' g'),
     ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
     left: (grams: Figure) => rich(grams, ' g maradt'),
-    goalReached: 'Cél elérve',
+    goalReached: 'Elérve',
+    meal: 'Étkezés',
     noMacros: 'Nincs makró',
     noGoal: 'Nincs cél',
     // Grams per kilogram of body weight, as Hungarian dietetics writes it.
