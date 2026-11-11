@@ -97,6 +97,8 @@ function PeopleContent() {
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('2200')
   const [macroGoals, setMacroGoals] = useState(emptyMacroGoals)
+  // The day the editor opened, for the weigh-in a protein goal follows.
+  const [openedOn, setOpenedOn] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   // The switch's unsaved choice; null follows the saved link, which can
   // change on another device while the editor is open.
@@ -146,8 +148,8 @@ function PeopleContent() {
   // What a protein goal per kg comes to today, from the latest weigh-in.
   const currentWeight = useQuery(
     api.weight.latestOnOrBefore,
-    editing && editing.linkedAccount !== 'other'
-      ? { personId: editing._id, date: toLocalDateString(Date.now()) }
+    editing && openedOn && editing.linkedAccount !== 'other'
+      ? { personId: editing._id, date: openedOn }
       : 'skip',
   )
   const proteinPerKgGoal = Number(macroGoals.proteinGPerKg)
@@ -338,7 +340,10 @@ function PeopleContent() {
           create={{
             noun: t.personNoun,
             disabled: isRunning,
-            onClick: () => beginEdit(null),
+            onClick: () => {
+              beginEdit(null)
+              setOpenedOn(toLocalDateString(Date.now()))
+            },
           }}
           archived={{
             checked: showArchived,
@@ -370,7 +375,10 @@ function PeopleContent() {
               unit={t.kcalPerDay}
               archived={person.archived}
               disabled={isRunning}
-              onOpen={() => beginEdit(person)}
+              onOpen={() => {
+                beginEdit(person)
+                setOpenedOn(toLocalDateString(Date.now()))
+              }}
             />
           ))}
         </RecordList>
