@@ -1,6 +1,6 @@
 import { Drawer } from '@base-ui/react/drawer'
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, X } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import type { Infer } from 'convex/values'
 import { Value } from '@/components/nutrition/value'
 import { Sheet } from '@/components/page/sheet'
@@ -87,12 +87,19 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                 <span className="block type-footnote text-muted-foreground">
                   {column.label}
                 </span>
-                <span className="block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
-                  {goal === undefined
-                    ? t.grams(figure(eaten))
-                    : eaten < goal
-                      ? t.toGo(figure(goal - eaten))
-                      : figure(t.goalMet)}
+                {/* One meaning per line across the columns: the status
+                    against the goal, then what was eaten. */}
+                <span className="flex items-center gap-1 type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
+                  {goal === undefined ? (
+                    t.noGoal
+                  ) : eaten < goal ? (
+                    t.left(figure(goal - eaten))
+                  ) : (
+                    <>
+                      <Check aria-hidden="true" className="size-3.5" />
+                      {figure(t.goalReached)}
+                    </>
+                  )}
                 </span>
                 {goal === undefined ? (
                   <span className="mt-1.5 block h-1.5" aria-hidden="true" />
@@ -101,7 +108,7 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                 )}
                 <span className="mt-1 block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
                   {goal === undefined
-                    ? t.noGoal
+                    ? t.grams(figure(eaten))
                     : t.ofGoal(String(eaten), String(goal))}
                 </span>
               </span>
@@ -109,7 +116,7 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
           })}
         </span>
         {perKg ? (
-          <span className="mt-2 block type-footnote text-muted-foreground tabular-nums">
+          <span className="mt-1.5 block type-footnote text-muted-foreground tabular-nums">
             {perKg}
           </span>
         ) : null}
@@ -267,25 +274,30 @@ export function MacrosByMealSheet({
                     <Value
                       value={formatKcal(meal.totalCalories)}
                       size="child"
-                      className="font-normal text-muted-foreground"
                     />
                   </td>
-                  {columns.map((column, index) => (
-                    <td
-                      key={keys[index]}
-                      className={`pb-2.5 ${index ? 'pl-2' : ''} ${index === 2 ? 'pr-4' : ''} ${cell}`}
-                    >
-                      {meal.macros ? (
+                  {meal.macros ? (
+                    columns.map((column, index) => (
+                      <td
+                        key={keys[index]}
+                        className={`pb-2.5 ${index ? 'pl-2' : ''} ${index === 2 ? 'pr-4' : ''} ${cell}`}
+                      >
                         <Value
                           value={column.parts[row]}
                           unit="g"
                           size="child"
                         />
-                      ) : (
-                        <span className="text-muted-foreground">–</span>
-                      )}
+                      </td>
+                    ))
+                  ) : (
+                    // One phrase, not three dashes that read as zero.
+                    <td
+                      colSpan={3}
+                      className="pr-4 pb-2.5 text-right type-footnote text-muted-foreground"
+                    >
+                      {t.noMacros}
                     </td>
-                  ))}
+                  )}
                 </tr>
               </tbody>
             ))}

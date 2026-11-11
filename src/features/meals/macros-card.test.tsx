@@ -21,10 +21,10 @@ describe('day macros card', () => {
       />,
     )
     const card = screen.getByRole('button', { name: /Show macros by meal/ })
-    expect(card.textContent).toContain('Protein81 g to go51 / 132 g')
-    expect(card.textContent).toContain('Carbs156 gNo goal')
-    // Past a goal is not an error: it is met.
-    expect(card.textContent).toContain('FatGoal met71 / 70 g')
+    expect(card.textContent).toContain('Protein81 g left51 / 132 g')
+    expect(card.textContent).toContain('CarbsNo goal156 g')
+    // Past a goal is not an error: it is reached.
+    expect(card.textContent).toContain('FatGoal reached71 / 70 g')
     expect(card.textContent).toContain('Protein: 0.6 / 1.6 g/kg')
     fireEvent.click(card)
     expect(onOpen).toHaveBeenCalled()
@@ -35,7 +35,7 @@ describe('day macros card', () => {
       <MacrosCard day={{ macroTargets: { carbsG: 250 } }} onOpen={vi.fn()} />,
     )
     expect(screen.getByRole('button').textContent).toContain(
-      'Carbs250 g to go0 / 250 g',
+      'Carbs250 g left0 / 250 g',
     )
   })
 

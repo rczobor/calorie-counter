@@ -12,9 +12,10 @@ export const messages = defineMessages({
     fat: 'Fat',
     grams: (grams: Figure) => rich(grams, ' g'),
     ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
-    // Like the calorie card's "kcal left": what is still to eat.
-    toGo: (grams: Figure) => rich(grams, ' g to go'),
-    goalMet: 'Goal met',
+    // The calorie card's words: "801 kcal left", "Goal reached".
+    left: (grams: Figure) => rich(grams, ' g left'),
+    goalReached: 'Goal reached',
+    noMacros: 'No macros',
     noGoal: 'No goal',
     proteinPerKg: (perKg: string) => `Protein: ${perKg} g/kg`,
     proteinPerKgOfGoal: (perKg: string, goal: string) =>
@@ -33,8 +34,9 @@ export const messages = defineMessages({
     fat: 'Zsír',
     grams: (grams: Figure) => rich(grams, ' g'),
     ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
-    toGo: (grams: Figure) => rich('még ', grams, ' g'),
-    goalMet: 'Teljesítve',
+    left: (grams: Figure) => rich(grams, ' g maradt'),
+    goalReached: 'Cél elérve',
+    noMacros: 'Nincs makró',
     noGoal: 'Nincs cél',
     // Grams per kilogram of body weight, as Hungarian dietetics writes it.
     proteinPerKg: (perKg: string) => `Fehérje: ${perKg} g/ttkg`,
