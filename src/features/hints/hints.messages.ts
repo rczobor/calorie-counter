@@ -6,10 +6,6 @@ export const messages = defineMessages({
     gotIt: 'Got it',
     quoted: (text: string) => `“${text}”`,
     tryAsking: 'Try asking',
-    copy: 'Copy',
-    copiedLabel: 'Copied',
-    copied: 'Copied. Paste it into your assistant.',
-    copyFailed: 'Couldn’t copy. Select the text instead.',
     examples: {
       cooking:
         'I cooked chili with 500\u00a0g beef, 400\u00a0g beans and 300\u00a0g onion. The pot weighs 1.8\u00a0kg. Save it as a cooked food.',
@@ -58,10 +54,6 @@ export const messages = defineMessages({
     gotIt: 'Értem',
     quoted: (text: string) => `„${text}”`,
     tryAsking: 'Kérd például így',
-    copy: 'Másolás',
-    copiedLabel: 'Kimásolva',
-    copied: 'Kimásolva. Illeszd be az asszisztensednek.',
-    copyFailed: 'Nem sikerült másolni. Jelöld ki a szöveget.',
     examples: {
       cooking:
         'Főztem chilit 500\u00a0g marhával, 400\u00a0g babbal és 300\u00a0g hagymával. A kész étel 1,8\u00a0kg. Mentsd el főtt ételként.',
