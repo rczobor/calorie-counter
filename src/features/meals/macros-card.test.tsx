@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { MacrosCard } from './macros-card'
+import { apportion, MacrosCard } from './macros-card'
 
 afterEach(cleanup)
 
@@ -22,7 +22,7 @@ describe('day macros card', () => {
     )
     const card = screen.getByRole('button', { name: /Show macros by meal/ })
     expect(card.textContent).toContain('Protein81 g to go51 / 132 g')
-    expect(card.textContent).toContain('Carbs156 g')
+    expect(card.textContent).toContain('Carbs156 gNo goal')
     // Past a goal is not an error: it is met.
     expect(card.textContent).toContain('FatGoal met71 / 70 g')
     expect(card.textContent).toContain('Protein: 0.6 / 1.6 g/kg')
@@ -44,5 +44,13 @@ describe('day macros card', () => {
       <MacrosCard day={{ macros }} onOpen={vi.fn()} />,
     )
     expect(container.textContent).toBe('')
+  })
+
+  it('rounds each meal so the meals add up to the day', () => {
+    // 36.6 + 15.3 rounds to 37 + 15 = 52 and the day to 51.9 = 52; plain
+    // rounding of 36.4 + 15.4 would give 51 against a day of 52.
+    expect(apportion([36.6, 15.3])).toEqual({ total: 52, parts: [37, 15] })
+    expect(apportion([36.4, 15.45])).toEqual({ total: 52, parts: [36, 16] })
+    expect(apportion([0, 0])).toEqual({ total: 0, parts: [0, 0] })
   })
 })

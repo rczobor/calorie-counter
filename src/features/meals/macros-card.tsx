@@ -2,6 +2,7 @@ import { Drawer } from '@base-ui/react/drawer'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, X } from 'lucide-react'
 import type { Infer } from 'convex/values'
+import { Value } from '@/components/nutrition/value'
 import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
 import { intakeBarGeometry } from '@/features/meals/intake-bar'
@@ -17,7 +18,9 @@ type Day = Pick<
   'macros' | 'macroTargets' | 'proteinPerKg'
 >
 
-const grams = (value: number) => Math.round(value).toString()
+const figure = (value: number | string) => (
+  <span className="type-subhead font-semibold text-foreground">{value}</span>
+)
 
 function oneDecimal(locale: Locale) {
   // One decimal always, so 1.0 never reads as a rounded goal.
@@ -74,28 +77,36 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
       <span className="sr-only">{t.showByMeal}</span>
       <span className="min-w-0 flex-1">
         <span className="grid grid-cols-3 gap-3">
-          {columns.map((column) => (
-            <span key={column.key} className="min-w-0">
-              <span className="block type-footnote text-muted-foreground">
-                {column.label}
+          {columns.map((column) => {
+            // What is left comes from the figures shown, so the lines agree.
+            const eaten = Math.round(column.eaten)
+            const goal =
+              column.goal === undefined ? undefined : Math.round(column.goal)
+            return (
+              <span key={column.key} className="min-w-0">
+                <span className="block type-footnote text-muted-foreground">
+                  {column.label}
+                </span>
+                <span className="block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
+                  {goal === undefined
+                    ? t.grams(figure(eaten))
+                    : eaten < goal
+                      ? t.toGo(figure(goal - eaten))
+                      : figure(t.goalMet)}
+                </span>
+                {goal === undefined ? (
+                  <span className="mt-1.5 block h-1.5" aria-hidden="true" />
+                ) : (
+                  <MacroBar eaten={column.eaten} goal={column.goal ?? 0} />
+                )}
+                <span className="mt-1 block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
+                  {goal === undefined
+                    ? t.noGoal
+                    : t.ofGoal(String(eaten), String(goal))}
+                </span>
               </span>
-              <span className="block type-subhead font-semibold whitespace-nowrap text-foreground tabular-nums">
-                {column.goal === undefined
-                  ? t.grams(grams(column.eaten))
-                  : column.eaten < column.goal - 0.5
-                    ? t.toGo(grams(column.goal - column.eaten))
-                    : t.goalMet}
-              </span>
-              {column.goal === undefined ? null : (
-                <>
-                  <MacroBar eaten={column.eaten} goal={column.goal} />
-                  <span className="mt-1 block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
-                    {t.ofGoal(grams(column.eaten), grams(column.goal))}
-                  </span>
-                </>
-              )}
-            </span>
-          ))}
+            )
+          })}
         </span>
         {perKg ? (
           <span className="mt-2 block type-footnote text-muted-foreground tabular-nums">
@@ -138,9 +149,31 @@ function MacroBar({ eaten, goal }: { eaten: number; goal: number }) {
 }
 
 /**
- * The day's macros meal by meal, so a low figure can be traced to the meals
- * that have no macros. Another member's goals are theirs to change, so the
- * goals link shows only for people the viewer may edit.
+ * Splits a rounded total across parts so the rounded parts add up to it
+ * (largest remainder), so the meals' grams sum to the day's on screen.
+ */
+export function apportion(values: number[]) {
+  const total = Math.round(values.reduce((sum, value) => sum + value, 0))
+  const floors = values.map(Math.floor)
+  let left = total - floors.reduce((sum, value) => sum + value, 0)
+  const order = values
+    .map((value, index) => ({ index, rest: value - Math.floor(value) }))
+    .sort((a, b) => b.rest - a.rest)
+  for (const { index } of order) {
+    if (left <= 0) break
+    floors[index] += 1
+    left -= 1
+  }
+  return { total, parts: floors }
+}
+
+type Meal = Pick<Doc<'meals'>, '_id' | 'name' | 'totalCalories' | 'macros'>
+
+/**
+ * The day's macros meal by meal, as a small ledger: a column per macro and a
+ * total that matches the strip, so a low figure can be traced to the meals
+ * that have none. Another member's goals are theirs to change, so the goals
+ * link shows only for people the viewer may edit.
  */
 export function MacrosByMealSheet({
   meals,
@@ -148,12 +181,17 @@ export function MacrosByMealSheet({
   canEditGoals,
   onClose,
 }: {
-  meals: Array<Pick<Doc<'meals'>, '_id' | 'name' | 'totalCalories' | 'macros'>>
+  meals: Meal[]
   personId: Id<'people'>
   canEditGoals: boolean
   onClose: () => void
 }) {
   const t = useMessages(messages)
+  const keys = ['proteinG', 'carbsG', 'fatG'] as const
+  const columns = keys.map((key) =>
+    apportion(meals.map((meal) => meal.macros?.[key] ?? 0)),
+  )
+  const cell = 'text-right tabular-nums'
   return (
     <Sheet onClose={onClose} className="max-h-[80dvh] md:max-w-lg">
       <div className="flex shrink-0 items-center justify-between gap-2 pt-1 pr-2 pb-2 pl-4 md:pt-3">
@@ -173,36 +211,85 @@ export function MacrosByMealSheet({
           <X />
         </Drawer.Close>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {meals.length === 0 ? (
           <p className="py-4 type-subhead text-muted-foreground">{t.noMeals}</p>
         ) : (
-          <ul className="inset-group inset-rows">
-            {meals.map((meal) => (
-              <li
-                key={meal._id}
-                className="flex items-center gap-3 py-2.5 pr-4 pl-4"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-base text-foreground">
+          <table className="w-full inset-group">
+            <thead>
+              <tr className="type-footnote text-muted-foreground">
+                <th scope="col" className="py-2 pl-4 text-left font-normal">
+                  <span className="sr-only">{t.byMeal}</span>
+                </th>
+                <th scope="col" className={`py-2 font-normal ${cell}`}>
+                  {t.protein}
+                </th>
+                <th scope="col" className={`py-2 pl-2 font-normal ${cell}`}>
+                  {t.carbs}
+                </th>
+                <th
+                  scope="col"
+                  className={`py-2 pr-4 pl-2 font-normal ${cell}`}
+                >
+                  {t.fat}
+                </th>
+              </tr>
+              <tr className="border-t">
+                <th
+                  scope="row"
+                  className="py-2 pl-4 text-left text-base font-semibold"
+                >
+                  {t.total}
+                </th>
+                {columns.map((column, index) => (
+                  <td
+                    key={keys[index]}
+                    className={`py-2 ${index ? 'pl-2' : ''} ${index === 2 ? 'pr-4' : ''} ${cell}`}
+                  >
+                    <Value value={column.total} unit="g" size="child" />
+                  </td>
+                ))}
+              </tr>
+            </thead>
+            {meals.map((meal, row) => (
+              <tbody key={meal._id} className="border-t">
+                <tr>
+                  <th
+                    scope="rowgroup"
+                    colSpan={4}
+                    className="px-4 pt-2.5 text-left text-base font-normal text-foreground"
+                  >
                     {meal.name}
-                  </span>
-                  <span className="block type-footnote text-muted-foreground tabular-nums">
-                    {meal.macros
-                      ? t.mealMacros(
-                          grams(meal.macros.proteinG),
-                          grams(meal.macros.carbsG),
-                          grams(meal.macros.fatG),
-                        )
-                      : t.noMacros}
-                  </span>
-                </span>
-                <span className="shrink-0 type-subhead text-muted-foreground tabular-nums">
-                  {formatKcal(meal.totalCalories)} kcal
-                </span>
-              </li>
+                  </th>
+                </tr>
+                <tr>
+                  <td className="pb-2.5 pl-4 type-footnote text-muted-foreground tabular-nums">
+                    <Value
+                      value={formatKcal(meal.totalCalories)}
+                      size="child"
+                      className="font-normal text-muted-foreground"
+                    />
+                  </td>
+                  {columns.map((column, index) => (
+                    <td
+                      key={keys[index]}
+                      className={`pb-2.5 ${index ? 'pl-2' : ''} ${index === 2 ? 'pr-4' : ''} ${cell}`}
+                    >
+                      {meal.macros ? (
+                        <Value
+                          value={column.parts[row]}
+                          unit="g"
+                          size="child"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">–</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
             ))}
-          </ul>
+          </table>
         )}
         {canEditGoals ? (
           <Button
