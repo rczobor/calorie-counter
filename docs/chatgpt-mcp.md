@@ -127,6 +127,19 @@ creation or device-code flow is exposed in this release.
   of overwriting. Plans are for adults only, and a stated goal under
   1200 / 1500 kcal comes with a warning. Reading uses `nutrition:read` and
   saving `meals:write`, so a connection only needs a metadata refresh.
+- Add protein, carbohydrate and fat to a catalog ingredient or saved food.
+  `preview_food_macros` takes grams on the food's calorie basis (per 100 of its
+  unit, or per serving for a fixed-calorie saved food) with a required
+  `nutritionProvenance`, and returns the kcal they imply at 4/4/9 kcal per gram
+  with a warning when that disagrees with the food's calories by more than 20%
+  (or 20 kcal). More than 100 g per 100 g and foods whose calories are ignored
+  are rejected. `set_food_macros` saves the exact previewed input after
+  approval; a retry of a save already applied changes nothing, and a food that
+  changed since the preview fails. `search_foods`, `discover_foods` and
+  `get_food_details` return the stored `macros`. Changing an ingredient's
+  calories in the app clears its macros. Meals, cooked batches and daily totals
+  do not use macronutrients yet. Reading uses `nutrition:read` and saving
+  `meals:write`, so a connection only needs a metadata refresh.
 - Read `suggest_reusable_foods` for a logged meal. It offers at most five
   identifiable repeats supported by up to 50 matching item records per food,
   considering the first ten foods and the same person. It never saves anything;
@@ -310,7 +323,9 @@ evaluation and must be recorded as run or not run.
    Version 1.2.0 adds tables and optional fields; it does not require a data
    backfill or credential replacement. Version 1.7.0 adds `get_goal`,
    `preview_goal_change` and `set_goal` on existing scopes; it needs only a
-   metadata refresh.
+   metadata refresh. Version 1.8.0 adds `preview_food_macros` and
+   `set_food_macros` and optional catalog `macros` fields, also on existing
+   scopes with no backfill.
 2. For each separately created personal ChatGPT connection, open **Plugins**,
    select the existing Calorie Counter connection, and choose **Refresh**. Verify
    that `set_logging_preferences` and `save_food_from_meal` are advertised.

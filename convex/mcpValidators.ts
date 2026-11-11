@@ -6,6 +6,7 @@ import {
   mealEvidenceFields,
   foodIdentityValidator,
   historicalMealItemInput,
+  macrosValidator,
   energyProfileValidator,
   goalPlanValidator,
 } from './validators'
@@ -332,6 +333,7 @@ export const foodCandidate = v.object({
   versionId: v.optional(v.id('recipeVersions')),
   nutrition: v.optional(savedFoodNutrition),
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
+  macros: v.optional(macrosValidator),
 })
 export const foodDetails = v.object({
   context: v.optional(loggingContext),
@@ -353,6 +355,48 @@ export const foodDetails = v.object({
       nutritionProvenance: v.optional(nutritionProvenanceValidator),
     }),
   ),
+})
+
+const macroFoodKind = v.union(v.literal('ingredient'), v.literal('savedFood'))
+// What the macros are measured against: a calorie unit, or one serving.
+const calorieBasis = v.union(nutritionUnitValidator, v.literal('serving'))
+export const foodMacrosInput = v.object({
+  kind: macroFoodKind,
+  foodId: v.string(),
+  proteinG: v.number(),
+  carbsG: v.number(),
+  fatG: v.number(),
+  nutritionProvenance: nutritionProvenanceValidator,
+  // Previews set this so a save fails if the food changed after approval.
+  expectedSnapshot: v.optional(
+    v.object({
+      kcal: v.number(),
+      basis: calorieBasis,
+      macros: v.union(macrosValidator, v.null()),
+    }),
+  ),
+})
+const macroFood = v.object({
+  kind: macroFoodKind,
+  id: v.string(),
+  name: v.string(),
+  kcal: v.number(),
+  basis: calorieBasis,
+})
+export const foodMacrosPreview = v.object({
+  context: v.optional(loggingContext),
+  input: foodMacrosInput,
+  food: macroFood,
+  before: v.union(macrosValidator, v.null()),
+  after: macrosValidator,
+  macroKcal: v.number(),
+  warnings: v.array(v.string()),
+})
+export const foodMacrosResult = v.object({
+  context: v.optional(loggingContext),
+  food: macroFood,
+  macros: macrosValidator,
+  change: v.union(v.literal('updated'), v.literal('unchanged')),
 })
 
 export const loggingContextResult = v.object({
