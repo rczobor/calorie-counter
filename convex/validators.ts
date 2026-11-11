@@ -13,6 +13,16 @@ export const nutritionProvenanceValidator = v.object({
   assumptions: v.string(),
 })
 
+// Grams per macronutrient on the same basis as the food's calories: per 100
+// of its calorie unit, or per serving for a fixed-calorie saved food. Only
+// catalog foods hold them; meals and daily totals do not use them yet.
+export const macrosValidator = v.object({
+  proteinG: v.number(),
+  carbsG: v.number(),
+  fatG: v.number(),
+  nutritionProvenance: nutritionProvenanceValidator,
+})
+
 export const foodIdentityValidator = v.object({
   brand: v.optional(v.string()),
   variant: v.optional(v.string()),
@@ -141,6 +151,7 @@ export const ingredientsFields = {
   kcalPer100: v.number(),
   kcalBasisUnit: nutritionUnitValidator,
   ignoreCalories: v.boolean(),
+  macros: v.optional(macrosValidator),
   editRevision: v.optional(v.number()),
   groupId: v.optional(v.id('foodGroups')),
   notes: v.optional(v.string()),

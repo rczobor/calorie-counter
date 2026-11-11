@@ -28,6 +28,7 @@ import {
   nutritionProvenanceValidator,
   foodIdentityValidator,
   localeValidator,
+  macrosValidator,
 } from './validators'
 import { hintValidator } from './lib/hints'
 
@@ -79,6 +80,7 @@ export default defineSchema({
     name: v.string(),
     nutrition: savedFoodNutrition,
     nutritionProvenance: v.optional(nutritionProvenanceValidator),
+    macros: v.optional(macrosValidator),
     sourceMealId: v.id('meals'),
     sourceItemId: v.id('mealItems'),
     createdAt: v.number(),

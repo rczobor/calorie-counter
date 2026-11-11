@@ -33,6 +33,8 @@ import {
   goalStatusResult,
   goalChangePreview,
   goalChangeResult,
+  foodMacrosPreview,
+  foodMacrosResult,
 } from './mcpValidators'
 import { formulaMaintenance, goalForPlan, shiftDay } from './lib/energy'
 import {
@@ -3076,5 +3078,253 @@ describe('MCP goal tools', () => {
       (await t.run((ctx) => ctx.db.get(personId)))?.currentDailyGoalKcal,
     ).toBe(2000)
     expect(mcp.lint()).toEqual([])
+  })
+})
+
+describe('MCP macronutrient tools', () => {
+  const label = {
+    kind: 'provided' as const,
+    origin: 'label' as const,
+    source: 'Package label',
+    assumptions: 'Per 100 g as printed.',
+  }
+  const expectError = async (response: Response, text: string) =>
+    expect(await response.json()).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ text: expect.stringContaining(text) }],
+      },
+    })
+
+  it('previews, saves and reads ingredient macros, and guards stale previews', async () => {
+    const t = setup()
+    const ingredientId = await insertIngredient(t, {
+      name: 'Greek yogurt',
+      kcalPer100: 97,
+    })
+    const { token } = await credential(t)
+    const grams = { proteinG: 9, carbsG: 3.98, fatG: 5 }
+    const preview = await output(
+      await call(t, token, 'preview_food_macros', {
+        input: {
+          kind: 'ingredient',
+          foodId: ingredientId,
+          ...grams,
+          nutritionProvenance: label,
+        },
+      }),
+      foodMacrosPreview,
+    )
+    expect(preview).toMatchObject({
+      food: { name: 'Greek yogurt', kcal: 97, basis: 'g' },
+      before: null,
+      after: { proteinG: 9, carbsG: 4, fatG: 5, nutritionProvenance: label },
+      macroKcal: 97,
+      warnings: [],
+      input: { expectedSnapshot: { kcal: 97, basis: 'g', macros: null } },
+    })
+    // A preview saves nothing, and a save needs one.
+    expect(
+      await t.run(async (ctx) => (await ctx.db.get(ingredientId))?.macros),
+    ).toBeNull()
+    await expectError(
+      await call(t, token, 'set_food_macros', {
+        input: { ...preview.input, expectedSnapshot: undefined },
+      }),
+      'Preview first',
+    )
+
+    const saved = await output(
+      await call(t, token, 'set_food_macros', { input: preview.input }),
+      foodMacrosResult,
+    )
+    expect(saved).toMatchObject({ change: 'updated', macros: preview.after })
+    // An uncertain save retried with the same input changes nothing.
+    expect(
+      await output(
+        await call(t, token, 'set_food_macros', { input: preview.input }),
+        foodMacrosResult,
+      ),
+    ).toMatchObject({ change: 'unchanged' })
+
+    const found = await output(
+      await call(t, token, 'search_foods', {
+        kind: 'ingredient',
+        search: 'yogurt',
+      }),
+      searchResult,
+    )
+    expect(found.foods[0].macros).toEqual(preview.after)
+    const details = await output(
+      await call(t, token, 'get_food_details', {
+        kind: 'ingredient',
+        id: ingredientId,
+      }),
+      foodDetails,
+    )
+    expect(details.food.macros).toEqual(preview.after)
+
+    // Values approved against the old macros cannot overwrite newer ones.
+    const replacement = await output(
+      await call(t, token, 'preview_food_macros', {
+        input: { ...preview.input, proteinG: 10, expectedSnapshot: undefined },
+      }),
+      foodMacrosPreview,
+    )
+    expect(replacement.before).toEqual(preview.after)
+    await expectError(
+      await call(t, token, 'set_food_macros', {
+        input: {
+          ...replacement.input,
+          expectedSnapshot: preview.input.expectedSnapshot,
+        },
+      }),
+      'changed since the preview',
+    )
+    expect(mcp.lint()).toEqual([])
+  })
+
+  it('clears ingredient macros when the app changes its calories', async () => {
+    const t = setup()
+    const ingredientId = await insertIngredient(t, { kcalPer100: 97 })
+    const macros = {
+      proteinG: 9,
+      carbsG: 4,
+      fatG: 5,
+      nutritionProvenance: label,
+    }
+    await t.run((ctx) => ctx.db.patch(ingredientId, { macros }))
+    const update = (editRevision: number, kcalPer100: number) =>
+      asTestUser(t).mutation(api.nutrition.updateIngredient, {
+        ingredientId,
+        expectedEditRevision: editRevision,
+        name: 'Renamed yogurt',
+        kcalPer100,
+        ignoreCalories: false,
+      })
+    const stored = () =>
+      t.run(async (ctx) => (await ctx.db.get(ingredientId))?.macros)
+
+    // The app's catalog reads leave out macros it cannot show yet.
+    expect(
+      await asTestUser(t).query(api.catalog.getIngredient, { ingredientId }),
+    ).toMatchObject({ kcalPer100: 97 })
+    await update(0, 97)
+    expect(await stored()).toEqual(macros)
+    await update(1, 120)
+    expect(await stored()).toBeNull()
+  })
+
+  it('checks macros against the calorie basis of a fixed-calorie saved food', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const ignoredId = await insertIngredient(t, {
+      name: 'Water',
+      kcalPer100: 0,
+      ignoreCalories: true,
+    })
+    const { token } = await credential(t)
+    const preview = await output(
+      await call(t, token, 'preview_meal', {
+        input: {
+          personId,
+          eatenOn: '2026-11-10',
+          items: [
+            {
+              sourceType: 'fixedCalories',
+              name: 'Protein bar',
+              calories: 200,
+              nutritionProvenance: label,
+            },
+          ],
+        },
+      }),
+      mealPreview,
+    )
+    const meal = await output(
+      await call(t, token, 'log_meal', {
+        input: preview.input,
+        operationKey: 'bar',
+      }),
+      mealResult,
+    )
+    const detail = await output(
+      await call(t, token, 'get_meal', { mealId: meal.mealId }),
+      mealDetails,
+    )
+    const bar = await output(
+      await call(t, token, 'save_food_from_meal', {
+        mealId: meal.mealId,
+        itemId: detail.items[0].id,
+        operationKey: 'remember-bar',
+      }),
+      savedFoodResult,
+    )
+    const macrosFor = async (input: Record<string, unknown>) =>
+      call(t, token, 'preview_food_macros', {
+        input: { nutritionProvenance: label, ...input },
+      })
+
+    // 20 g protein, 25 g carbs, 15 g fat imply 315 kcal, not the 200 recorded.
+    const mismatch = await output(
+      await macrosFor({
+        kind: 'savedFood',
+        foodId: bar.foodId,
+        proteinG: 20,
+        carbsG: 25,
+        fatG: 15,
+      }),
+      foodMacrosPreview,
+    )
+    expect(mismatch).toMatchObject({
+      food: { kcal: 200, basis: 'serving' },
+      macroKcal: 315,
+      warnings: [expect.stringContaining('315 kcal')],
+    })
+    // Per serving, more than 100 g of macros is plausible.
+    expect(
+      (
+        await output(
+          await macrosFor({
+            kind: 'savedFood',
+            foodId: bar.foodId,
+            proteinG: 20,
+            carbsG: 90,
+            fatG: 1,
+          }),
+          foodMacrosPreview,
+        )
+      ).macroKcal,
+    ).toBe(449)
+    await expectError(
+      await macrosFor({
+        kind: 'ingredient',
+        foodId: await insertIngredient(t, { kcalPer100: 900 }),
+        proteinG: 0,
+        carbsG: 5,
+        fatG: 100,
+      }),
+      'more than 100 g per 100 g',
+    )
+    await expectError(
+      await macrosFor({
+        kind: 'ingredient',
+        foodId: ignoredId,
+        proteinG: 0,
+        carbsG: 0,
+        fatG: 0,
+      }),
+      'calories are ignored',
+    )
+    await expectError(
+      await macrosFor({
+        kind: 'savedFood',
+        foodId: bar.foodId,
+        proteinG: -1,
+        carbsG: 0,
+        fatG: 0,
+      }),
+      'Protein must be between 0',
+    )
   })
 })

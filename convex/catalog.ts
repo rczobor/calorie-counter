@@ -54,6 +54,8 @@ const ingredientDto = v.object({
 function ingredientWithoutOwner(ingredient: Doc<'ingredients'>) {
   return {
     ...withoutOwner(ingredient),
+    // Only assistants read macros over MCP until the app can show them.
+    macros: undefined,
     editRevision: ingredient.editRevision ?? 0,
   }
 }

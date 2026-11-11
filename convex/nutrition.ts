@@ -2525,6 +2525,13 @@ export const updateIngredient = mutation({
       'ingredient',
       ingredient.groupId,
     )
+    const kcalBasisUnit = args.kcalBasisUnit ?? ingredient.kcalBasisUnit
+    // Macros share the calorie basis, so they stop describing the food once
+    // its calories change. The app cannot show or edit them yet.
+    const caloriesChanged =
+      normalizedKcalPer100 !== ingredient.kcalPer100 ||
+      kcalBasisUnit !== ingredient.kcalBasisUnit ||
+      args.ignoreCalories !== ingredient.ignoreCalories
     await ctx.db.patch(args.ingredientId, {
       name: args.name.trim(),
       brand: normalizeOptionalText(args.brand, 'Brand', MAX_NAME_LENGTH),
@@ -2540,8 +2547,9 @@ export const updateIngredient = mutation({
         normalizeNutritionProvenance(args.nutritionProvenance) ??
         ingredient.nutritionProvenance,
       kcalPer100: normalizedKcalPer100,
-      kcalBasisUnit: args.kcalBasisUnit ?? ingredient.kcalBasisUnit,
+      kcalBasisUnit,
       ignoreCalories: args.ignoreCalories,
+      ...(caloriesChanged ? { macros: undefined } : {}),
       editRevision: nextEditRevision(ingredient, 'Ingredient'),
       groupId: args.groupId,
       notes: normalizeOptionalText(

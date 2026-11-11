@@ -818,6 +818,7 @@ export const searchFoods = internalMutation({
             foodIdentity: food.foodIdentity,
             nutrition: food.nutrition,
             nutritionProvenance: food.nutritionProvenance,
+            macros: food.macros,
             ...(food.nutrition.kind === 'byWeight'
               ? {
                   kcalPer100: food.nutrition.kcalPer100,
@@ -862,6 +863,7 @@ export const searchFoods = internalMutation({
             name: food.name,
             kcalPer100: food.kcalPer100,
             kcalBasisUnit: food.kcalBasisUnit,
+            macros: food.macros,
           })),
           cursor: page.isDone ? null : page.continueCursor,
         }
@@ -989,6 +991,7 @@ export const getFoodDetails = internalMutation({
             foodIdentity: food.foodIdentity,
             nutrition: food.nutrition,
             nutritionProvenance: food.nutritionProvenance,
+            macros: food.macros,
           },
           nutritionProvenance: food.nutritionProvenance,
           ingredients: [],
@@ -1020,6 +1023,7 @@ export const getFoodDetails = internalMutation({
             name: food.name,
             kcalPer100: food.kcalPer100,
             kcalBasisUnit: food.kcalBasisUnit,
+            macros: food.macros,
           },
           ingredients: [],
         }
