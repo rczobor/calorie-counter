@@ -1,8 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import {
-  Check,
   Clock,
-  Copy,
   Gauge,
   MessageCircle,
   Smartphone,
@@ -10,18 +8,12 @@ import {
   Weight,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
-import { toast } from 'sonner'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Hint } from '../../../convex/lib/hints'
 import { ShowArchivedButton } from '@/components/list/list-toolbar'
 import { EmptyState } from '@/components/page/empty-state'
+import { CopyButton } from '@/components/copy-button'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useMutation, useQuery } from '@/features/households/convex-hooks'
 import { InstallEntry } from '@/features/install/install-entry'
@@ -162,37 +154,6 @@ export function AssistantListEmpty({
     >
       {children}
     </EmptyState>
-  )
-}
-
-/** Copies the example request; the label confirms for a moment. */
-function CopyButton({ text }: { text: string }) {
-  const t = useMessages(messages)
-  const [copied, setCopied] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      clearTimeout(timer.current)
-      timer.current = setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error(t.copyFailed)
-    }
-  }
-  return (
-    <>
-      <Button variant="outline" size="sm" onClick={() => void copy()}>
-        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-        {copied ? t.copiedLabel : t.copy}
-      </Button>
-      {/* Outside the button, so it isn't part of its name; the label
-          change isn't announced on its own. */}
-      <span role="status" className="sr-only">
-        {copied ? t.copied : ''}
-      </span>
-    </>
   )
 }
 

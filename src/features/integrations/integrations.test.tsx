@@ -161,6 +161,20 @@ describe('MCP connection UI', () => {
     expect(screen.queryByText(/In ChatGPT Plugins/)).toBeNull()
   })
 
+  it('copies the MCP URL', async () => {
+    query.mockImplementation((reference) =>
+      getFunctionName(reference) === 'mcp:getConfiguration'
+        ? { enabled: true, url: 'https://example.convex.site/mcp' }
+        : [],
+    )
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.assign(navigator, { clipboard: { writeText } })
+    render(<ConnectedAgents />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    expect(writeText).toHaveBeenCalledWith('https://example.convex.site/mcp')
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeTruthy()
+  })
+
   it('discloses readable permissions and their exact scope names on demand', () => {
     query.mockImplementation((reference) =>
       getFunctionName(reference) === 'mcp:getConfiguration'
