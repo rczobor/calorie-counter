@@ -417,7 +417,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_food_macros: tool({
       description:
-        'Preview protein, carbohydrate and fat grams for an ingredient or saved food from discover_foods, search_foods or get_food_details, without saving. Grams use the food’s calorie basis: per 100 of its kcalBasisUnit, or per serving for a fixedCalories saved food. Prefer label or database values (nutritionProvenance kind provided); label anything else kind estimate with assumptions. Returns the food, the macros before and after, the kcal they imply at 4/4/9 kcal per gram, and warnings when that disagrees with the food’s calories. Show all of it and obtain approval, then call set_food_macros with the exact returned input.',
+        'Preview protein, carbohydrate and fat grams for an ingredient or saved food from discover_foods, search_foods or get_food_details, without saving. Grams use the food’s calorie basis: per 100 g or ml (per 100 of an ingredient’s kcalBasisUnit), or per serving for a fixedCalories saved food. Prefer label or database values (nutritionProvenance kind provided); label anything else kind estimate with assumptions. Returns the food, the macros before and after, the kcal they imply at 4/4/9 kcal per gram, and warnings when that disagrees with the food’s calories. Show all of it and obtain approval, then call set_food_macros with the exact returned input.',
       args: {
         householdId: v.optional(v.id('households')),
         input: foodMacrosInput,
