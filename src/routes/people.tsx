@@ -527,7 +527,7 @@ function PeopleContent() {
                 </section>
               ) : null}
               {goalLocked ? null : (
-                <fieldset className="mt-4 min-w-0">
+                <fieldset className="mt-1 min-w-0">
                   <legend className="group-label pb-1">{t.macroGoals}</legend>
                   <div className="grid grid-cols-3 gap-3">
                     {macroGoalFields.map(({ key, unit }) => (
@@ -541,7 +541,6 @@ function PeopleContent() {
                           unit={unit === 'perKg' ? t.perKgUnit : unit}
                           min="0"
                           step="any"
-                          placeholder={t.noGoal}
                           value={macroGoals[key]}
                           onChange={(event) =>
                             setMacroGoals((current) => ({

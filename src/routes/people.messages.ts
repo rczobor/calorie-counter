@@ -32,11 +32,10 @@ export const messages = defineMessages({
     carbsGoal: 'Carbs',
     fatGoal: 'Fat',
     perKgUnit: 'g/kg',
-    noGoal: 'None',
     proteinGoalGrams: (grams: string, kg: string) =>
       `Protein follows each day’s weigh-in: about ${grams} g a day at ${kg} kg today.`,
     macroGoalsHint:
-      'Optional, per day. Protein is per kg of body weight and follows the latest weigh-in.',
+      'Optional, per day; leave a field empty for no goal. Protein is per kg of body weight and follows each day’s weigh-in.',
     reasonLabel: 'Reason for a goal change',
     reason: 'Goal change reason',
     optional: 'Optional',
@@ -107,11 +106,10 @@ export const messages = defineMessages({
     carbsGoal: 'Szénhidrát',
     fatGoal: 'Zsír',
     perKgUnit: 'g/ttkg',
-    noGoal: 'Nincs',
     proteinGoalGrams: (grams: string, kg: string) =>
       `A fehérje a napi méréshez igazodik: ma ${kg} kg mellett kb. ${grams} g.`,
     macroGoalsHint:
-      'Nem kötelező, naponta. A fehérje testsúlykilogrammonként értendő, és a legutóbbi méréshez igazodik.',
+      'Nem kötelező, naponta; üres mező: nincs cél. A fehérje testsúlykilogrammonként értendő, és a napi méréshez igazodik.',
     reasonLabel: 'Célmódosítás oka',
     reason: 'Célmódosítás oka',
     optional: 'Nem kötelező',
