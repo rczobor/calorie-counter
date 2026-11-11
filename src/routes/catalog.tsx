@@ -50,7 +50,7 @@ import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { createDraftId } from '@/lib/id'
 import {
   type NutritionUnit,
-  formatKcalPer100,
+  formatKcal,
   nutritionUnitOptions,
 } from '@/lib/nutrition'
 import { useLocale, type Locale } from '@/i18n/locale'
@@ -183,7 +183,7 @@ function ingredientEnergy(
   locale: Locale,
 ) {
   return {
-    value: formatKcalPer100(ingredient.kcalPer100),
+    value: formatKcal(ingredient.kcalPer100),
     basis: messages[locale].per100(ingredient.kcalBasisUnit),
   }
 }
@@ -1297,7 +1297,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                                     {line.ignoreCalories
                                       ? t.caloriesNotCounted
                                       : t.kcalPer100(
-                                          formatKcalPer100(line.kcalPer100),
+                                          formatKcal(line.kcalPer100),
                                           line.kcalBasisUnit,
                                         )}
                                   </p>
@@ -1517,7 +1517,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                         value={
                           recipeLineIngredientId
                             ? selectedRecipeLineIngredient
-                              ? `${selectedRecipeLineIngredient.name} · ${t.kcalPer100(formatKcalPer100(selectedRecipeLineIngredient.kcalPer100), selectedRecipeLineIngredient.kcalBasisUnit)}`
+                              ? `${selectedRecipeLineIngredient.name} · ${t.kcalPer100(formatKcal(selectedRecipeLineIngredient.kcalPer100), selectedRecipeLineIngredient.kcalBasisUnit)}`
                               : t.unknownIngredient
                             : ''
                         }

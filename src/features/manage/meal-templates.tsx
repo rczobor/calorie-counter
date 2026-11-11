@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatAmount } from '@/i18n/format'
+import { formatKcal } from '@/lib/nutrition'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { AssistantListEmpty } from '@/features/hints/hints'
@@ -133,7 +134,7 @@ function TemplateSheet({
                       {item.sourceType === 'customByWeight'
                         ? t.weightLine(
                             formatAmount(item.consumedWeightGrams, locale),
-                            formatAmount(item.kcalPer100, locale),
+                            formatKcal(item.kcalPer100),
                           )
                         : t.portionLine(
                             formatAmount(item.servingCount ?? 1, locale),
@@ -141,7 +142,7 @@ function TemplateSheet({
                               (item.foodIdentity?.basis === 'ml'
                                 ? 'ml'
                                 : t.recordedPortions),
-                            formatAmount(item.calories, locale),
+                            formatKcal(item.calories),
                           )}
                     </p>
                     <EstimateNotice provenance={item.nutritionProvenance} />
@@ -211,13 +212,10 @@ function TemplateSheet({
                             ·{' '}
                             {food.nutrition.kind === 'fixedCalories'
                               ? t.kcalPerServing(
-                                  formatAmount(food.nutrition.calories, locale),
+                                  formatKcal(food.nutrition.calories),
                                 )
                               : t.kcalPer100(
-                                  formatAmount(
-                                    food.nutrition.kcalPer100,
-                                    locale,
-                                  ),
+                                  formatKcal(food.nutrition.kcalPer100),
                                   food.nutrition.kind === 'byVolume'
                                     ? 'ml'
                                     : 'g',

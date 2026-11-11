@@ -36,7 +36,7 @@ import {
 } from '@/features/meals/meal-draft'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
 import { formatDate } from '@/lib/dates'
-import { formatKcalPer100, toLocalDateString } from '@/lib/nutrition'
+import { formatKcal, toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 import { Value } from '@/components/nutrition/value'
 import { useLocale } from '@/i18n/locale'
@@ -1078,7 +1078,7 @@ function MealEditorContent({
             [
               t.cookedBatch,
               batchDate(result.food.cookSessionId),
-              `${formatKcalPer100(result.food.kcalPer100)} kcal/100 g`,
+              `${formatKcal(result.food.kcalPer100)} kcal/100 g`,
             ]
               .filter(Boolean)
               .join(' · '),
@@ -1090,7 +1090,7 @@ function MealEditorContent({
             [
               t.ingredient,
               result.ingredient.brand,
-              `${formatKcalPer100(result.ingredient.kcalPer100)} kcal/100 g`,
+              `${formatKcal(result.ingredient.kcalPer100)} kcal/100 g`,
             ]
               .filter(Boolean)
               .join(' · '),
@@ -1209,7 +1209,7 @@ function MealEditorContent({
                         {activeFood.kind === 'cooked'
                           ? t.cookedBatch
                           : t.ingredient}{' '}
-                        · {formatKcalPer100(activeFood.kcalPer100)} kcal/100 g
+                        · {formatKcal(activeFood.kcalPer100)} kcal/100 g
                       </p>
                     ) : null}
                   </div>

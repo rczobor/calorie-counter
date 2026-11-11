@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatCookSessionLabel,
-  formatKcalPer100,
+  formatKcal,
   getNutritionUnitLabel,
   toErrorMessage,
   toLocalDateString,
@@ -15,7 +15,8 @@ describe('nutrition helpers', () => {
     expect(getNutritionUnitLabel('g', 'en')).toBe('grams')
     expect(getNutritionUnitLabel('tablespoon', 'hu')).toBe('evőkanál')
     expect(getNutritionUnitLabel('ml', 'en')).toBe('ml')
-    expect(formatKcalPer100(172.6)).toBe('173')
+    expect(formatKcal(172.6)).toBe('173')
+    expect(formatKcal(118.34862385321101)).toBe('118')
   })
 
   it('round-trips local date strings and rejects invalid input', () => {

@@ -11,7 +11,7 @@ import { ListToolbar, LoadMoreButton } from '@/components/list/list-toolbar'
 import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { useConfirmableAction } from '@/hooks/use-confirmable-action'
-import { formatAmount } from '@/i18n/format'
+import { formatKcal } from '@/lib/nutrition'
 import { useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { AssistantListEmpty } from '@/features/hints/hints'
@@ -28,13 +28,13 @@ function energy(food: SavedFood, locale: Locale) {
   const t = messages[locale]
   return food.nutrition.kind === 'fixedCalories'
     ? {
-        value: formatAmount(food.nutrition.calories, locale),
+        value: formatKcal(food.nutrition.calories),
         unit: t.kcalPerPortion(
           food.foodIdentity?.servingLabel ?? t.savedPortion,
         ),
       }
     : {
-        value: formatAmount(food.nutrition.kcalPer100, locale),
+        value: formatKcal(food.nutrition.kcalPer100),
         unit: 'kcal',
         basis: t.per100(food.nutrition.kind === 'byVolume' ? 'ml' : 'g'),
       }

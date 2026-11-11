@@ -62,7 +62,12 @@ export function toErrorMessage(error: unknown, locale: Locale) {
   return messages[locale].requestFailed
 }
 
-export function formatKcalPer100(value: number) {
+/**
+ * A calorie figure as shown: whole kcal. Stored values stay exact because a
+ * cooked food's rate is derived (batch kcal ÷ cooked weight) and later
+ * portions multiply it, but its full float means nothing to a reader.
+ */
+export function formatKcal(value: number) {
   return Math.round(value).toString()
 }
 

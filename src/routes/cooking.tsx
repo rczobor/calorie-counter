@@ -60,7 +60,7 @@ import {
   writeCookingEdit,
 } from '@/features/cooking/use-persisted-cooking-drafts'
 import {
-  formatKcalPer100,
+  formatKcal,
   toErrorMessage,
   toLocalDateString,
   toTimestampFromDate,
@@ -576,7 +576,7 @@ function CookedFoodList({
               // The rate's basis joins the subtitle, so names don't wrap
               // beside a long unit.
               detail={t.cookedFoodDetail(food.finishedWeightGrams.toFixed(0))}
-              value={formatKcalPer100(food.kcalPer100)}
+              value={formatKcal(food.kcalPer100)}
               archived={food.archived}
               expanded={selectedId === food._id}
               onOpen={(event) => {
@@ -753,7 +753,7 @@ function CookedFoodDetail({
           <dd>
             <Value
               size="headline"
-              value={formatKcalPer100(food.kcalPer100)}
+              value={formatKcal(food.kcalPer100)}
               unit={null}
             />
           </dd>
