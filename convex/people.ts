@@ -19,7 +19,11 @@ import {
   normalizeSearch,
   normalizeRequiredDate,
 } from './lib/validation'
-import { energyProfileValidator, goalPlanValidator } from './validators'
+import {
+  energyProfileValidator,
+  goalPlanValidator,
+  macroTotalsValidator,
+} from './validators'
 
 const personDto = v.object({
   _id: v.id('people'),
@@ -74,6 +78,7 @@ const personWithTodayDto = personDto.extend({
 })
 
 const personWithDayDto = personWithTodayDto.extend({
+  macros: v.optional(macroTotalsValidator),
   goalKcal: v.number(),
   remainingCalories: v.number(),
   mealCount: v.number(),
@@ -195,6 +200,7 @@ export const listForDay = query({
         return {
           ...personWithoutOwner(person, owner.userId),
           consumedCalories: summary.consumedCalories,
+          macros: summary.macros,
           goalKcal: summary.goalKcal,
           remainingCalories: summary.remainingCalories,
           mealCount: summary.mealCount,

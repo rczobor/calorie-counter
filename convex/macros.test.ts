@@ -443,3 +443,51 @@ describe('macronutrients over MCP', () => {
     expect((await summaryFor(t, personId))?.macros).toBeUndefined()
   })
 })
+
+describe('macronutrients in the ingredient editor', () => {
+  it('saves the grams the app shows and keeps their source while unchanged', async () => {
+    const t = setup()
+    const user = asTestUser(t)
+    const ingredientId = await insertIngredient(t, {
+      name: 'Greek yogurt',
+      kcalPer100: 100,
+      macros: yogurt,
+    })
+    const stored = () =>
+      t.run(async (ctx) => (await ctx.db.get(ingredientId))?.macros ?? null)
+    const save = (
+      revision: number,
+      kcalPer100: number,
+      macros: { proteinG: number; carbsG: number; fatG: number } | null,
+    ) =>
+      user.mutation(api.nutrition.updateIngredient, {
+        ingredientId,
+        expectedEditRevision: revision,
+        name: 'Greek yogurt',
+        kcalPer100,
+        ignoreCalories: false,
+        macros,
+      })
+
+    // A new calorie figure saved with the same grams keeps the label source.
+    await save(0, 97, { proteinG: 10, carbsG: 4, fatG: 5 })
+    expect(await stored()).toEqual(yogurt)
+    await save(1, 97, { proteinG: 9, carbsG: 4, fatG: 5 })
+    expect(await stored()).toEqual({ proteinG: 9, carbsG: 4, fatG: 5 })
+    await save(2, 97, null)
+    expect(await stored()).toBeNull()
+
+    expect(
+      await user.query(api.catalog.getIngredient, { ingredientId }),
+    ).not.toHaveProperty('macros')
+    const createdId = await user.mutation(api.nutrition.createIngredient, {
+      name: 'Oats',
+      kcalPer100: 380,
+      ignoreCalories: false,
+      macros: { proteinG: 13, carbsG: 60, fatG: 7 },
+    })
+    expect(
+      await user.query(api.catalog.getIngredient, { ingredientId: createdId }),
+    ).toMatchObject({ macros: { proteinG: 13, carbsG: 60, fatG: 7 } })
+  })
+})

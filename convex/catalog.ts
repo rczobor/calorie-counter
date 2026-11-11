@@ -15,6 +15,7 @@ import {
 import {
   groupScopeValidator,
   nutritionUnitValidator,
+  macrosValidator,
   nutritionProvenanceValidator,
 } from './validators'
 
@@ -42,6 +43,7 @@ const ingredientDto = v.object({
   kcalPer100: v.number(),
   kcalBasisUnit: nutritionUnitValidator,
   ignoreCalories: v.boolean(),
+  macros: v.optional(macrosValidator),
   groupId: v.optional(v.id('foodGroups')),
   groupName: v.optional(v.string()),
   groupArchived: v.optional(v.boolean()),
@@ -54,8 +56,6 @@ const ingredientDto = v.object({
 function ingredientWithoutOwner(ingredient: Doc<'ingredients'>) {
   return {
     ...withoutOwner(ingredient),
-    // Only assistants read macros over MCP until the app can show them.
-    macros: undefined,
     editRevision: ingredient.editRevision ?? 0,
   }
 }

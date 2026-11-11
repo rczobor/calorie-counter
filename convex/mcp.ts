@@ -433,7 +433,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     set_food_macros: tool({
       description:
-        'Save macronutrients for an ingredient or saved food after the user approves preview_food_macros. Send the exact input it returned. Replaces earlier macros on that food. Saving the values already stored changes nothing, so retry an uncertain save with the same input. If the food changed since the preview, preview again for new approval. Changing an ingredient’s calories in the app clears its macros. Meals logged from the food afterwards carry its macros into daily totals; earlier meals keep what they recorded.',
+        'Save macronutrients for an ingredient or saved food after the user approves preview_food_macros. Send the exact input it returned. Replaces earlier macros on that food. Saving the values already stored changes nothing, so retry an uncertain save with the same input. If the food changed since the preview, preview again for new approval. An app edit that changes an ingredient’s calories keeps its macros only when the person saves them too. Meals logged from the food afterwards carry its macros into daily totals; earlier meals keep what they recorded.',
       args: {
         householdId: v.optional(v.id('households')),
         input: foodMacrosInput,

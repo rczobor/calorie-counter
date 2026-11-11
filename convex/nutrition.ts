@@ -25,6 +25,7 @@ import {
   macroGrams,
   resolveInputMacros,
   scaleMacros,
+  sameMacroGrams,
   scaleOptionalMacros,
   settleMacroTotals,
   type MacroGrams,
@@ -2578,6 +2579,8 @@ export const createIngredient = mutation({
     kcalPer100: v.number(),
     kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
+    // Per 100 of kcalBasisUnit; null clears them.
+    macros: v.optional(v.union(macroGramsValidator, v.null())),
     groupId: v.optional(v.id('foodGroups')),
     notes: v.optional(v.string()),
   },
@@ -2591,6 +2594,11 @@ export const createIngredient = mutation({
     })
     await assertGroupForScope(ctx.db, owner, args.groupId, 'ingredient')
 
+    const kcalBasisUnit = args.kcalBasisUnit ?? 'g'
+    const macros = resolveInputMacros(args.macros, {
+      per100Grams: kcalBasisUnit === 'g',
+      ignoreCalories: args.ignoreCalories,
+    })
     const now = Date.now()
     return await ctx.db.insert('ingredients', {
       ...ownerFields(owner),
@@ -2605,8 +2613,9 @@ export const createIngredient = mutation({
         args.nutritionProvenance,
       ),
       kcalPer100: normalizedKcalPer100,
-      kcalBasisUnit: args.kcalBasisUnit ?? 'g',
+      kcalBasisUnit,
       ignoreCalories: args.ignoreCalories,
+      macros,
       editRevision: 0,
       groupId: args.groupId,
       notes: normalizeOptionalText(
@@ -2632,6 +2641,8 @@ export const updateIngredient = mutation({
     kcalPer100: v.number(),
     kcalBasisUnit: v.optional(nutritionUnitValidator),
     ignoreCalories: v.boolean(),
+    // Per 100 of kcalBasisUnit; null clears them.
+    macros: v.optional(v.union(macroGramsValidator, v.null())),
     groupId: v.optional(v.id('foodGroups')),
     notes: v.optional(v.string()),
   },
@@ -2661,12 +2672,26 @@ export const updateIngredient = mutation({
       ingredient.groupId,
     )
     const kcalBasisUnit = args.kcalBasisUnit ?? ingredient.kcalBasisUnit
-    // Macros share the calorie basis, so they stop describing the food once
-    // its calories change. The app cannot show or edit them yet.
-    const caloriesChanged =
-      normalizedKcalPer100 !== ingredient.kcalPer100 ||
-      kcalBasisUnit !== ingredient.kcalBasisUnit ||
-      args.ignoreCalories !== ingredient.ignoreCalories
+    // Macros share the calorie basis. A client that sends none keeps them
+    // only while the calories stay the same; the app sends the grams it
+    // shows, and unchanged grams keep an assistant's provenance.
+    const macroGramsToSave = resolveInputMacros(args.macros, {
+      per100Grams: kcalBasisUnit === 'g',
+      ignoreCalories: args.ignoreCalories,
+      existing: {
+        macros: macroGrams(ingredient.macros),
+        caloriesUnchanged:
+          normalizedKcalPer100 === ingredient.kcalPer100 &&
+          kcalBasisUnit === ingredient.kcalBasisUnit &&
+          args.ignoreCalories === ingredient.ignoreCalories,
+      },
+    })
+    const macros =
+      macroGramsToSave &&
+      ingredient.macros &&
+      sameMacroGrams(macroGramsToSave, ingredient.macros)
+        ? ingredient.macros
+        : macroGramsToSave
     await ctx.db.patch(args.ingredientId, {
       name: args.name.trim(),
       brand: normalizeOptionalText(args.brand, 'Brand', MAX_NAME_LENGTH),
@@ -2684,7 +2709,7 @@ export const updateIngredient = mutation({
       kcalPer100: normalizedKcalPer100,
       kcalBasisUnit,
       ignoreCalories: args.ignoreCalories,
-      ...(caloriesChanged ? { macros: undefined } : {}),
+      macros,
       editRevision: nextEditRevision(ingredient, 'Ingredient'),
       groupId: args.groupId,
       notes: normalizeOptionalText(

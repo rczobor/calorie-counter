@@ -53,6 +53,13 @@ export const messages = defineMessages({
     optional: 'Optional',
     add: 'Add',
     ignoreCalories: 'Ignore calories',
+    macrosLegend: (unit: NutritionUnit) => `Macros per 100 ${unit}`,
+    macrosHint: 'Optional. Fill in all three, or leave them empty.',
+    macrosIncomplete:
+      'Fill in protein, carbs and fat, or leave all three empty.',
+    protein: 'Protein',
+    carbs: 'Carbs',
+    fat: 'Fat',
     saveHint: 'Changes are saved only when you choose Save.',
 
     ingredients: 'Ingredients',
@@ -207,6 +214,13 @@ export const messages = defineMessages({
     optional: 'Nem kötelező',
     add: 'Hozzáadás',
     ignoreCalories: 'Kalória kihagyása',
+    macrosLegend: (unit: NutritionUnit) => `Makrók / 100 ${huBasisUnit(unit)}`,
+    macrosHint: 'Nem kötelező. Töltsd ki mind a hármat, vagy hagyd üresen.',
+    macrosIncomplete:
+      'Add meg a fehérjét, a szénhidrátot és a zsírt, vagy hagyd üresen mind a hármat.',
+    protein: 'Fehérje',
+    carbs: 'Szénhidrát',
+    fat: 'Zsír',
     saveHint: 'A módosítások csak a Mentés gombbal mentődnek el.',
 
     ingredients: 'Alapanyagok',

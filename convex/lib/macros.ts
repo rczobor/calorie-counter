@@ -52,6 +52,10 @@ export function macroGrams(
     : undefined
 }
 
+export function sameMacroGrams(a: MacroGrams, b: MacroGrams) {
+  return a.proteinG === b.proteinG && a.carbsG === b.carbsG && a.fatG === b.fatG
+}
+
 export function scaleMacros(macros: MacroGrams, factor: number): MacroGrams {
   return {
     proteinG: macros.proteinG * factor,

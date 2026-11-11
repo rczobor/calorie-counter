@@ -60,6 +60,14 @@ import { messages } from './catalog.messages'
 
 const SEARCH_MAX_LENGTH = 100
 
+const emptyMacroDraft = { proteinG: '', carbsG: '', fatG: '' }
+const macroFieldKeys = ['proteinG', 'carbsG', 'fatG'] as const
+const macroFieldLabel = {
+  proteinG: 'protein',
+  carbsG: 'carbs',
+  fatG: 'fat',
+} as const
+
 const INGREDIENT_SORTS = ['name', 'kcal-desc', 'kcal-asc'] as const
 type IngredientSort = (typeof INGREDIENT_SORTS)[number]
 
@@ -234,6 +242,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     useState<NutritionUnit>('g')
   const [ingredientIgnoreCalories, setIngredientIgnoreCalories] =
     useState(false)
+  const [ingredientMacros, setIngredientMacros] = useState(emptyMacroDraft)
   const [ingredientGroupId, setIngredientGroupId] = useState<
     Id<'foodGroups'> | ''
   >('')
@@ -377,6 +386,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     setIngredientKcal('')
     setIngredientKcalBasisUnit('g')
     setIngredientIgnoreCalories(false)
+    setIngredientMacros(emptyMacroDraft)
     setIngredientGroupId('')
     setEditingIngredientGroup(null)
     setIngredientNotes('')
@@ -510,6 +520,15 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     setIngredientKcal(String(ingredient.kcalPer100))
     setIngredientKcalBasisUnit(ingredient.kcalBasisUnit)
     setIngredientIgnoreCalories(ingredient.ignoreCalories)
+    setIngredientMacros(
+      ingredient.macros
+        ? {
+            proteinG: String(ingredient.macros.proteinG),
+            carbsG: String(ingredient.macros.carbsG),
+            fatG: String(ingredient.macros.fatG),
+          }
+        : emptyMacroDraft,
+    )
     setIngredientGroupId(ingredient.groupId ?? '')
     setEditingIngredientGroup(
       ingredient.groupId && ingredient.groupName
@@ -571,12 +590,26 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
     void runAction(
       editingIngredientId ? t.ingredientUpdated : t.ingredientCreated,
       async () => {
+        const macroFields = Object.values(ingredientMacros).filter((value) =>
+          value.trim(),
+        ).length
+        if (!ingredientIgnoreCalories && macroFields > 0 && macroFields < 3)
+          throw new Error(t.macrosIncomplete)
         const payload = {
           name: ingredientName,
           brand: ingredientBrand.trim() || undefined,
           kcalPer100: Number(ingredientKcal),
           kcalBasisUnit: ingredientKcalBasisUnit,
           ignoreCalories: ingredientIgnoreCalories,
+          // Ignored calories carry no macros, and empty fields clear them.
+          macros:
+            ingredientIgnoreCalories || macroFields === 0
+              ? null
+              : {
+                  proteinG: Number(ingredientMacros.proteinG),
+                  carbsG: Number(ingredientMacros.carbsG),
+                  fatG: Number(ingredientMacros.fatG),
+                },
           groupId: ingredientGroupId || undefined,
           notes: ingredientNotes.trim() || undefined,
         }
@@ -1115,6 +1148,39 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                   />
                 </Field>
               </div>
+              {ingredientIgnoreCalories ? null : (
+                <fieldset className="min-w-0 space-y-1.5">
+                  <legend className="px-4 type-subhead font-medium text-foreground">
+                    {t.macrosLegend(ingredientKcalBasisUnit)}
+                  </legend>
+                  <div className="grid grid-cols-3 gap-3">
+                    {macroFieldKeys.map((key) => (
+                      <Field
+                        key={key}
+                        label={t[macroFieldLabel[key]]}
+                        htmlFor={`ingredient-${key}`}
+                      >
+                        <UnitInput
+                          id={`ingredient-${key}`}
+                          unit="g"
+                          min="0"
+                          step="0.1"
+                          value={ingredientMacros[key]}
+                          onChange={(event) =>
+                            setIngredientMacros((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                  <p className="px-4 type-footnote text-muted-foreground">
+                    {t.macrosHint}
+                  </p>
+                </fieldset>
+              )}
               <Field label={t.group}>
                 <Select
                   ariaLabel={t.ingredientGroup}
