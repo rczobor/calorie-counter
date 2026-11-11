@@ -23,6 +23,7 @@ import { RecordList, RecordRow } from '@/components/list/record-list'
 import { ArchiveActions, SheetFooter } from '@/components/list/sheet-footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { describePlan } from '@/features/energy/energy-format'
 import { WhichOneIsYou } from '@/features/households/which-one-is-you'
@@ -43,26 +44,25 @@ import { messages } from './people.messages'
 
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
 
-const macroGoalFields = [
-  { key: 'proteinGPerKg', unit: 'perKg' },
-  { key: 'carbsG', unit: 'g' },
-  { key: 'fatG', unit: 'g' },
-] as const
-const macroGoalLabel = {
-  proteinGPerKg: 'proteinGoal',
-  carbsG: 'carbsGoal',
-  fatG: 'fatGoal',
-} as const
-type MacroGoalDraft = Record<(typeof macroGoalFields)[number]['key'], string>
+// Protein is grams a day (no weigh-ins needed) or grams per kg of body weight.
+type ProteinUnit = 'perDay' | 'perKg'
+type MacroGoalDraft = {
+  protein: string
+  proteinUnit: ProteinUnit
+  carbsG: string
+  fatG: string
+}
 const emptyMacroGoals: MacroGoalDraft = {
-  proteinGPerKg: '',
+  protein: '',
+  proteinUnit: 'perDay',
   carbsG: '',
   fatG: '',
 }
 
 function macroGoalDraft(goals: Person['macroGoals']): MacroGoalDraft {
   return {
-    proteinGPerKg: goals?.proteinGPerKg?.toString() ?? '',
+    protein: (goals?.proteinG ?? goals?.proteinGPerKg)?.toString() ?? '',
+    proteinUnit: goals?.proteinGPerKg === undefined ? 'perDay' : 'perKg',
     carbsG: goals?.carbsG?.toString() ?? '',
     fatG: goals?.fatG?.toString() ?? '',
   }
@@ -71,8 +71,10 @@ function macroGoalDraft(goals: Person['macroGoals']): MacroGoalDraft {
 // Empty fields are no goal; no goals at all clears them.
 function parseMacroGoals(draft: MacroGoalDraft) {
   const value = (text: string) => (text.trim() ? Number(text) : undefined)
+  const protein = value(draft.protein)
   const goals = {
-    proteinGPerKg: value(draft.proteinGPerKg),
+    proteinG: draft.proteinUnit === 'perDay' ? protein : undefined,
+    proteinGPerKg: draft.proteinUnit === 'perKg' ? protein : undefined,
     carbsG: value(draft.carbsG),
     fatG: value(draft.fatG),
   }
@@ -193,9 +195,10 @@ function PeopleContent() {
     live?.linkedAccount === 'other' ? false : (isMeChoice ?? savedIsMe)
   const linkPending = isMe !== savedIsMe
   const goalChanged = goal !== String(editing?.currentDailyGoalKcal ?? 2200)
+  // Compares parsed goals, so a unit switch on an empty field isn't a change.
   const macroGoalsChanged =
-    JSON.stringify(macroGoals) !==
-    JSON.stringify(macroGoalDraft(editing?.macroGoals))
+    JSON.stringify(parseMacroGoals(macroGoals)) !==
+    JSON.stringify(parseMacroGoals(macroGoalDraft(editing?.macroGoals)))
   // A reason belongs to a goal change: hidden and never sent without one.
   const goalReason = goalChanged ? reason.trim() || undefined : undefined
   const profileDirty =
@@ -211,9 +214,12 @@ function PeopleContent() {
     api.weight.latestOnOrBefore,
     editing && !goalLocked ? { personId: editing._id, date: today } : 'skip',
   )
-  const proteinPerKgGoal = Number(macroGoals.proteinGPerKg)
+  const proteinPerKgGoal = Number(macroGoals.protein)
   const proteinGrams =
-    currentWeight && macroGoals.proteinGPerKg.trim() && proteinPerKgGoal > 0
+    currentWeight &&
+    macroGoals.proteinUnit === 'perKg' &&
+    macroGoals.protein.trim() &&
+    proteinPerKgGoal > 0
       ? proteinPerKgGoal * currentWeight.weightKg
       : undefined
   const linkGroup = useRef<HTMLElement>(null)
@@ -547,28 +553,78 @@ function PeopleContent() {
               {goalLocked ? null : (
                 <fieldset className="mt-1 min-w-0">
                   <legend className="group-label pb-1">{t.macroGoals}</legend>
-                  <div className="grid grid-cols-3 gap-3">
-                    {macroGoalFields.map(({ key, unit }) => (
-                      <Field
-                        key={key}
-                        label={t[macroGoalLabel[key]]}
-                        htmlFor={`person-${key}`}
-                      >
-                        <UnitInput
-                          id={`person-${key}`}
-                          unit={unit === 'perKg' ? t.perKgUnit : unit}
-                          min="0"
-                          step="any"
-                          value={macroGoals[key]}
-                          onChange={(event) =>
-                            setMacroGoals((current) => ({
-                              ...current,
-                              [key]: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                    ))}
+                  {/* Protein leads: it is the macro most people set. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label={t.proteinGoal} htmlFor="person-protein">
+                      <UnitInput
+                        id="person-protein"
+                        unit={
+                          macroGoals.proteinUnit === 'perKg' ? t.perKgUnit : 'g'
+                        }
+                        min="0"
+                        step="any"
+                        value={macroGoals.protein}
+                        onChange={(event) =>
+                          setMacroGoals((current) => ({
+                            ...current,
+                            protein: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label={t.proteinPer}>
+                      <Select
+                        ariaLabel={t.proteinUnit}
+                        className="w-full"
+                        value={macroGoals.proteinUnit}
+                        onValueChange={(value) => {
+                          const proteinUnit =
+                            value === 'perKg' ? 'perKg' : 'perDay'
+                          // 140 g a day means nothing per kg: start over.
+                          setMacroGoals((current) =>
+                            current.proteinUnit === proteinUnit
+                              ? current
+                              : { ...current, proteinUnit, protein: '' },
+                          )
+                        }}
+                        options={[
+                          { value: 'perDay', label: t.perDay },
+                          { value: 'perKg', label: t.perKgBodyWeight },
+                        ]}
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Field label={t.carbsGoal} htmlFor="person-carbsG">
+                      <UnitInput
+                        id="person-carbsG"
+                        unit="g"
+                        min="0"
+                        step="any"
+                        value={macroGoals.carbsG}
+                        onChange={(event) =>
+                          setMacroGoals((current) => ({
+                            ...current,
+                            carbsG: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label={t.fatGoal} htmlFor="person-fatG">
+                      <UnitInput
+                        id="person-fatG"
+                        unit="g"
+                        min="0"
+                        step="any"
+                        value={macroGoals.fatG}
+                        onChange={(event) =>
+                          setMacroGoals((current) => ({
+                            ...current,
+                            fatG: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
                   </div>
                   <p className="mt-1.5 px-4 type-footnote text-muted-foreground tabular-nums">
                     {proteinGrams === undefined

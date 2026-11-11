@@ -5,6 +5,7 @@ import { internalMutation, type MutationCtx } from './_generated/server'
 import { readCheckInData } from './energy'
 import { assertOwnedOrThrow, type AuthenticatedOwner } from './lib/auth'
 import { assertCanChangeGoal } from './lib/personPrivacy'
+import { normalizeMacroGoals } from './lib/macros'
 import {
   ageInYearOf,
   buildCheckIn,
@@ -91,7 +92,19 @@ function goalState(person: Doc<'people'>) {
     goalKcal: person.currentDailyGoalKcal,
     energyProfile: person.energyProfile,
     goalPlan: person.goalPlan,
+    macroGoals: person.macroGoals,
   }
+}
+
+/** The macro goals a change leaves: omitted keeps them, null clears them. */
+function nextMacroGoals(
+  person: Doc<'people'>,
+  input: Infer<typeof goalChangeInput>,
+) {
+  if (input.macroGoals === undefined) return person.macroGoals
+  return input.macroGoals === null
+    ? undefined
+    : normalizeMacroGoals(input.macroGoals)
 }
 
 function weightPath(owner: AuthenticatedOwner, person: Doc<'people'>) {
@@ -162,6 +175,7 @@ export const getGoal = internalMutation({
         currentGoalKcal: person.currentDailyGoalKcal,
         energyProfile: person.energyProfile,
         goalPlan: person.goalPlan,
+        macroGoals: person.macroGoals,
         history: history.map((entry) => ({
           effectiveDate: entry.effectiveDate,
           goalKcal: entry.goalKcal,
@@ -252,7 +266,17 @@ async function prepareGoalChange(
     'Goal reason',
     MAX_DESCRIPTION_LENGTH,
   )
-  if (input.goalKcal !== undefined) {
+  const macroGoals = nextMacroGoals(person, input)
+  // A change to macro goals alone keeps the calorie goal as it is.
+  const macroGoalsOnly =
+    input.goalKcal === undefined &&
+    input.goalPlan === undefined &&
+    input.energyProfile === undefined &&
+    input.macroGoals !== undefined
+  if (macroGoalsOnly) {
+    goalKcal = person.currentDailyGoalKcal
+    basis = 'stated'
+  } else if (input.goalKcal !== undefined) {
     if (!Number.isFinite(input.goalKcal) || input.goalKcal <= 0)
       throw new DomainError('Daily goal must be a positive number of kcal.')
     goalKcal = input.goalKcal
@@ -346,7 +370,7 @@ async function prepareGoalChange(
         `Held at the ${MIN_GOAL_KCAL[profile.sex]} kcal minimum, so the pace will be slower.`,
       )
   }
-  if (basis === 'stated') {
+  if (basis === 'stated' && !macroGoalsOnly) {
     const minimum = profile ? MIN_GOAL_KCAL[profile.sex] : MIN_GOAL_KCAL.female
     if (goalKcal < minimum)
       warnings.push(
@@ -361,7 +385,7 @@ async function prepareGoalChange(
       )
   }
   const before = goalState(person)
-  const after = { goalKcal, energyProfile: profile, goalPlan: plan }
+  const after = { goalKcal, energyProfile: profile, goalPlan: plan, macroGoals }
   if (canonical(after) === canonical(before))
     warnings.push(
       'This matches the saved goal, plan and profile: saving changes nothing.',
@@ -386,6 +410,9 @@ async function prepareGoalChange(
       goalKcal,
       ...(input.energyProfile ? { energyProfile: input.energyProfile } : {}),
       ...(goalPlan !== undefined ? { goalPlan } : {}),
+      ...(input.macroGoals !== undefined
+        ? { macroGoals: macroGoals ?? null }
+        : {}),
       ...(reason ? { reason } : {}),
     },
     before,
@@ -458,6 +485,7 @@ export const setGoal = internalMutation({
           input.goalPlan === undefined
             ? person.goalPlan
             : (input.goalPlan ?? undefined),
+        macroGoals: nextMacroGoals(person, input),
       }
       const result = {
         householdId: owner.householdId,
@@ -491,6 +519,7 @@ export const setGoal = internalMutation({
           reason: input.reason ?? STATED_REASON,
           energyProfile: input.energyProfile,
           goalPlan: input.goalPlan,
+          macroGoals: input.macroGoals,
         },
       )
       return {

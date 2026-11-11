@@ -127,6 +127,16 @@ creation or device-code flow is exposed in this release.
   of overwriting. Plans are for adults only, and a stated goal under
   1200 / 1500 kcal comes with a warning. Reading uses `nutrition:read` and
   saving `meals:write`, so a connection only needs a metadata refresh.
+- The same goal tools read and set optional macro goals. `macroGoals` holds
+  protein as grams a day (`proteinG`) or grams per kg of body weight
+  (`proteinGPerKg`, from the latest weigh-in on or before each day), not both,
+  plus `carbsG` and `fatG`. Sent alone, `macroGoals` keeps the calorie goal and
+  adds no goal history; `null` clears them. Macro goals have no history, so
+  they apply to every day read. Today shows macros only for a person with a
+  macro goal.
+- Assistants should record protein, carbohydrate and fat with the calories of
+  every food: from the user's text, a nutrition label in a photo, a lookup, or
+  an estimate labelled as one.
 - Add protein, carbohydrate and fat to a catalog ingredient or saved food.
   `preview_food_macros` takes grams on the food's calorie basis (per 100 of its
   unit, or per serving for a fixed-calorie saved food) with a required
@@ -333,7 +343,8 @@ evaluation and must be recorded as run or not run.
    metadata refresh. Version 1.8.0 adds `preview_food_macros` and
    `set_food_macros` and optional catalog `macros` fields, also on existing
    scopes with no backfill. Version 1.9.0 carries macros into meals, cooked
-   batches and daily totals; it needs only a metadata refresh.
+   batches and daily totals, and macro goals to the goal tools; it needs only
+   a metadata refresh.
 2. For each separately created personal ChatGPT connection, open **Plugins**,
    select the existing Calorie Counter connection, and choose **Refresh**. Verify
    that `set_logging_preferences` and `save_food_from_meal` are advertised.

@@ -42,11 +42,18 @@ const MAX_PROTEIN_G_PER_KG = 5
 const MAX_DAILY_GRAMS = 2000
 
 /** Positive goals within human ranges; an empty set of goals is none. */
-export function normalizeMacroGoals(goals: {
+type MacroGoals = {
+  proteinG?: number
   proteinGPerKg?: number
   carbsG?: number
   fatG?: number
-}) {
+}
+
+export function normalizeMacroGoals(goals: MacroGoals) {
+  if (goals.proteinG !== undefined && goals.proteinGPerKg !== undefined)
+    throw new DomainError(
+      'Set the protein goal in grams a day or per kg of body weight, not both.',
+    )
   const check = (value: number | undefined, max: number, name: string) => {
     if (value === undefined) return undefined
     const rounded = Math.round(value * 10) / 10
@@ -55,6 +62,7 @@ export function normalizeMacroGoals(goals: {
     return rounded
   }
   const normalized = {
+    proteinG: check(goals.proteinG, MAX_DAILY_GRAMS, 'Protein goal (g)'),
     proteinGPerKg: check(
       goals.proteinGPerKg,
       MAX_PROTEIN_G_PER_KG,
@@ -69,10 +77,11 @@ export function normalizeMacroGoals(goals: {
 }
 
 export function sameMacroGoals(
-  a: { proteinGPerKg?: number; carbsG?: number; fatG?: number } | undefined,
-  b: { proteinGPerKg?: number; carbsG?: number; fatG?: number } | undefined,
+  a: MacroGoals | undefined,
+  b: MacroGoals | undefined,
 ) {
   return (
+    a?.proteinG === b?.proteinG &&
     a?.proteinGPerKg === b?.proteinGPerKg &&
     a?.carbsG === b?.carbsG &&
     a?.fatG === b?.fatG

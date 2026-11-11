@@ -2695,6 +2695,31 @@ describe('MCP goal tools', () => {
     return { t, personId, own, preview }
   }
 
+  it('sets macro goals alone without touching the calorie goal', async () => {
+    const { t, personId, own, preview } = await goalFixture()
+    const previewed = await output(
+      await preview({ expectedEditRevision: 0, macroGoals: { proteinG: 140 } }),
+      goalChangePreview,
+    )
+    expect(previewed).toMatchObject({
+      basis: 'stated',
+      before: { goalKcal: 2000 },
+      after: { goalKcal: 2000, macroGoals: { proteinG: 140 } },
+      warnings: [],
+    })
+    await call(t, own.token, 'set_goal', { input: previewed.input })
+    const after = await output(
+      await call(t, own.token, 'get_goal', { personId, localDate: today }),
+      goalStatusResult,
+    )
+    expect(after).toMatchObject({
+      currentGoalKcal: 2000,
+      macroGoals: { proteinG: 140 },
+      // A macro-only change adds no calorie goal history.
+      history: [],
+    })
+  })
+
   it('sets a stated goal after a preview and keeps it in goal history', async () => {
     const { t, personId, own, preview } = await goalFixture()
     const before = await output(

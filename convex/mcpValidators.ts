@@ -11,6 +11,7 @@ import {
   macroTotalsValidator,
   macrosValidator,
   energyProfileValidator,
+  macroGoalsValidator,
   goalPlanValidator,
 } from './validators'
 
@@ -610,6 +611,7 @@ const goalState = v.object({
   goalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  macroGoals: v.optional(macroGoalsValidator),
 })
 
 export const goalStatusResult = v.object({
@@ -620,6 +622,7 @@ export const goalStatusResult = v.object({
   currentGoalKcal: v.number(),
   energyProfile: v.optional(energyProfileValidator),
   goalPlan: v.optional(goalPlanValidator),
+  macroGoals: v.optional(macroGoalsValidator),
   history: v.array(
     v.object({
       effectiveDate: v.string(),
@@ -640,6 +643,8 @@ export const goalChangeInput = v.object({
   energyProfile: v.optional(energyProfileValidator),
   // Omitted keeps the saved plan; null clears it.
   goalPlan: v.optional(v.union(goalPlanValidator, v.null())),
+  // Omitted keeps the saved macro goals; null clears them.
+  macroGoals: v.optional(v.union(macroGoalsValidator, v.null())),
   reason: v.optional(v.string()),
 })
 

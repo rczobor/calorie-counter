@@ -33,7 +33,10 @@ let pending = false
 // The viewer's linked person; null shows "Which one is you?".
 let linkedToMe: string | null = 'person-alex'
 // What people.get returns for the person being edited.
-let livePerson: typeof alex & { linkedAccount?: 'you' | 'other' } = alex
+let livePerson: typeof alex & {
+  linkedAccount?: 'you' | 'other'
+  macroGoals?: { proteinGPerKg?: number; fatG?: number }
+} = alex
 // The last success toast runAction would show.
 let lastSuccess:
   { text: string; toast?: { action?: { onClick: () => void } } } | undefined
@@ -99,7 +102,7 @@ vi.mock('convex/react', () => ({
         loadMore,
       }
     return {
-      results: args.archived ? [sam] : [alex],
+      results: args.archived ? [sam] : [livePerson],
       status: activeStatus,
       loadMore,
     }
@@ -224,11 +227,11 @@ describe('People settings', () => {
     expect(navigate).toHaveBeenCalledWith({ search: {}, replace: true })
   })
 
-  it('saves macro goals, with protein per kg of body weight', async () => {
+  it('saves a protein goal in grams a day by default', async () => {
     show()
     openAlex()
     fireEvent.change(screen.getByLabelText('Protein'), {
-      target: { value: '1.6' },
+      target: { value: '140' },
     })
     fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '70' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -236,7 +239,33 @@ describe('People settings', () => {
       expect(mutate).toHaveBeenCalledWith(
         'nutrition:updatePerson',
         expect.objectContaining({
-          macroGoals: { proteinGPerKg: 1.6, carbsG: undefined, fatG: 70 },
+          macroGoals: {
+            proteinG: 140,
+            proteinGPerKg: undefined,
+            carbsG: undefined,
+            fatG: 70,
+          },
+        }),
+      ),
+    )
+  })
+
+  it('keeps a protein goal per kg of body weight per kg', async () => {
+    livePerson = { ...alex, macroGoals: { proteinGPerKg: 1.6, fatG: 70 } }
+    show()
+    openAlex()
+    fireEvent.change(screen.getByLabelText('Fat'), { target: { value: '60' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith(
+        'nutrition:updatePerson',
+        expect.objectContaining({
+          macroGoals: {
+            proteinG: undefined,
+            proteinGPerKg: 1.6,
+            carbsG: undefined,
+            fatG: 60,
+          },
         }),
       ),
     )

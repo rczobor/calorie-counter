@@ -104,9 +104,10 @@ export const goalPlanValidator = v.union(
   }),
 )
 
-// A person's optional daily macro goals. Protein follows body weight, so its
-// grams come from the latest weigh-in on or before the day.
+// A person's optional daily macro goals. Protein is grams a day, or grams per
+// kg of body weight from the latest weigh-in on or before the day; not both.
 export const macroGoalsValidator = v.object({
+  proteinG: v.optional(v.number()),
   proteinGPerKg: v.optional(v.number()),
   carbsG: v.optional(v.number()),
   fatG: v.optional(v.number()),

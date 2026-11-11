@@ -11,8 +11,9 @@ export const dayNutrition = v.object({
   eatenOn: v.string(),
   consumedCalories: v.number(),
   macros: v.optional(macroTotalsValidator),
-  // The day's macro goals in grams. Protein's needs a weigh-in, and neither
-  // it nor protein per kg is given for another member's private weight.
+  // The day's macro goals in grams. A per-kg protein goal gives grams only
+  // from a weigh-in; those grams and the intake per kg (proteinPerKg) are
+  // never given for another member's private weight.
   macroTargets: v.optional(macroTargetsValidator),
   proteinPerKg: v.optional(v.number()),
   goalKcal: v.number(),
@@ -78,9 +79,10 @@ export async function readDayNutrition(
     macros: summary?.macros,
     macroTargets: goals && {
       proteinG:
-        goals.proteinGPerKg !== undefined && weight
+        goals.proteinG ??
+        (goals.proteinGPerKg !== undefined && weight
           ? Math.round(goals.proteinGPerKg * weight.weightKg * 10) / 10
-          : undefined,
+          : undefined),
       proteinGPerKg: goals.proteinGPerKg,
       carbsG: goals.carbsG,
       fatG: goals.fatG,
