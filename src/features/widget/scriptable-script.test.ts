@@ -27,7 +27,12 @@ function runInScriptable(
     }
   }
   const style = () => ({})
+  const stacks: Stack[] = []
   class Stack {
+    backgroundImage?: unknown
+    constructor() {
+      stacks.push(this)
+    }
     addText(text: string) {
       texts.push(text)
       return { centerAlignText: () => {} }
@@ -42,6 +47,7 @@ function runInScriptable(
     topAlignContent() {}
     centerAlignContent() {}
     layoutVertically() {}
+    setPadding() {}
   }
   class ListWidget extends Stack {}
   class Color {
@@ -113,7 +119,14 @@ function runInScriptable(
       setWidget: () => (shown = true),
       complete: () => {},
     },
-  ).then(() => ({ requests, texts, ring, shown }))
+  ).then(() => ({
+    requests,
+    texts,
+    ring,
+    shown,
+    // Where the drawn background landed: the widget itself is stacks[0].
+    backgrounds: stacks.map((stack) => stack.backgroundImage !== undefined),
+  }))
 }
 
 const script = widgetScript({
@@ -217,6 +230,10 @@ describe('Scriptable widget script', () => {
       family: 'accessoryCircular',
     })
     expect(under.texts).toEqual(['804', 'left'])
+    // iOS drops the widget's own background on the Lock Screen, so the ring
+    // must sit on a stack inside it.
+    expect(under.backgrounds[0]).toBe(false)
+    expect(under.backgrounds).toContain(true)
     const over = await runInScriptable(script, {
       status: 200,
       body: {
