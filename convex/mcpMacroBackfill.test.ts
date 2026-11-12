@@ -986,27 +986,35 @@ describe('batch meal corrections', () => {
     const ingredientId = await insertIngredient(t, {
       name: 'Oats',
       kcalPer100: 380,
-      macros: { ...oats, nutritionProvenance: label },
     })
+    // Custom items linked to the catalog cost a read each again on save.
     const corrections = []
-    for (let day = 1; day <= 50; day++) {
+    for (let day = 1; day <= 40; day++) {
       const mealId = await asTestUser(t).mutation(api.nutrition.createMeal, {
         personId,
         eatenOn: `2026-09-${String((day % 30) + 1).padStart(2, '0')}`,
         items: Array.from({ length: 30 }, () => ({
-          sourceType: 'ingredient' as const,
+          sourceType: 'customByWeight' as const,
           ingredientId,
-          expectedSnapshot: snapshot('Oats', 380),
+          name: 'Oats',
+          kcalPer100: 380,
+          ignoreCalories: false,
           consumedWeightGrams: day,
         })),
       })
+      const [first] = await itemsOf(t, mealId)
       corrections.push({
         mealId,
         expectedEditRevision: 0,
-        itemChanges: (await itemsOf(t, mealId)).map((item) => ({
-          kind: 'refreshFromCatalog' as const,
-          itemId: item._id,
-        })),
+        itemChanges: [
+          {
+            kind: 'customNutrition' as const,
+            itemId: first._id,
+            kcalPer100: 380,
+            macros: oats,
+            nutritionProvenance: label,
+          },
+        ],
       })
     }
     expect(

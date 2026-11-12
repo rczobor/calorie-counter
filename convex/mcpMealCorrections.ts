@@ -593,14 +593,6 @@ async function prepareBatch(
       })
     }
   }
-  // Preparing reads every item and catalog food of every meal. A batch of big
-  // meals can leave too few database calls for its day totals and writes, so
-  // stop with advice instead of an opaque transaction-limit failure.
-  const { databaseQueries } = await ctx.meta.getTransactionMetrics()
-  if (databaseQueries.remaining < 25 * entries.length + 100)
-    throw new ConvexError(
-      'This batch reads too many meal items to save at once. Split it into smaller batches.',
-    )
   const days = new Map<
     string,
     {
@@ -633,6 +625,32 @@ async function prepareBatch(
     shift(entry.effect.from, entry.effect.from.macros, -1)
     shift(entry.effect.to, entry.effect.to.macros, 1)
   }
+  // Preparing reads every item and catalog food of every meal. Stop with
+  // advice instead of an opaque transaction-limit failure when what is left
+  // cannot fit: four reads per day for the preview and four for the result,
+  // and per meal its own reads, its daily summaries and one read per custom
+  // item linked to the catalog.
+  const reserve =
+    100 +
+    8 * days.size +
+    entries.reduce(
+      (total, entry) =>
+        total +
+        (entry.ok
+          ? 5 +
+            entry.args.items.filter(
+              (item) =>
+                item.sourceType === 'customByWeight' &&
+                item.ingredientId !== undefined,
+            ).length
+          : 0),
+      0,
+    )
+  const { databaseQueries } = await ctx.meta.getTransactionMetrics()
+  if (databaseQueries.remaining < reserve)
+    throw new ConvexError(
+      'This batch reads too many meal items to save at once. Split it into smaller batches.',
+    )
   const dailySummaries = await Promise.all(
     [...days.values()]
       .filter(
