@@ -84,6 +84,7 @@ let personLookupLoading = false
 let summaryLoading = false
 let mealsLoading = false
 let consumedCalories = 1250
+let mealCount = 4
 const nameOf = (ref: FunctionReference<'query'>) => getFunctionName(ref)
 function show() {
   const Page = Route.options.component as ComponentType
@@ -106,6 +107,7 @@ beforeEach(() => {
   summaryLoading = false
   mealsLoading = false
   consumedCalories = 1250
+  mealCount = 4
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-11-02T12:00:00'))
   mocks.page.mockImplementation(
@@ -122,7 +124,8 @@ beforeEach(() => {
                 consumedCalories,
                 goalKcal: 2200,
                 remainingCalories: 2200 - consumedCalories,
-                mealCount: 4,
+                mealCount,
+                macroTargets: { proteinG: 130 },
               }))
             : args.personId === alex._id && !args.archived
               ? [meal]
@@ -186,6 +189,19 @@ describe('Today intake dashboard', () => {
       expect(intake.getByText(label)).toBeTruthy()
     },
   )
+  it('shows macro goals only once something is logged', () => {
+    const Page = Route.options.component as ComponentType
+    mealCount = 0
+    const view = show()
+    expect(screen.queryByRole('button', { name: /Show macros by meal/ })).toBe(
+      null,
+    )
+    mealCount = 1
+    view.rerender(<Page />)
+    expect(
+      screen.getByRole('button', { name: /Show macros by meal/ }).textContent,
+    ).toContain('Protein130 g left')
+  })
   it('rolls the balance only while it changes in place', async () => {
     const Page = Route.options.component as ComponentType
     const view = show()

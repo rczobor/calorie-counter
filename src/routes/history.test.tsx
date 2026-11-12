@@ -207,34 +207,6 @@ describe('History route', () => {
     })
   })
 
-  it('splits an over-goal day at its goal, like the day summary bar', () => {
-    mockPeople = [
-      createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2000 }),
-    ]
-    mockGoals = []
-    mockSummaries = [
-      createDailySummary('summary-1', 'person-1', '2026-04-04', 2500),
-      createDailySummary('summary-2', 'person-1', '2026-04-03', 1500),
-    ]
-
-    const Component = HistoryRoute.options.component as ComponentType
-    render(<Component />)
-
-    const over = screen.getByRole('button', {
-      name: '2026-04-04: 2500 kcal, goal 2000 kcal',
-    })
-    // Berry tint up to the goal, solid berry for the top fifth past it.
-    const overage = over.querySelector<HTMLElement>(
-      '.bg-kcal-over-base > .bg-kcal-over-bar',
-    )
-    expect(overage?.style.height).toBe('20%')
-    const under = screen.getByRole('button', {
-      name: '2026-04-03: 1500 kcal, goal 2000 kcal',
-    })
-    expect(under.querySelector('.bg-kcal-left-bar')).not.toBeNull()
-    expect(under.querySelector('.bg-kcal-over-base')).toBeNull()
-  })
-
   it('uses the goal effective on each historical date', () => {
     mockPeople = [
       createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2500 }),
@@ -294,11 +266,16 @@ describe('History route', () => {
     expect(
       rows.find((row) => row.textContent?.includes('Thu, Apr 2'))?.textContent,
     ).toContain('No meals logged')
-    fireEvent.click(
-      screen.getByRole('button', { name: '2026-04-02: No meals logged' }),
-    )
+    // The chart is hidden from assistive technology; its summary is not.
     expect(
-      screen.getByRole('link', { name: 'View day' }).getAttribute('href'),
+      screen.getByText('7 days: 2 with meals, 0 over the goal.'),
+    ).toBeTruthy()
+    // A day with nothing logged still opens, to log it.
+    expect(
+      rows
+        .find((row) => row.textContent?.includes('Thu, Apr 2'))
+        ?.querySelector('a')
+        ?.getAttribute('href'),
     ).toContain('date=2026-04-02&personId=person-1')
   })
 
