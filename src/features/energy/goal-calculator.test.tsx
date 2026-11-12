@@ -212,6 +212,24 @@ describe('GoalCalculator', () => {
     ).toBeTruthy()
   })
 
+  it('opens a reached target on the goal step, and drops it for Maintain', () => {
+    // Saved to lose down to 90 kg, but the latest weigh-in is 82.4 kg.
+    open({
+      profile,
+      plan: { direction: 'lose', percentPerWeek: 0.5, targetWeightKg: 90 },
+    })
+    expect(screen.getByRole('heading', { name: 'Weight goal' })).toBeTruthy()
+    expect(
+      screen.getByText('The target is not below the current weight.'),
+    ).toBeTruthy()
+    // A target only a lose or gain plan uses never blocks Maintain.
+    fireEvent.change(screen.getByLabelText('Target weight (optional)'), {
+      target: { value: '7o' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Maintain' }))
+    expect(forward()).toHaveProperty('disabled', false)
+  })
+
   it('explains a target it will not plan for', () => {
     open({
       profile,

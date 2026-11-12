@@ -198,7 +198,13 @@ export function GoalCalculator({
           activity,
         }
       : null
-  const targetError = target.trim() && targetKg === null ? t.targetError : null
+  // Only a lose or gain plan uses the target; a stale one never blocks Maintain.
+  const targetError =
+    (direction === 'lose' || direction === 'gain') &&
+    target.trim() &&
+    targetKg === null
+      ? t.targetError
+      : null
   const issue =
     energyProfile && goalPlan && body
       ? energyPlanIssue({
@@ -276,24 +282,27 @@ export function GoalCalculator({
       : roughDate(addDays(parseISO(today), Math.round(weeks * 7)), locale)
   }
   const targetLabel = targetKg !== null ? formatAmount(targetKg, locale) : ''
+  // A goal held at the minimum loses more slowly than its pace, so it gets
+  // no date it can't keep.
   const arrivalDate =
-    goalPlan && goalPlan.direction !== 'maintain'
+    goalPlan && goalPlan.direction !== 'maintain' && !result?.heldAtMinimum
       ? arrivalAt(goalPlan.percentPerWeek)
       : null
   const arrival = arrivalDate ? t.reachBy(targetLabel, arrivalDate) : null
 
   // Each step asks one thing; Next waits until it is answered. A saved plan
-  // opens on its result, whose working leads back to the steps.
-  const [step, setStep] = useState<Step>(() =>
-    plan && result ? 'result' : 'about',
-  )
-  const stepIndex = STEPS.indexOf(step)
+  // opens on its result, whose working leads back to the steps, or on the
+  // first step that needs attention (a target already reached, say).
   const complete: Record<Step, boolean> = {
     about: body !== null && !minor,
     activity: activity !== null,
     goal: result !== null,
     result: result !== null,
   }
+  const [step, setStep] = useState<Step>(() =>
+    plan ? (STEPS.find((each) => !complete[each]) ?? 'result') : 'about',
+  )
+  const stepIndex = STEPS.indexOf(step)
   const topRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const moved = useRef(false)
@@ -585,7 +594,9 @@ export function GoalCalculator({
                               ? t.suggested
                               : null
                         const percent = formatAmount(value, locale)
-                        const arrives = arrivalAt(value)
+                        const arrives = goal?.heldAtMinimum
+                          ? null
+                          : arrivalAt(value)
                         return (
                           <RecordRow
                             key={value}
@@ -921,9 +932,12 @@ function GoalRange({
   const min = Math.min(...values) - pad
   const max = Math.max(...values) + pad
   const at = (kcal: number) => ((kcal - min) / (max - min)) * 100
-  // Marks this close share one label, so the labels never overlap.
-  const together =
-    current !== undefined && Math.abs(at(goal) - at(current)) < 25
+  // Marks this close share one label, so the labels never overlap (a label
+  // near an end grows inward by its full width), and marks closer still draw
+  // only the goal's.
+  const apart = current === undefined ? 100 : Math.abs(at(goal) - at(current))
+  const together = apart < 35
+  const oneMark = apart < 4
   // A chart, not a control: one soft track carrying the range and the marks,
   // the range named above it and the marks below, with no accent colour.
   return (
@@ -934,15 +948,14 @@ function GoalRange({
         </RangeLabel>
       </div>
       {/* A bullet chart: the goal is the bold marker, the current goal a
-          thin one, dropped where the two are too close to draw apart (their
-          label says both). */}
+          thin one, dropped where the two are too close to draw apart. */}
       <div aria-hidden="true" className="relative mt-1.5 h-4">
         <span className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-[2px] bg-foreground/10" />
         <span
           className="absolute top-1/2 h-2 -translate-y-1/2 rounded-[2px] bg-foreground/30"
           style={{ left: `${at(low)}%`, width: `${at(high) - at(low)}%` }}
         />
-        {current !== undefined && !together ? (
+        {current !== undefined && !oneMark ? (
           <span
             className="absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-foreground/50"
             style={{ left: `${at(current)}%` }}

@@ -245,7 +245,8 @@ export const messages = defineMessages({
     chooseGoal: 'Válassz célt',
     noSuggestionForMinors: '18 év alatt nincs javaslat',
     next: 'Tovább',
-    seeGoal: 'Napi cél',
+    // Not "Napi cél": the goal step's column already says that.
+    seeGoal: 'Eredmény',
     back: 'Vissza',
     stepOf: (step: number, total: number) => `${step}/${total}. lépés`,
     suggestedGoal: 'Javasolt napi cél',
