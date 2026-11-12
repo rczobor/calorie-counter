@@ -6,12 +6,7 @@ import {
   Plus,
   UserRound,
 } from 'lucide-react'
-import {
-  useEffect,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import { SkeletonRows } from '@/components/page/loading-content'
 import { buttonVariants, chipClass } from '@/components/ui/button'
@@ -26,7 +21,7 @@ import { messages as todayMessages } from '@/features/meals/day-dashboard.messag
 import { messages as weightMessages } from '@/features/weight/weight-glance.messages'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
-import { formatDate, linkedDate } from '@/lib/dates'
+import { linkedDate } from '@/lib/dates'
 import { messages as historyMessages } from '@/routes/history.messages'
 import { toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
@@ -76,7 +71,6 @@ function revealElapsed() {
   const delay = Number(fade?.effect?.getTiming().delay ?? 160)
   return Math.min(time + 160 - delay, REVEAL_MS)
 }
-const subscribeNoop = () => () => {}
 
 export function PagePlaceholderView({
   label,
@@ -143,11 +137,28 @@ export function PersonPickerPlaceholder({ label }: { label?: string }) {
   )
 }
 
-function TitleRow({ title, picker }: { title?: string; picker?: boolean }) {
+function TitleRow({
+  title,
+  picker,
+  chevron,
+}: {
+  title?: string
+  picker?: boolean
+  /** The title is a picker, as Today's day is. */
+  chevron?: boolean
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
       {title ? (
-        <p className="type-large-title text-foreground">{title}</p>
+        <p className="type-large-title text-foreground">
+          {title}
+          {chevron ? (
+            <ChevronDown
+              strokeWidth={2.5}
+              className="ml-1 inline-block size-6 align-baseline text-muted-foreground"
+            />
+          ) : null}
+        </p>
       ) : (
         <div className="flex h-[2.5625rem] items-center">
           <Skeleton className="h-8 w-36 rounded-lg" />
@@ -171,37 +182,18 @@ function InertIcon({ children }: { children: ReactNode }) {
   )
 }
 
-// Mirrors the day dashboard while it loads: title, day controls, the intake
-// card, weight and meals.
+// Mirrors the day dashboard while it loads: the day title, person and day
+// controls, the intake card, weight and meals.
 function TodayPlaceholder({ date }: { date: string | null }) {
   const locale = useLocale()
   const t = todayMessages[locale]
   const [today] = useState(() => toLocalDateString(Date.now()))
-  // The prerendered shell cannot know the visitor's day, so the date shows
-  // once hydrated, as a bar before that.
-  const hydrated = useSyncExternalStore(
-    subscribeNoop,
-    () => true,
-    () => false,
-  )
   const day = date ?? today
   return (
     <>
-      <TitleRow title={day === today ? t.today : undefined} picker />
+      <TitleRow title={day === today ? t.today : undefined} chevron />
       <div className="mt-3 flex items-center justify-between gap-1.5">
-        <span
-          className={cn(
-            chipClass,
-            'pointer-events-none pl-3 proportional-nums',
-          )}
-        >
-          {hydrated ? (
-            formatDate(day, locale, { year: 'always' })
-          ) : (
-            <Skeleton className="h-3.5 w-28" />
-          )}
-          <ChevronDown className="text-muted-foreground" />
-        </span>
+        <PersonPickerPlaceholder />
         <div className="flex items-center gap-1.5">
           <InertIcon>
             <ChevronLeft />
@@ -211,25 +203,32 @@ function TodayPlaceholder({ date }: { date: string | null }) {
           </InertIcon>
         </div>
       </div>
-      <div className="mt-5 inset-group p-4">
-        <IntakeSkeleton />
-      </div>
-      <WeightRowPlaceholder />
-      <div className="mt-8 flex items-center justify-between gap-3">
-        <p className="type-title">{t.meals}</p>
-        {/* Desktop logs from here; it waits disabled, as the page's does. */}
-        <span
-          className={cn(
-            buttonVariants({ size: 'sm' }),
-            'pointer-events-none hidden bg-disabled text-disabled-foreground md:inline-flex',
-          )}
-        >
-          <Plus />
-          {headerMessages[locale].logMeal}
-        </span>
-      </div>
-      <div className="mt-3 inset-group inset-rows">
-        <SkeletonRows rows={3} inset className={MEAL_ROW_HEIGHT} />
+      {/* The summary beside the meals from tablet width, as the page has. */}
+      <div className="md:grid md:grid-cols-2 md:items-start md:gap-x-6">
+        <div>
+          <div className="mt-5 inset-group p-4">
+            <IntakeSkeleton />
+          </div>
+          <WeightRowPlaceholder />
+        </div>
+        <div className="md:mt-5">
+          <div className="mt-8 flex items-center justify-between gap-3 md:mt-0">
+            <p className="type-title">{t.meals}</p>
+            {/* Desktop logs from here; it waits disabled, as the page's does. */}
+            <span
+              className={cn(
+                buttonVariants({ size: 'sm' }),
+                'pointer-events-none hidden bg-disabled text-disabled-foreground md:inline-flex',
+              )}
+            >
+              <Plus />
+              {headerMessages[locale].logMeal}
+            </span>
+          </div>
+          <div className="mt-3 inset-group inset-rows">
+            <SkeletonRows rows={3} inset className={MEAL_ROW_HEIGHT} />
+          </div>
+        </div>
       </div>
     </>
   )

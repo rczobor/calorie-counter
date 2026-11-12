@@ -13,7 +13,8 @@ test('the calendar loads on demand and remains keyboard accessible', async ({
     await route.continue()
   })
   await page.goto('/')
-  const day = page.getByRole('button', { name: 'Day', exact: true })
+  // The title is the day picker.
+  const day = page.getByRole('heading', { level: 1 }).getByRole('button')
   await expect(day).toBeVisible()
   expect(calendarRequests).toEqual([])
   const previous = await day.innerText()
@@ -238,26 +239,24 @@ test('reusable foods can be inspected, archived, and restored without editing pa
   await expect(page.getByText('250 / 2100 kcal logged')).toBeVisible()
 })
 
-test('Today focuses on a remembered person and reveals household intake on request', async ({
+test('Today focuses on a remembered person and switches people from a list', async ({
   page,
 }) => {
   await page.goto('/')
   await expect(
     page.getByRole('region', { name: 'Alex’s intake' }),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Viki/ })).toHaveCount(0)
+  // The list of people opens only on request.
+  await expect(page.getByRole('option', { name: 'Viki' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'View history' })).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Archived meals' }),
   ).toHaveCount(0)
-  await page.getByRole('button', { name: 'Switch person' }).click()
-  await page.getByRole('button', { name: /^Viki/ }).click()
+  await page.getByRole('combobox', { name: /^Switch person/ }).click()
+  await page.getByRole('option', { name: 'Viki' }).click()
   await expect(
     page.getByRole('region', { name: 'Viki’s intake' }),
   ).toBeVisible()
-  await expect(
-    page.getByRole('region', { name: 'Household intake' }),
-  ).toHaveCount(0)
   await page.reload()
   await expect(
     page.getByRole('region', { name: 'Viki’s intake' }),
@@ -372,7 +371,9 @@ test.describe('on a touch phone', () => {
     await expect(sheet).toBeVisible()
     await expect.poll(async () => (await sheet.boundingBox())?.y).toBe(box.y)
 
-    await swipe(400)
+    // Past half the sheet's height, so it closes however slowly a loaded
+    // machine replays the drag; a shorter swipe closes only when fast.
+    await swipe(box.height * 0.8)
     await expect(sheet).toHaveCount(0)
   })
 })

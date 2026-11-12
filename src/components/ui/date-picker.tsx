@@ -25,8 +25,12 @@ type DatePickerProps = {
   disabled?: boolean
   /** Replaces the app's short date shown in the trigger. */
   label?: ReactNode
-  /** `chip`: a prefilled choice, the same outline capsule as a chip `Select`. */
-  variant?: 'outline' | 'ghost' | 'chip'
+  /**
+   * `chip`: a prefilled choice, the same outline capsule as a chip `Select`.
+   * `title`: the label is the page title (inside its heading), followed by a
+   * chevron; the label names it, so `ariaLabel` is ignored.
+   */
+  variant?: 'outline' | 'ghost' | 'chip' | 'title'
 }
 
 function parseLocalDate(value: string) {
@@ -87,41 +91,65 @@ export function DatePicker({
     <Popover>
       <PopoverTrigger
         render={
-          <Button
-            variant={variant === 'chip' ? 'outline' : variant}
-            size={variant === 'chip' ? 'chip' : 'default'}
-            data-empty={!date}
-            className={cn(
-              'data-[empty=true]:text-muted-foreground justify-start text-left',
-              // A field reads like the inputs beside it. A chip's date is
-              // prose, so its figures are proportional, and with no leading
-              // glyph it pads 12px on both sides.
-              variant === 'chip'
-                ? 'pl-3 proportional-nums'
-                : 'text-base font-normal md:text-sm',
-              className,
-            )}
-            aria-label={ariaLabel ?? placeholderText}
-            disabled={disabled}
-          >
-            {/* A chip's date names itself and its chevron marks the picker,
-                so it carries no calendar glyph: the year-long Today pill
-                must share a 390px row with Today and both arrows. */}
-            {variant === 'chip' ? null : <CalendarIcon />}
-            {date ? (
-              (label ?? formatDate(date.getTime(), locale))
-            ) : (
-              <span>{placeholderText}</span>
-            )}
-            {/* A picker that opens carries a chevron, like the person chip. */}
-            <ChevronDown
-              aria-hidden="true"
-              className="ml-auto size-4 text-muted-foreground"
-            />
-          </Button>
+          variant === 'title' ? (
+            // Inline, so a long date wraps with its chevron as the title would.
+            <button
+              type="button"
+              className={cn(
+                'max-w-full rounded-lg text-left transition-opacity outline-none focus-visible:ring-3 focus-visible:ring-ring/40 active:opacity-70 disabled:opacity-50',
+                className,
+              )}
+              disabled={disabled}
+            >
+              {date
+                ? (label ?? formatDate(date.getTime(), locale))
+                : placeholderText}
+              <ChevronDown
+                aria-hidden="true"
+                strokeWidth={2.5}
+                className="ml-1 inline-block size-6 align-baseline text-muted-foreground"
+              />
+            </button>
+          ) : (
+            <Button
+              variant={variant === 'chip' ? 'outline' : variant}
+              size={variant === 'chip' ? 'chip' : 'default'}
+              data-empty={!date}
+              className={cn(
+                'data-[empty=true]:text-muted-foreground justify-start text-left',
+                // A field reads like the inputs beside it. A chip's date is
+                // prose, so its figures are proportional, and with no leading
+                // glyph it pads 12px on both sides.
+                variant === 'chip'
+                  ? 'pl-3 proportional-nums'
+                  : 'text-base font-normal md:text-sm',
+                className,
+              )}
+              aria-label={ariaLabel ?? placeholderText}
+              disabled={disabled}
+            >
+              {/* A chip's date names itself and its chevron marks the picker,
+                  so it carries no calendar glyph and stays narrow beside the
+                  person chip. */}
+              {variant === 'chip' ? null : <CalendarIcon />}
+              {date ? (
+                (label ?? formatDate(date.getTime(), locale))
+              ) : (
+                <span>{placeholderText}</span>
+              )}
+              {/* A picker that opens carries a chevron, like the person chip. */}
+              <ChevronDown
+                aria-hidden="true"
+                className="ml-auto size-4 text-muted-foreground"
+              />
+            </Button>
+          )
         }
       />
-      <PopoverContent className="w-auto p-0">
+      <PopoverContent
+        className="w-auto p-0"
+        align={variant === 'title' ? 'start' : 'center'}
+      >
         <Suspense
           fallback={
             <div role="status" className="h-80 w-64 p-3">

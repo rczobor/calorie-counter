@@ -176,7 +176,7 @@ export function SearchablePicker({
           sideOffset={4}
           className="isolate z-50"
         >
-          <Combobox.Popup className="elevated w-(--anchor-width) min-w-40 rounded-2xl bg-popover text-popover-foreground shadow-[0_12px_40px_-8px_oklch(0_0_0/0.25)] ring-1 ring-foreground/8 outline-hidden">
+          <Combobox.Popup className="elevated w-(--anchor-width) min-w-40 rounded-2xl bg-popover text-popover-foreground shadow-[0_12px_40px_-8px_oklch(0_0_0/0.25),0_2px_6px_-1px_oklch(0_0_0/0.1)] ring-1 ring-foreground/10 outline-hidden">
             <Combobox.Status className="text-muted-foreground px-3 py-2 text-sm">
               {loading ? (loadingMessage ?? t.loading) : null}
             </Combobox.Status>

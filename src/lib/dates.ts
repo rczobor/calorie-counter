@@ -27,8 +27,9 @@ function formatter(locale: Locale, withYear: boolean) {
 /**
  * The one way the app displays a date: "Sun, Nov 8" or "nov. 8., vasárnap",
  * adding the year only when it isn't the current one ("Fri, Dec 26, 2025").
- * Takes a YYYY-MM-DD calendar date or a timestamp. `year: 'always'` is for the
- * Today date pill, which sits under a title that already names nearby days.
+ * Takes a YYYY-MM-DD calendar date or a timestamp. `year: 'always'` names the
+ * year even in the current one, for a date that stands alone, such as the
+ * privacy notice's version.
  */
 export function formatDate(
   value: string | number,
