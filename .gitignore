@@ -21,3 +21,4 @@ __unconfig*
 todos.json
 .env*
 !.env.e2e
+.eslintcache
