@@ -428,7 +428,7 @@ function HistoryPageContent() {
                       </h2>
                       <HistoryLegend rows={rows} />
                     </div>
-                    <HistoryChart rows={rows} dayHref={dayHref} />
+                    <HistoryChart rows={rows} today={today} dayHref={dayHref} />
                   </section>
                 )}
 

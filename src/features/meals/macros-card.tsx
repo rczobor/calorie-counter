@@ -1,6 +1,6 @@
 import { Drawer } from '@base-ui/react/drawer'
 import { Link } from '@tanstack/react-router'
-import { Check, ChevronRight, X } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
 import type { Infer } from 'convex/values'
 import type { ReactNode } from 'react'
 import { RollingFigure } from '@/components/nutrition/rolling-figure'
@@ -20,8 +20,9 @@ type Day = Pick<
   'macros' | 'macroTargets' | 'proteinPerKg'
 >
 
+// The list-row value tier, as the Weight row's "82.4" below the card.
 const figure = (value: ReactNode) => (
-  <span className="type-subhead font-semibold text-foreground">{value}</span>
+  <span className="text-base font-semibold text-foreground">{value}</span>
 )
 
 function oneDecimal(locale: Locale) {
@@ -77,7 +78,8 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
       <span className="min-w-0 flex-1">
         {withGoal.length ? (
           <span
-            className="grid gap-3"
+            // Wide enough that two bars never read as one segmented track.
+            className="grid gap-6"
             style={{
               gridTemplateColumns: `repeat(${withGoal.length}, minmax(0, 1fr))`,
             }}
@@ -90,20 +92,15 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                 {/* What is left comes from the figures shown, so the lines
                     agree. */}
                 <span className="flex items-center gap-1 type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
-                  {macro.eaten < macro.goal ? (
-                    t.left(
-                      figure(
-                        <RollingFigure value={macro.goal - macro.eaten} />,
-                      ),
-                    )
-                  ) : (
-                    <>
-                      <Check aria-hidden="true" className="size-3.5 shrink-0" />
-                      <span className="font-semibold text-foreground">
-                        {t.goalReached}
-                      </span>
-                    </>
-                  )}
+                  {macro.eaten < macro.goal
+                    ? t.left(
+                        figure(
+                          <RollingFigure value={macro.goal - macro.eaten} />,
+                        ),
+                      )
+                    : // The same tier as "81 g left" beside it; the full bar
+                      // already shows the goal is met.
+                      figure(t.goalReached)}
                 </span>
                 <MacroBar eaten={macro.eaten} goal={macro.goal} />
               </span>
@@ -132,27 +129,21 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
 }
 
 /**
- * A neutral bar: going past a macro goal is no error, so it keeps one ink.
- * Past the goal the bar is the intake and a tick, taller than the bar like
- * the calorie bar's, marks the goal, so 71 / 70 and 120 / 70 look different.
+ * A neutral bar: going past a macro goal is no error, so it keeps one ink and
+ * stops full at the goal. "Reached" says the rest; how far past is in the
+ * by-meal sheet.
  */
 function MacroBar({ eaten, goal }: { eaten: number; goal: number }) {
   const bar = intakeBarGeometry(eaten, goal)
   return (
-    <span aria-hidden="true" className="relative mt-1.5 block">
-      <span className="block h-1.5 overflow-hidden rounded-full bg-track">
-        <span
-          className="block h-full rounded-full bg-muted-foreground/55"
-          style={{ width: `${bar.over ? 100 : bar.fill}%` }}
-        />
-      </span>
-      {bar.over ? (
-        <span
-          className="absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-full bg-muted-foreground"
-          // Some overage always shows, however small.
-          style={{ left: `min(${bar.tick}%, calc(100% - 4px))` }}
-        />
-      ) : null}
+    <span
+      aria-hidden="true"
+      className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-track"
+    >
+      <span
+        className="block h-full rounded-full bg-muted-foreground/55"
+        style={{ width: `${bar.over ? 100 : bar.fill}%` }}
+      />
     </span>
   )
 }

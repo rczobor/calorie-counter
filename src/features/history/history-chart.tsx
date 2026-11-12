@@ -72,7 +72,7 @@ export function HistoryLegend({ rows }: { rows: DayRow[] }) {
         {t.legendOver}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="w-3 border-t-[1.5px] border-dotted border-muted-foreground" />
+        <span className="w-3 border-t-2 border-dotted border-muted-foreground" />
         {t.legendGoal}
         {goals.length ? (
           <span className="font-semibold text-foreground tabular-nums">
@@ -132,26 +132,41 @@ export function DayBar({
         height={background.height}
         fill="transparent"
       />
-      {logged ? (
+      {logged && overPx ? (
+        // Teal stops where the berry starts, so no teal fringe shows around
+        // the cap, and a gap in the card colour keeps the goal's dots on the
+        // seam reading as they do above an under-goal bar.
         <>
-          <path d={outline} fill="var(--color-kcal)" />
-          {overPx ? (
-            <>
-              <clipPath id={clipId}>
-                <path d={outline} />
-              </clipPath>
-              <rect
-                data-overage
-                x={x}
-                y={top}
-                width={width}
-                height={overPx}
-                fill="var(--color-over)"
-                clipPath={`url(#${clipId})`}
-              />
-            </>
-          ) : null}
+          <clipPath id={clipId}>
+            <path d={outline} />
+          </clipPath>
+          <g clipPath={`url(#${clipId})`}>
+            <rect
+              x={x}
+              y={top + overPx}
+              width={width}
+              height={barHeight - overPx}
+              fill="var(--color-kcal)"
+            />
+            <rect
+              data-overage
+              x={x}
+              y={top}
+              width={width}
+              height={overPx}
+              fill="var(--color-over)"
+            />
+            <rect
+              x={x}
+              y={top + overPx - 1.5}
+              width={width}
+              height={3}
+              fill="var(--card)"
+            />
+          </g>
         </>
+      ) : logged ? (
+        <path d={outline} fill="var(--color-kcal)" />
       ) : (
         <rect
           data-empty
@@ -160,7 +175,9 @@ export function DayBar({
           width={width}
           height={4}
           rx={2}
-          fill="var(--track)"
+          // Clearly a mark, not a gap: a day without meals.
+          fill="var(--muted-foreground)"
+          fillOpacity={0.35}
         />
       )}
       {goalY === null ? null : (
@@ -171,7 +188,8 @@ export function DayBar({
           y1={goalY}
           y2={goalY}
           stroke="var(--muted-foreground)"
-          strokeWidth={1.5}
+          // 2px dots: a bar-width mark is short, and 1.5px faded in dark.
+          strokeWidth={2}
           strokeDasharray="0 4"
           strokeLinecap="round"
         />
@@ -189,9 +207,11 @@ export function DayBar({
  */
 export function HistoryChart({
   rows,
+  today,
   dayHref,
 }: {
   rows: DayRow[]
+  today: string
   dayHref: (date: string) => string
 }) {
   const t = useMessages(messages)
@@ -209,8 +229,11 @@ export function HistoryChart({
     Math.max(1, ...days.map((day) => Math.max(day.consumed, day.goal))) * 1.05
   const showValues = days.length <= 10
   const labelEvery = days.length <= 14 ? 1 : 5
+  const last = days.length - 1
+  // Even steps back from the last day, so counting columns from a tick
+  // always lands on the right date.
   const ticks = days
-    .filter((_, index) => index % labelEvery === 0 || index === days.length - 1)
+    .filter((_, index) => (last - index) % labelEvery === 0)
     .map((day) => day.date)
   const logged = days.filter((day) => day.mealCount > 0)
   const over = logged.filter((day) => day.goal > 0 && day.consumed > day.goal)
@@ -225,7 +248,8 @@ export function HistoryChart({
         aria-hidden="true"
         className={cn(
           'mt-3 aspect-auto w-full [&_.recharts-bar-rectangle]:cursor-pointer',
-          showValues ? 'h-52' : 'h-46',
+          // Taller on wide screens, so a small overage stays visible.
+          showValues ? 'h-52 md:h-64' : 'h-46 md:h-60',
         )}
       >
         <BarChart
@@ -270,12 +294,44 @@ export function HistoryChart({
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            tickFormatter={(date: string) =>
-              parseISO(date).toLocaleDateString(
-                intlLocale(locale),
-                days.length <= 7 ? { weekday: 'short' } : { day: 'numeric' },
+            tick={({ x, y, payload }) => {
+              const date = String(payload.value)
+              const index = ticks.indexOf(date)
+              // Past a week, a tick names its month where the month starts,
+              // so a range across two months reads "Oct 14 … Nov 3".
+              const newMonth =
+                index === 0 ||
+                date.slice(0, 7) !== ticks[index - 1]?.slice(0, 7)
+              const label =
+                date === today
+                  ? t.today
+                  : parseISO(date).toLocaleDateString(
+                      intlLocale(locale),
+                      days.length <= 7
+                        ? { weekday: 'short' }
+                        : newMonth
+                          ? { month: 'short', day: 'numeric' }
+                          : { day: 'numeric' },
+                    )
+              // Thin bars: the end labels hang inward, as on the Weight chart.
+              const anchor =
+                days.length > 14 && date === days[0].date
+                  ? 'start'
+                  : days.length > 14 && date === days[last].date
+                    ? 'end'
+                    : 'middle'
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  dy="0.71em"
+                  textAnchor={anchor}
+                  style={{ fill: 'var(--muted-foreground)' }}
+                >
+                  {label}
+                </text>
               )
-            }
+            }}
           />
           <ChartTooltip
             content={

@@ -6,6 +6,8 @@ export const messages = defineMessages({
     legendGoal: 'Goal',
     noMealsLogged: 'No meals logged',
     noChartData: 'No chart data for the selected range.',
+    // Today's column is still filling up.
+    today: 'Today',
     // The chart's text for screen readers; each day follows as a link.
     summary: (days: number, logged: number, over: number) =>
       `${days} days: ${logged} with meals, ${over} over the goal.`,
@@ -16,6 +18,7 @@ export const messages = defineMessages({
     legendGoal: 'Cél',
     noMealsLogged: 'Nincs rögzített étkezés',
     noChartData: 'A kiválasztott időszakhoz nincs grafikonadat.',
+    today: 'Ma',
     summary: (days: number, logged: number, over: number) =>
       `${days} nap: ${logged} napon van étkezés, ${over} napon túllépés.`,
   },
