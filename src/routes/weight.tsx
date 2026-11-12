@@ -11,10 +11,12 @@ import {
   Lock,
   Plus,
 } from 'lucide-react'
+import type { UsePaginatedQueryReturnType } from 'convex/react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { api } from '../../convex/_generated/api'
+import { CHECK_IN_DAYS } from '../../convex/lib/energy'
 import type { Id } from '../../convex/_generated/dataModel'
 import { Value } from '@/components/nutrition/value'
 import { LIST_ROW_CLASS } from '@/components/page/list-row'
@@ -45,7 +47,10 @@ import {
   type WeightDialogRequest,
   type WeightEntry,
 } from '@/features/weight/record-weight-dialog'
-import { WeightChart } from '@/features/weight/weight-chart'
+import {
+  WeightChart,
+  type ScrubbedWeight,
+} from '@/features/weight/weight-chart'
 import {
   datedLabel,
   formatKg,
@@ -83,6 +88,8 @@ function WeightError({ error, reset }: ErrorComponentProps) {
 
 const RANGES = [30, 90, 365] as const
 const PEOPLE_PAGE_SIZE = 50
+/** The chart shows the trend, so the list starts with only the latest few. */
+const RECENT_WEIGH_INS = 10
 const ENTRIES_PAGE_SIZE = 30
 
 function readLinkedPerson() {
@@ -118,6 +125,9 @@ function WeightContent() {
     readLinkedPerson,
   )
   const [rangeDays, setRangeDays] = useState<number>(90)
+  // The weigh-in under a finger or pointer on the chart, shown in place of
+  // the latest weight until it lifts or leaves.
+  const [scrubbed, setScrubbed] = useState<ScrubbedWeight | null>(null)
   const [dialog, setDialog] = useState<WeightDialogRequest | null>(null)
   const [calculating, setCalculating] = useState(false)
   const updatePerson = useMutation(api.nutrition.updatePerson)
@@ -159,6 +169,20 @@ function WeightContent() {
       ? { personId: weightPersonId, startDate, endDate: today }
       : 'skip',
   )
+  // The trend is fitted over the CHECK_IN_DAYS up to each day, so it also
+  // reads the weigh-ins that long before the range; only the range is drawn.
+  // A separate read, as one range may span at most MAX_HISTORY_DAYS.
+  const leadIn = useQuery(
+    api.weight.listRange,
+    weightPersonId
+      ? {
+          personId: weightPersonId,
+          startDate: shiftDate(startDate, -(CHECK_IN_DAYS - 1)),
+          endDate: shiftDate(startDate, -1),
+        }
+      : 'skip',
+  )
+  const history = range && leadIn ? [...leadIn, ...range] : range
   const latest = useQuery(
     api.weight.latestOnOrBefore,
     weightPersonId ? { personId: weightPersonId, date: today } : 'skip',
@@ -166,7 +190,8 @@ function WeightContent() {
   const entries = usePaginatedQuery(
     api.weight.list,
     weightPersonId ? { personId: weightPersonId } : 'skip',
-    { initialNumItems: ENTRIES_PAGE_SIZE },
+    // One more than is shown, so the last row has a change to show.
+    { initialNumItems: RECENT_WEIGH_INS + 1 },
   )
   const options = youFirst([
     ...people.results,
@@ -237,144 +262,115 @@ function WeightContent() {
       <div className="mt-4 space-y-5">
         {person ? (
           // The primary action sits in the summary, so it is there before the
-          // first weigh-in too.
+          // first weigh-in too. Once there are weights, the same card holds
+          // the trend, so the latest weight and its direction read together.
           <section
             aria-label={t.personWeight(person.name)}
-            className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 inset-group px-4 py-4"
+            className="inset-group px-4 py-4"
           >
-            {isPrivate ? (
-              <div className="min-w-0 basis-60 grow">
-                <p className="flex items-center gap-2 type-headline">
-                  <Lock
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-muted-foreground"
-                  />
-                  {t.privateTitle(person.name)}
-                </p>
-                <p className="mt-1 type-subhead text-pretty text-muted-foreground">
-                  {t.privateBody(person.name)}
-                </p>
-                {/* Not a dead end: your own weight is one tap away. */}
-                {linkedToMe ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => setSelectedPersonId(linkedToMe)}
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+              {isPrivate ? (
+                <div className="min-w-0 basis-60 grow">
+                  <p className="flex items-center gap-2 type-headline">
+                    <Lock
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground"
+                    />
+                    {t.privateTitle(person.name)}
+                  </p>
+                  <p className="mt-1 type-subhead text-pretty text-muted-foreground">
+                    {t.privateBody(person.name)}
+                  </p>
+                  {/* Not a dead end: your own weight is one tap away. */}
+                  {linkedToMe ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setSelectedPersonId(linkedToMe)}
+                    >
+                      {t.yourWeight}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <WeightSummary
+                  latest={latest}
+                  scrubbed={scrubbed}
+                  today={today}
+                  archived={person.archived}
+                />
+              )}
+              {canRecord ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialog({ kind: 'new', date: today })}
+                >
+                  <Plus />
+                  {t.recordWeight}
+                </Button>
+              ) : null}
+            </div>
+            {hasWeights ? (
+              <div className="mt-4">
+                <RangeChange range={range} scrubbed={scrubbed} />
+                <div className="mt-2">
+                  {range === undefined ? (
+                    <Skeleton
+                      className="h-44 w-full md:h-52"
+                      role="status"
+                      aria-label={t.loadingTrend}
+                    />
+                  ) : (
+                    <WeightChart
+                      entries={range}
+                      history={history}
+                      endDate={today}
+                      today={today}
+                      onScrub={setScrubbed}
+                    />
+                  )}
+                </div>
+                {/* The range drives the change line and chart above it. */}
+                <SegmentedTrack className="mt-4">
+                  <div
+                    role="group"
+                    aria-label={t.range}
+                    className={SEGMENT_LIST_CLASS}
                   >
-                    {t.yourWeight}
-                  </Button>
-                ) : null}
+                    {RANGES.map((days) => (
+                      <button
+                        key={days}
+                        type="button"
+                        aria-pressed={rangeDays === days}
+                        className={SEGMENT_CLASS}
+                        onClick={() => setRangeDays(days)}
+                      >
+                        {t.ranges[days]}
+                      </button>
+                    ))}
+                  </div>
+                </SegmentedTrack>
               </div>
-            ) : (
-              <WeightSummary
-                latest={latest}
-                today={today}
-                archived={person.archived}
-              />
-            )}
-            {canRecord ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDialog({ kind: 'new', date: today })}
-              >
-                <Plus />
-                {t.recordWeight}
-              </Button>
             ) : null}
           </section>
         ) : null}
 
         {person && hasWeights ? (
           <>
-            {/* The range drives the change line and chart below it. */}
-            <SegmentedTrack>
-              <div
-                role="group"
-                aria-label={t.range}
-                className={SEGMENT_LIST_CLASS}
-              >
-                {RANGES.map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    aria-pressed={rangeDays === days}
-                    className={SEGMENT_CLASS}
-                    onClick={() => setRangeDays(days)}
-                  >
-                    {t.ranges[days]}
-                  </button>
-                ))}
-              </div>
-            </SegmentedTrack>
-            <section
-              aria-label={t.trend}
-              className="inset-group px-4 pt-3.5 pb-3"
-            >
-              <RangeChange range={range} />
-              <div className="mt-2">
-                {range === undefined ? (
-                  <Skeleton
-                    className="h-38 w-full md:h-46"
-                    role="status"
-                    aria-label={t.loadingTrend}
-                  />
-                ) : (
-                  <WeightChart entries={range} endDate={today} today={today} />
-                )}
-              </div>
-            </section>
-
             {maintenance}
 
-            <section aria-labelledby="weight-entries-heading">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 id="weight-entries-heading" className="type-title">
-                  {t.weighIns}
-                </h2>
-                <p className="type-footnote text-muted-foreground">
-                  {t.changeHint}
-                </p>
-              </div>
-              {entries.status === 'LoadingFirstPage' ? (
-                <LoadingRows
-                  label={t.loadingWeighIns}
-                  rows={3}
-                  className="mt-3 inset-group px-4"
-                />
-              ) : (
-                <ul className="mt-3 inset-group inset-rows">
-                  {entries.results.map((entry, index) => (
-                    <li key={entry._id}>
-                      <EntryRow
-                        entry={entry}
-                        older={entries.results[index + 1]}
-                        today={today}
-                        onOpen={
-                          canRecord
-                            ? () => setDialog({ kind: 'edit', entry })
-                            : undefined
-                        }
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {entries.status === 'CanLoadMore' ||
-              entries.status === 'LoadingMore' ? (
-                <Button
-                  className="mt-3"
-                  variant="outline"
-                  size="sm"
-                  disabled={entries.status === 'LoadingMore'}
-                  aria-busy={entries.status === 'LoadingMore'}
-                  onClick={() => entries.loadMore(ENTRIES_PAGE_SIZE)}
-                >
-                  {t.loadOlder}
-                </Button>
-              ) : null}
-            </section>
+            <WeighIns
+              key={person._id}
+              entries={entries}
+              today={today}
+              onOpen={
+                canRecord
+                  ? (entry) => setDialog({ kind: 'edit', entry })
+                  : undefined
+              }
+            />
           </>
         ) : person?.energyProfile || person?.goalPlan ? (
           maintenance
@@ -426,10 +422,12 @@ function WeightContent() {
 
 function WeightSummary({
   latest,
+  scrubbed,
   today,
   archived,
 }: {
   latest: WeightEntry | null | undefined
+  scrubbed: ScrubbedWeight | null
   today: string
   archived: boolean
 }) {
@@ -451,17 +449,21 @@ function WeightSummary({
         </p>
       </div>
     )
+  // Scrubbing the chart shows that day's weigh-in in place of the latest.
+  const shown = scrubbed ?? { kg: latest.weightKg, date: latest.measuredOn }
   return (
     <div>
       <p>
-        <Value
-          size="display"
-          value={formatKg(latest.weightKg, locale)}
-          unit="kg"
-        />
+        <Value size="display" value={formatKg(shown.kg, locale)} unit="kg" />
       </p>
-      <p className="mt-1.5 type-subhead text-muted-foreground">
-        {datedLabel(latest.measuredOn, today, locale)}
+      {/* A scrubbed day's date is foreground, so it reads as that day. */}
+      <p
+        className={cn(
+          'mt-1.5 type-subhead',
+          scrubbed ? 'font-medium text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        {datedLabel(shown.date, today, locale)}
       </p>
     </div>
   )
@@ -469,14 +471,23 @@ function WeightSummary({
 
 // Neutral on purpose: some people want to lose weight, others to gain it, so
 // the change is foreground with a sign and arrow, never a good or bad colour.
-function RangeChange({ range }: { range: WeightEntry[] | undefined }) {
+function RangeChange({
+  range,
+  scrubbed,
+}: {
+  range: WeightEntry[] | undefined
+  scrubbed: ScrubbedWeight | null
+}) {
   const t = useMessages(messages)
   const locale = useLocale()
   const first = range?.[0]
   const last = range?.at(-1)
   if (!first || !last || first === last)
     return <p className="h-5.5" aria-hidden="true" />
-  const change = Math.round((last.weightKg - first.weightKg) * 10) / 10
+  // While a day is scrubbed, the change is that day's, from the same start,
+  // so it always pairs with the weight shown above it.
+  const to = scrubbed?.kg ?? last.weightKg
+  const change = Math.round((to - first.weightKg) * 10) / 10
   const since = formatDate(first.measuredOn, locale)
   const Icon =
     change === 0 ? ArrowRight : change < 0 ? ArrowDownRight : ArrowUpRight
@@ -495,6 +506,80 @@ function RangeChange({ range }: { range: WeightEntry[] | undefined }) {
       )}
       <span>{t.since(since)}</span>
     </p>
+  )
+}
+
+function WeighIns({
+  entries,
+  today,
+  onOpen,
+}: {
+  entries: UsePaginatedQueryReturnType<typeof api.weight.list>
+  today: string
+  onOpen?: (entry: WeightEntry) => void
+}) {
+  const t = useMessages(messages)
+  const [shown, setShown] = useState(RECENT_WEIGH_INS)
+  const hasOlder =
+    entries.results.length > shown ||
+    entries.status === 'CanLoadMore' ||
+    entries.status === 'LoadingMore'
+  return (
+    <section aria-labelledby="weight-entries-heading">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="weight-entries-heading" className="type-title">
+          {t.weighIns}
+        </h2>
+        <p className="type-footnote text-muted-foreground">{t.changeHint}</p>
+      </div>
+      {entries.status === 'LoadingFirstPage' ? (
+        <LoadingRows
+          label={t.loadingWeighIns}
+          rows={3}
+          className="mt-3 inset-group px-4"
+        />
+      ) : (
+        <ul className="mt-3 inset-group inset-rows">
+          {/* While older ones load, a row waits for the one after it, so it
+              never shows without its change. */}
+          {entries.results
+            .slice(
+              0,
+              entries.status === 'LoadingMore'
+                ? Math.min(shown, entries.results.length - 1)
+                : shown,
+            )
+            .map((entry, index) => (
+              <li key={entry._id}>
+                <EntryRow
+                  entry={entry}
+                  older={entries.results[index + 1]}
+                  today={today}
+                  onOpen={onOpen ? () => onOpen(entry) : undefined}
+                />
+              </li>
+            ))}
+        </ul>
+      )}
+      {hasOlder ? (
+        <Button
+          className="mt-3"
+          variant="outline"
+          size="sm"
+          disabled={entries.status === 'LoadingMore'}
+          aria-busy={entries.status === 'LoadingMore'}
+          onClick={() => {
+            setShown((count) => count + ENTRIES_PAGE_SIZE)
+            // Loads as many as it reveals, so the spare row loaded first
+            // still gives the last shown row its change.
+            if (entries.status === 'CanLoadMore')
+              entries.loadMore(ENTRIES_PAGE_SIZE)
+          }}
+        >
+          {t.loadOlder}
+        </Button>
+      ) : null}
+    </section>
   )
 }
 

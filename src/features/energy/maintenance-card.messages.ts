@@ -26,8 +26,10 @@ export const messages = defineMessages({
     findGoal: 'Find a daily goal',
     checkInReason: (kcal: number) => `Check-in: maintenance ≈ ${kcal} kcal`,
     goalUpdated: 'Goal updated.',
-    checkInReady: 'Check-in ready',
     onTrack: 'On track',
+    goal: 'Goal',
+    now: (kcal: number) => `Now ${kcal}`,
+    close: 'Close',
     kcalADay: 'kcal a day',
     likely: (
       low: number,
@@ -39,10 +41,11 @@ export const messages = defineMessages({
     averageIntake: 'Average logged intake',
     weightTrend: 'Weight trend',
     plan: 'Plan',
-    perWeek: (kg: string) => `${kg} a week`,
+    kgAWeek: 'kg a week',
+    skippedDay: (date: string, kcal: number) =>
+      `${date} (only ${kcal} kcal logged)`,
     basis: (days: number, weighIns: number, weeks: number) =>
       `From ${days} logged days and ${weighIns} weigh-ins in the last ${weeks} weeks.`,
-    skippedDay: (date: string, kcal: number) => `${date} (${kcal} kcal)`,
     skipped: (days: string, more: number) =>
       ` Skipped as incomplete: ${days}${more > 0 ? ` and ${more} more` : ''}.`,
     suggestedGoal: 'Suggested goal',
@@ -58,7 +61,9 @@ export const messages = defineMessages({
       step: string,
       direction: Direction,
       percent: string,
-    ) => `${maintenance} ${step} to ${direction} ${percent}% a week`,
+      kg: string,
+    ) =>
+      `${maintenance} ${step} kcal to ${direction} ${percent}% a week (${kg} kg)`,
     onPace: (aim: string) => `${aim}; the trend is on pace.`,
     weightMoving: (aim: string, falling: boolean) =>
       `${aim}; weight is ${falling ? 'falling' : 'rising'}.`,
@@ -71,7 +76,6 @@ export const messages = defineMessages({
     ) =>
       `Estimate from ${first.kcal} kcal on ${first.day} to ${last.kcal} kcal on ${last.day}${formula === null ? '' : `, against the formula’s ${formula}`}`,
     formula: (kcal: number) => `Formula ${kcal}`,
-    chartCaption: 'Weekly estimate; the shading is its likely range.',
   },
   hu: {
     loading: 'Fenntartó kalória betöltése',
@@ -98,8 +102,10 @@ export const messages = defineMessages({
     checkInReason: (kcal: number) =>
       `Ellenőrzés: fenntartó kalória ≈ ${kcal} kcal`,
     goalUpdated: 'Cél frissítve.',
-    checkInReady: 'Ellenőrzés kész',
     onTrack: 'Rendben',
+    goal: 'Cél',
+    now: (kcal: number) => `Jelenleg ${kcal}`,
+    close: 'Bezárás',
     kcalADay: 'kcal/nap',
     likely: (
       low: number,
@@ -111,10 +117,11 @@ export const messages = defineMessages({
     averageIntake: 'Átlagos rögzített bevitel',
     weightTrend: 'Súlytrend',
     plan: 'Terv',
-    perWeek: (kg: string) => `${kg}/hét`,
+    kgAWeek: 'kg/hét',
+    skippedDay: (date: string, kcal: number) =>
+      `${date} (csak ${kcal} kcal rögzítve)`,
     basis: (days: number, weighIns: number, weeks: number) =>
       `Az elmúlt ${weeks} hét ${days} rögzített napja és ${weighIns} mérése alapján.`,
-    skippedDay: (date: string, kcal: number) => `${date} (${kcal} kcal)`,
     skipped: (days: string, more: number) =>
       ` Hiányosként kihagyva: ${days}${more > 0 ? ` és még ${more} nap` : ''}.`,
     suggestedGoal: 'Javasolt cél',
@@ -130,8 +137,9 @@ export const messages = defineMessages({
       step: string,
       direction: Direction,
       percent: string,
+      kg: string,
     ) =>
-      `${maintenance} ${step} a heti ${percent}% ${direction === 'lose' ? 'fogyáshoz' : 'hízáshoz'}`,
+      `${maintenance} ${step} kcal a heti ${percent}% (${kg} kg) ${direction === 'lose' ? 'fogyáshoz' : 'hízáshoz'}`,
     onPace: (aim: string) => `${aim}; a súlytrend tartja a tempót.`,
     weightMoving: (aim: string, falling: boolean) =>
       `${aim}; a testsúly ${falling ? 'csökken' : 'nő'}.`,
@@ -144,6 +152,5 @@ export const messages = defineMessages({
     ) =>
       `Becslés: ${first.kcal} kcal (${first.day}), majd ${last.kcal} kcal (${last.day})${formula === null ? '' : `; a képlet becslése ${formula} kcal`}`,
     formula: (kcal: number) => `Képlet ${kcal}`,
-    chartCaption: 'Heti becslés; a satírozott sáv a valószínű tartomány.',
   },
 })

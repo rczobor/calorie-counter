@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import type { FunctionReturnType } from 'convex/server'
 import { getFunctionName } from 'convex/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -90,28 +96,49 @@ describe('MaintenanceCard', () => {
   it("doesn't retire your maintenance hint with someone else's estimate", () => {
     checkIn.current = ready
     show({ ...alex, linkedAccount: 'other' })
-    expect(screen.getByText('Check-in ready')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Update goal' })).toBeTruthy()
     expect(mutate).not.toHaveBeenCalled()
   })
 
-  it('shows the measured maintenance and updates the goal only when asked', () => {
+  it('leads with the suggestion and keeps the working behind a tap', () => {
+    checkIn.current = ready
+    const onOpenCalculator = show()
+    // "2000 → 1730 kcal a day"; the arrow is an icon, and screen readers
+    // hear "Now 2000, 1730 kcal a day".
+    expect(
+      screen.getByRole('heading', { name: 'Suggested goal' }).nextSibling
+        ?.textContent,
+    ).toBe('Now 2000, 20001730 kcal a day')
+    expect(screen.queryByText(/Likely 2120–2240/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit plan' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Maintenance ≈ 2180/ }))
+    const sheet = screen.getByRole('dialog', { name: 'Maintenance' })
+    expect(
+      within(sheet).getByText('Likely 2120–2240: a close estimate.'),
+    ).toBeTruthy()
+    expect(within(sheet).getByText('−0.16')).toBeTruthy()
+    expect(
+      within(sheet).getByText(
+        /Skipped as incomplete: Oct 22 \(only 237 kcal logged\)\./,
+      ),
+    ).toBeTruthy()
+    expect(
+      within(sheet).getByText(
+        '2180 − 450 kcal to lose 0.5% a week (0.41 kg); the trend is slower than planned.',
+      ),
+    ).toBeTruthy()
+    // The sheet ends on the same decision as the card.
+    expect(
+      within(sheet).getByRole('button', { name: 'Update goal' }),
+    ).toBeTruthy()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Edit plan' }))
+    expect(onOpenCalculator).toHaveBeenCalled()
+  })
+
+  it('updates the goal only when asked', () => {
     checkIn.current = ready
     show()
-    expect(screen.getByText('Check-in ready')).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Likely 2120–2240: a close estimate. The formula guessed 2430.',
-      ),
-    ).toBeTruthy()
-    expect(screen.getByText('−0.16 kg a week')).toBeTruthy()
-    expect(
-      screen.getByText(/Skipped as incomplete: Oct 22 \(237 kcal\)\./),
-    ).toBeTruthy()
-    expect(
-      screen.getByText(
-        '2180 − 450 to lose 0.5% a week; the trend is slower than planned. 270 less than the current 2000.',
-      ),
-    ).toBeTruthy()
     // Seeing the measured maintenance retires Today's hint; the goal waits.
     expect(mutate.mock.calls).toEqual([
       ['hints:setSeen', { hint: 'maintenance' }],
