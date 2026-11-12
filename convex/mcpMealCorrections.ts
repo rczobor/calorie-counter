@@ -1,7 +1,14 @@
 import { vMcpUser } from '@convex-dev/mcp'
 import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
-import { combineMacroTotals } from './lib/macros'
+import {
+  combineMacroTotals,
+  isZeroMacroTotals,
+  macroGrams,
+  normalizeMacroGrams,
+  type MacroGrams,
+  type MacroTotals,
+} from './lib/macros'
 import {
   internalMutation,
   type MutationCtx,
@@ -14,6 +21,7 @@ import {
 } from './lib/auth'
 import {
   describeContext,
+  domainMessage,
   readDailySummary,
   projectDailySummary,
 } from './mcpContext'
@@ -43,6 +51,9 @@ import {
 import {
   mealCorrectionInput,
   mealCorrectionPreview,
+  mealCorrectionsBatchInput,
+  mealCorrectionsBatchPreview,
+  mealCorrectionsBatchResult,
   mealDetails,
   mealResult,
 } from './mcpValidators'
@@ -194,6 +205,60 @@ export const getMeal = internalMutation({
     }),
 })
 
+type ItemChange = Infer<typeof mealCorrectionInput>['itemChanges'][number]
+
+// Per-100 g macros for a catalog item; its calories never change.
+async function resolveCatalogItemMacros(
+  ctx: Pick<QueryCtx, 'db'>,
+  item: Doc<'mealItems'>,
+  change: Extract<ItemChange, { kind: 'macros' | 'refreshFromCatalog' }>,
+): Promise<MacroGrams | undefined> {
+  if (item.sourceType === 'customByWeight')
+    throw new ConvexError(
+      'Meal item is a custom food. Change its macros with customNutrition and its current kcalPer100.',
+    )
+  if (item.sourceType === 'fixedCalories')
+    throw new ConvexError(
+      'Meal item has fixed calories. Change its macros with a fixedCalories change and its current calories.',
+    )
+  if (change.kind === 'macros') {
+    if (change.macros === null) return undefined
+    if (item.ignoreCaloriesSnapshot)
+      throw new ConvexError(
+        'Cannot add macronutrients to a food whose calories are ignored.',
+      )
+    if (!change.nutritionProvenance)
+      throw new ConvexError('Macronutrients need a nutritionProvenance source.')
+    return normalizeMacroGrams(change.macros, { per100Grams: true })
+  }
+  const food =
+    item.sourceType === 'ingredient'
+      ? await ctx.db.get(item.ingredientId)
+      : await ctx.db.get(item.cookedFoodId)
+  if (!food) throw new ConvexError('Catalog food not found.')
+  const basis = 'kcalBasisUnit' in food ? food.kcalBasisUnit : 'g'
+  if (
+    item.ignoreCaloriesSnapshot ||
+    ('ignoreCalories' in food && food.ignoreCalories)
+  )
+    throw new ConvexError(
+      'Cannot add macronutrients to a food whose calories are ignored.',
+    )
+  if (
+    food.kcalPer100 !== item.kcalPer100Snapshot ||
+    basis !== item.kcalBasisUnitSnapshot
+  )
+    throw new ConvexError(
+      `Meal item recorded ${item.kcalPer100Snapshot} kcal/100 ${item.kcalBasisUnitSnapshot}, but ${food.name} now has ${food.kcalPer100} kcal/100 ${basis}, so its macros do not describe this item. Send a macros change with values for the recorded calories instead.`,
+    )
+  const macros = macroGrams(food.macros)
+  if (!macros)
+    throw new ConvexError(
+      `${food.name} has no macros in the catalog. Save them with set_food_macros first.`,
+    )
+  return macros
+}
+
 async function prepareCorrection(
   ctx: MutationCtx,
   owner: AuthenticatedOwner,
@@ -226,14 +291,27 @@ async function prepareCorrection(
       throw new ConvexError(
         'Meal item not found in this meal. Call get_meal again.',
       )
+  const macrosByExistingItemId = new Map<
+    Id<'mealItems'>,
+    MacroGrams | undefined
+  >()
+  for (const item of current.items) {
+    const change = changes.get(item._id)
+    if (change?.kind === 'macros' || change?.kind === 'refreshFromCatalog')
+      macrosByExistingItemId.set(
+        item._id,
+        await resolveCatalogItemMacros(ctx, item, change),
+      )
+  }
   const items = current.items.map((item) => {
     const existing = itemInput(item)
     const change = changes.get(item._id)
-    if (!change) return existing
+    if (!change || change.kind === 'refreshFromCatalog') return existing
     const provenance = {
       nutritionProvenance:
         change.nutritionProvenance ?? existing.nutritionProvenance,
     }
+    if (change.kind === 'macros') return { ...existing, ...provenance }
     if (change.kind === 'portion') {
       if (existing.sourceType === 'fixedCalories')
         throw new ConvexError(
@@ -297,6 +375,7 @@ async function prepareCorrection(
   }
   const snapshots = await buildMealItemSnapshots(ctx.db, owner, items, {
     existingItemsById: new Map(current.items.map((item) => [item._id, item])),
+    macrosByExistingItemId,
   })
   const beforeDay = await readDailySummary(
     ctx,
@@ -339,6 +418,22 @@ async function prepareCorrection(
   }
   return {
     args,
+    macrosByExistingItemId,
+    // How the meal moves daily totals, for batches that share a day.
+    effect: {
+      from: {
+        personId: current.person._id,
+        eatenOn: current.meal.eatenOn,
+        calories: current.meal.totalCalories,
+        macros: current.meal.macros,
+      },
+      to: {
+        personId: person._id,
+        eatenOn: args.eatenOn,
+        calories: afterCalories,
+        macros: afterMacros,
+      },
+    },
     preview: {
       context: await describeContext(ctx, owner),
       dailySummaries,
@@ -411,16 +506,16 @@ export const correctMeal = internalMutation({
         if ('mealId' in receipt.result) return receipt.result
         throw new ConvexError('Operation result is unavailable.')
       }
-      const { args: update, preview } = await prepareCorrection(
-        ctx,
-        owner,
-        args.input,
-      )
+      const {
+        args: update,
+        macrosByExistingItemId,
+        preview,
+      } = await prepareCorrection(ctx, owner, args.input)
       await limiter.limit(ctx, 'writes', {
         key: owner.userId,
         throws: true,
       })
-      await updateMealForOwner(ctx, owner, update)
+      await updateMealForOwner(ctx, owner, update, { macrosByExistingItemId })
       const path = `/?householdId=${owner.householdId}&personId=${update.personId}&date=${update.eatenOn}`
       const affectedDailySummaries = await Promise.all(
         (preview.dailySummaries ?? []).map(({ after }) =>
@@ -448,6 +543,272 @@ export const correctMeal = internalMutation({
         connectionId: args.user.connectionId,
         operation: 'mealCorrection',
         key: `mealCorrection:${args.operationKey}`,
+        input: canonical(args.input),
+        result,
+      })
+      return result
+    }),
+})
+
+const MAX_BATCH_CORRECTIONS = 50
+
+// Every correction is prepared against the same starting state. A failure is
+// reported per meal; a save writes all of them or none.
+async function prepareBatch(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  input: Infer<typeof mealCorrectionsBatchInput>,
+) {
+  if (canonical(input).length > 256_000)
+    throw new ConvexError(
+      'Meal correction batch is too large. Split it into smaller batches.',
+    )
+  if (input.corrections.length === 0)
+    throw new ConvexError('Supply at least one meal correction.')
+  assertArrayLimit(
+    input.corrections,
+    MAX_BATCH_CORRECTIONS,
+    'Meal corrections in one batch',
+  )
+  const mealIds = input.corrections.map((correction) => correction.mealId)
+  if (new Set(mealIds).size !== mealIds.length)
+    throw new ConvexError(
+      'Each meal may appear once in a batch. Combine its item changes into one correction.',
+    )
+  const entries = []
+  for (const correction of input.corrections) {
+    try {
+      entries.push({
+        ok: true as const,
+        mealId: correction.mealId,
+        ...(await prepareCorrection(ctx, owner, correction)),
+      })
+    } catch (error) {
+      const message = domainMessage(error)
+      if (message === undefined) throw error
+      entries.push({
+        ok: false as const,
+        mealId: correction.mealId,
+        error: message,
+      })
+    }
+  }
+  const days = new Map<
+    string,
+    {
+      personId: Id<'people'>
+      eatenOn: string
+      calories: number
+      mealCount: number
+      macros?: MacroTotals
+    }
+  >()
+  const shift = (
+    side: { personId: Id<'people'>; eatenOn: string; calories: number },
+    macros: MacroTotals | undefined,
+    sign: 1 | -1,
+  ) => {
+    const key = `${side.personId}:${side.eatenOn}`
+    const day = days.get(key) ?? {
+      personId: side.personId,
+      eatenOn: side.eatenOn,
+      calories: 0,
+      mealCount: 0,
+    }
+    day.calories += sign * side.calories
+    day.mealCount += sign
+    day.macros = combineMacroTotals(day.macros, macros, sign)
+    days.set(key, day)
+  }
+  for (const entry of entries) {
+    if (!entry.ok) continue
+    shift(entry.effect.from, entry.effect.from.macros, -1)
+    shift(entry.effect.to, entry.effect.to.macros, 1)
+  }
+  // Preparing reads every item and catalog food of every meal. Stop with
+  // advice instead of an opaque transaction-limit failure when what is left
+  // cannot fit: four reads per day for the preview and four for the result,
+  // and per meal its own reads, its daily summaries and one read per custom
+  // item linked to the catalog.
+  const reserve =
+    100 +
+    8 * days.size +
+    entries.reduce(
+      (total, entry) =>
+        total +
+        (entry.ok
+          ? 5 +
+            entry.args.items.filter(
+              (item) =>
+                item.sourceType === 'customByWeight' &&
+                item.ingredientId !== undefined,
+            ).length
+          : 0),
+      0,
+    )
+  const { databaseQueries } = await ctx.meta.getTransactionMetrics()
+  if (databaseQueries.remaining < reserve)
+    throw new ConvexError(
+      'This batch reads too many meal items to save at once. Split it into smaller batches.',
+    )
+  const dailySummaries = await Promise.all(
+    [...days.values()]
+      .filter(
+        (day) =>
+          Math.abs(day.calories) > 1e-9 ||
+          day.mealCount !== 0 ||
+          !isZeroMacroTotals(day.macros),
+      )
+      .map(async (day) => {
+        const before = await readDailySummary(
+          ctx,
+          owner,
+          day.personId,
+          day.eatenOn,
+        )
+        return {
+          before,
+          after: projectDailySummary(
+            before,
+            day.calories,
+            day.mealCount,
+            day.macros,
+          ),
+        }
+      }),
+  )
+  return { entries, dailySummaries }
+}
+
+export const previewMealCorrectionsBatch = internalMutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: mealCorrectionsBatchInput,
+  },
+  returns: mealCorrectionsBatchPreview,
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
+      const { entries, dailySummaries } = await prepareBatch(
+        ctx,
+        owner,
+        args.input,
+      )
+      return {
+        context: await describeContext(ctx, owner),
+        input: args.input,
+        ready: entries.every((entry) => entry.ok),
+        meals: entries.map((entry) => {
+          if (!entry.ok) return entry
+          const { before, after } = entry.preview
+          const state = (
+            meal: typeof before,
+            macros: MacroTotals | undefined,
+          ) => ({
+            personId: meal.personId,
+            person: meal.person,
+            eatenOn: meal.eatenOn,
+            name: meal.name,
+            totalCalories: meal.totalCalories,
+            macros,
+          })
+          return {
+            mealId: entry.mealId,
+            ok: true as const,
+            before: state(before, entry.effect.from.macros),
+            after: state(after, entry.effect.to.macros),
+            changedItems: before.items.flatMap((item, index) =>
+              canonical(item) === canonical(after.items[index])
+                ? []
+                : [{ before: item, after: after.items[index] }],
+            ),
+          }
+        }),
+        dailySummaries,
+      }
+    }),
+})
+
+export const correctMealsBatch = internalMutation({
+  args: {
+    householdId: v.optional(v.id('households')),
+    user: vMcpUser(),
+    input: mealCorrectionsBatchInput,
+    operationKey: v.string(),
+  },
+  returns: mealCorrectionsBatchResult,
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'meals:write',
+        args.householdId,
+      )
+      const receipt = await findReceipt(
+        ctx,
+        args.user,
+        owner,
+        'mealCorrectionsBatch',
+        args.operationKey,
+        args.input,
+      )
+      if (receipt) {
+        if ('meals' in receipt.result && 'dailySummaries' in receipt.result)
+          return receipt.result
+        throw new ConvexError('Operation result is unavailable.')
+      }
+      const { entries, dailySummaries } = await prepareBatch(
+        ctx,
+        owner,
+        args.input,
+      )
+      const failures = entries.flatMap((entry) =>
+        entry.ok ? [] : [`${entry.mealId}: ${entry.error}`],
+      )
+      if (failures.length > 0)
+        throw new ConvexError(
+          `No meals were saved: ${failures.length} of ${entries.length} corrections failed. ${failures.join(' | ')} Fix or remove those corrections, preview the batch again and ask for approval.`,
+        )
+      // The whole batch is one write against the rate limit.
+      await limiter.limit(ctx, 'writes', {
+        key: owner.userId,
+        throws: true,
+      })
+      const meals = []
+      for (const entry of entries) {
+        if (!entry.ok) continue
+        await updateMealForOwner(ctx, owner, entry.args, {
+          macrosByExistingItemId: entry.macrosByExistingItemId,
+        })
+        meals.push({
+          mealId: entry.args.mealId,
+          personId: entry.args.personId,
+          eatenOn: entry.args.eatenOn,
+          totalCalories: entry.preview.after.totalCalories,
+          editRevision: entry.args.expectedEditRevision + 1,
+        })
+      }
+      const result = {
+        context: await describeContext(ctx, owner),
+        meals,
+        dailySummaries: await Promise.all(
+          dailySummaries.map(({ after }) =>
+            readDailySummary(ctx, owner, after.personId, after.eatenOn),
+          ),
+        ),
+      }
+      await ctx.db.insert('mcpOperations', {
+        ...ownerFields(owner),
+        connectionId: args.user.connectionId,
+        operation: 'mealCorrectionsBatch',
+        key: `mealCorrectionsBatch:${args.operationKey}`,
         input: canonical(args.input),
         result,
       })

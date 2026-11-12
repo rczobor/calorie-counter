@@ -204,6 +204,8 @@ export const cookingPreview = v.object({
       totalCalories: v.number(),
       kcalPer100: v.number(),
       macros: v.optional(macroGramsValidator),
+      // Counted ingredients without macros, which leave the batch without them.
+      missingMacros: v.optional(v.array(v.string())),
       finishedWeightGrams: v.number(),
       nutritionProvenance: v.optional(nutritionProvenanceValidator),
     }),
@@ -290,6 +292,18 @@ export const mealCorrectionInput = v.object({
         macros: v.optional(v.union(macroGramsValidator, v.null())),
         ...correctionProvenance,
       }),
+      // Ingredient and cooked-food items only; calories never change.
+      v.object({
+        kind: v.literal('macros'),
+        itemId: v.id('mealItems'),
+        // Per 100 g; null removes them.
+        macros: v.union(macroGramsValidator, v.null()),
+        ...correctionProvenance,
+      }),
+      v.object({
+        kind: v.literal('refreshFromCatalog'),
+        itemId: v.id('mealItems'),
+      }),
     ),
   ),
 })
@@ -335,6 +349,58 @@ export const mealCorrectionPreview = v.object({
   after: v.object(mealCorrectionSummary),
 })
 
+export const mealCorrectionsBatchInput = v.object({
+  corrections: v.array(mealCorrectionInput),
+})
+const batchMealState = v.object({
+  personId: v.id('people'),
+  person: v.string(),
+  eatenOn: v.string(),
+  name: v.optional(v.string()),
+  totalCalories: v.number(),
+  macros: v.optional(macroTotalsValidator),
+})
+export const mealCorrectionsBatchPreview = v.object({
+  context: v.optional(loggingContext),
+  input: mealCorrectionsBatchInput,
+  // False when any correction fails; correct_meals_batch would save nothing.
+  ready: v.boolean(),
+  meals: v.array(
+    v.union(
+      v.object({
+        mealId: v.id('meals'),
+        ok: v.literal(true),
+        before: batchMealState,
+        after: batchMealState,
+        changedItems: v.array(
+          v.object({ before: mealCorrectionItem, after: mealCorrectionItem }),
+        ),
+      }),
+      v.object({
+        mealId: v.id('meals'),
+        ok: v.literal(false),
+        error: v.string(),
+      }),
+    ),
+  ),
+  dailySummaries: v.array(
+    v.object({ before: dailySummary, after: dailySummary }),
+  ),
+})
+export const mealCorrectionsBatchResult = v.object({
+  context: v.optional(loggingContext),
+  meals: v.array(
+    v.object({
+      mealId: v.id('meals'),
+      personId: v.id('people'),
+      eatenOn: v.string(),
+      totalCalories: v.number(),
+      editRevision: v.number(),
+    }),
+  ),
+  dailySummaries: v.array(dailySummary),
+})
+
 export const foodKind = v.union(
   v.literal('ingredient'),
   v.literal('cookedFood'),
@@ -378,7 +444,11 @@ export const foodDetails = v.object({
   ),
 })
 
-const macroFoodKind = v.union(v.literal('ingredient'), v.literal('savedFood'))
+const macroFoodKind = v.union(
+  v.literal('ingredient'),
+  v.literal('cookedFood'),
+  v.literal('savedFood'),
+)
 // What the macros are measured against: a calorie unit, or one serving.
 const calorieBasis = v.union(nutritionUnitValidator, v.literal('serving'))
 export const foodMacrosInput = v.object({
@@ -396,6 +466,57 @@ export const foodMacrosInput = v.object({
       macros: v.union(macrosValidator, v.null()),
     }),
   ),
+  // Also fill the macros into past meal items logged from this food.
+  applyToPastMeals: v.optional(v.boolean()),
+  // Previews set this: the meals they would change, at their revisions.
+  expectedPastMeals: v.optional(
+    v.array(
+      v.object({ mealId: v.id('meals'), expectedEditRevision: v.number() }),
+    ),
+  ),
+})
+const pastMealItemSkipReason = v.union(
+  v.literal('archivedMeal'),
+  v.literal('customItem'),
+  v.literal('ignoreCalories'),
+  v.literal('kcalMismatch'),
+  v.literal('hasMacros'),
+  v.literal('alreadyCurrent'),
+)
+const pastMealDay = v.object({
+  personId: v.id('people'),
+  person: v.string(),
+  eatenOn: v.string(),
+  before: v.union(macroTotalsValidator, v.null()),
+  after: v.union(macroTotalsValidator, v.null()),
+  change: macroTotalsValidator,
+})
+const pastMealsPreview = v.object({
+  items: v.array(
+    v.object({
+      mealId: v.id('meals'),
+      itemId: v.id('mealItems'),
+      personId: v.id('people'),
+      person: v.string(),
+      eatenOn: v.string(),
+      mealName: v.optional(v.string()),
+      consumedWeightGrams: v.number(),
+      calories: v.number(),
+      // The item's grams of each, from the food's per-100 g macros.
+      macros: macroGramsValidator,
+    }),
+  ),
+  skipped: v.array(
+    v.object({
+      mealId: v.id('meals'),
+      itemId: v.id('mealItems'),
+      eatenOn: v.string(),
+      name: v.string(),
+      reason: pastMealItemSkipReason,
+      detail: v.string(),
+    }),
+  ),
+  days: v.array(pastMealDay),
 })
 const macroFood = v.object({
   kind: macroFoodKind,
@@ -412,12 +533,26 @@ export const foodMacrosPreview = v.object({
   after: macrosValidator,
   macroKcal: v.number(),
   warnings: v.array(v.string()),
+  pastMeals: v.optional(pastMealsPreview),
 })
 export const foodMacrosResult = v.object({
   context: v.optional(loggingContext),
   food: macroFood,
   macros: macrosValidator,
   change: v.union(v.literal('updated'), v.literal('unchanged')),
+  pastMeals: v.optional(
+    v.object({
+      updatedItemCount: v.number(),
+      meals: v.array(
+        v.object({
+          mealId: v.id('meals'),
+          eatenOn: v.string(),
+          editRevision: v.number(),
+        }),
+      ),
+      days: v.array(pastMealDay),
+    }),
+  ),
 })
 
 export const loggingContextResult = v.object({
@@ -481,6 +616,24 @@ export const mealHistoryResult = v.object({
   cursor: v.union(v.string(), v.null()),
 })
 
+// Where a frozen template item came from, so refresh can re-read it. Null for
+// an item supplied with its own nutrition.
+export const templateItemSource = v.union(
+  v.null(),
+  v.object({ kind: v.literal('mealItem'), mealItemId: v.id('mealItems') }),
+  v.object({
+    kind: v.literal('ingredient'),
+    ingredientId: v.id('ingredients'),
+  }),
+  v.object({
+    kind: v.literal('cookedFood'),
+    cookedFoodId: v.id('cookedFoods'),
+  }),
+  v.object({
+    kind: v.literal('savedFood'),
+    savedFoodId: v.id('mcpSavedFoods'),
+  }),
+)
 export const templateDto = v.object({
   _id: v.id('mealTemplates'),
   _creationTime: v.number(),
@@ -493,6 +646,12 @@ export const templateDto = v.object({
   items: v.array(mcpMealItem),
   editRevision: v.number(),
   createdAt: v.number(),
+  // True when logging the template would add calories without macros.
+  missingMacros: v.boolean(),
+  // One entry per item, in order.
+  itemMacroStatus: v.array(
+    v.object({ name: v.string(), missingMacros: v.boolean() }),
+  ),
 })
 export const templateResult = v.object({
   templateId: v.id('mealTemplates'),
@@ -521,7 +680,42 @@ export const templateChange = v.union(
     templateId: v.id('mealTemplates'),
     expectedEditRevision: v.number(),
   }),
+  v.object({
+    action: v.literal('refresh'),
+    templateId: v.id('mealTemplates'),
+    expectedEditRevision: v.number(),
+    // The refreshed items preview_meal_template_refresh showed; the save fails
+    // when the sources changed since.
+    expectedItems: v.optional(v.array(mcpMealItem)),
+  }),
 )
+const templateRefreshSkipReason = v.union(
+  v.literal('noSource'),
+  v.literal('sourceUnavailable'),
+  v.literal('kcalMismatch'),
+  v.literal('sourceHasNoMacros'),
+  v.literal('ignoreCalories'),
+)
+export const templateRefreshPreview = v.object({
+  context: v.optional(loggingContext),
+  input: templateChange,
+  name: v.string(),
+  items: v.array(
+    v.object({
+      name: v.string(),
+      status: v.union(
+        v.literal('updated'),
+        v.literal('unchanged'),
+        v.literal('skipped'),
+      ),
+      reason: v.optional(templateRefreshSkipReason),
+      before: v.union(macroGramsValidator, v.null()),
+      after: v.union(macroGramsValidator, v.null()),
+    }),
+  ),
+  missingMacrosBefore: v.boolean(),
+  missingMacrosAfter: v.boolean(),
+})
 
 export const discoveryResult = v.object({
   householdId: v.id('households'),

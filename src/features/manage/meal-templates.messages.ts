@@ -37,6 +37,7 @@ export const messages = defineMessages({
     none: 'Log meals you repeat in one step: ask your AI assistant to save one.',
     edit: 'Edit',
     foodCount: (count: number) => `${count} ${count === 1 ? 'food' : 'foods'}`,
+    missingMacros: 'Some foods without macros',
     loadMore: 'Load more templates',
   },
   hu: {
@@ -75,6 +76,7 @@ export const messages = defineMessages({
     none: 'Az ismétlődő étkezéseidet egy lépésben rögzítheted: kérd meg az AI-asszisztensedet, hogy mentsen el egyet.',
     edit: 'Szerkesztés',
     foodCount: (count: number) => `${count} étel`,
+    missingMacros: 'Egyes ételeknél nincs makró',
     loadMore: 'További sablonok betöltése',
   },
 })

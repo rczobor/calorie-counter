@@ -102,6 +102,14 @@ creation or device-code flow is exposed in this release.
   delete using `save_meal_template` with `action: edit|delete`, the current
   `expectedEditRevision`, and a new operation key. Catalog's **Meal templates**
   tab also manages names, quantities, product replacements and deletion.
+- Templates report `missingMacros` (and `itemMacroStatus` per item) when
+  logging them would record calories without macros; the app marks those
+  templates “Some foods without macros”. `preview_meal_template_refresh`
+  re-reads macros from each item's source (catalog ingredient or cooked batch,
+  saved food, or the meal item it was saved from) and shows before/after per
+  item. Only macros change, and only from a source whose calories still match
+  the item's. Save the returned `action: refresh` input with
+  `save_meal_template`; it fails if the sources changed since the preview.
 - Record a body weight the user states with `record_weight`: kilograms, one per
   person per date, saved without a preview. Saving the weight already recorded
   changes nothing, so an uncertain save can be retried. A different weight for
@@ -137,9 +145,10 @@ creation or device-code flow is exposed in this release.
 - Assistants should record protein, carbohydrate and fat with the calories of
   every food: from the user's text, a nutrition label in a photo, a lookup, or
   an estimate labelled as one.
-- Add protein, carbohydrate and fat to a catalog ingredient or saved food.
-  `preview_food_macros` takes grams on the food's calorie basis (per 100 of its
-  unit, or per serving for a fixed-calorie saved food) with a required
+- Add protein, carbohydrate and fat to a catalog ingredient, cooked batch or
+  saved food. `preview_food_macros` takes grams on the food's calorie basis
+  (per 100 of its unit, per 100 g of a batch's finished weight, or per serving
+  for a fixed-calorie saved food) with a required
   `nutritionProvenance`, and returns the kcal they imply at 4/4/9 kcal per gram
   with a warning when that disagrees with the food's calories by more than 20%
   (or 20 kcal). More than 100 g per 100 g and foods whose calories are ignored
@@ -149,11 +158,24 @@ creation or device-code flow is exposed in this release.
   `get_food_details` return the stored `macros`. Changing an ingredient's
   calories in the app clears its macros. Reading uses `nutrition:read` and
   saving `meals:write`, so a connection only needs a metadata refresh.
+- Fill those macros into past meals with `applyToPastMeals: true` (ingredients
+  and cooked batches, up to 300 past items). The preview lists each item it
+  would fill (meal, date, person, grams, resulting macros), each item it skips
+  and why (`kcalMismatch` when the item recorded different kcal/100 g than the
+  food has now, `ignoreCalories`, `hasMacros`, `alreadyCurrent`,
+  `archivedMeal`, `customItem`), and each day's change in macro grams and
+  `coveredCalories`. Past items gain macros only; calories, grams and
+  provenance stay. `set_food_macros` then needs an `operationKey` and saves the
+  food and every listed item in one transaction, counting as one write. If a
+  listed meal's edit revision moved or a new meal with the food was logged,
+  nothing is saved and the error names the meals. Past meal items do not
+  record which saved food they came from, so saved foods cannot use it.
 - Meals and cooking carry those macros forward. A meal item copies the macros
   of its ingredient, saved food or cooked batch, and `customByWeight` and
   `fixedCalories` items accept their own `macros` (per 100 g, or for the whole
   item). A cooked batch gets macros per 100 g only when every counted
-  ingredient has them. Meals, `get_day` and the preview summaries report
+  ingredient has them; otherwise `preview_cooking` lists the ingredients
+  without macros in `missingMacros`. Meals, `get_day` and the preview summaries report
   `macros` with `coveredCalories`, the kcal of the foods that had macros, so a
   partial total is never read as the whole day. Meals logged before macros
   existed have none.
@@ -223,6 +245,16 @@ to an existing environment is part of this implementation.
   Fixed-calorie corrections may include an explicit positive `servingCount`
   when correcting quantity. Calorie-only corrections keep the existing count;
   the server never infers servings from calories.
+- Ingredient and cooked-batch items accept `{ kind: "macros", macros,
+nutritionProvenance }` (per 100 g, or `null` to remove them) and
+  `{ kind: "refreshFromCatalog" }`, which copies the catalog food's current
+  macros only while its kcal/100 g equals the item's recorded value. Neither
+  changes calories or grams; a portion change keeps the recorded macros.
+- `preview_meal_corrections_batch` and `correct_meals_batch` take up to 50
+  corrections (one per meal) as one approval and one operation key. The
+  preview reports each meal's result or error and combined daily summaries;
+  the save is all or nothing, listing every failing meal when any fails, and
+  counts as one write against the rate limit.
 
 Try: “Use Calorie Counter. Show my people, then log 250 g of the chili I cooked
 yesterday for Alex's lunch. Preview it before saving.”

@@ -1445,6 +1445,12 @@ export async function buildMealItemSnapshots(
   items: Array<Infer<typeof mealItemInputValidator>>,
   options?: {
     existingItemsById?: ReadonlyMap<Id<'mealItems'>, Doc<'mealItems'>>
+    // Replacement per-100 g macros for retained catalog items (ingredient or
+    // cooked food), whose input shape carries no macros. Undefined removes them.
+    macrosByExistingItemId?: ReadonlyMap<
+      Id<'mealItems'>,
+      MacroGrams | undefined
+    >
   },
 ): Promise<MealItemSnapshot[]> {
   if (items.length === 0) {
@@ -1466,6 +1472,18 @@ export async function buildMealItemSnapshots(
   }
   const createdIngredientByKey = new Map<string, Promise<Id<'ingredients'>>>()
   const now = Date.now()
+  const retainedMacros = (existing: Doc<'mealItems'>) =>
+    options?.macrosByExistingItemId?.has(existing._id)
+      ? options.macrosByExistingItemId.get(existing._id)
+      : existing.macrosSnapshot
+  // An unchanged portion keeps its recorded calories exactly.
+  const retainedCalories = (
+    existing: { consumedWeightGrams: number; caloriesSnapshot: number },
+    consumedWeightGrams: number,
+  ) =>
+    consumedWeightGrams === existing.consumedWeightGrams
+      ? existing.caloriesSnapshot
+      : scaleHistoricalCalories(existing, consumedWeightGrams)
 
   const snapshots = await Promise.all(
     items.map(async (item): Promise<MealItemSnapshot> => {
@@ -1536,7 +1554,7 @@ export async function buildMealItemSnapshots(
           }
           const calories = existing.ignoreCaloriesSnapshot
             ? 0
-            : scaleHistoricalCalories(existing, item.consumedWeightGrams)
+            : retainedCalories(existing, item.consumedWeightGrams)
           return {
             sourceType: 'ingredient' as const,
             ingredientId: existing.ingredientId,
@@ -1546,7 +1564,7 @@ export async function buildMealItemSnapshots(
             kcalBasisUnitSnapshot: existing.kcalBasisUnitSnapshot,
             ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
             caloriesSnapshot: calories,
-            macrosSnapshot: existing.macrosSnapshot,
+            macrosSnapshot: retainedMacros(existing),
             notes: normalizeInputNotes(item.notes, existing.notes),
           }
         }
@@ -1739,10 +1757,7 @@ export async function buildMealItemSnapshots(
         ) {
           throw new Error('Existing meal item does not match cooked food.')
         }
-        const calories = scaleHistoricalCalories(
-          existing,
-          item.consumedWeightGrams,
-        )
+        const calories = retainedCalories(existing, item.consumedWeightGrams)
         return {
           sourceType: 'cookedFood' as const,
           cookedFoodId: existing.cookedFoodId,
@@ -1752,7 +1767,7 @@ export async function buildMealItemSnapshots(
           kcalBasisUnitSnapshot: existing.kcalBasisUnitSnapshot,
           ignoreCaloriesSnapshot: existing.ignoreCaloriesSnapshot,
           caloriesSnapshot: calories,
-          macrosSnapshot: existing.macrosSnapshot,
+          macrosSnapshot: retainedMacros(existing),
           notes: normalizeInputNotes(item.notes, existing.notes),
         }
       }
@@ -1788,7 +1803,7 @@ export async function buildMealItemSnapshots(
         kcalBasisUnitSnapshot: 'g' as const,
         ignoreCaloriesSnapshot: false,
         caloriesSnapshot: calories,
-        macrosSnapshot: cookedFood.macros,
+        macrosSnapshot: macroGrams(cookedFood.macros),
         notes: normalizeInputNotes(item.notes),
       }
     }),
@@ -2009,6 +2024,60 @@ async function adjustDailySummary(
     createdAt: now,
     updatedAt: now,
   })
+}
+
+// Adds per-100 g macros to past catalog items that recorded none. Calories,
+// portions and provenance stay as recorded; each meal's revision advances so
+// pending corrections built on the old snapshot fail cleanly.
+export async function fillMealItemMacros(
+  ctx: MutationCtx,
+  owner: AuthenticatedOwner,
+  fills: ReadonlyArray<{ item: Doc<'mealItems'>; macros: MacroGrams }>,
+) {
+  const byMeal = new Map<Id<'meals'>, typeof fills>()
+  for (const fill of fills) {
+    const { item } = fill
+    if (
+      item.sourceType === 'fixedCalories' ||
+      item.ignoreCaloriesSnapshot ||
+      item.macrosSnapshot
+    )
+      throw new Error('Only weighed items without macros can be filled.')
+    byMeal.set(item.mealId, [...(byMeal.get(item.mealId) ?? []), fill])
+  }
+  const now = Date.now()
+  const meals = []
+  for (const [mealId, mealFills] of byMeal) {
+    const meal = assertOwnedOrThrow(
+      await ctx.db.get(mealId),
+      owner,
+      'Meal not found.',
+    )
+    let delta: MacroTotals | undefined
+    for (const { item, macros } of mealFills) {
+      if (item.sourceType === 'fixedCalories') continue
+      await ctx.db.patch(item._id, { macrosSnapshot: macros })
+      delta = combineMacroTotals(delta, {
+        ...scaleMacros(macros, item.consumedWeightGrams / 100),
+        coveredCalories: item.caloriesSnapshot,
+      })
+    }
+    const editRevision = nextEditRevision(meal, 'Meal')
+    await ctx.db.patch(meal._id, {
+      macros: settleMacroTotals(combineMacroTotals(meal.macros, delta)),
+      editRevision,
+    })
+    if (!meal.archived)
+      await adjustDailySummary(
+        ctx.db,
+        owner,
+        { personId: meal.personId, eatenOn: meal.eatenOn },
+        { consumedCalories: 0, mealCount: 0, macros: delta },
+        now,
+      )
+    meals.push({ mealId, eatenOn: meal.eatenOn, editRevision })
+  }
+  return meals
 }
 
 async function touchCookSession(
@@ -3519,10 +3588,13 @@ export async function prepareCookedFoodWeightCorrection(
       input.finishedWeightGrams,
     ),
     // The batch's total macros stay put; only their density changes.
-    macros: scaleOptionalMacros(
-      food.macros,
-      food.finishedWeightGrams / input.finishedWeightGrams,
-    ),
+    macros: food.macros && {
+      ...scaleMacros(
+        food.macros,
+        food.finishedWeightGrams / input.finishedWeightGrams,
+      ),
+      nutritionProvenance: food.macros.nutritionProvenance,
+    },
   }
 }
 
@@ -3639,7 +3711,14 @@ export const updateCookedFood = mutation({
       totalRawWeightGrams: nutrition.totalRawWeightGrams,
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
-      macros: nutrition.macros,
+      // Macros set over MCP (with provenance) survive edits that leave the
+      // calorie density alone when the ingredients cannot derive new ones.
+      macros:
+        nutrition.macros ??
+        (cookedFood.macros?.nutritionProvenance &&
+        nutrition.kcalPer100 === cookedFood.kcalPer100
+          ? cookedFood.macros
+          : undefined),
       nutritionProvenance:
         combineNutritionProvenance(
           summarizeEstimates(nutrition.ingredientSnapshots),
@@ -3815,6 +3894,10 @@ export async function updateMealForOwner(
   ctx: MutationCtx,
   owner: AuthenticatedOwner,
   args: Infer<typeof updateMealInput>,
+  options?: Pick<
+    NonNullable<Parameters<typeof buildMealItemSnapshots>[3]>,
+    'macrosByExistingItemId'
+  >,
 ) {
   const meal = assertOwnedOrThrow(
     await ctx.db.get(args.mealId),
@@ -3849,6 +3932,7 @@ export async function updateMealForOwner(
   )
   const snapshots = await buildMealItemSnapshots(ctx.db, owner, args.items, {
     existingItemsById,
+    macrosByExistingItemId: options?.macrosByExistingItemId,
   })
   const totalCalories = sumMealItemCalories(snapshots)
   const macros = sumMealItemMacros(snapshots)
