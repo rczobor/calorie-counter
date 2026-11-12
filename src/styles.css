@@ -139,14 +139,15 @@
   --field: oklch(0.294 0.0036 286);
   --input: oklch(0.56 0.006 286); /* 3.7:1 on card, 4.5:1 on background */
   --ring: oklch(0.74 0.16 48);
-  /* A disabled primary is iOS's grey fill: translucent, so it always sits one
-     step above its surface (about 1.3:1 on the page, the sheet and a sheet's
-     cells) and never vanishes into one. A recessed well read as a hole and an
-     outline as the secondary style. Its label is dimmer than secondary text
-     (3.5:1 on the sheet footer, 2.9:1 inside a cell; disabled controls are
-     exempt from contrast minimums), so it never reads available. */
-  --disabled: oklch(0.57 0.012 286 / 24%);
-  --disabled-foreground: oklch(0.62 0.006 286);
+  /* A disabled primary is iOS's grey fill: translucent, so it always sits a
+     clear step above its surface (about 1.6:1 on the sheet and a sheet's
+     cells) and never vanishes into one; at 1.3:1 a waiting Next read as text
+     with no button. A recessed well read as a hole and an outline as the
+     secondary style. Its label is dimmer than secondary text (3.6:1 on the
+     sheet footer, 3.1:1 inside a cell; disabled controls are exempt from
+     contrast minimums), so it never reads available. */
+  --disabled: oklch(0.57 0.012 286 / 40%);
+  --disabled-foreground: oklch(0.68 0.006 286);
   /* The lightest grey in the system, raised by a top highlight and a soft
      drop shadow. As light as white text on it allows (foreground 4.55:1):
      2.9:1 against the track, 2.4:1 against the sheet's lifted muted fill. */

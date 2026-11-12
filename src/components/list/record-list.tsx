@@ -1,4 +1,4 @@
-import { Check, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Children, type MouseEvent, type ReactNode, type Ref } from 'react'
 
 import { LoadingRows } from '@/components/page/loading-content'
@@ -72,14 +72,18 @@ type RecordRowProps = {
   /** A status badge after the title, such as the signed-in member's "You". */
   badge?: ReactNode
   /**
-   * Makes the row its own tap target, with a trailing chevron (a check
-   * instead for picker rows). Without it the row is static content, for
+   * Makes the row its own tap target, with a trailing chevron (a leading
+   * radio instead for picker rows). Without it the row is static content, for
    * example a member with only an actions menu.
    */
   onOpen?: (event: MouseEvent<HTMLButtonElement>) => void
   /** A screen-reader verb before the title, such as "Edit". */
   verb?: string
-  /** Picker rows: the row is a toggle that shows a check when selected. */
+  /**
+   * Picker rows: the row is a toggle with a leading radio, so the selection
+   * never sits beside the row's figure. Set `--row-inset: 3rem` on the list
+   * to start its hairlines at the text.
+   */
   selected?: boolean
   expanded?: boolean
   disabled?: boolean
@@ -107,6 +111,19 @@ export function RecordRow({
   // The `{' '}` text nodes keep words apart in the button's accessible name.
   const content = (
     <>
+      {selected !== undefined ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+            selected ? 'border-primary' : 'border-muted-foreground/50',
+          )}
+        >
+          {selected ? (
+            <span className="size-2.5 rounded-full bg-primary" />
+          ) : null}
+        </span>
+      ) : null}
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 text-base break-words text-foreground">
@@ -123,26 +140,17 @@ export function RecordRow({
           {archived ? <ArchivedBadge /> : null}
         </span>{' '}
         {detail ? (
-          <span className="mt-0.5 block type-footnote break-words text-muted-foreground">
+          <span className="mt-0.5 block type-footnote break-words text-pretty text-muted-foreground">
             {detail}
           </span>
         ) : null}
       </span>{' '}
-      {value !== undefined || selected !== undefined || chevron ? (
-        // Values, the check and the chevron share one trailing column, so
-        // the title takes every free pixel before it wraps.
+      {value !== undefined || chevron ? (
+        // Values and the chevron share one trailing column, so the title
+        // takes every free pixel before it wraps.
         <span className="flex shrink-0 items-center gap-1.5">
           {value !== undefined ? (
             <Value value={value} unit={unit} className="text-right" />
-          ) : null}
-          {selected !== undefined ? (
-            // Every picker row keeps the check's slot, so values stay in one
-            // column whichever row is chosen.
-            <Check
-              aria-hidden="true"
-              className={cn('size-5 text-foreground', !selected && 'invisible')}
-              strokeWidth={2.5}
-            />
           ) : null}
           {chevron ? (
             <ChevronRight

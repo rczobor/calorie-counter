@@ -46,19 +46,14 @@ export function signedKcal(kcal: number) {
   return `${kcal < 0 ? '−' : '+'}${Math.abs(kcal)}`
 }
 
-/** "Current goal 2000 (−270)": the goal in force and how far a suggestion moves it. */
+/** "270 less than the current 2000": how far a suggestion moves the goal in force. */
 export function currentGoalLine(
   currentKcal: number,
   suggestedKcal: number,
   locale: Locale,
 ) {
-  const t = messages[locale]
   const current = Math.round(currentKcal)
-  const change = suggestedKcal - current
-  return t.currentGoal(
-    current,
-    change === 0 ? t.noChange : `${change > 0 ? '+' : '−'}${Math.abs(change)}`,
-  )
+  return messages[locale].currentGoal(current, suggestedKcal - current)
 }
 
 /** "sex, height and activity". */
@@ -70,13 +65,14 @@ export function listWords(words: string[], locale: Locale) {
   )
 }
 
-/** "mid-March 2027": a projection is not precise to the day. */
+/** "mid-Mar 2027": a projection is not precise to the day. */
 export function roughDate(date: Date, locale: Locale) {
   const day = date.getDate()
   return messages[locale].roughDate(
     day <= 10 ? 'early' : day <= 20 ? 'mid' : 'late',
     new Intl.DateTimeFormat(intlLocale(locale), {
-      month: 'long',
+      // Short, so it fits under a pace row.
+      month: 'short',
       year: 'numeric',
     }).format(date),
   )

@@ -109,7 +109,7 @@ describe('MaintenanceCard', () => {
     ).toBeTruthy()
     expect(
       screen.getByText(
-        '2180 − 450 to lose 0.5% a week; the trend is slower than planned. Current goal 2000 (−270).',
+        '2180 − 450 to lose 0.5% a week; the trend is slower than planned. 270 less than the current 2000.',
       ),
     ).toBeTruthy()
     // Seeing the measured maintenance retires Today's hint; the goal waits.

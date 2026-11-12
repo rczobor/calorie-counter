@@ -1551,6 +1551,7 @@ function ManagePageContent({ section }: { section: LibrarySection }) {
                     />
                     <RecordList
                       label={t.ingredientsToAdd}
+                      className="[--row-inset:3rem]"
                       empty={
                         catalogData.search.recipeIngredients.isLoading
                           ? t.searchingIngredients

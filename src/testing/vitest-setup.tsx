@@ -22,3 +22,8 @@ vi.mock('@number-flow/react', () => ({
     </span>
   ),
 }))
+
+// jsdom has no layout, so it leaves scrollIntoView out; the step flows call
+// it. Convex suites run without a DOM at all.
+if (typeof Element !== 'undefined')
+  Element.prototype.scrollIntoView ??= () => {}
