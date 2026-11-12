@@ -14,7 +14,7 @@ import {
   createCookedFoodDoc,
   createCookedFoodIngredientDoc,
 } from '@/tests/factories'
-import { createDesignData } from './design-scenario'
+import { createDesignData, withMacroStatus } from './design-scenario'
 import { createUsageData } from './usage-scenario'
 import {
   buildCheckIn,
@@ -253,7 +253,7 @@ function createInitialState(): MockState {
     },
     nextId: 1,
     templates: [
-      {
+      withMacroStatus({
         _id: 'e2e-template' as Id<'mealTemplates'>,
         _creationTime: 1,
         name: 'Regular breakfast',
@@ -291,7 +291,7 @@ function createInitialState(): MockState {
             },
           },
         ],
-      },
+      }),
     ],
     savedFoodArchived: false,
     preferences: initialPreferences,
@@ -1130,6 +1130,8 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
         >
         if (input.action === 'save')
           throw new Error('Create templates from MCP meal history.')
+        if (input.action === 'refresh')
+          throw new Error('Refresh templates from MCP.')
         const template = state.templates.find(
           (template) => template._id === input.templateId,
         )
@@ -1166,12 +1168,12 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
             ...state,
             templates: state.templates.map((current) =>
               current._id === template._id
-                ? {
+                ? withMacroStatus({
                     ...current,
                     name: input.name ?? current.name,
                     items,
                     editRevision: current.editRevision + 1,
-                  }
+                  })
                 : current,
             ),
           })

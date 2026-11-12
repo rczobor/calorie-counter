@@ -2,11 +2,14 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   cookingResult,
+  foodMacrosResult,
+  mealCorrectionsBatchResult,
   mealResult,
   savedFoodResult,
   savedFoodNutrition,
   loggingPreferences,
   mealInput,
+  templateItemSource,
   templateResult,
 } from './mcpValidators'
 
@@ -109,6 +112,8 @@ export default defineSchema({
     sourceMealId: v.id('meals'),
     items: mealInput.fields.items,
     sourceItemIds: v.array(v.id('mealItems')),
+    // Aligned with items. Absent on templates saved before sources were kept.
+    itemSources: v.optional(v.array(templateItemSource)),
     ingredientIds: v.array(v.id('ingredients')),
     cookedFoodIds: v.array(v.id('cookedFoods')),
     savedFoodIds: v.array(v.id('mcpSavedFoods')),
@@ -155,10 +160,19 @@ export default defineSchema({
       v.literal('cookedFoodWeightCorrection'),
       v.literal('savedFood'),
       v.literal('template'),
+      v.literal('foodMacros'),
+      v.literal('mealCorrectionsBatch'),
     ),
     key: v.string(),
     input: v.string(),
-    result: v.union(mealResult, cookingResult, savedFoodResult, templateResult),
+    result: v.union(
+      mealResult,
+      cookingResult,
+      savedFoodResult,
+      templateResult,
+      foodMacrosResult,
+      mealCorrectionsBatchResult,
+    ),
   }).index('by_ownerUserId_and_connectionId_and_key', [
     'ownerUserId',
     'connectionId',

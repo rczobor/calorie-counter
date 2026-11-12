@@ -148,7 +148,7 @@ async function makeReceiptLegacy(t: Test, connectionId: string, key: string) {
       .unique()
     if (!receipt?.householdId)
       throw new Error('Expected a scoped operation receipt.')
-    if ('foodId' in receipt.result || 'templateId' in receipt.result)
+    if (!('mealId' in receipt.result || 'sessionId' in receipt.result))
       throw new Error('Expected a meal or cooking receipt.')
     const path =
       'mealId' in receipt.result

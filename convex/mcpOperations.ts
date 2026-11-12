@@ -96,7 +96,9 @@ export async function findReceipt(
     | 'mealCorrection'
     | 'cookedFoodWeightCorrection'
     | 'savedFood'
-    | 'template',
+    | 'template'
+    | 'foodMacros'
+    | 'mealCorrectionsBatch',
   operationKey: string,
   input: unknown,
 ) {
@@ -547,11 +549,21 @@ async function prepareCooking(
           : line
       }),
     })
+    const missingMacros = nutrition.macros
+      ? []
+      : nutrition.ingredientSnapshots.flatMap((line) =>
+          line.ignoreCaloriesSnapshot ||
+          line.countedAmount === undefined ||
+          line.macrosSnapshot
+            ? []
+            : [line.ingredientNameSnapshot],
+        )
     previews.push({
       name: output.name.trim(),
       totalCalories: nutrition.totalCalories,
       kcalPer100: nutrition.kcalPer100,
       macros: nutrition.macros,
+      missingMacros: missingMacros.length > 0 ? missingMacros : undefined,
       finishedWeightGrams: output.finishedWeightGrams,
       nutritionProvenance: combineNutritionProvenance(
         summarizeEstimates(nutrition.ingredientSnapshots),

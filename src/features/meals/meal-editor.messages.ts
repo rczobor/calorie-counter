@@ -21,6 +21,7 @@ export const messages = defineMessages({
     cookedBatch: 'Cooked batch',
     ingredient: 'Ingredient',
     foodCount: (count: number) => `${count} food${count === 1 ? '' : 's'}`,
+    missingMacros: 'Some foods without macros',
     mealUnavailable:
       'This meal is no longer available. Your draft is preserved; close the editor to keep it in this tab.',
     draftRestored: 'Draft restored in this tab.',
@@ -107,6 +108,7 @@ export const messages = defineMessages({
     cookedBatch: 'Főtt étel',
     ingredient: 'Alapanyag',
     foodCount: (count: number) => `${count} étel`,
+    missingMacros: 'Egyes ételeknél nincs makró',
     mealUnavailable:
       'Ez az étkezés már nem érhető el. A piszkozatod megmaradt: zárd be a szerkesztőt, hogy ezen a lapon megőrizd.',
     draftRestored: 'Piszkozat visszaállítva ezen a lapon.',

@@ -35,6 +35,8 @@ import {
   mealHistoryResult,
   templateSearchResult,
   templateChange,
+  templateItemSource,
+  templateRefreshPreview,
   templateResult,
   reuseSuggestions,
 } from './mcpValidators'
@@ -47,8 +49,14 @@ import {
   buildMealItemSnapshots,
 } from './nutrition'
 import { foodIdentityValidator } from './validators'
-import { macroGrams, scaleMacros, scaleOptionalMacros } from './lib/macros'
+import {
+  macroGrams,
+  scaleMacros,
+  scaleOptionalMacros,
+  type MacroGrams,
+} from './lib/macros'
 import { prepareMeal, resolveMealItems } from './mcpOperations'
+import { describeContext } from './mcpContext'
 
 export function savedFoodIdentityKey(
   name: string,
@@ -414,6 +422,60 @@ export const searchMealHistory = internalMutation({
     }),
 })
 
+type TemplateItem = Infer<typeof mcpMealItem>
+type FrozenTemplateItem = Extract<
+  TemplateItem,
+  { sourceType: 'customByWeight' | 'fixedCalories' }
+>
+type TemplateItemSource = Infer<typeof templateItemSource>
+
+function sourceOf(item: TemplateItem): TemplateItemSource {
+  if (item.sourceType === 'historical')
+    return { kind: 'mealItem', mealItemId: item.itemId }
+  if (item.sourceType === 'ingredient')
+    return { kind: 'ingredient', ingredientId: item.ingredientId }
+  if (item.sourceType === 'cookedFood')
+    return { kind: 'cookedFood', cookedFoodId: item.cookedFoodId }
+  if (item.sourceType === 'savedFood')
+    return { kind: 'savedFood', savedFoodId: item.savedFoodId }
+  return null
+}
+
+// Templates saved before itemSources existed still line up with the meal they
+// came from until an edit adds or removes a food; refresh checks the names.
+function templateSources(template: Doc<'mealTemplates'>) {
+  if (template.itemSources) return template.itemSources
+  return template.items.length === template.sourceItemIds.length
+    ? template.sourceItemIds.map((mealItemId): TemplateItemSource => ({
+        kind: 'mealItem',
+        mealItemId,
+      }))
+    : template.items.map((): TemplateItemSource => null)
+}
+
+// Calories without macros: logging the item leaves part of the day uncovered.
+function itemMissingMacros(item: TemplateItem) {
+  if (item.sourceType === 'customByWeight')
+    return !item.ignoreCalories && item.kcalPer100 > 0 && !item.macros
+  if (item.sourceType === 'fixedCalories')
+    return item.calories > 0 && !item.macros
+  return false
+}
+
+export function describeTemplate(template: Doc<'mealTemplates'>) {
+  const { itemSources, ...rest } = withoutOwner(template)
+  void itemSources
+  const itemMacroStatus = template.items.map((item) => ({
+    name: 'name' in item ? item.name : '',
+    missingMacros: itemMissingMacros(item),
+  }))
+  return {
+    ...rest,
+    missingMacros: itemMacroStatus.some((item) => item.missingMacros),
+    itemMacroStatus,
+  }
+}
+
 // Templates freeze nutrition; catalog references are resolved only when explicitly replaced.
 export async function freezeTemplateItems(
   ctx: MutationCtx,
@@ -447,6 +509,7 @@ export async function freezeTemplateItems(
   })
   return {
     items: frozen,
+    itemSources: items.map(sourceOf),
     ingredientIds: [
       ...new Set(
         snapshots.flatMap((item) =>
@@ -511,7 +574,7 @@ export const searchMealTemplates = internalMutation({
         maximumRowsRead: 100,
       })
       return {
-        templates: page.page.map(withoutOwner),
+        templates: page.page.map(describeTemplate),
         cursor: page.isDone ? null : page.continueCursor,
       }
     }),
@@ -571,13 +634,54 @@ export async function changeTemplate(
     await ctx.db.delete(template._id)
     return { templateId: template._id, name: template.name, deleted: true }
   }
+  if (input.action === 'refresh') {
+    if (!input.expectedItems)
+      throw new ConvexError(
+        'Preview first with preview_meal_template_refresh and send its exact input.',
+      )
+    const refreshed = await refreshTemplate(ctx, owner, template)
+    if (canonical(refreshed.items) !== canonical(input.expectedItems))
+      throw new ConvexError(
+        'Template sources changed since the preview. Preview the refresh again and ask for approval.',
+      )
+    if (canonical(refreshed.items) !== canonical(template.items))
+      await ctx.db.patch(template._id, {
+        items: refreshed.items,
+        editRevision: template.editRevision + 1,
+      })
+    return { templateId: template._id, name: template.name, deleted: false }
+  }
   const name =
     input.name === undefined
       ? template.name
       : normalizeRequiredText(input.name, 'Template name', MAX_NAME_LENGTH)
   const changes = input.items
     ? await freezeTemplateItems(ctx, owner, input.items)
-    : {}
+    : undefined
+  if (changes) {
+    // Unchanged foods come back frozen; keep the source each one had.
+    const previous = templateSources(template)
+    const used = new Set<number>()
+    changes.itemSources = changes.itemSources.map((source, index) => {
+      const item = changes.items[index]
+      if (source) return source
+      const match = template.items.findIndex(
+        (old, oldIndex) =>
+          !used.has(oldIndex) &&
+          previous[oldIndex] !== null &&
+          old.sourceType === item.sourceType &&
+          'name' in old &&
+          'name' in item &&
+          old.name === item.name &&
+          (old.sourceType !== 'customByWeight' ||
+            item.sourceType !== 'customByWeight' ||
+            old.kcalPer100 === item.kcalPer100),
+      )
+      if (match === -1) return null
+      used.add(match)
+      return previous[match]
+    })
+  }
   await ctx.db.patch(template._id, {
     name,
     ...changes,
@@ -585,6 +689,220 @@ export async function changeTemplate(
   })
   return { templateId: template._id, name, deleted: false }
 }
+
+type RefreshOutcome =
+  | { macros: MacroGrams }
+  | {
+      reason: Exclude<
+        Infer<typeof templateRefreshPreview>['items'][number]['reason'],
+        undefined
+      >
+    }
+
+const sameGrams = (a: MacroGrams, b: MacroGrams) =>
+  Math.abs(a.proteinG - b.proteinG) < 1e-6 &&
+  Math.abs(a.carbsG - b.carbsG) < 1e-6 &&
+  Math.abs(a.fatG - b.fatG) < 1e-6
+const sameKcal = (a: number, b: number) =>
+  Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b))
+
+// Per-100 g macros from a catalog food whose calories match the item's.
+async function catalogMacros(
+  ctx: Pick<MutationCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  source:
+    { ingredientId: Id<'ingredients'> } | { cookedFoodId: Id<'cookedFoods'> },
+  kcalPer100: number,
+): Promise<RefreshOutcome> {
+  const food =
+    'ingredientId' in source
+      ? await ctx.db.get(source.ingredientId)
+      : await ctx.db.get(source.cookedFoodId)
+  if (!food || food.householdId !== owner.householdId)
+    return { reason: 'sourceUnavailable' }
+  if ('ignoreCalories' in food && food.ignoreCalories)
+    return { reason: 'ignoreCalories' }
+  if (
+    food.kcalPer100 !== kcalPer100 ||
+    ('kcalBasisUnit' in food && food.kcalBasisUnit !== 'g')
+  )
+    return { reason: 'kcalMismatch' }
+  const macros = macroGrams(food.macros)
+  return macros ? { macros } : { reason: 'sourceHasNoMacros' }
+}
+
+// Macros for one frozen item on its own basis (per 100 g, or the whole fixed
+// item), taken only from a source whose calories still match the item's.
+async function refreshTemplateItem(
+  ctx: Pick<MutationCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  item: FrozenTemplateItem,
+  source: TemplateItemSource,
+): Promise<RefreshOutcome> {
+  if (
+    item.sourceType === 'customByWeight'
+      ? item.ignoreCalories || item.kcalPer100 === 0
+      : item.calories === 0
+  )
+    return { reason: 'ignoreCalories' }
+  if (!source) return { reason: 'noSource' }
+  if (source.kind === 'ingredient' || source.kind === 'cookedFood')
+    return item.sourceType === 'customByWeight'
+      ? catalogMacros(ctx, owner, source, item.kcalPer100)
+      : { reason: 'kcalMismatch' }
+  if (source.kind === 'savedFood') {
+    const food = await ctx.db.get(source.savedFoodId)
+    if (!food || food.householdId !== owner.householdId)
+      return { reason: 'sourceUnavailable' }
+    const { nutrition } = food
+    const macros = macroGrams(food.macros)
+    if (item.sourceType === 'customByWeight') {
+      if (
+        nutrition.kind !== 'byWeight' ||
+        nutrition.kcalPer100 !== item.kcalPer100
+      )
+        return { reason: 'kcalMismatch' }
+      return macros ? { macros } : { reason: 'sourceHasNoMacros' }
+    }
+    const units = item.servingCount ?? 1
+    const factor =
+      nutrition.kind === 'byVolume'
+        ? units / 100
+        : nutrition.kind === 'fixedCalories'
+          ? units
+          : undefined
+    const kcal =
+      nutrition.kind === 'byVolume'
+        ? nutrition.kcalPer100
+        : nutrition.kind === 'fixedCalories'
+          ? nutrition.calories
+          : undefined
+    if (factor === undefined || kcal === undefined)
+      return { reason: 'kcalMismatch' }
+    if (!sameKcal(kcal * factor, item.calories))
+      return { reason: 'kcalMismatch' }
+    return macros
+      ? { macros: scaleMacros(macros, factor) }
+      : { reason: 'sourceHasNoMacros' }
+  }
+  const original = await ctx.db.get(source.mealItemId)
+  if (
+    !original ||
+    original.householdId !== owner.householdId ||
+    original.nameSnapshot !== item.name
+  )
+    return { reason: 'sourceUnavailable' }
+  if (original.sourceType === 'fixedCalories') {
+    if (item.sourceType !== 'fixedCalories') return { reason: 'kcalMismatch' }
+    const scale = (item.servingCount ?? 1) / (original.servingCount ?? 1)
+    if (!sameKcal(original.caloriesSnapshot * scale, item.calories))
+      return { reason: 'kcalMismatch' }
+    return original.macrosSnapshot
+      ? { macros: scaleMacros(original.macrosSnapshot, scale) }
+      : { reason: 'sourceHasNoMacros' }
+  }
+  if (item.sourceType !== 'customByWeight') return { reason: 'kcalMismatch' }
+  // The catalog food first: it is where macros added later live.
+  const catalog =
+    original.sourceType === 'ingredient' || original.sourceType === 'cookedFood'
+      ? await catalogMacros(ctx, owner, original, item.kcalPer100)
+      : undefined
+  if (catalog && 'macros' in catalog) return catalog
+  if (original.kcalPer100Snapshot !== item.kcalPer100)
+    return { reason: 'kcalMismatch' }
+  if (original.macrosSnapshot) return { macros: original.macrosSnapshot }
+  return catalog ?? { reason: 'sourceHasNoMacros' }
+}
+
+async function refreshTemplate(
+  ctx: Pick<MutationCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  template: Doc<'mealTemplates'>,
+) {
+  const sources = templateSources(template)
+  const outcomes = await Promise.all(
+    template.items.map(async (item, index) => {
+      if (
+        item.sourceType !== 'customByWeight' &&
+        item.sourceType !== 'fixedCalories'
+      )
+        return { item, outcome: { reason: 'noSource' as const } }
+      return {
+        item,
+        outcome: await refreshTemplateItem(
+          ctx,
+          owner,
+          item,
+          sources[index] ?? null,
+        ),
+      }
+    }),
+  )
+  return {
+    items: outcomes.map(({ item, outcome }) =>
+      'macros' in outcome && 'name' in item
+        ? { ...item, macros: outcome.macros }
+        : item,
+    ),
+    report: outcomes.map(({ item, outcome }) => {
+      const before = 'macros' in item ? (item.macros ?? null) : null
+      if (!('macros' in outcome))
+        return {
+          name: 'name' in item ? item.name : '',
+          status: 'skipped' as const,
+          reason: outcome.reason,
+          before,
+          after: before,
+        }
+      return {
+        name: 'name' in item ? item.name : '',
+        status:
+          before && sameGrams(before, outcome.macros)
+            ? ('unchanged' as const)
+            : ('updated' as const),
+        before,
+        after: outcome.macros,
+      }
+    }),
+  }
+}
+
+export const previewMealTemplateRefresh = internalMutation({
+  args: {
+    user: vMcpUser(),
+    householdId: v.optional(v.id('households')),
+    templateId: v.id('mealTemplates'),
+  },
+  returns: templateRefreshPreview,
+  handler: (ctx, args) =>
+    domainResult(async () => {
+      const owner = await requireMcpOwner(
+        ctx,
+        args.user,
+        'nutrition:read',
+        args.householdId,
+      )
+      const template = assertOwnedOrThrow(
+        await ctx.db.get(args.templateId),
+        owner,
+        'Template not found.',
+      )
+      const { items, report } = await refreshTemplate(ctx, owner, template)
+      return {
+        context: await describeContext(ctx, owner),
+        input: {
+          action: 'refresh' as const,
+          templateId: template._id,
+          expectedEditRevision: template.editRevision,
+          expectedItems: items,
+        },
+        name: template.name,
+        items: report,
+        missingMacrosBefore: template.items.some(itemMissingMacros),
+        missingMacrosAfter: items.some(itemMissingMacros),
+      }
+    }),
+})
 
 export const manageMealTemplate = internalMutation({
   args: {
@@ -984,7 +1302,7 @@ export async function resolveCookedIngredient(
       kcalPer100: food.kcalPer100,
       kcalBasisUnit: 'g',
       ignoreCalories: food.kcalPer100 === 0,
-      macros: food.macros,
+      macros: macroGrams(food.macros),
       referenceAmount: item.consumedWeightGrams,
       referenceUnit: 'g',
       countedAmount: item.consumedWeightGrams,

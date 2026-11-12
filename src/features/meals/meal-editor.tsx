@@ -1091,7 +1091,10 @@ function MealEditorContent({
             t.mealTemplate,
             t.foodCount(result.template.items.length),
             `${result.calories.toFixed(0)} kcal`,
-          ].join(' · '),
+            result.template.missingMacros ? t.missingMacros : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
           () => pickResult(result),
         )
       : result.kind === 'cooked'

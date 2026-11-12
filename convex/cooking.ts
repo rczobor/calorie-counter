@@ -16,6 +16,7 @@ import {
 } from './lib/validation'
 import {
   macroGramsValidator,
+  macrosValidator,
   nutritionUnitValidator,
   nutritionProvenanceValidator,
 } from './validators'
@@ -92,7 +93,7 @@ const cookedFoodDto = v.object({
   totalRawWeightGrams: v.number(),
   totalCalories: v.number(),
   kcalPer100: v.number(),
-  macros: v.optional(macroGramsValidator),
+  macros: v.optional(macrosValidator),
   notes: v.optional(v.string()),
   archived: v.boolean(),
   editRevision: v.number(),

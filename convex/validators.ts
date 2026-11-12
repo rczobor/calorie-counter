@@ -263,8 +263,9 @@ export const cookedFoodsFields = {
   totalRawWeightGrams: v.number(),
   totalCalories: v.number(),
   kcalPer100: v.number(),
-  // Per 100 g, only when every counted ingredient had macros.
-  macros: v.optional(macroGramsValidator),
+  // Per 100 g. Derived when every counted ingredient had macros (no
+  // provenance), or set over MCP with the provenance the assistant supplied.
+  macros: v.optional(macrosValidator),
   editRevision: v.optional(v.number()),
   notes: v.optional(v.string()),
   archived: v.boolean(),

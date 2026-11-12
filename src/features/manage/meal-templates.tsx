@@ -433,7 +433,12 @@ export function MealTemplates() {
             key={template._id}
             verb={t.edit}
             title={template.name}
-            detail={t.foodCount(template.items.length)}
+            detail={[
+              t.foodCount(template.items.length),
+              template.missingMacros ? t.missingMacros : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
             onOpen={() => setOpenId(template._id)}
           />
         ))}

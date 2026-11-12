@@ -40,6 +40,9 @@ function requireAccount(user: McpUser, scope = 'nutrition:read') {
     )
 }
 
+const DOMAIN_MESSAGE =
+  /^(At least|Too many|Meal|Person|Cook|Ingredient|Custom|Finished|Consumed|Counted|Reference|Recipe|Session|Output|Estimate|Food|Operation|Name|Date|Daily|Selected|Only |Invalid|Cannot|Linked|Existing|Expected)/
+
 // Only domain validation messages reach the model; unexpected database failures stay private.
 export async function domainResult<T>(run: () => Promise<T>): Promise<T> {
   try {
@@ -49,14 +52,27 @@ export async function domainResult<T>(run: () => Promise<T>): Promise<T> {
     if (error instanceof DomainError) throw new ConvexError(error.message)
     if (
       error instanceof Error &&
-      /^(At least|Too many|Meal|Person|Cook|Ingredient|Custom|Finished|Consumed|Counted|Reference|Recipe|Session|Output|Estimate|Food|Operation|Name|Date|Daily|Selected|Only |Invalid|Cannot|Linked|Existing|Expected)/.test(
-        error.message,
-      ) &&
+      DOMAIN_MESSAGE.test(error.message) &&
       error.message.length < 300
     )
       throw new ConvexError(error.message)
     throw error
   }
+}
+
+// The message domainResult would show the model, or undefined for a failure
+// that must stay private.
+export function domainMessage(error: unknown): string | undefined {
+  if (error instanceof ConvexError)
+    return typeof error.data === 'string' ? error.data : error.message
+  if (error instanceof DomainError) return error.message
+  if (
+    error instanceof Error &&
+    DOMAIN_MESSAGE.test(error.message) &&
+    error.message.length < 300
+  )
+    return error.message
+  return undefined
 }
 
 export async function getPreferences(

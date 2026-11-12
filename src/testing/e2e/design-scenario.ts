@@ -15,6 +15,28 @@ import {
 } from '@/tests/factories'
 import type { MockState } from './convex-react-adapter'
 
+type MockTemplate = MockState['templates'][number]
+
+// Mirrors describeTemplate in convex/mcpFoodReuse.ts.
+export function withMacroStatus(
+  template: Omit<MockTemplate, 'missingMacros' | 'itemMacroStatus'>,
+): MockTemplate {
+  const itemMacroStatus = template.items.map((item) => ({
+    name: 'name' in item ? item.name : '',
+    missingMacros:
+      item.sourceType === 'customByWeight'
+        ? !item.ignoreCalories && item.kcalPer100 > 0 && !item.macros
+        : item.sourceType === 'fixedCalories'
+          ? item.calories > 0 && !item.macros
+          : false,
+  }))
+  return {
+    ...template,
+    missingMacros: itemMacroStatus.some((item) => item.missingMacros),
+    itemMacroStatus,
+  }
+}
+
 type Provenance = NonNullable<Doc<'mealItems'>['nutritionProvenance']>
 type Macros = { proteinG: number; carbsG: number; fatG: number }
 const macroGrams = ([proteinG, carbsG, fatG]: readonly [
@@ -800,7 +822,7 @@ export function createDesignData(
     },
     mealDetails,
     templates: [
-      {
+      withMacroStatus({
         _id: 'design-template-oats' as Id<'mealTemplates'>,
         _creationTime: 1,
         name: 'Workday overnight oats',
@@ -818,6 +840,7 @@ export function createDesignData(
             kcalPer100: 379,
             ignoreCalories: false,
             consumedWeightGrams: 60,
+            macros: { proteinG: 13.2, carbsG: 67.7, fatG: 6.5 },
           },
           {
             sourceType: 'customByWeight',
@@ -825,10 +848,12 @@ export function createDesignData(
             kcalPer100: 89,
             ignoreCalories: false,
             consumedWeightGrams: 100,
+            macros: { proteinG: 1.1, carbsG: 22.8, fatG: 0.3 },
           },
         ],
-      },
-      {
+      }),
+      // Saved before macros were recorded, so it logs foods without them.
+      withMacroStatus({
         _id: 'design-template-cafe' as Id<'mealTemplates'>,
         _creationTime: 1,
         name: 'Corner Café breakfast',
@@ -847,7 +872,7 @@ export function createDesignData(
           },
           { sourceType: 'fixedCalories', name: 'Flat white', calories: 130 },
         ],
-      },
+      }),
     ],
     // Real households had no reusable foods yet; the adapter's only one is archived.
     savedFoodArchived: true,

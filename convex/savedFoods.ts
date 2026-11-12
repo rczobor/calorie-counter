@@ -7,7 +7,6 @@ import { mutation, query, type QueryCtx } from './_generated/server'
 import {
   assertOwnedOrThrow,
   requireAuthenticatedHousehold,
-  withoutOwner,
   type AuthenticatedOwner,
 } from './lib/auth'
 import { assertPageSize, normalizeSearch } from './lib/validation'
@@ -21,7 +20,7 @@ import {
   foodIdentityValidator,
   nutritionProvenanceValidator,
 } from './validators'
-import { changeTemplate } from './mcpFoodReuse'
+import { changeTemplate, describeTemplate } from './mcpFoodReuse'
 
 const savedFoodDto = v.object({
   foodIdentity: v.optional(foodIdentityValidator),
@@ -116,7 +115,7 @@ export const listTemplates = query({
     const page = await rows.paginate(args.paginationOpts)
     return {
       ...page,
-      page: page.page.map(withoutOwner),
+      page: page.page.map(describeTemplate),
     }
   },
 })

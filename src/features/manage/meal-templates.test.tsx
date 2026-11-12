@@ -36,6 +36,12 @@ const template = {
       foodIdentity: { basis: 'serving', servingLabel: 'cookies' },
     },
   ],
+  // The oats were saved before macros were recorded.
+  missingMacros: true,
+  itemMacroStatus: [
+    { name: 'Oats', missingMacros: true },
+    { name: 'Cookie', missingMacros: false },
+  ],
 }
 vi.mock('convex/react', () => ({
   useMutation: () => update,
@@ -72,6 +78,13 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('meal template management', () => {
+  it('marks a template that would log foods without macros', () => {
+    render(<MealTemplates />)
+    expect(
+      screen.getByRole('button', { name: /^Edit Usual breakfast/ }).textContent,
+    ).toContain('2 foods · Some foods without macros')
+  })
+
   it('renames, changes portions, and explicitly replaces a product without editing until save', async () => {
     render(<MealTemplates />)
     fireEvent.click(
