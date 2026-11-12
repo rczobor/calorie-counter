@@ -157,8 +157,8 @@ App runs at [http://localhost:3000](http://localhost:3000).
 ## Seed Data
 
 Vercel runs this as the build command (`buildCommand` in `vercel.json`), so
-each pull request preview it builds gets a seeded Convex preview deployment.
-Renovate previews are skipped:
+each preview it builds gets a seeded Convex preview deployment. Only `main`
+deploys on push; previews are deployed on request:
 
 ```bash
 pnpm exec convex deploy --cmd 'pnpm run build' --preview-run seed:defaults
