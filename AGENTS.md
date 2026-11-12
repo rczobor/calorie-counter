@@ -154,10 +154,11 @@ deploy step.
 Pushes to other branches do not deploy (`git.deploymentEnabled`). Every preview
 build creates a seeded Convex preview deployment, and the Convex plan caps how
 many are created per day. Deploy a preview only when the user asks for one:
-push the branch, then create a Vercel deployment from it with the Vercel
-connector's `create_deployment` (project `calorie-counter`, team
-`nethzyrs-projects`, `gitSource` `{ type: "github", org: "rczobor", repo:
-"calorie-counter", ref: "<branch>" }`, no `target`). Wait for it to be ready and
+push the branch, then call the Vercel connector's `create_deployment` with
+`slug: "nethzyrs-projects"` and `requestBody: { name: "calorie-counter",
+project: "calorie-counter", gitSource: { type: "github", org: "rczobor", repo:
+"calorie-counter", ref: "<branch>" } }`. Leave out `target`, and use the branch
+name as `ref` so the Convex preview is named after it. Wait for it to be ready and
 give the user its URL. Each request uses one Convex deployment, so do not
 redeploy after later pushes unless asked. Closing the pull request deletes the
 branch's Convex preview.
