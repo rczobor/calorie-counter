@@ -125,20 +125,41 @@ describe('list primitives', () => {
     ])
   })
 
-  it('marks rows that open something with a chevron, picker rows with a check', () => {
+  it('marks rows that open something with a chevron, picker rows with a leading radio', () => {
     const { container } = render(
       <RecordList label="Foods" empty="None">
         <RecordRow title="Opens" onOpen={() => {}} />
-        <RecordRow title="Picked" selected onOpen={() => {}} />
+        <RecordRow title="Picked" value={120} selected onOpen={() => {}} />
+        <RecordRow
+          title="Other"
+          value={90}
+          selected={false}
+          onOpen={() => {}}
+        />
         <RecordRow title="Static" />
       </RecordList>,
     )
-    const icons = [...container.querySelectorAll('li')].map(
+    const rows = [...container.querySelectorAll('li')]
+    const icons = rows.map(
       (row) => row.querySelector('svg')?.getAttribute('class') ?? 'none',
     )
-    expect(icons[0]).toContain('chevron-right')
-    expect(icons[1]).toContain('check')
-    expect(icons[2]).toBe('none')
+    expect(icons).toEqual([
+      expect.stringContaining('chevron-right'),
+      'none',
+      'none',
+      'none',
+    ])
+    // The radio leads the row, so the mark never sits beside the figure;
+    // only the chosen row's radio is filled.
+    const radio = (row: Element) =>
+      row.querySelector('button')?.firstElementChild
+    expect(radio(rows[1])?.getAttribute('aria-hidden')).toBe('true')
+    expect(radio(rows[1])?.childElementCount).toBe(1)
+    expect(radio(rows[2])?.childElementCount).toBe(0)
+    expect(screen.getByRole('button', { name: /^Picked/ })).toHaveProperty(
+      'ariaPressed',
+      'true',
+    )
   })
 
   it('renders loading and empty states in place of the list', () => {

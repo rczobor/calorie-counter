@@ -29,7 +29,7 @@ export const messages = defineMessages({
     targetError: 'Enter a target weight in kilograms, like 75.',
     todaysWeighIn: 'From today’s weigh-in.',
     weighInOn: (date: string) => `From the weigh-in on ${date}.`,
-    notSaved: 'Used for this estimate only, not saved as a weigh-in.',
+    notSaved: 'Used for this estimate only, not saved as a weigh‑in.',
     minor: (bold: (text: string) => ReactNode, name: string) =>
       rich(
         bold('This is for adults.'),
@@ -38,7 +38,7 @@ export const messages = defineMessages({
         '; you can still enter it by hand.',
       ),
     typicalDay: 'On a typical day',
-    toMaintain: 'To maintain',
+    toMaintain: 'Maintenance',
     activity: {
       inactive: {
         title: 'Mostly sitting',
@@ -58,8 +58,8 @@ export const messages = defineMessages({
       },
     },
     lowerActivity:
-      'Unsure? Pick the lower one. Most people overestimate, and check-ins correct it.',
-    goal: 'Goal',
+      'Unsure? Pick the lower one. Most people overestimate their activity.',
+    goal: 'Weight goal',
     lose: 'Lose',
     maintain: 'Maintain',
     gain: 'Gain',
@@ -76,29 +76,37 @@ export const messages = defineMessages({
     paceDetail: (percent: string, kg: string) => `${percent}% · ${kg} a week`,
     pacePercent: (percent: string) => `${percent}% a week`,
     minimum: 'minimum',
-    fromMaintenance: (kcal: number) => `From ≈ ${kcal} kcal a day maintenance.`,
     target: 'Target weight (optional)',
     optional: 'Optional',
-    projection: (kg: string, date: string, weeks: number) =>
-      `Reach ${kg} kg around ${date}, in about ${weeks} weeks`,
+    reachBy: (kg: string, date: string) => `Reach ${kg} kg around ${date}`,
+    // The target field sits right above, so the row gives only the date.
+    arrives: (date: string) => `around ${date}`,
     kcalADay: 'kcal a day',
-    noSuggestionForMinors: 'No suggestion under 18',
-    missingWords: {
-      sex: 'sex',
-      birthYear: 'year of birth',
-      height: 'height',
-      weight: 'weight',
-      activity: 'activity',
-      goal: 'a goal',
-    },
-    addMore: (first: string, second: string, more: number) =>
-      `Add ${first}, ${second} and ${more} more`,
-    add: (list: string) => `Add ${list}`,
-    checkDetails: 'Check the details above',
     keepsWeight: 'Keeps weight steady',
     perWeek: (direction: Direction, kg: string) =>
       `${direction === 'lose' ? 'Loses' : 'Gains'} ${kg} kg a week`,
-    useGoal: 'Use goal',
+    useGoal: (kcal: number) => `Use ${kcal} kcal`,
+    // Why Next waits, in the footer.
+    missingWords: {
+      birthYear: 'year of birth',
+      height: 'height',
+      weight: 'weight',
+    },
+    // Sex is chosen, the rest typed in.
+    missingDetails: (sex: boolean, list: string) =>
+      sex
+        ? list
+          ? `Choose sex, then add ${list}`
+          : 'Choose sex'
+        : `Add ${list}`,
+    chooseActivity: 'Choose a typical day',
+    chooseGoal: 'Choose a goal',
+    noSuggestionForMinors: 'No suggestion under 18',
+    next: 'Next',
+    seeGoal: 'See daily goal',
+    back: 'Back',
+    stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
+    suggestedGoal: 'Suggested daily goal',
     // energyPlanIssue's kinds; English matches the server's energyPlanProblem.
     problems: {
       birthYear: (min: number, max: number) =>
@@ -116,13 +124,24 @@ export const messages = defineMessages({
       notAbove: 'The target is not above the current weight.',
     },
     howItAddsUp: 'How it adds up',
+    // The likely range is on the number line above.
     maintenance: (closeness: string) => `Maintenance, ${closeness}`,
-    likely: (low: number, high: number) => `likely ${low}–${high}`,
-    forChange: (kg: string) => `For ${kg} a week`,
+    // A screen-reader verb before a working row, which opens its step.
+    change: 'Change',
+    // The result's number line.
+    range: {
+      current: (kcal: number) => `current ${kcal}`,
+      // The estimate is the working's figure.
+      maintenance: (low: number, high: number) =>
+        `maintenance, likely ${low}–${high}`,
+    },
+    // The working's first row: what the formula was given.
+    bodyDetail: (sex: string, year: number, height: string, weight: string) =>
+      `${sex} · born ${year} · ${height} cm · ${weight} kg`,
     heldAtMinimum: (kcal: number) =>
       `Held at the ${kcal} kcal minimum, so the pace will be slower.`,
     startingEstimate: (name: string) =>
-      `A starting estimate. After two weeks of logs and weigh-ins, the Weight page checks it against ${name ? `${name}’s` : 'the'} real trend.`,
+      `A starting estimate. After two weeks, the Weight page checks it against ${name ? `${name}’s` : 'the'} real trend.`,
   },
   hu: {
     title: 'Napi cél kiszámítása',
@@ -158,7 +177,7 @@ export const messages = defineMessages({
         ' A kamaszoknak a növekedéshez több energia kell, ezért a felnőttekre készült képletek nem illenek rájuk. Napi célt orvos vagy dietetikus tud javasolni; kézzel továbbra is megadhatod.',
       ),
     typicalDay: 'Egy átlagos napon',
-    toMaintain: 'Szinten tartáshoz',
+    toMaintain: 'Fenntartó kalória',
     activity: {
       inactive: {
         title: 'Többnyire ülő',
@@ -178,8 +197,8 @@ export const messages = defineMessages({
       },
     },
     lowerActivity:
-      'Bizonytalan vagy? Válaszd az alacsonyabbat. A legtöbben túlbecsülik, és az ellenőrzések kiigazítják.',
-    goal: 'Cél',
+      'Bizonytalan vagy? Válaszd az alacsonyabbat. A legtöbben túlbecsülik az aktivitásukat.',
+    goal: 'Testsúlycél',
     lose: 'Fogyás',
     maintain: 'Szinten tartás',
     gain: 'Hízás',
@@ -201,31 +220,35 @@ export const messages = defineMessages({
     paceDetail: (percent: string, kg: string) => `Heti ${percent}% · ${kg}`,
     pacePercent: (percent: string) => `Heti ${percent}%`,
     minimum: 'minimum',
-    fromMaintenance: (kcal: number) =>
-      `≈ ${kcal} kcal/nap fenntartó kalóriából számolva.`,
     target: 'Céltestsúly (nem kötelező)',
     optional: 'Nem kötelező',
-    projection: (kg: string, date: string, weeks: number) =>
-      `${kg} kg várhatóan ${date} táján, nagyjából ${weeks} hét alatt`,
+    reachBy: (kg: string, date: string) => `${kg} kg várhatóan ${date} táján`,
+    arrives: (date: string) => `${date} táján`,
     kcalADay: 'kcal/nap',
-    noSuggestionForMinors: '18 év alatt nincs javaslat',
-    // With their articles, as the footer lists them after "Hiányzik".
-    missingWords: {
-      sex: 'a nem',
-      birthYear: 'a születési év',
-      height: 'a testmagasság',
-      weight: 'a testsúly',
-      activity: 'az aktivitási szint',
-      goal: 'a cél',
-    },
-    addMore: (first: string, second: string, more: number) =>
-      `Hiányzik ${first}, ${second} és még ${more} adat`,
-    add: (list: string) => `Hiányzik ${list}`,
-    checkDetails: 'Ellenőrizd a fenti adatokat',
     keepsWeight: 'Szinten tartja a testsúlyt',
     perWeek: (direction: Direction, kg: string) =>
       `Heti ${kg} kg ${direction === 'lose' ? 'fogyás' : 'hízás'}`,
-    useGoal: 'Cél beállítása',
+    useGoal: (kcal: number) => `${kcal} kcal beállítása`,
+    // With their articles, as the footer lists them after "Hiányzik".
+    missingWords: {
+      birthYear: 'a születési év',
+      height: 'a testmagasság',
+      weight: 'a testsúly',
+    },
+    missingDetails: (sex: boolean, list: string) =>
+      sex
+        ? list
+          ? `Válaszd ki a nemet; hiányzik ${list}`
+          : 'Válaszd ki a nemet'
+        : `Hiányzik ${list}`,
+    chooseActivity: 'Válassz egy átlagos napot',
+    chooseGoal: 'Válassz célt',
+    noSuggestionForMinors: '18 év alatt nincs javaslat',
+    next: 'Tovább',
+    seeGoal: 'Napi cél',
+    back: 'Vissza',
+    stepOf: (step: number, total: number) => `${step}/${total}. lépés`,
+    suggestedGoal: 'Javasolt napi cél',
     problems: {
       birthYear: (min: number, max: number) =>
         `A születési év ${min} és ${max} között lehet.`,
@@ -242,11 +265,17 @@ export const messages = defineMessages({
     },
     howItAddsUp: 'Így jön ki',
     maintenance: (closeness: string) => `Fenntartó kalória, ${closeness}`,
-    likely: (low: number, high: number) => `valószínűleg ${low}–${high}`,
-    forChange: (kg: string) => `Heti ${kg} változáshoz`,
+    change: 'Módosítás',
+    range: {
+      current: (kcal: number) => `jelenlegi ${kcal}`,
+      maintenance: (low: number, high: number) =>
+        `fenntartó, valószínűleg ${low}–${high}`,
+    },
+    bodyDetail: (sex: string, year: number, height: string, weight: string) =>
+      `${sex} · szül. ${year} · ${height} cm · ${weight} kg`,
     heldAtMinimum: (kcal: number) =>
       `A cél nem mehet ${kcal} kcal alá, ezért lassabb lesz a tempó.`,
     startingEstimate: () =>
-      'Ez kiinduló becslés. Két hét rögzítés és mérés után a Testsúly oldal összeveti a valós súlytrenddel.',
+      'Kiinduló becslés. Két hét után a Testsúly oldal összeveti a valós súlytrenddel.',
   },
 })

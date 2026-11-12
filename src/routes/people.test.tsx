@@ -325,12 +325,18 @@ describe('People settings', () => {
     expect((screen.getByLabelText('Weight') as HTMLInputElement).value).toBe(
       '82.4',
     )
+    // One question per step.
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.click(screen.getByRole('button', { name: /^Lightly active/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.click(screen.getByRole('button', { name: 'Lose' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Use goal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'See daily goal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Use \d+ kcal$/ }))
 
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Use goal' })).toBeNull(),
+      expect(
+        screen.queryByRole('button', { name: /^Use \d+ kcal$/ }),
+      ).toBeNull(),
     )
     const goal = (
       screen.getByLabelText('Daily calorie goal') as HTMLInputElement

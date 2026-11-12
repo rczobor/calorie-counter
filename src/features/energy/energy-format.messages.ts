@@ -20,9 +20,11 @@ export const messages = defineMessages({
     maintaining: 'Keeping weight steady',
     plan: (direction: Direction, percent: string) =>
       `${direction === 'lose' ? 'Losing' : 'Gaining'} ${percent}% a week`,
-    currentGoal: (current: number, change: string) =>
-      `Current goal ${current} (${change})`,
-    noChange: 'no change',
+    // How far a suggestion moves the goal in force.
+    currentGoal: (current: number, change: number) =>
+      change === 0
+        ? 'Same as the current goal'
+        : `${Math.abs(change)} ${change < 0 ? 'less' : 'more'} than the current ${current}`,
     list: (head: string, last: string) => `${head} and ${last}`,
     roughDate: (part: DayPart, monthYear: string) =>
       `${{ early: 'early ', mid: 'mid-', late: 'late ' }[part]}${monthYear}`,
@@ -35,9 +37,11 @@ export const messages = defineMessages({
     maintaining: 'Testsúly szinten tartása',
     plan: (direction: Direction, percent: string) =>
       `Heti ${percent}% ${direction === 'lose' ? 'fogyás' : 'hízás'}`,
-    currentGoal: (current: number, change: string) =>
-      `Jelenlegi cél: ${current} (${change})`,
-    noChange: 'nincs változás',
+    // The suffix goes on "kcal", never on a figure.
+    currentGoal: (current: number, change: number) =>
+      change === 0
+        ? 'Ugyanannyi, mint a jelenlegi cél'
+        : `${Math.abs(change)} kcal-val ${change < 0 ? 'kevesebb' : 'több'}, mint a jelenlegi ${current}`,
     list: (head: string, last: string) => `${head} és ${last}`,
     roughDate: (part: DayPart, monthYear: string) =>
       `${monthYear} ${{ early: 'eleje', mid: 'közepe', late: 'vége' }[part]}`,

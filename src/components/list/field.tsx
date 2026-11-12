@@ -32,7 +32,9 @@ export function Field({
       )}
       {children}
       {hint ? (
-        <p className="px-4 type-footnote text-muted-foreground">{hint}</p>
+        <p className="px-4 type-footnote text-pretty text-muted-foreground">
+          {hint}
+        </p>
       ) : null}
     </div>
   )

@@ -19,20 +19,26 @@ test('finds a daily goal from the weight page and saves the plan with it', async
   const choose = (name: string | RegExp) =>
     sheet.getByRole('button', { name, exact: typeof name === 'string' }).click()
   await expect(sheet.getByLabel('Weight', { exact: true })).toHaveValue('82.4')
+  // One step at a time; the footer says what the step still needs.
   await expect(
-    sheet.getByText('Add sex, year of birth and 3 more'),
+    sheet.getByText('Choose sex, then add year of birth and height'),
   ).toBeVisible()
   await choose('Female')
   await sheet.getByLabel('Year of birth').fill('1988')
   await sheet.getByLabel('Height').fill('170')
+  await choose('Next')
   await choose(/^Lightly active/)
+  await choose('Next')
   await choose('Lose')
   await expect(sheet.getByRole('button', { name: /^Steady/ })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
-  await expect(sheet.getByText(/^Current goal 2100 \(−\d+\)$/)).toBeVisible()
-  await sheet.getByRole('button', { name: 'Use goal' }).click()
+  await choose('See daily goal')
+  await expect(
+    sheet.getByText(/^\d+ less than the current 2100$/),
+  ).toBeVisible()
+  await sheet.getByRole('button', { name: /^Use \d+ kcal$/ }).click()
 
   await expect(sheet).toBeHidden()
   await expect(card.getByText('Losing 0.5% a week')).toBeVisible()
