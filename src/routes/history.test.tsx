@@ -266,6 +266,10 @@ describe('History route', () => {
     expect(
       rows.find((row) => row.textContent?.includes('Thu, Apr 2'))?.textContent,
     ).toContain('No meals logged')
+    // The chart is hidden from assistive technology; its summary is not.
+    expect(
+      screen.getByText('7 days: 2 with meals, 0 over the goal.'),
+    ).toBeTruthy()
     // A day with nothing logged still opens, to log it.
     expect(
       rows

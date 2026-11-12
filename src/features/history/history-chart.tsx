@@ -72,7 +72,7 @@ export function HistoryLegend({ rows }: { rows: DayRow[] }) {
         {t.legendOver}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="h-0.5 w-3 rounded-full bg-muted-foreground/70" />
+        <span className="w-3 border-t-[1.5px] border-dotted border-muted-foreground" />
         {t.legendGoal}
         {goals.length ? (
           <span className="font-semibold text-foreground tabular-nums">
@@ -86,8 +86,8 @@ export function HistoryLegend({ rows }: { rows: DayRow[] }) {
 
 /**
  * One day's column: the bar in the left colour with a berry cap past the goal,
- * a nub on the track for a day without meals, and the day's goal as a
- * bar-width mark drawn over the bar. The goal is placed from the column, so it
+ * a nub on the track for a day without meals, and the day's goal as a dotted
+ * bar-width mark over the bar (dots mark a reference value, as on Weight). The goal is placed from the column, so it
  * shows on every day and can change within the range.
  */
 export function DayBar({
@@ -171,8 +171,8 @@ export function DayBar({
           y1={goalY}
           y2={goalY}
           stroke="var(--muted-foreground)"
-          strokeOpacity={0.7}
-          strokeWidth={2}
+          strokeWidth={1.5}
+          strokeDasharray="0 4"
           strokeLinecap="round"
         />
       )}
@@ -184,8 +184,8 @@ export function DayBar({
  * One bar per day against its goal. A week or so shows each day's total in a
  * row above the plot, where it never meets a bar or goal mark; longer ranges
  * keep the bars and show a day's figures on hover. Tapping a bar opens its
- * day. Hidden from assistive technology: the Days list below has every
- * day's figures as links.
+ * day. Assistive technology hears a summary instead; the Days list below has
+ * every day's figures as links.
  */
 export function HistoryChart({
   rows,
@@ -212,105 +212,108 @@ export function HistoryChart({
   const ticks = days
     .filter((_, index) => index % labelEvery === 0 || index === days.length - 1)
     .map((day) => day.date)
+  const logged = days.filter((day) => day.mealCount > 0)
+  const over = logged.filter((day) => day.goal > 0 && day.consumed > day.goal)
 
   return (
-    <ChartContainer
-      config={config}
-      aria-hidden="true"
-      className={cn(
-        'mt-3 aspect-auto w-full [&_.recharts-bar-rectangle]:cursor-pointer',
-        showValues ? 'h-52' : 'h-46',
-      )}
-    >
-      <BarChart
-        data={days}
-        accessibilityLayer={false}
-        margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-        // Applied on each side: bars are 60% of a day's width in a week, 70% in
-        // longer ranges.
-        barCategoryGap={days.length > 14 ? '15%' : '20%'}
+    <figure>
+      <figcaption className="sr-only">
+        {t.summary(days.length, logged.length, over.length)}
+      </figcaption>
+      <ChartContainer
+        config={config}
+        aria-hidden="true"
+        className={cn(
+          'mt-3 aspect-auto w-full [&_.recharts-bar-rectangle]:cursor-pointer',
+          showValues ? 'h-52' : 'h-46',
+        )}
       >
-        <YAxis hide domain={[0, max]} />
-        {showValues ? (
+        <BarChart
+          data={days}
+          accessibilityLayer={false}
+          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          // Applied on each side: bars are 60% of a day's width in a week, 70% in
+          // longer ranges.
+          barCategoryGap={days.length > 14 ? '15%' : '20%'}
+        >
+          <YAxis hide domain={[0, max]} />
+          {showValues ? (
+            <XAxis
+              xAxisId="figures"
+              orientation="top"
+              dataKey="date"
+              height={24}
+              interval={0}
+              tickLine={false}
+              axisLine={false}
+              tick={({ x, y, index }) => {
+                const day = days[index]
+                return (
+                  <text
+                    x={x}
+                    y={y}
+                    dy={-4}
+                    textAnchor="middle"
+                    className="tabular-nums"
+                    style={{ fill: 'var(--foreground)', fontWeight: 500 }}
+                  >
+                    {day.mealCount > 0 ? Math.round(day.consumed) : '–'}
+                  </text>
+                )
+              }}
+            />
+          ) : null}
           <XAxis
-            xAxisId="figures"
-            orientation="top"
             dataKey="date"
-            height={24}
+            ticks={ticks}
             interval={0}
             tickLine={false}
             axisLine={false}
-            tick={({ x, y, index }) => {
-              const day = days[index]
-              return (
-                <text
-                  x={x}
-                  y={y}
-                  dy={-4}
-                  textAnchor="middle"
-                  className="tabular-nums"
-                  style={{
-                    fill: 'var(--foreground)',
-                    fontWeight: 500,
-                    fontSize: days.length <= 7 ? 13 : 11,
-                  }}
-                >
-                  {day.mealCount > 0 ? Math.round(day.consumed) : '–'}
-                </text>
+            tickMargin={8}
+            tickFormatter={(date: string) =>
+              parseISO(date).toLocaleDateString(
+                intlLocale(locale),
+                days.length <= 7 ? { weekday: 'short' } : { day: 'numeric' },
               )
-            }}
+            }
           />
-        ) : null}
-        <XAxis
-          dataKey="date"
-          ticks={ticks}
-          interval={0}
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          tickFormatter={(date: string) =>
-            parseISO(date).toLocaleDateString(
-              intlLocale(locale),
-              days.length <= 7 ? { weekday: 'short' } : { day: 'numeric' },
-            )
-          }
-        />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              hideIndicator
-              labelFormatter={(date) =>
-                typeof date === 'string' ? formatDate(date, locale) : null
-              }
-              formatter={(_value, _name, item) => {
-                const day = days.find((row) => row === item.payload)
-                return day ? (
-                  <span className="type-subhead text-muted-foreground tabular-nums">
-                    <DayTotals row={day} />
-                  </span>
-                ) : null
-              }}
-            />
-          }
-        />
-        <Bar
-          name="kcal"
-          dataKey={(day: DayRow) => (day.mealCount > 0 ? day.consumed : 0)}
-          maxBarSize={44}
-          animationDuration={400}
-          shape={(props: BarShapeProps) => (
-            <DayBar
-              {...props}
-              day={days[props.index]}
-              max={max}
-              clipId={`${id}-${props.index}`}
-            />
-          )}
-          onClick={(_, index) =>
-            window.location.assign(dayHref(days[index].date))
-          }
-        />
-      </BarChart>
-    </ChartContainer>
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                hideIndicator
+                labelFormatter={(date) =>
+                  typeof date === 'string' ? formatDate(date, locale) : null
+                }
+                formatter={(_value, _name, item) => {
+                  const day = days.find((row) => row === item.payload)
+                  return day ? (
+                    <span className="type-subhead text-muted-foreground tabular-nums">
+                      <DayTotals row={day} />
+                    </span>
+                  ) : null
+                }}
+              />
+            }
+          />
+          <Bar
+            name="kcal"
+            dataKey={(day: DayRow) => (day.mealCount > 0 ? day.consumed : 0)}
+            maxBarSize={44}
+            animationDuration={400}
+            shape={(props: BarShapeProps) => (
+              <DayBar
+                {...props}
+                day={days[props.index]}
+                max={max}
+                clipId={`${id}-${props.index}`}
+              />
+            )}
+            onClick={(_, index) =>
+              window.location.assign(dayHref(days[index].date))
+            }
+          />
+        </BarChart>
+      </ChartContainer>
+    </figure>
   )
 }
