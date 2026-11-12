@@ -243,7 +243,8 @@ test('Today focuses on a remembered person and switches people from a list', asy
   await expect(
     page.getByRole('region', { name: 'Alex’s intake' }),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Viki/ })).toHaveCount(0)
+  // The list of people opens only on request.
+  await expect(page.getByRole('option', { name: 'Viki' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'View history' })).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Archived meals' }),

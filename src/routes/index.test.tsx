@@ -81,6 +81,7 @@ const item = createMealItemDoc('item-chili', meal._id, {
 let loaded = [alex, sam]
 let peopleLoading = false
 let personLookupLoading = false
+let summaryLoading = false
 let mealsLoading = false
 let consumedCalories = 1250
 const nameOf = (ref: FunctionReference<'query'>) => getFunctionName(ref)
@@ -102,6 +103,7 @@ beforeEach(() => {
   loaded = [alex, sam]
   peopleLoading = false
   personLookupLoading = false
+  summaryLoading = false
   mealsLoading = false
   consumedCalories = 1250
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -145,15 +147,17 @@ beforeEach(() => {
               ? sam
               : null
       if (nameOf(ref) === 'meals:getDayNutrition')
-        return {
-          personId: args.personId,
-          person: 'Alex',
-          eatenOn: '2026-11-02',
-          consumedCalories,
-          goalKcal: 2200,
-          remainingCalories: 2200 - consumedCalories,
-          mealCount: 4,
-        }
+        return summaryLoading
+          ? undefined
+          : {
+              personId: args.personId,
+              person: 'Alex',
+              eatenOn: '2026-11-02',
+              consumedCalories,
+              goalKcal: 2200,
+              remainingCalories: 2200 - consumedCalories,
+              mealCount: 4,
+            }
       if (nameOf(ref) === 'meals:getDetail') return { meal, items: [item] }
       return undefined
     },
@@ -290,6 +294,15 @@ describe('Today intake dashboard', () => {
           args.eatenOn === '2026-10-30',
       ),
     ).toBe(true)
+  })
+  it('names a person loaded on their own while their day summary loads', () => {
+    loaded = [alex]
+    window.localStorage.setItem('calorie-counter:person:account:home', sam._id)
+    summaryLoading = true
+    show()
+    expect(
+      screen.getByRole('combobox', { name: /^Switch person/ }).textContent,
+    ).toContain('Sam')
   })
   it('does not silently replace an unavailable selected person', () => {
     window.localStorage.setItem(

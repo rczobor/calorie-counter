@@ -215,6 +215,18 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   if (selected && !loadedPeople.some((p) => p._id === selected._id) && summary)
     loadedPeople.push({ ...selected, ...summary, _id: selected._id })
   const visiblePeople = youFirst(loadedPeople)
+  // The picker names the selected person at once, even one loaded on their
+  // own (archived since, linked, or past the first page) whose day summary
+  // is still loading: a value missing from the options shows its raw id.
+  const personOptions = (
+    selected && !visiblePeople.some((p) => p._id === selected._id)
+      ? [...visiblePeople, selected]
+      : visiblePeople
+  ).map((person) => ({
+    value: person._id,
+    label: person.name,
+    you: person.linkedAccount === 'you',
+  }))
 
   const focused = visiblePeople.find((p) => p._id === selectedPersonId)
   const hasLoggedMeal = focused !== undefined && focused.mealCount > 0
@@ -263,15 +275,11 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5">
                 {people.status === 'LoadingFirstPage' ? (
                   <PersonPickerPlaceholder label={t.loadingPeople} />
-                ) : visiblePeople.length > 0 ? (
+                ) : personOptions.length > 0 ? (
                   <div className="flex min-w-0 items-center gap-1.5">
                     <PersonPicker
                       placeholder={t.choosePerson}
-                      options={visiblePeople.map((person) => ({
-                        value: person._id,
-                        label: person.name,
-                        you: person.linkedAccount === 'you',
-                      }))}
+                      options={personOptions}
                       value={selected?._id ?? null}
                       onValueChange={(value) => {
                         if (value) {
@@ -369,11 +377,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
               <PersonPicker
                 placeholder={loadingPerson ? t.loadingPeople : t.choosePerson}
                 disabled={people.status === 'LoadingFirstPage'}
-                options={visiblePeople.map((person) => ({
-                  value: person._id,
-                  label: person.name,
-                  you: person.linkedAccount === 'you',
-                }))}
+                options={personOptions}
                 value={selected?._id ?? null}
                 onValueChange={(value) => {
                   if (value) {
