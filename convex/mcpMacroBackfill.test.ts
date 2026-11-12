@@ -979,6 +979,45 @@ describe('batch meal corrections', () => {
       ),
     ).toContain('Each meal may appear once')
   })
+  it('asks to split a batch too big for one transaction', async () => {
+    const t = setup()
+    const token = await credential(t)
+    const personId = await insertPerson(t)
+    const ingredientId = await insertIngredient(t, {
+      name: 'Oats',
+      kcalPer100: 380,
+      macros: { ...oats, nutritionProvenance: label },
+    })
+    const corrections = []
+    for (let day = 1; day <= 50; day++) {
+      const mealId = await asTestUser(t).mutation(api.nutrition.createMeal, {
+        personId,
+        eatenOn: `2026-09-${String((day % 30) + 1).padStart(2, '0')}`,
+        items: Array.from({ length: 30 }, () => ({
+          sourceType: 'ingredient' as const,
+          ingredientId,
+          expectedSnapshot: snapshot('Oats', 380),
+          consumedWeightGrams: day,
+        })),
+      })
+      corrections.push({
+        mealId,
+        expectedEditRevision: 0,
+        itemChanges: (await itemsOf(t, mealId)).map((item) => ({
+          kind: 'refreshFromCatalog' as const,
+          itemId: item._id,
+        })),
+      })
+    }
+    expect(
+      await errorText(
+        await call(t, token, 'correct_meals_batch', {
+          input: { corrections },
+          operationKey: 'too-big',
+        }),
+      ),
+    ).toContain('Split it into smaller batches')
+  })
 })
 
 describe('meal template refresh', () => {

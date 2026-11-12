@@ -593,6 +593,14 @@ async function prepareBatch(
       })
     }
   }
+  // Preparing reads every item and catalog food of every meal. A batch of big
+  // meals can leave too few database calls for its day totals and writes, so
+  // stop with advice instead of an opaque transaction-limit failure.
+  const { databaseQueries } = await ctx.meta.getTransactionMetrics()
+  if (databaseQueries.remaining < 25 * entries.length + 100)
+    throw new ConvexError(
+      'This batch reads too many meal items to save at once. Split it into smaller batches.',
+    )
   const days = new Map<
     string,
     {
