@@ -17,7 +17,7 @@ template.
 
 The redesigned app uses Today, History, and Settings as primary destinations.
 Today focuses on the person remembered on this device; household intake is
-revealed on request. Archived meals live under Settings → Data maintenance.
+revealed on request. Archived meals live under Settings → Food and meals.
 Catalog and cooking remain reachable from Settings and through their existing URLs.
 
 - [Today, desktop/light](today-desktop-light.png)

@@ -65,6 +65,18 @@ function SettingsPage() {
           <SettingsLink to="/settings/tips" title={t.tips} />
         </div>
       </section>
+      {/* The food library and Cooking are used more often than the groups
+          below, so they follow Setup. */}
+      <section aria-labelledby="settings-food" className="mt-8">
+        <h2 id="settings-food" className="group-label">
+          {t.foodAndMeals}
+        </h2>
+        <div className="inset-group inset-rows">
+          <SettingsLink to="/catalog" title={t.foodLibrary} />
+          <SettingsLink to="/cooking" title={t.cooking} />
+          <SettingsLink to="/settings/archived-meals" title={t.archivedMeals} />
+        </div>
+      </section>
       {/* Setting the app up on this phone: installing it, then its widget. */}
       <section aria-labelledby="settings-device" className="mt-8">
         <h2 id="settings-device" className="group-label">
@@ -83,16 +95,6 @@ function SettingsPage() {
                   : t.noWidgets
             }
           />
-        </div>
-      </section>
-      <section aria-labelledby="settings-data" className="mt-8">
-        <h2 id="settings-data" className="group-label">
-          {t.dataMaintenance}
-        </h2>
-        <div className="inset-group inset-rows">
-          <SettingsLink to="/settings/archived-meals" title={t.archivedMeals} />
-          <SettingsLink to="/catalog" title={t.foodLibrary} />
-          <SettingsLink to="/cooking" title={t.cooking} />
         </div>
       </section>
       <section aria-labelledby="settings-privacy" className="mt-8">
