@@ -341,6 +341,25 @@ function weightTrend(weights: Array<{ date: string; kg: number }>) {
   }
 }
 
+/**
+ * The weight trend on each weigh-in's day, fitted as the check-in fits it: a
+ * least-squares line through the weigh-ins in the CHECK_IN_DAYS up to that
+ * day, read on that day. A chart draws it so the line it shows is the trend
+ * the estimate reads. Null until a day has three weigh-ins behind it.
+ */
+export function trendWeightsByDay(
+  weights: Array<{ date: string; kg: number }>,
+) {
+  // Each date parsed once: a chart redraws this on every scrub move.
+  const days = weights.map((entry) => dayNumber(entry.date))
+  return days.map((day) => {
+    const window = weights.filter(
+      (_, index) => days[index] <= day && days[index] > day - CHECK_IN_DAYS,
+    )
+    return window.length < 3 ? null : weightTrend(window).latestKg
+  })
+}
+
 export type CheckInEstimate =
   | {
       status: 'learning'

@@ -130,7 +130,7 @@ Use these terms everywhere so the same thing always has the same name.
 | archive / archived / restore  | archiválás / archivált / visszaállítás |
 | Show archived                 | Archiváltak megjelenítése              |
 | Active / Archived (status)    | Aktív / Archivált                      |
-| Data maintenance              | Adatkezelés                            |
+| Food and meals (Settings)     | Ételek és étkezések                    |
 | Save / Cancel / Delete        | Mentés / Mégse / Törlés                |
 | Edit / Close / Back           | Szerkesztés / Bezárás / Vissza         |
 | Add / Remove                  | Hozzáadás / Eltávolítás                |

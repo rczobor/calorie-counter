@@ -1,60 +1,39 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns'
+import { useCallback, useEffect, useId, useState } from 'react'
+import {
+  Area,
+  ComposedChart,
+  Line,
+  CartesianGrid,
+  ReferenceDot,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+  useActiveTooltipDataPoints,
+} from 'recharts'
 
+import {
+  ChartContainer,
+  ChartTooltip,
+  type ChartConfig,
+} from '@/components/ui/chart'
 import { intlLocale, useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { toTimestampFromDate } from '@/lib/nutrition'
-import { cn } from '@/lib/utils'
+import { trendWeightsByDay } from '../../../convex/lib/energy'
 import type { WeightEntry } from './record-weight-dialog'
 import { messages } from './weight-chart.messages'
 import { dayLabel, formatKg, formatMonthDay } from './weight-format'
 
-// Past this many points, dots would merge into a thick line.
-const MAX_DOTS = 45
 // Weekly weigh-ins still read as one line; a longer pause is drawn as a gap.
 const GAP_DAYS = 7
 
-/**
- * A line over the whole date range, so gaps between weigh-ins keep their real
- * length. A pause longer than a week is a faint dashed line, so it never looks
- * measured. The SVG stretches to any width; dots and labels are HTML so they
- * stay round and crisp. Like History's chart, marks are neutral, gridlines
- * faint, figures readable foreground tabular numbers, and the key uses plain
- * words beside a swatch of the whole mark.
- */
-export function WeightChart({
-  entries,
-  endDate,
-  today,
-}: {
-  entries: WeightEntry[]
-  endDate: string
-  today: string
-}) {
-  const t = useMessages(messages)
-  const locale = useLocale()
-  if (entries.length === 0)
-    return (
-      <p className="flex h-32 items-center justify-center text-center type-subhead text-muted-foreground md:h-40">
-        {t.empty}
-      </p>
-    )
-  // The axis starts at the first weigh-in, the same anchor as "since <date>".
-  const start = toTimestampFromDate(entries[0].measuredOn)
-  const span = Math.max(1, toTimestampFromDate(endDate) - start)
-  const weights = entries.map((entry) => entry.weightKg)
-  // Whole-kilogram bounds just outside the data, so the line fills the plot.
-  let low = Math.floor(Math.min(...weights) - 0.25)
-  let high = Math.ceil(Math.max(...weights) + 0.25)
-  if (high - low < 2) {
-    low -= 1
-    high += 1
-  }
-  const x = (date: string) => ((toTimestampFromDate(date) - start) / span) * 100
-  const y = (kg: number) => ((high - kg) / (high - low)) * 100
-  const first = entries[0]
-  const last = entries[entries.length - 1]
-  const point = (entry: WeightEntry) =>
-    `${x(entry.measuredOn)},${y(entry.weightKg)}`
+const config = {
+  weight: { color: 'var(--chart-3)' },
+} satisfies ChartConfig
+
+/** Weigh-ins a line joins, and the pauses longer than a week between them. */
+export function splitRuns(entries: WeightEntry[]) {
   const runs: WeightEntry[][] = []
   const gaps: Array<[WeightEntry, WeightEntry]> = []
   for (const entry of entries) {
@@ -74,6 +53,143 @@ export function WeightChart({
       runs.push([entry])
     }
   }
+  return { runs, gaps }
+}
+
+/**
+ * Each weigh-in's trend weight by date. Where too few weigh-ins sit in the
+ * window behind a day (the first ones, or the first after a pause of weeks),
+ * the trend is the weigh-in itself, so the line, its fill and the pause's
+ * dashes always meet.
+ */
+export function trendByDay(history: WeightEntry[]) {
+  const trends = trendWeightsByDay(
+    history.map((entry) => ({ date: entry.measuredOn, kg: entry.weightKg })),
+  )
+  return new Map(
+    history.map((entry, index) => [
+      entry.measuredOn,
+      trends[index] ?? entry.weightKg,
+    ]),
+  )
+}
+
+type Point = {
+  t: number
+  kg: number | null
+  trend: number | null
+  date: string | null
+}
+
+/** The weigh-in under a pointer or finger on the chart. */
+export type ScrubbedWeight = { kg: number; date: string }
+
+/**
+ * Reports the weigh-in under the pointer while one is on the chart. A pause's
+ * gap row has no weight, so it reports none.
+ */
+function ScrubReporter({
+  live,
+  onScrub,
+}: {
+  live: boolean
+  onScrub: (weight: ScrubbedWeight | null) => void
+}) {
+  const point = useActiveTooltipDataPoints<Point>()?.[0]
+  const kg = live ? (point?.kg ?? null) : null
+  const date = live ? (point?.date ?? null) : null
+  useEffect(() => {
+    onScrub(kg !== null && date !== null ? { kg, date } : null)
+  }, [kg, date, onScrub])
+  // A chart that goes away mid-scrub (a new range or person) leaves no day
+  // behind.
+  useEffect(() => () => onScrub(null), [onScrub])
+  return null
+}
+
+/**
+ * The weight trend as a line over the whole date range, with each weigh-in a
+ * faint dot, so day-to-day swings don't hide the direction. The trend is the
+ * check-in's own fit (`trendWeightsByDay`), read from `history`, which reaches
+ * back before the range so the line is settled where the chart begins. Gaps
+ * keep their real length: a pause longer than a week is a faint dashed line,
+ * so it never looks measured. Weight change is neutral, so the line is a calm
+ * data colour, never a good or bad one. Scrubbing marks the weigh-in under the
+ * pointer or finger and reports it, so the page can show it in place of the
+ * latest weight; it clears when the pointer leaves or the finger lifts.
+ */
+export function WeightChart({
+  entries,
+  history = entries,
+  endDate,
+  today,
+  onScrub,
+}: {
+  entries: WeightEntry[]
+  /** The range's weigh-ins and those in the trend window before it. */
+  history?: WeightEntry[]
+  endDate: string
+  today: string
+  onScrub?: (weight: ScrubbedWeight | null) => void
+}) {
+  const t = useMessages(messages)
+  const locale = useLocale()
+  const fillId = `weight-fill-${useId().replace(/:/g, '')}`
+  // Recharts clears a hovered point when the mouse leaves, but keeps a
+  // touched one after the finger lifts, so lifting it mutes the scrub until
+  // the next touch.
+  const [live, setLive] = useState(true)
+  const [scrubbed, setScrubbed] = useState<ScrubbedWeight | null>(null)
+  const report = useCallback(
+    (weight: ScrubbedWeight | null) => {
+      setScrubbed(weight)
+      onScrub?.(weight)
+    },
+    [onScrub],
+  )
+  if (entries.length === 0)
+    return (
+      <p className="flex h-44 items-center justify-center text-center type-subhead text-muted-foreground md:h-52">
+        {t.empty}
+      </p>
+    )
+  // The axis starts at the first weigh-in, the same anchor as "since <date>".
+  const start = toTimestampFromDate(entries[0].measuredOn)
+  const end = Math.max(start + 86_400_000, toTimestampFromDate(endDate))
+  const trendOn = trendByDay(history)
+  const trendOf = (entry: WeightEntry) =>
+    trendOn.get(entry.measuredOn) ?? entry.weightKg
+  const weights = entries.flatMap((entry) => [entry.weightKg, trendOf(entry)])
+  // Whole-kilogram bounds just outside the data, so the line fills the plot.
+  let low = Math.floor(Math.min(...weights) - 0.25)
+  let high = Math.ceil(Math.max(...weights) + 0.25)
+  if (high - low < 2) {
+    low -= 1
+    high += 1
+  }
+  const first = entries[0]
+  const last = entries[entries.length - 1]
+  const { runs, gaps } = splitRuns(entries)
+  const at = (entry: WeightEntry) => toTimestampFromDate(entry.measuredOn)
+  // A gap row with no weight breaks the line; the dashes bridge the pause.
+  const data: Point[] = runs.flatMap((run, index) => [
+    ...(index > 0
+      ? [
+          {
+            t: (at(runs[index - 1].at(-1)!) + at(run[0])) / 2,
+            kg: null,
+            trend: null,
+            date: null,
+          },
+        ]
+      : []),
+    ...run.map((entry) => ({
+      t: at(entry),
+      kg: entry.weightKg,
+      trend: trendOf(entry),
+      date: entry.measuredOn,
+    })),
+  ])
   const on = (date: string) =>
     parseISO(date).toLocaleDateString(intlLocale(locale), {
       month: 'short',
@@ -90,107 +206,224 @@ export function WeightChart({
           on(last.measuredOn),
           entries.length,
         )
+  const xTicks =
+    end - start >= 4 * 86_400_000
+      ? [start, (start + end) / 2, end]
+      : [start, end]
 
   return (
-    <figure
-      role="img"
-      aria-label={gaps.length > 0 ? t.withGaps(label) : label}
-      className="select-none"
-    >
-      <div className="relative h-32 py-2 pr-12 md:h-40">
-        <div className="relative h-full">
-          <svg
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-            className="absolute inset-0 size-full overflow-visible"
-          >
-            {[low, (low + high) / 2, high].map((kg) => (
-              <line
-                key={kg}
-                x1="0"
-                x2="100"
-                y1={y(kg)}
-                y2={y(kg)}
-                className="stroke-border"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            {gaps.map(([from, to]) => (
-              <polyline
-                key={from._id}
-                points={`${point(from)} ${point(to)}`}
-                fill="none"
-                className="stroke-muted-foreground/70"
-                strokeWidth="1.5"
-                strokeDasharray="5 5"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            {runs.map((run) => (
-              <polyline
-                key={run[0]._id}
-                points={run.map(point).join(' ')}
-                fill="none"
-                className="stroke-foreground/80"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
-          {entries.map((entry) =>
-            entry === last || entries.length <= MAX_DOTS ? (
-              <span
-                key={entry._id}
-                aria-hidden="true"
-                className={cn(
-                  'absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground',
-                  entry === last ? 'size-2.5' : 'size-1.5 bg-foreground/80',
-                )}
-                style={{
-                  left: `${x(entry.measuredOn)}%`,
-                  top: `${y(entry.weightKg)}%`,
-                }}
-              />
-            ) : null,
-          )}
-        </div>
-        {[high, (low + high) / 2, low].map((kg) => (
-          <span
-            key={kg}
-            aria-hidden="true"
-            className="absolute right-0 -translate-y-1/2 type-caption font-medium text-foreground tabular-nums"
-            // Same inset as the plot (py-2), so each label sits on its line.
-            style={{ top: `calc(0.5rem + (100% - 1rem) * ${y(kg) / 100})` }}
-          >
-            {Number.isInteger(kg) ? kg : formatKg(kg, locale)}
-            {kg === high ? (
-              <span className="font-normal text-muted-foreground"> kg</span>
-            ) : null}
-          </span>
-        ))}
-      </div>
-      <div
+    <figure className="select-none">
+      <figcaption className="sr-only">
+        {gaps.length > 0 ? t.withGaps(label) : label}
+      </figcaption>
+      <ChartContainer
+        config={config}
+        className="aspect-auto h-44 w-full md:h-52"
         aria-hidden="true"
-        className="mt-1 flex justify-between pr-12 type-caption text-muted-foreground"
+        // From a finger's first move, so a tap never shows the last touch's
+        // point; a mouse or pen (not a tap's emulated mouse events) turns it
+        // back on.
+        onTouchMove={() => setLive(true)}
+        onTouchEnd={() => setLive(false)}
+        onTouchCancel={() => setLive(false)}
+        onPointerMove={(event) => {
+          if (event.pointerType !== 'touch') setLive(true)
+        }}
       >
-        <span>{formatMonthDay(parseISO(first.measuredOn), locale)}</span>
-        {span >= 4 * 86_400_000 ? (
-          <span>{formatMonthDay(start + span / 2, locale)}</span>
-        ) : null}
-        <span>{dayLabel(endDate, today, locale)}</span>
-      </div>
+        <ComposedChart
+          // Hidden from assistive technology, which reads the summary
+          // instead, so the chart takes no keyboard focus either.
+          accessibilityLayer={false}
+          data={data}
+          margin={{ top: 6, right: 0, bottom: 0, left: 0 }}
+        >
+          <defs>
+            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="0%"
+                stopColor="var(--color-weight)"
+                className="[stop-opacity:0.34] dark:[stop-opacity:0.42]"
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--color-weight)"
+                className="[stop-opacity:0.16] dark:[stop-opacity:0.12]"
+              />
+            </linearGradient>
+          </defs>
+          {/* The full border colour, so the lines still show in dark. */}
+          <CartesianGrid vertical={false} stroke="var(--border)" />
+          <XAxis
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={[start, end]}
+            ticks={xTicks}
+            // A little air between the latest point and the axis figures.
+            padding={{ right: 8 }}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            interval={0}
+            tick={({ x, y, payload }) => {
+              const value = Number(payload.value)
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  dy={8}
+                  textAnchor={
+                    value === start ? 'start' : value === end ? 'end' : 'middle'
+                  }
+                  style={{ fill: 'var(--muted-foreground)' }}
+                >
+                  {value === end
+                    ? dayLabel(endDate, today, locale)
+                    : formatMonthDay(value, locale)}
+                </text>
+              )
+            }}
+          />
+          <YAxis
+            orientation="right"
+            domain={[low, high]}
+            ticks={[low, (low + high) / 2, high]}
+            tickLine={false}
+            axisLine={false}
+            width={52}
+            interval={0}
+            tick={({ x, y, payload }) => {
+              const kg = Number(payload.value)
+              // Readable foreground figures; the unit only on the top line.
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  dx={8}
+                  dy={4}
+                  style={{ fill: 'var(--foreground)', fontWeight: 500 }}
+                  className="tabular-nums"
+                >
+                  {Number.isInteger(kg) ? kg : formatKg(kg, locale)}
+                  {kg === high ? (
+                    <tspan
+                      style={{
+                        fill: 'var(--muted-foreground)',
+                        fontWeight: 400,
+                      }}
+                    >
+                      {' kg'}
+                    </tspan>
+                  ) : null}
+                </text>
+              )
+            }}
+          />
+          {/* Tracks the pointer; the page shows the value, not a tooltip. */}
+          <ChartTooltip cursor={false} content={() => null} />
+          <ScrubReporter live={live} onScrub={report} />
+          {gaps.map(([from, to]) => (
+            <ReferenceLine
+              key={from._id}
+              segment={[
+                { x: at(from), y: trendOf(from) },
+                { x: at(to), y: trendOf(to) },
+              ]}
+              stroke="var(--muted-foreground)"
+              strokeOpacity={0.7}
+              strokeWidth={1.5}
+              strokeDasharray="5 5"
+              strokeLinecap="round"
+            />
+          ))}
+          {/* The fill runs under pauses too, so they never read as holes;
+              only the line breaks there, and the dashes bridge it. */}
+          <Area
+            dataKey="trend"
+            type="linear"
+            stroke="none"
+            fill={`url(#${fillId})`}
+            connectNulls
+            tooltipType="none"
+            activeDot={false}
+            animationDuration={400}
+          />
+          {/* The weigh-ins themselves: faint, with the latest marked. */}
+          <Line
+            dataKey="kg"
+            stroke="none"
+            isAnimationActive={false}
+            activeDot={false}
+            dot={({ cx, cy, index }) =>
+              data[index]?.kg == null ? (
+                <g key={index} />
+              ) : index === data.length - 1 ? (
+                <circle
+                  key="latest"
+                  cx={cx}
+                  cy={cy}
+                  r={4}
+                  fill="var(--color-weight)"
+                  // While another day is marked, only that day stands out.
+                  opacity={scrubbed ? 0.35 : 1}
+                />
+              ) : (
+                <circle
+                  key={index}
+                  cx={cx}
+                  cy={cy}
+                  r={1.75}
+                  fill="var(--color-weight)"
+                  className="opacity-45 dark:opacity-70"
+                />
+              )
+            }
+          />
+          <Line
+            dataKey="trend"
+            type="linear"
+            stroke="var(--color-weight)"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            connectNulls={false}
+            tooltipType="none"
+            animationDuration={400}
+            activeDot={false}
+            dot={false}
+          />
+          {scrubbed ? (
+            <>
+              {/* From the axis up to the day's weigh-in, so it never meets the
+                  trend at a different value. */}
+              <ReferenceLine
+                segment={[
+                  { x: toTimestampFromDate(scrubbed.date), y: low },
+                  { x: toTimestampFromDate(scrubbed.date), y: scrubbed.kg },
+                ]}
+                stroke="var(--border)"
+                strokeWidth={1}
+              />
+              <ReferenceDot
+                x={toTimestampFromDate(scrubbed.date)}
+                y={scrubbed.kg}
+                r={5}
+                fill="var(--color-weight)"
+                stroke="var(--card)"
+                strokeWidth={2}
+              />
+            </>
+          ) : null}
+        </ComposedChart>
+      </ChartContainer>
       {gaps.length > 0 ? (
-        <figcaption
+        <p
           aria-hidden="true"
-          className="mt-2.5 flex items-center gap-1.5 type-footnote text-muted-foreground"
+          className="mt-1.5 flex items-center gap-1.5 type-footnote text-muted-foreground"
         >
           <span className="w-3 border-t-[1.5px] border-dashed border-muted-foreground/70" />
           {t.gapCaption}
-        </figcaption>
+        </p>
       ) : null}
     </figure>
   )

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  trendWeightsByDay,
   buildCheckIn,
   energyPlanProblem,
   estimateFromLogs,
@@ -295,5 +296,41 @@ describe('check-in suggestion', () => {
       targetReached: false,
       kgPerWeek: 0,
     })
+  })
+})
+
+describe('trend weights by day', () => {
+  it('follows a steady loss and waits for three weigh-ins', () => {
+    const weights = [
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+      '2026-10-04',
+    ].map((date, index) => ({ date, kg: 84 - index * 0.1 }))
+    const trend = trendWeightsByDay(weights)
+    expect(trend.slice(0, 2)).toEqual([null, null])
+    expect(trend[2]).toBeCloseTo(83.8)
+    expect(trend[3]).toBeCloseTo(83.7)
+  })
+
+  it('fits the 28 days up to a day, leaving out the day 28 before', () => {
+    const weights = [
+      { date: '2026-10-01', kg: 90 },
+      { date: '2026-10-02', kg: 80 },
+      { date: '2026-10-03', kg: 80 },
+      { date: '2026-10-29', kg: 80 },
+    ]
+    // Oct 1 is 28 days before Oct 29, so its outlier stays out of the fit.
+    expect(trendWeightsByDay(weights)[3]).toBeCloseTo(80)
+  })
+
+  it('is steadier than the weigh-ins', () => {
+    // A ±0.5 kg daily swing around a flat 80 kg.
+    const weights = Array.from({ length: 40 }, (_, index) => ({
+      date: shiftDay('2026-09-01', index),
+      kg: 80 + (index % 2 ? 0.5 : -0.5),
+    }))
+    for (const kg of trendWeightsByDay(weights).slice(10))
+      expect(Math.abs((kg ?? 0) - 80)).toBeLessThan(0.15)
   })
 })
