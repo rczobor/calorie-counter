@@ -192,7 +192,7 @@ Common commands:
 - `pnpm exec convex dev` - run Convex in a separate terminal.
 - `pnpm run dev` - start Vite on port `3000`.
 - `pnpm run dev:e2e` - review real components with synthetic data on loopback port `4173`; no account credentials or deployed backend are needed.
-- `pnpm run lint` / `pnpm run lint:fix` - check or fix lint errors.
+- `pnpm run lint` / `pnpm run lint:fix` - check or fix lint errors. Results are cached in `.eslintcache`. Delete it after dependency updates: the React and React Hooks plugins do not report their real version, so upgrading them does not clear the cache.
 - `pnpm run typecheck` - type-check the app and Convex backend.
 - `pnpm run test` - run the Vitest suites.
 - `pnpm run build` - build the client and SSR bundles.
