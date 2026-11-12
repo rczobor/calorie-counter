@@ -199,6 +199,19 @@ export function DayBar({
 }
 
 /**
+ * The dates an axis labels: every day for a week, every other day up to two
+ * weeks (a phone's columns are too narrow for more), then about six. Each
+ * steps evenly back from the last day, so counting columns from any label
+ * lands on the right date, and the last day is always labelled.
+ */
+export function axisTicks(dates: string[]) {
+  const step =
+    dates.length <= 7 ? 1 : dates.length <= 14 ? 2 : Math.ceil(dates.length / 6)
+  const last = dates.length - 1
+  return dates.filter((_, index) => (last - index) % step === 0)
+}
+
+/**
  * One bar per day against its goal. A week or so shows each day's total in a
  * row above the plot, where it never meets a bar or goal mark; longer ranges
  * keep the bars and show a day's figures on hover. Tapping a bar opens its
@@ -221,16 +234,10 @@ export function HistoryChart({
   const days = [...rows].reverse()
   const max =
     Math.max(1, ...days.map((day) => Math.max(day.consumed, day.goal))) * 1.05
-  const showValues = days.length <= 10
-  // Every day up to two weeks; past that about six labels, every 5th day on
-  // 30 days.
-  const labelEvery = days.length <= 14 ? 1 : Math.ceil(days.length / 6)
+  // Four-digit totals fit a column on a phone up to 8 days.
+  const showValues = days.length <= 8
   const last = days.length - 1
-  // Even steps back from the last day, so counting columns from a tick
-  // always lands on the right date.
-  const ticks = days
-    .filter((_, index) => (last - index) % labelEvery === 0)
-    .map((day) => day.date)
+  const ticks = axisTicks(days.map((day) => day.date))
   const logged = days.filter((day) => day.mealCount > 0)
   const over = logged.filter((day) => day.goal > 0 && day.consumed > day.goal)
 
@@ -244,8 +251,9 @@ export function HistoryChart({
         aria-hidden="true"
         className={cn(
           'mt-3 aspect-auto w-full [&_.recharts-bar-rectangle]:cursor-pointer',
-          // Taller on wide screens, so a small overage stays visible.
-          showValues ? 'h-52 md:h-64' : 'h-46 md:h-60',
+          // One height for every range, so the loading skeleton matches;
+          // taller on wide screens, so a small overage stays visible.
+          'h-52 md:h-64',
         )}
       >
         <BarChart

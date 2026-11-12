@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { DayBar, type DayRow } from './history-chart'
+import { axisTicks, DayBar, type DayRow } from './history-chart'
 
 afterEach(cleanup)
 
@@ -54,5 +54,41 @@ describe('History day bar', () => {
     expect(empty.empty).toBe(true)
     expect(empty.overage).toBeNull()
     expect(empty.goalY).toBeCloseTo(20)
+  })
+})
+
+describe('History axis', () => {
+  const range = (count: number) =>
+    Array.from({ length: count }, (_, index) => `d${index + 1}`)
+
+  it('labels every day of a week', () => {
+    expect(axisTicks(range(7))).toEqual(range(7))
+  })
+
+  it('labels every other day up to two weeks, ending on the last', () => {
+    expect(axisTicks(range(9))).toEqual(['d1', 'd3', 'd5', 'd7', 'd9'])
+    expect(axisTicks(range(14))).toEqual([
+      'd2',
+      'd4',
+      'd6',
+      'd8',
+      'd10',
+      'd12',
+      'd14',
+    ])
+  })
+
+  it('keeps about six evenly stepped labels on longer ranges', () => {
+    expect(axisTicks(range(30))).toEqual([
+      'd5',
+      'd10',
+      'd15',
+      'd20',
+      'd25',
+      'd30',
+    ])
+    const year = axisTicks(range(366))
+    expect(year).toHaveLength(6)
+    expect(year.at(-1)).toBe('d366')
   })
 })
