@@ -303,17 +303,10 @@ export function HistorySkeleton({ label }: { label?: string }) {
             </div>
           ))}
         </div>
-        <p className="border-t px-4 py-2.5 type-footnote text-muted-foreground">
-          {t.averageNote}
-        </p>
       </div>
       <div aria-hidden="true" className="inset-group px-4 pt-3.5 pb-1">
         <p className="type-headline">{t.dailyCalories}</p>
-        <Skeleton className="mt-3 h-54 w-full rounded-lg bg-skeleton/50" />
-        <div className="-mx-4 mt-1.5 flex items-center justify-between gap-3 border-t px-4 py-2.5">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-29 rounded-full" />
-        </div>
+        <Skeleton className="mt-3 h-52 w-full rounded-lg bg-skeleton/50 md:h-64" />
       </div>
       <div aria-hidden="true">
         <p className="type-title">{t.daysHeading}</p>

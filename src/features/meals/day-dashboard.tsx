@@ -570,8 +570,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             )}
           </section>
         ) : null}
-        {!archived && focused && !loadingPerson ? (
-          // Another person or day is a new card, so its figures do not roll.
+        {!archived && hasLoggedMeal && !loadingPerson ? (
+          // Nothing logged means every goal is still ahead: the calorie card
+          // already says so. Another person or day is a new card, so its
+          // figures do not roll.
           <MacrosCard
             key={`${focused._id}:${date}`}
             day={focused}

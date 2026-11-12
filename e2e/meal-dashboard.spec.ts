@@ -197,17 +197,20 @@ test('meal drafts recover on request after refresh and stay independent across t
   await otherTab.close()
 })
 
-test('history opens its selected day using the same intake view', async ({
+test('a history bar opens its day using the same intake view', async ({
   page,
 }) => {
   await page.goto('/history')
   await expect(
     page.getByRole('heading', { name: 'Daily calories' }),
   ).toBeVisible()
-  await expect(
-    page.getByText('Average skips days with no meals logged.'),
-  ).toBeVisible()
-  await page.getByRole('link', { name: 'View day' }).click()
+  // The chart is hidden from assistive technology (the Days list has its
+  // links), so the latest day's bar is found by its drawing.
+  await page
+    .getByRole('region', { name: 'Daily calories' })
+    .locator('.recharts-bar-rectangle')
+    .last()
+    .click()
   await expect(
     page.getByRole('heading', { name: 'Today', level: 1 }),
   ).toBeVisible()

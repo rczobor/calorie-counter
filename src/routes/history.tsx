@@ -16,21 +16,20 @@ import { usePaginatedQuery, useQuery } from '@/features/households/convex-hooks'
 import { addDays, differenceInCalendarDays, isValid, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { PageShell } from '@/components/page/page-shell'
 import { Balance, Value } from '@/components/nutrition/value'
 import { ConfigMissingState } from '@/components/page/page-states'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import {
   SEGMENT_CLASS,
   SEGMENT_LIST_CLASS,
   SegmentedTrack,
 } from '@/components/ui/segmented'
-import { intlLocale, useLocale } from '@/i18n/locale'
+import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
 import {
@@ -39,9 +38,14 @@ import {
   toTimestampFromDate,
 } from '@/lib/nutrition'
 import { formatDate } from '@/lib/dates'
-import { cn } from '@/lib/utils'
 import { useMarkHintSeen } from '@/features/hints/hints'
 import { EmptyState } from '@/components/page/empty-state'
+import {
+  DayTotals,
+  HistoryChart,
+  HistoryLegend,
+  type DayRow,
+} from '@/features/history/history-chart'
 import { messages } from './history.messages'
 
 export const Route = createFileRoute('/history')({
@@ -65,14 +69,6 @@ function HistoryError({ error, reset }: ErrorComponentProps) {
   )
 }
 
-type DayRow = {
-  date: string
-  consumed: number
-  goal: number
-  remaining: number
-  mealCount: number
-}
-
 type Person = FunctionReturnType<typeof api.people.list>['page'][number]
 type Goal = FunctionReturnType<typeof api.history.goalsForRange>[number]
 
@@ -91,10 +87,8 @@ function HistoryPage() {
 
 function HistoryPageContent() {
   const t = useMessages(messages)
-  const locale = useLocale()
   const { userId } = useDraftPersistenceIdentity()
   const { householdId } = useHousehold()
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedPersonId, setSelectedPersonId] = usePersonSelection(userId)
   const [startDate, setStartDate] = useState(() =>
     toLocalDateString(addDays(new Date(), -6).getTime()),
@@ -242,7 +236,6 @@ function HistoryPageContent() {
     if (logged.length === 0) return 0
     return logged.reduce((sum, row) => sum + row.consumed, 0) / logged.length
   }, [rows])
-  const selectedDay = rows.find((row) => row.date === selectedDate) ?? rows[0]
   const dayHref = (day: string) => {
     const search = new URLSearchParams({
       date: day,
@@ -411,11 +404,6 @@ function HistoryPageContent() {
                     </p>
                   </div>
                 </div>
-                {/* The caption sits inside the card it explains. A day with a
-                  logged zero-calorie meal still counts. */}
-                <p className="border-t px-4 py-2.5 type-footnote text-muted-foreground">
-                  {t.averageNote}
-                </p>
               </div>
             )}
 
@@ -438,35 +426,9 @@ function HistoryPageContent() {
                       <h2 id="history-chart-title" className="type-headline">
                         {t.dailyCalories}
                       </h2>
-                      <ChartLegend rows={rows} />
+                      <HistoryLegend rows={rows} />
                     </div>
-                    <HistoryChart
-                      rows={rows}
-                      selectedDate={selectedDay?.date}
-                      onSelect={setSelectedDate}
-                    />
-                    {/* Names the selected day and opens it. Its figures are
-                      already on the bar and in the Days row below. */}
-                    {selectedDay ? (
-                      <div className="-mx-4 mt-1 flex items-center justify-between gap-3 border-t px-4 py-2.5">
-                        <p className="min-w-0 truncate type-headline">
-                          {formatDate(selectedDay.date, locale)}
-                        </p>
-                        <a
-                          href={dayHref(selectedDay.date)}
-                          className={cn(
-                            buttonVariants({ variant: 'outline', size: 'sm' }),
-                            'pr-3',
-                          )}
-                        >
-                          {t.viewDay}
-                          <ChevronRight
-                            aria-hidden="true"
-                            className="text-muted-foreground"
-                          />
-                        </a>
-                      </div>
-                    ) : null}
+                    <HistoryChart rows={rows} today={today} dayHref={dayHref} />
                   </section>
                 )}
 
@@ -497,29 +459,6 @@ function HistoryPageContent() {
   )
 }
 
-/** A day's logged total against its goal in the value style: foreground
- * tabular figures and one muted unit, like Today's summary line. */
-function DayTotals({ row }: { row: DayRow }) {
-  const t = useMessages(messages)
-  if (!row.mealCount) return t.noMealsLogged
-  return (
-    <>
-      <span className="font-semibold text-foreground">
-        {Math.round(row.consumed)}
-      </span>
-      {row.goal > 0 ? (
-        <>
-          {' / '}
-          <span className="font-semibold text-foreground">
-            {Math.round(row.goal)}
-          </span>
-        </>
-      ) : null}
-      {' kcal'}
-    </>
-  )
-}
-
 /** One day in the range: the date, what was logged against the goal, and
  * the balance in its state colour with a sign and arrow. Opens that day. */
 function DayLink({ row, href }: { row: DayRow; href: string }) {
@@ -545,211 +484,6 @@ function DayLink({ row, href }: { row: DayRow; href: string }) {
         />
       </span>
     </a>
-  )
-}
-
-/** The legend in the app's words. The goal line names its value, or the
- * range of values when the goal changed within the range. */
-function ChartLegend({ rows }: { rows: DayRow[] }) {
-  const t = useMessages(messages)
-  const goals = rows.map((row) => Math.round(row.goal)).filter((g) => g > 0)
-  const low = Math.min(...goals)
-  const high = Math.max(...goals)
-  return (
-    <div className="flex items-center gap-3 type-footnote text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5">
-        <span className="size-2.5 rounded-[3px] bg-kcal-left-bar" />
-        {t.legendLeft}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        {/* The whole over mark, as the bars draw it: the tint up to the
-            goal with the solid overage as a cap above. */}
-        <span className="flex size-2.5 flex-col overflow-hidden rounded-[3px]">
-          <span className="h-1 bg-kcal-over-bar" />
-          <span className="flex-1 bg-kcal-over-base" />
-        </span>
-        {t.legendOver}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-0.5 w-3 rounded-full bg-muted-foreground/70" />
-        {t.legendGoal}
-        {goals.length ? (
-          <span className="font-semibold text-foreground tabular-nums">
-            {low === high ? low : `${low}–${high}`}
-          </span>
-        ) : null}
-      </span>
-    </div>
-  )
-}
-
-// The plot's height (h-40) in px, to keep a figure clear of a goal mark.
-const PLOT_PX = 160
-// A figure's line (18px) and its gap, plus a little air.
-const FIGURE_ZONE_PX = 28
-// The figure's line box has about 3px below the digits, so this leaves a
-// visible gap of about 8px between the digits and the bar or goal mark.
-const FIGURE_GAP = '0.3125rem'
-
-/** One bar per day, with that day's goal as a bar-width mark. Under goal the
- * bar is the left colour; over it, the bar is the berry tint up to the goal and
- * solid berry above, as on the day summary. A week shows each day's total
- * (on phones in a row above the plot, on wider screens 8px above each bar);
- * longer ranges keep the bars only. */
-function HistoryChart({
-  rows,
-  selectedDate,
-  onSelect,
-}: {
-  rows: DayRow[]
-  selectedDate?: string
-  onSelect: (date: string) => void
-}) {
-  const t = useMessages(messages)
-  const locale = useLocale()
-  const chronologicalRows = [...rows].reverse()
-  const maxValue =
-    Math.max(
-      1,
-      ...chronologicalRows.map((row) => Math.max(row.consumed, row.goal)),
-    ) * 1.05
-  const showValues = chronologicalRows.length <= 10
-  const labelEvery = chronologicalRows.length <= 14 ? 1 : 5
-
-  if (chronologicalRows.length === 0) {
-    return (
-      <p className="py-8 text-center type-subhead text-muted-foreground">
-        {t.noChartData}
-      </p>
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'mt-3 flex items-stretch',
-        // Bars, empty days and goal marks share one width. It scales with
-        // the column on wider screens (about 44px in a 720px column).
-        chronologicalRows.length > 14
-          ? 'gap-px [--bar-w:70%]'
-          : 'gap-1 [--bar-w:min(60%,1.75rem)] md:[--bar-w:min(46%,2.75rem)]',
-      )}
-    >
-      {chronologicalRows.map((row, index) => {
-        const selected = selectedDate === row.date
-        const over = row.mealCount > 0 && row.goal > 0 && row.remaining < 0
-        const showLabel =
-          index % labelEvery === 0 || index === chronologicalRows.length - 1
-        const barPercent =
-          row.mealCount > 0
-            ? Math.max(1.5, (row.consumed / maxValue) * 100)
-            : null
-        const goalPercent = row.goal > 0 ? (row.goal / maxValue) * 100 : null
-        // On wider screens the figure sits 8px above its bar, or above the
-        // goal mark when that sits just over the bar, so they never cross.
-        const goalGapPx =
-          goalPercent === null
-            ? Infinity
-            : ((goalPercent - (barPercent ?? 0)) / 100) * PLOT_PX
-        const figureBottom =
-          goalPercent !== null && goalGapPx >= 0 && goalGapPx < FIGURE_ZONE_PX
-            ? `calc(${goalPercent}% + 1px + ${FIGURE_GAP})`
-            : barPercent === null
-              ? `calc(0.25rem + ${FIGURE_GAP})`
-              : `calc(${barPercent}% + ${FIGURE_GAP})`
-        return (
-          <button
-            type="button"
-            key={row.date}
-            aria-label={
-              row.mealCount
-                ? t.barLabel(
-                    row.date,
-                    Math.round(row.consumed),
-                    Math.round(row.goal),
-                  )
-                : t.emptyBarLabel(row.date)
-            }
-            aria-pressed={selected}
-            onClick={() => onSelect(row.date)}
-            className={cn(
-              'group flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-xl py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-              // The selected day is outlined with a bold label, never a grey
-              // block that could read as an empty bar.
-              'not-aria-pressed:hover:bg-muted/50 aria-pressed:inset-ring aria-pressed:inset-ring-foreground/22',
-            )}
-            title={`${row.date}: ${Math.round(row.consumed)} / ${Math.round(row.goal)} kcal`}
-          >
-            <span
-              className={cn(
-                'relative h-40 w-full',
-                // Room for the figures: their row on phones, the tallest
-                // bar's figure on wider screens.
-                showValues &&
-                  (chronologicalRows.length <= 7 ? 'mt-6' : 'mt-[1.375rem]'),
-              )}
-            >
-              {/* Values are readable figures; the selected day is bold, not tinted. */}
-              {showValues ? (
-                <span
-                  className={cn(
-                    'absolute inset-x-0 bottom-[calc(100%+0.375rem)] text-center font-medium text-foreground tabular-nums group-aria-pressed:font-bold md:bottom-(--figure-bottom)',
-                    chronologicalRows.length <= 7
-                      ? 'type-footnote'
-                      : 'type-caption',
-                  )}
-                  style={{ '--figure-bottom': figureBottom } as CSSProperties}
-                >
-                  {row.mealCount > 0 ? Math.round(row.consumed) : '–'}
-                </span>
-              ) : null}
-              {barPercent !== null ? (
-                <span
-                  className={cn(
-                    'absolute bottom-0 left-1/2 flex w-(--bar-w) -translate-x-1/2 flex-col overflow-hidden rounded-t-[0.3125rem]',
-                    over ? 'bg-kcal-over-base' : 'bg-kcal-left-bar',
-                    chronologicalRows.length > 14 && 'rounded-t-[2px]',
-                  )}
-                  style={{ height: `${barPercent}%` }}
-                >
-                  {/* At least 4px, so a small overage never reads as at
-                      goal; only the segment grows, the goal line stays put. */}
-                  {over ? (
-                    <span
-                      className="min-h-1 shrink-0 bg-kcal-over-bar"
-                      style={{
-                        height: `${((row.consumed - row.goal) / row.consumed) * 100}%`,
-                      }}
-                    />
-                  ) : null}
-                </span>
-              ) : (
-                <span className="absolute bottom-0 left-1/2 h-1 w-(--bar-w) -translate-x-1/2 rounded-full bg-track" />
-              )}
-              {/* Muted and bar-width, so the selected day's outline stays
-                  the chart's only strong stroke. */}
-              {goalPercent !== null ? (
-                <span
-                  className="absolute left-1/2 h-0.5 w-[calc(var(--bar-w)+2px)] -translate-x-1/2 translate-y-1/2 rounded-full bg-muted-foreground/70"
-                  style={{ bottom: `${goalPercent}%` }}
-                />
-              ) : null}
-            </span>
-            <span
-              className={cn(
-                'type-caption text-muted-foreground group-aria-pressed:font-semibold group-aria-pressed:text-foreground',
-                !showLabel && 'invisible',
-              )}
-            >
-              {parseISO(row.date).toLocaleDateString(
-                intlLocale(locale),
-                rows.length <= 7 ? { weekday: 'short' } : { day: 'numeric' },
-              )}
-            </span>
-          </button>
-        )
-      })}
-    </div>
   )
 }
 

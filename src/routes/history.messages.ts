@@ -20,21 +20,11 @@ export const messages = defineMessages({
     dailyAverage: 'Daily average',
     daysWithMeals: 'Days with meals',
     ofDays: (count: number) => `of ${count}`,
-    averageNote: 'Average skips days with no meals logged.',
     dailyCalories: 'Daily calories',
-    legendLeft: 'Left',
-    legendOver: 'Over',
-    legendGoal: 'Goal',
-    viewDay: 'View day',
     daysHeading: 'Days',
     noData: 'No data for the selected range.',
     emptyRangeTitle: 'Nothing logged in this range',
     emptyRange: 'Tell your AI assistant what you ate, or open a day below.',
-    noMealsLogged: 'No meals logged',
-    noChartData: 'No chart data for the selected range.',
-    barLabel: (date: string, consumed: number, goal: number) =>
-      `${date}: ${consumed} kcal, goal ${goal} kcal`,
-    emptyBarLabel: (date: string) => `${date}: No meals logged`,
   },
   hu: {
     title: 'Előzmények',
@@ -56,22 +46,11 @@ export const messages = defineMessages({
     daysWithMeals: 'Étkezéses napok',
     // Under "Days with meals": "2 / 7".
     ofDays: (count: number) => `/ ${count}`,
-    averageNote: 'Az étkezés nélküli napok nem számítanak bele az átlagba.',
     dailyCalories: 'Napi kalória',
-    // The day balance's words: "kcal maradt" and "kcal túllépés".
-    legendLeft: 'Maradt',
-    legendOver: 'Túllépés',
-    legendGoal: 'Cél',
-    viewDay: 'Nap megnyitása',
     daysHeading: 'Napok',
     noData: 'A kiválasztott időszakhoz nincs adat.',
     emptyRangeTitle: 'Ebben az időszakban nincs rögzítés',
     emptyRange:
       'Írd meg az AI-asszisztensednek, mit ettél, vagy nyiss meg lent egy napot.',
-    noMealsLogged: 'Nincs rögzített étkezés',
-    noChartData: 'A kiválasztott időszakhoz nincs grafikonadat.',
-    barLabel: (date: string, consumed: number, goal: number) =>
-      `${date}: ${consumed} kcal, cél: ${goal} kcal`,
-    emptyBarLabel: (date: string) => `${date}: nincs rögzített étkezés`,
   },
 })
