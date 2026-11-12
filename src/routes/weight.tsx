@@ -182,7 +182,8 @@ function WeightContent() {
         }
       : 'skip',
   )
-  const history = range && leadIn ? [...leadIn, ...range] : range
+  // The chart waits for both, so its line never redraws when the lead-in lands.
+  const history = range && leadIn ? [...leadIn, ...range] : undefined
   const latest = useQuery(
     api.weight.latestOnOrBefore,
     weightPersonId ? { personId: weightPersonId, date: today } : 'skip',
@@ -316,7 +317,7 @@ function WeightContent() {
               <div className="mt-4">
                 <RangeChange range={range} scrubbed={scrubbed} />
                 <div className="mt-2">
-                  {range === undefined ? (
+                  {range === undefined || history === undefined ? (
                     <Skeleton
                       className="h-44 w-full md:h-52"
                       role="status"

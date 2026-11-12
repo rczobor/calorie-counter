@@ -56,6 +56,24 @@ export function splitRuns(entries: WeightEntry[]) {
   return { runs, gaps }
 }
 
+/**
+ * Each weigh-in's trend weight by date. Where too few weigh-ins sit in the
+ * window behind a day (the first ones, or the first after a pause of weeks),
+ * the trend is the weigh-in itself, so the line, its fill and the pause's
+ * dashes always meet.
+ */
+export function trendByDay(history: WeightEntry[]) {
+  const trends = trendWeightsByDay(
+    history.map((entry) => ({ date: entry.measuredOn, kg: entry.weightKg })),
+  )
+  return new Map(
+    history.map((entry, index) => [
+      entry.measuredOn,
+      trends[index] ?? entry.weightKg,
+    ]),
+  )
+}
+
 type Point = {
   t: number
   kg: number | null
@@ -138,17 +156,10 @@ export function WeightChart({
   // The axis starts at the first weigh-in, the same anchor as "since <date>".
   const start = toTimestampFromDate(entries[0].measuredOn)
   const end = Math.max(start + 86_400_000, toTimestampFromDate(endDate))
-  const trends = trendWeightsByDay(
-    history.map((entry) => ({ date: entry.measuredOn, kg: entry.weightKg })),
-  )
-  const trendOn = new Map(
-    history.map((entry, index) => [entry.measuredOn, trends[index]]),
-  )
-  const trendOf = (entry: WeightEntry) => trendOn.get(entry.measuredOn) ?? null
-  const weights = [
-    ...entries.map((entry) => entry.weightKg),
-    ...entries.flatMap((entry) => trendOf(entry) ?? []),
-  ]
+  const trendOn = trendByDay(history)
+  const trendOf = (entry: WeightEntry) =>
+    trendOn.get(entry.measuredOn) ?? entry.weightKg
+  const weights = entries.flatMap((entry) => [entry.weightKg, trendOf(entry)])
   // Whole-kilogram bounds just outside the data, so the line fills the plot.
   let low = Math.floor(Math.min(...weights) - 0.25)
   let high = Math.ceil(Math.max(...weights) + 0.25)
@@ -210,12 +221,13 @@ export function WeightChart({
         className="aspect-auto h-44 w-full md:h-52"
         aria-hidden="true"
         // From a finger's first move, so a tap never shows the last touch's
-        // point; a mouse (not a tap's emulated mouse events) turns it back on.
+        // point; a mouse or pen (not a tap's emulated mouse events) turns it
+        // back on.
         onTouchMove={() => setLive(true)}
         onTouchEnd={() => setLive(false)}
         onTouchCancel={() => setLive(false)}
         onPointerMove={(event) => {
-          if (event.pointerType === 'mouse') setLive(true)
+          if (event.pointerType !== 'touch') setLive(true)
         }}
       >
         <ComposedChart
@@ -314,8 +326,8 @@ export function WeightChart({
             <ReferenceLine
               key={from._id}
               segment={[
-                { x: at(from), y: trendOf(from) ?? from.weightKg },
-                { x: at(to), y: trendOf(to) ?? to.weightKg },
+                { x: at(from), y: trendOf(from) },
+                { x: at(to), y: trendOf(to) },
               ]}
               stroke="var(--muted-foreground)"
               strokeOpacity={0.7}

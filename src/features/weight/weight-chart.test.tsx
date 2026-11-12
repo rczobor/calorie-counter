@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { Id } from '../../../convex/_generated/dataModel'
 import type { WeightEntry } from './record-weight-dialog'
-import { splitRuns, WeightChart } from './weight-chart'
+import { splitRuns, trendByDay, WeightChart } from './weight-chart'
 
 const entry = (measuredOn: string, weightKg: number): WeightEntry => ({
   _id: `weight-${measuredOn}` as Id<'weightEntries'>,
@@ -36,6 +36,20 @@ describe('WeightChart', () => {
       ),
     ).toBeTruthy()
     expect(screen.getByText('No weigh-ins for over a week')).toBeTruthy()
+  })
+
+  it('draws the weigh-ins themselves until a trend has enough behind it', () => {
+    const before = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04']
+    const entries = [
+      ...before.map((date, index) => entry(date, 84 - index * 0.1)),
+      // Back after five weeks: nothing in the trend window yet.
+      entry('2026-10-09', 83.2),
+      entry('2026-10-10', 82.6),
+    ]
+    const trend = trendByDay(entries)
+    expect(trend.get('2026-09-04')).toBeCloseTo(83.7)
+    expect(trend.get('2026-10-09')).toBe(83.2)
+    expect(trend.get('2026-10-10')).toBe(82.6)
   })
 
   it('keeps weekly weigh-ins as one line', () => {

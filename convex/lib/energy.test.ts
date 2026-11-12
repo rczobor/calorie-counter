@@ -313,6 +313,17 @@ describe('trend weights by day', () => {
     expect(trend[3]).toBeCloseTo(83.7)
   })
 
+  it('fits the 28 days up to a day, leaving out the day 28 before', () => {
+    const weights = [
+      { date: '2026-10-01', kg: 90 },
+      { date: '2026-10-02', kg: 80 },
+      { date: '2026-10-03', kg: 80 },
+      { date: '2026-10-29', kg: 80 },
+    ]
+    // Oct 1 is 28 days before Oct 29, so its outlier stays out of the fit.
+    expect(trendWeightsByDay(weights)[3]).toBeCloseTo(80)
+  })
+
   it('is steadier than the weigh-ins', () => {
     // A ±0.5 kg daily swing around a flat 80 kg.
     const weights = Array.from({ length: 40 }, (_, index) => ({
