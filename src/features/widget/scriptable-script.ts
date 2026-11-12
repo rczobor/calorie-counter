@@ -133,8 +133,8 @@ try {
   const amount = String(Math.abs(Math.round(day.remainingCalories)))
   const label = over ? TEXT.over : TEXT.left
   // Centres an item: Scriptable lists lead-align, so pad it from both sides.
-  const centred = (add) => {
-    const row = widget.addStack()
+  const centred = (add, parent = widget) => {
+    const row = parent.addStack()
     row.addSpacer()
     const item = add(row)
     row.addSpacer()
@@ -145,22 +145,28 @@ try {
     // Lock Screen drops colour, so a sign and a word carry over. The figure
     // shrinks to fit and never wraps.
     widget.addAccessoryWidgetBackground = true
-    widget.backgroundImage = ringImage(day.consumedCalories, day.goalKcal, 72, 6, MONO)
-    widget.addSpacer()
+    // iOS removes a widget's own background on the Lock Screen, so the ring
+    // sits behind a stack that fills the widget instead. The spacers and the
+    // centred rows stretch the stack both ways.
+    widget.setPadding(0, 0, 0, 0)
+    const gauge = widget.addStack()
+    gauge.layoutVertically()
+    gauge.backgroundImage = ringImage(day.consumedCalories, day.goalKcal, 72, 6, MONO)
+    gauge.addSpacer()
     // Four characters fit inside the ring; a longer figure isn't forced in,
     // and the ring and the word say it alone.
     const figure = over ? \`+\${amount}\` : amount
     if (figure.length <= 4) {
-      const value = centred((row) => row.addText(figure))
+      const value = centred((row) => row.addText(figure), gauge)
       value.font = Font.boldRoundedSystemFont(figure.length < 4 ? 18 : 16)
       value.minimumScaleFactor = 0.75
       value.lineLimit = 1
     }
-    const unit = centred((row) => row.addText(over ? TEXT.overShort : TEXT.leftShort))
+    const unit = centred((row) => row.addText(over ? TEXT.overShort : TEXT.leftShort), gauge)
     unit.font = Font.mediumSystemFont(figure.length <= 4 ? 10 : 13)
     unit.minimumScaleFactor = 0.75
     unit.lineLimit = 1
-    widget.addSpacer()
+    gauge.addSpacer()
   } else if (family === 'accessoryRectangular') {
     const row = widget.addStack()
     row.centerAlignContent()
