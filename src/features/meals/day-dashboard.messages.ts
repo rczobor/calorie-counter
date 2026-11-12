@@ -20,7 +20,6 @@ export const messages = defineMessages({
     noActivePeople: 'No active people.',
     dailyIntake: 'Daily intake',
     personIntake: (name: string) => `${name}’s intake`,
-    householdIntake: 'Household intake',
     goalReached: 'Goal reached',
     balanceLeft: 'kcal left',
     balanceOver: 'kcal over',
@@ -36,20 +35,6 @@ export const messages = defineMessages({
         link('Add a person and goal'),
         ' to start tracking.',
       ),
-    householdHint:
-      'Choose whose intake to focus on. Your choice stays on this device.',
-    loadingHouseholdIntake: 'Loading household intake',
-    kcalLeft: (kcal: string) => `${kcal} kcal left`,
-    kcalOver: (kcal: string) => `${kcal} kcal over`,
-    // A household row's name with its "You" badge.
-    nameYou: (name: string) => `${name}, you`,
-    personSummary: (
-      name: string,
-      consumed: string,
-      goal: string,
-      balance: string,
-    ) => `${name}: ${consumed} of ${goal} kcal logged, ${balance}`,
-    summaryGoalReached: 'goal reached',
     draftConflict:
       'Continue or discard your existing draft before starting another meal.',
     unsavedDraft: 'You have an unsaved meal draft in this tab.',
@@ -97,7 +82,6 @@ export const messages = defineMessages({
     noActivePeople: 'Nincs aktív személy.',
     dailyIntake: 'Napi bevitel',
     personIntake: (name: string) => `${name}: napi bevitel`,
-    householdIntake: 'Háztartás bevitele',
     goalReached: 'Cél elérve',
     balanceLeft: 'kcal maradt',
     balanceOver: 'kcal túllépés',
@@ -112,19 +96,6 @@ export const messages = defineMessages({
         link('adj hozzá egy személyt és egy célt'),
         '.',
       ),
-    householdHint:
-      'Válaszd ki, kinek a bevitelét szeretnéd látni. A választásodat ez az eszköz megjegyzi.',
-    loadingHouseholdIntake: 'Háztartás bevitelének betöltése',
-    kcalLeft: (kcal: string) => `${kcal} kcal maradt`,
-    kcalOver: (kcal: string) => `${kcal} kcal túllépés`,
-    nameYou: (name: string) => `${name}, te`,
-    personSummary: (
-      name: string,
-      consumed: string,
-      goal: string,
-      balance: string,
-    ) => `${name}: ${consumed} / ${goal} kcal rögzítve, ${balance}`,
-    summaryGoalReached: 'cél elérve',
     draftConflict:
       'Új étkezés előtt folytasd vagy vesd el a meglévő piszkozatot.',
     unsavedDraft: 'Van egy nem mentett étkezéspiszkozatod ezen a lapon.',

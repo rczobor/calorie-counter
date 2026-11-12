@@ -11,14 +11,7 @@ import {
   Pencil,
   Plus,
 } from 'lucide-react'
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-} from 'react'
+import { lazy, Suspense, useEffect, useEffectEvent, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 
 import { api } from '../../../convex/_generated/api'
@@ -28,8 +21,6 @@ import {
   useQuery,
   useMutation,
 } from '@/features/households/convex-hooks'
-import { StatusBadge } from '@/components/page/status-badge'
-import { WhichOneIsYou } from '@/features/households/which-one-is-you'
 import { youFirst } from '@/features/households/you-first'
 import { PersonPicker } from '@/features/households/person-picker'
 import { usePersonSelection } from '@/features/households/use-person-selection'
@@ -45,9 +36,9 @@ import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { EditorDialog } from '@/components/page/editor-dialog'
-import { EstimateNotice } from '@/components/nutrition/estimate-notice'
+import { EstimateNoticeIcon } from '@/components/nutrition/estimate-notice'
 import { RollingFigure } from '@/components/nutrition/rolling-figure'
-import { Balance, Value } from '@/components/nutrition/value'
+import { Value } from '@/components/nutrition/value'
 import { Button } from '@/components/ui/button'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
 import {
@@ -87,7 +78,7 @@ type EditorRequest = {
   resume?: boolean
 }
 
-// The title names the day relative to today; the date picker below it shows the date once.
+// The title, which is also the date picker, names the day relative to today.
 function dayHeading(date: string, today: string, locale: Locale) {
   const t = messages[locale]
   const days = Math.round(
@@ -128,8 +119,6 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         : undefined
     },
   )
-  const [showHousehold, setShowHousehold] = useState(false)
-  const householdButton = useRef<HTMLButtonElement>(null)
   const [openMealId, setOpenMealId] = useState<Id<'meals'> | null>(null)
   const [macrosOpen, setMacrosOpen] = useState(false)
   const [editor, setEditor] = useState<EditorRequest | null>(null)
@@ -239,6 +228,12 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
     (Boolean(selectedPersonId) &&
       ((pointPerson === undefined && !loadedSelected) ||
         Boolean(selected && !loadedSelected && !summary)))
+  const emptyDay =
+    !archived &&
+    selected &&
+    !loadingPerson &&
+    meals.status !== 'LoadingFirstPage' &&
+    meals.results.length === 0
 
   return (
     <>
@@ -252,39 +247,53 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         header={
           archived ? undefined : (
             <div className="w-full">
-              {/* The title row holds the person picker, as History's does. */}
-              <div className="flex items-center justify-between gap-3">
-                <h1 className="min-w-0 type-large-title text-foreground">
-                  {dayHeading(date, today, locale)}
-                </h1>
+              {/* The title is the day, so it is the date picker too. */}
+              <h1 className="min-w-0 type-large-title text-foreground">
+                <DatePicker
+                  variant="title"
+                  value={date}
+                  onChange={selectDay}
+                  label={dayHeading(date, today, locale)}
+                />
+              </h1>
+              {/* Whose day and which day share one row and one height: the
+                  person on the left, Today and the arrows on the right. A
+                  long name or a narrower phone wraps the controls under the
+                  person instead of scrolling sideways. */}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5">
                 {people.status === 'LoadingFirstPage' ? (
                   <PersonPickerPlaceholder label={t.loadingPeople} />
                 ) : visiblePeople.length > 0 ? (
-                  <PersonPicker
-                    ref={householdButton}
-                    name={selected?.name}
-                    you={selected?.linkedAccount === 'you'}
-                    placeholder={t.choosePerson}
-                    expanded={showHousehold}
-                    controls="household-intake"
-                    onToggle={() => setShowHousehold(!showHousehold)}
-                  />
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <PersonPicker
+                      placeholder={t.choosePerson}
+                      options={visiblePeople.map((person) => ({
+                        value: person._id,
+                        label: person.name,
+                        you: person.linkedAccount === 'you',
+                      }))}
+                      value={selected?._id ?? null}
+                      onValueChange={(value) => {
+                        if (value) {
+                          setSelectedPersonId(value)
+                          setOpenMealId(null)
+                        }
+                      }}
+                    />
+                    {people.status === 'CanLoadMore' ||
+                    people.status === 'LoadingMore' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={people.status === 'LoadingMore'}
+                        aria-busy={people.status === 'LoadingMore'}
+                        onClick={() => people.loadMore(PAGE_SIZE)}
+                      >
+                        {t.loadMorePeople}
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
-              </div>
-              {/* The date pill and the day controls share one row and one
-                  height: the pill on the left, Today and the arrows on the
-                  right. Text capsules padded 12px and 6px gaps fit the
-                  widest pill ("Wed, May 20, 2026") beside Today at 390px; a
-                  narrower phone wraps the controls under the pill instead of
-                  scrolling sideways. */}
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5">
-                <DatePicker
-                  variant="chip"
-                  value={date}
-                  onChange={selectDay}
-                  ariaLabel={t.day}
-                  label={formatDate(date, locale, { year: 'always' })}
-                />
                 <div className="ml-auto flex shrink-0 items-center gap-1.5">
                   {/* Today appears before the arrows, so they never move. */}
                   {date !== today ? (
@@ -392,390 +401,324 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             {selectedPersonId ? t.personUnavailable : t.noActivePeople}
           </p>
         ) : null}
-        {!archived && showHousehold ? (
-          <section
-            id="household-intake"
-            aria-label={t.householdIntake}
-            className="mt-5"
-          >
-            {people.status === 'LoadingFirstPage' ? (
-              <LoadingRows
-                label={t.loadingHouseholdIntake}
-                className="inset-group px-4"
-              />
-            ) : (
-              // A picker list: the checkmark and tinted row mark whose intake
-              // is in focus, apart from the nutrition colours.
-              <div className="inset-group inset-rows [--row-inset:3rem]">
-                {visiblePeople.map((p) => (
-                  <button
-                    key={p._id}
-                    type="button"
-                    aria-pressed={p._id === selectedPersonId}
-                    aria-label={t.personSummary(
-                      p.linkedAccount === 'you' ? t.nameYou(p.name) : p.name,
-                      p.consumedCalories.toFixed(0),
-                      p.goalKcal.toFixed(0),
-                      p.remainingCalories === 0
-                        ? t.summaryGoalReached
-                        : p.remainingCalories < 0
-                          ? t.kcalOver(Math.abs(p.remainingCalories).toFixed(0))
-                          : t.kcalLeft(
-                              Math.abs(p.remainingCalories).toFixed(0),
-                            ),
-                    )}
-                    onClick={() => {
-                      setSelectedPersonId(p._id)
-                      setOpenMealId(null)
-                      setShowHousehold(false)
-                      householdButton.current?.focus()
-                    }}
-                    className={cn(
-                      'flex min-h-15 w-full items-center gap-3 py-2.5 pr-4 pl-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
-                      p._id === selectedPersonId &&
-                        'bg-accent shadow-[inset_0_0_0_1.5px_color-mix(in_oklab,var(--foreground)_45%,transparent)]',
-                    )}
-                  >
-                    <span className="flex size-6 shrink-0 items-center justify-center text-foreground">
-                      {p._id === selectedPersonId ? (
-                        <Check
-                          aria-hidden="true"
-                          className="size-5"
-                          strokeWidth={2.5}
-                        />
-                      ) : null}
-                    </span>
-                    <span className="flex min-w-0 flex-1 items-center gap-2">
-                      <span className="truncate text-base">{p.name}</span>
-                      {p.linkedAccount === 'you' ? (
-                        <StatusBadge status="You" className="shrink-0" />
-                      ) : null}
-                    </span>
-                    <span className="text-right type-footnote text-muted-foreground tabular-nums">
-                      <Balance
-                        remaining={p.remainingCalories}
-                        className="type-subhead"
-                      />
-                      <span className="mt-0.5 block">
-                        {t.loggedOfGoal(
-                          figure(p.consumedCalories),
-                          figure(p.goalKcal),
-                        )}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-            <p className="px-4 pt-1.5 type-footnote text-muted-foreground">
-              {t.householdHint}
-            </p>
-            {people.status === 'CanLoadMore' ||
-            people.status === 'LoadingMore' ? (
-              <Button
-                className="mt-2"
-                variant="ghost"
-                size="sm"
-                disabled={people.status === 'LoadingMore'}
-                aria-busy={people.status === 'LoadingMore'}
-                onClick={() => people.loadMore(PAGE_SIZE)}
-              >
-                {t.loadMorePeople}
-              </Button>
-            ) : null}
-            <WhichOneIsYou people={people.results} className="mt-5" />
-          </section>
-        ) : null}
-        {!archived ? (
-          <section
-            className="mt-5 inset-group px-4 pt-4 pb-4"
-            aria-label={focused ? t.personIntake(focused.name) : t.dailyIntake}
-            aria-busy={loadingPerson}
-          >
-            {focused ? (
-              // The balance, the bar, then the logged line, at every width.
-              <>
-                <p
-                  className={cn(
-                    'flex flex-wrap items-center gap-x-3 gap-y-2 tabular-nums',
-                    overGoal ? 'text-kcal-over' : 'text-kcal-left',
-                  )}
-                >
-                  <span className="type-display">
-                    {/* Rolls as meals change this balance. Crossing the goal
-                        swaps the figure instead: rolling 120 left to 30 over
-                        would count down and read as progress. */}
-                    <RollingFigure
-                      key={`${focused._id}:${date}:${overGoal}`}
-                      value={Math.abs(focused.remainingCalories)}
-                      prefix={overGoal ? '+' : undefined}
-                    />
-                    {atGoal ? (
-                      <span className="ml-1.5 type-title font-semibold tracking-normal">
-                        kcal
-                      </span>
-                    ) : null}
-                  </span>{' '}
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-2.5 type-subhead font-semibold',
-                      overGoal
-                        ? 'bg-kcal-over-surface'
-                        : 'bg-kcal-left-surface',
-                    )}
-                  >
-                    {overGoal ? (
-                      <ArrowUpRight aria-hidden="true" className="size-4" />
-                    ) : atGoal ? (
-                      <Check aria-hidden="true" className="size-4" />
-                    ) : (
-                      <ArrowDownRight aria-hidden="true" className="size-4" />
-                    )}
-                    {atGoal
-                      ? t.goalReached
-                      : overGoal
-                        ? t.balanceOver
-                        : t.balanceLeft}
-                  </span>
-                </p>
-                <IntakeBar
-                  consumed={focused.consumedCalories}
-                  goal={focused.goalKcal}
-                  className="mt-4"
-                />
-                <p className="mt-2.5 type-subhead text-muted-foreground tabular-nums">
-                  {t.loggedOfGoal(
-                    figure(focused.consumedCalories),
-                    figure(focused.goalKcal),
-                  )}
-                </p>
-              </>
-            ) : loadingPerson ? (
-              <div role="status" aria-label={t.loadingDailyIntake}>
-                <IntakeSkeleton />
-              </div>
-            ) : (
-              <p className="type-subhead text-muted-foreground">
-                {selectedPersonId
-                  ? t.selectedPersonUnavailable
-                  : t.startTracking((text) => (
-                      <Link
-                        to="/people"
-                        className="font-medium text-foreground underline underline-offset-4"
-                      >
-                        {text}
-                      </Link>
-                    ))}
-              </p>
-            )}
-          </section>
-        ) : null}
-        {!archived && focused && !loadingPerson ? (
-          // Another person or day is a new card, so its figures do not roll.
-          <MacrosCard
-            key={`${focused._id}:${date}`}
-            day={focused}
-            onOpen={() => setMacrosOpen(true)}
-          />
-        ) : null}
-        {macrosOpen && selected ? (
-          <MacrosByMealSheet
-            day={focused ?? {}}
-            meals={meals.results}
-            loading={meals.status === 'LoadingFirstPage'}
-            personId={selected._id}
-            canEditGoals={selected.linkedAccount !== 'other'}
-            onClose={() => setMacrosOpen(false)}
-          />
-        ) : null}
-        {!archived && selected && !loadingPerson ? (
-          <div className="mt-3">
-            <WeightGlance
-              personId={selected._id}
-              personName={selected.name}
-              date={date}
-              today={today}
-              isPrivate={selected.linkedAccount === 'other'}
-            />
-          </div>
-        ) : !archived && loadingPerson ? (
-          <WeightRowPlaceholder />
-        ) : null}
-        {!archived && draft && !editor ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4">
-            <p className="type-subhead" role="status">
-              {draftConflict ? t.draftConflict : t.unsavedDraft}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  openEditor({
-                    personId: draft.selectedPersonId,
-                    date: draft.mealDate,
-                    resume: true,
-                  })
-                }
-              >
-                {t.continueDraft}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setDiscardDraft(true)}
-              >
-                {t.discard}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-        <TodayHint
-          today={today}
-          visible={
-            !archived &&
-            date === today &&
-            !loadingPerson &&
-            meals.status !== 'LoadingFirstPage' &&
-            Boolean(selected) &&
-            !editor &&
-            !draft &&
-            !discardDraft &&
-            !openMealId
-          }
-        />
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="type-title">
-            {selected
-              ? archived
-                ? selected.linkedAccount === 'you'
-                  ? t.yourArchivedMeals
-                  : t.personArchivedMeals(selected.name)
-                : selected.linkedAccount === 'you'
-                  ? t.yourMeals
-                  : t.personMeals(selected.name)
-              : t.meals}
-          </h2>
-          {!archived ? (
-            // Phones log from the bottom navigation instead.
-            <Button
-              size="sm"
-              className="hidden md:inline-flex"
-              disabled={!selected}
-              onClick={() =>
-                openEditor({ personId: selected?._id ?? '', date })
-              }
-            >
-              <Plus aria-hidden="true" />
-              {t.logMeal}
-            </Button>
-          ) : null}
-        </div>
-        {!archived &&
-        selected &&
-        !loadingPerson &&
-        meals.status !== 'LoadingFirstPage' &&
-        meals.results.length === 0 ? (
-          // Phones have no inline Log meal, so an empty day offers the action in
-          // place: an "add" row in the tint, as in an iOS list.
-          <div className="mt-3 inset-group md:hidden">
-            <button
-              type="button"
-              className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left text-base font-medium text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-              onClick={() => openEditor({ personId: selected._id, date })}
-            >
-              <Plus aria-hidden="true" className="size-5" strokeWidth={2.25} />
-              {t.logMeal}
-            </button>
-          </div>
-        ) : null}
-        {archived &&
-        selected &&
-        !loadingPerson &&
-        meals.status !== 'LoadingFirstPage' &&
-        meals.results.length === 0 ? (
-          <p className="mt-3 inset-group px-4 py-3.5 type-subhead text-muted-foreground">
-            {t.noArchivedMeals}
-          </p>
-        ) : null}
+        {/* From tablet width the day's summary sits beside its meals and
+            stays in view while they scroll. The content column is 720px
+            there, so each column is about a phone's width and the cards
+            keep their phone layout. Archived meals have no summary. */}
         <div
           className={cn(
-            'mt-3',
-            (meals.results.length > 0 ||
-              loadingPerson ||
-              (selected && meals.status === 'LoadingFirstPage')) &&
-              'inset-group inset-rows',
+            !archived && 'md:grid md:grid-cols-2 md:items-start md:gap-x-6',
           )}
-          aria-busy={
-            loadingPerson ||
-            Boolean(selected && meals.status === 'LoadingFirstPage')
-          }
         >
-          {meals.results.map((meal) => (
-            <div key={meal._id}>
-              <button
-                type="button"
-                className="flex min-h-15 w-full items-center gap-3 py-3 pr-3.5 pl-4 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                aria-expanded={openMealId === meal._id}
-                onClick={() =>
-                  setOpenMealId(openMealId === meal._id ? null : meal._id)
+          {/* Pinned only when the window fits the whole summary under the
+              top bar; a landscape phone scrolls it with the meals. */}
+          <div className="md:top-14 md:[@media(min-height:36rem)]:sticky">
+            {!archived ? (
+              <section
+                className="mt-5 inset-group px-4 pt-4 pb-4"
+                aria-label={
+                  focused ? t.personIntake(focused.name) : t.dailyIntake
                 }
+                aria-busy={loadingPerson}
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-base">
-                    {meal.name?.trim() || t.meal}
-                  </span>
-                  <span className="mt-0.5 block type-footnote text-muted-foreground">
-                    {t.foodCount(meal.itemCount)}
-                  </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  <Value value={meal.totalCalories.toFixed(0)} />
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn(
-                      'size-4 text-muted-foreground transition-transform motion-reduce:transition-none',
-                      openMealId === meal._id && 'rotate-180',
-                    )}
-                  />
-                </span>
-              </button>
-              {openMealId === meal._id ? (
-                <MealDetails
-                  meal={meal}
-                  onEdit={() =>
-                    openEditor({
-                      mealId: meal._id,
-                      personId: meal.personId,
-                      date: meal.eatenOn,
-                    })
+                {focused ? (
+                  // The balance, the bar, then the logged line, at every width.
+                  <>
+                    <p
+                      className={cn(
+                        'flex flex-wrap items-center gap-x-3 gap-y-2 tabular-nums',
+                        overGoal ? 'text-kcal-over' : 'text-kcal-left',
+                      )}
+                    >
+                      <span className="type-display">
+                        {/* Rolls as meals change this balance. Crossing the goal
+                        swaps the figure instead: rolling 120 left to 30 over
+                        would count down and read as progress. */}
+                        <RollingFigure
+                          key={`${focused._id}:${date}:${overGoal}`}
+                          value={Math.abs(focused.remainingCalories)}
+                          prefix={overGoal ? '+' : undefined}
+                        />
+                        {atGoal ? (
+                          <span className="ml-1.5 type-title font-semibold tracking-normal">
+                            kcal
+                          </span>
+                        ) : null}
+                      </span>{' '}
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-2.5 type-subhead font-semibold',
+                          overGoal
+                            ? 'bg-kcal-over-surface'
+                            : 'bg-kcal-left-surface',
+                        )}
+                      >
+                        {overGoal ? (
+                          <ArrowUpRight aria-hidden="true" className="size-4" />
+                        ) : atGoal ? (
+                          <Check aria-hidden="true" className="size-4" />
+                        ) : (
+                          <ArrowDownRight
+                            aria-hidden="true"
+                            className="size-4"
+                          />
+                        )}
+                        {atGoal
+                          ? t.goalReached
+                          : overGoal
+                            ? t.balanceOver
+                            : t.balanceLeft}
+                      </span>
+                    </p>
+                    <IntakeBar
+                      consumed={focused.consumedCalories}
+                      goal={focused.goalKcal}
+                      className="mt-4"
+                    />
+                    <p className="mt-2.5 type-subhead text-muted-foreground tabular-nums">
+                      {t.loggedOfGoal(
+                        figure(focused.consumedCalories),
+                        figure(focused.goalKcal),
+                      )}
+                    </p>
+                  </>
+                ) : loadingPerson ? (
+                  <div role="status" aria-label={t.loadingDailyIntake}>
+                    <IntakeSkeleton />
+                  </div>
+                ) : (
+                  <p className="type-subhead text-muted-foreground">
+                    {selectedPersonId
+                      ? t.selectedPersonUnavailable
+                      : t.startTracking((text) => (
+                          <Link
+                            to="/people"
+                            className="font-medium text-foreground underline underline-offset-4"
+                          >
+                            {text}
+                          </Link>
+                        ))}
+                  </p>
+                )}
+              </section>
+            ) : null}
+            {!archived && focused && !loadingPerson ? (
+              // Another person or day is a new card, so its figures do not roll.
+              <MacrosCard
+                key={`${focused._id}:${date}`}
+                day={focused}
+                onOpen={() => setMacrosOpen(true)}
+              />
+            ) : null}
+            {macrosOpen && selected ? (
+              <MacrosByMealSheet
+                day={focused ?? {}}
+                meals={meals.results}
+                loading={meals.status === 'LoadingFirstPage'}
+                personId={selected._id}
+                canEditGoals={selected.linkedAccount !== 'other'}
+                onClose={() => setMacrosOpen(false)}
+              />
+            ) : null}
+            {!archived && selected && !loadingPerson ? (
+              <div className="mt-3">
+                <WeightGlance
+                  personId={selected._id}
+                  personName={selected.name}
+                  date={date}
+                  today={today}
+                  isPrivate={selected.linkedAccount === 'other'}
+                />
+              </div>
+            ) : !archived && loadingPerson ? (
+              <WeightRowPlaceholder />
+            ) : null}
+          </div>
+          {/* The meals column starts level with the summary. */}
+          <div className={cn(!archived && 'md:mt-5 md:*:first:mt-0')}>
+            {!archived && draft && !editor ? (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 inset-group py-3 pr-3 pl-4">
+                <p className="type-subhead" role="status">
+                  {draftConflict ? t.draftConflict : t.unsavedDraft}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      openEditor({
+                        personId: draft.selectedPersonId,
+                        date: draft.mealDate,
+                        resume: true,
+                      })
+                    }
+                  >
+                    {t.continueDraft}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDiscardDraft(true)}
+                  >
+                    {t.discard}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            <TodayHint
+              today={today}
+              visible={
+                !archived &&
+                date === today &&
+                !loadingPerson &&
+                meals.status !== 'LoadingFirstPage' &&
+                Boolean(selected) &&
+                !editor &&
+                !draft &&
+                !discardDraft &&
+                !openMealId
+              }
+            />
+            {/* As tall as its button, so the meals stay put when an empty
+                day's row replaces it. */}
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 md:min-h-10">
+              <h2 className="type-title">
+                {selected
+                  ? archived
+                    ? selected.linkedAccount === 'you'
+                      ? t.yourArchivedMeals
+                      : t.personArchivedMeals(selected.name)
+                    : selected.linkedAccount === 'you'
+                      ? t.yourMeals
+                      : t.personMeals(selected.name)
+                  : t.meals}
+              </h2>
+              {!archived && !emptyDay ? (
+                // Phones log from the bottom navigation instead.
+                <Button
+                  size="sm"
+                  className="hidden md:inline-flex"
+                  disabled={!selected}
+                  onClick={() =>
+                    openEditor({ personId: selected?._id ?? '', date })
                   }
+                >
+                  <Plus aria-hidden="true" />
+                  {t.logMeal}
+                </Button>
+              ) : null}
+            </div>
+            {emptyDay ? (
+              // An empty day offers the action in place, at every width: an
+              // "add" row in the tint, as in an iOS list. Wider screens drop
+              // the heading's button for it, so the column is not left bare.
+              <div className="mt-3 inset-group">
+                <button
+                  type="button"
+                  className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left text-base font-medium text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                  onClick={() => openEditor({ personId: selected._id, date })}
+                >
+                  <Plus
+                    aria-hidden="true"
+                    className="size-5"
+                    strokeWidth={2.25}
+                  />
+                  {t.logMeal}
+                </button>
+              </div>
+            ) : null}
+            {archived &&
+            selected &&
+            !loadingPerson &&
+            meals.status !== 'LoadingFirstPage' &&
+            meals.results.length === 0 ? (
+              <p className="mt-3 inset-group px-4 py-3.5 type-subhead text-muted-foreground">
+                {t.noArchivedMeals}
+              </p>
+            ) : null}
+            <div
+              className={cn(
+                'mt-3',
+                (meals.results.length > 0 ||
+                  loadingPerson ||
+                  (selected && meals.status === 'LoadingFirstPage')) &&
+                  'inset-group inset-rows',
+              )}
+              aria-busy={
+                loadingPerson ||
+                Boolean(selected && meals.status === 'LoadingFirstPage')
+              }
+            >
+              {meals.results.map((meal) => (
+                <div key={meal._id}>
+                  <button
+                    type="button"
+                    className="flex min-h-15 w-full items-center gap-3 py-3 pr-3.5 pl-4 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                    aria-expanded={openMealId === meal._id}
+                    onClick={() =>
+                      setOpenMealId(openMealId === meal._id ? null : meal._id)
+                    }
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base">
+                        {meal.name?.trim() || t.meal}
+                      </span>
+                      <span className="mt-0.5 block type-footnote text-muted-foreground">
+                        {t.foodCount(meal.itemCount)}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <Value value={meal.totalCalories.toFixed(0)} />
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={cn(
+                          'size-4 text-muted-foreground transition-transform motion-reduce:transition-none',
+                          openMealId === meal._id && 'rotate-180',
+                        )}
+                      />
+                    </span>
+                  </button>
+                  {openMealId === meal._id ? (
+                    <MealDetails
+                      meal={meal}
+                      onEdit={() =>
+                        openEditor({
+                          mealId: meal._id,
+                          personId: meal.personId,
+                          date: meal.eatenOn,
+                        })
+                      }
+                    />
+                  ) : null}
+                </div>
+              ))}
+              {loadingPerson ||
+              (selected && meals.status === 'LoadingFirstPage') ? (
+                <LoadingRows
+                  label={t.loadingMeals}
+                  rows={
+                    focused ? Math.min(3, Math.max(1, focused.mealCount)) : 3
+                  }
+                  inset
+                  rowClassName={MEAL_ROW_HEIGHT}
                 />
               ) : null}
             </div>
-          ))}
-          {loadingPerson ||
-          (selected && meals.status === 'LoadingFirstPage') ? (
-            <LoadingRows
-              label={t.loadingMeals}
-              rows={focused ? Math.min(3, Math.max(1, focused.mealCount)) : 3}
-              inset
-              rowClassName={MEAL_ROW_HEIGHT}
-            />
-          ) : null}
+            {meals.status === 'CanLoadMore' ||
+            meals.status === 'LoadingMore' ? (
+              <Button
+                className="mt-3"
+                variant="outline"
+                size="sm"
+                disabled={meals.status === 'LoadingMore'}
+                aria-busy={meals.status === 'LoadingMore'}
+                onClick={() => meals.loadMore(PAGE_SIZE)}
+              >
+                {t.loadMoreMeals}
+              </Button>
+            ) : null}
+          </div>
         </div>
-        {meals.status === 'CanLoadMore' || meals.status === 'LoadingMore' ? (
-          <Button
-            className="mt-3"
-            variant="outline"
-            size="sm"
-            disabled={meals.status === 'LoadingMore'}
-            aria-busy={meals.status === 'LoadingMore'}
-            onClick={() => meals.loadMore(PAGE_SIZE)}
-          >
-            {t.loadMoreMeals}
-          </Button>
-        ) : null}
       </PageShell>
       {editor ? (
         <EditorDialog
@@ -860,7 +803,10 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
             key={item._id}
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5 py-2.5 pr-5.5 pl-4"
           >
-            <p className="type-subhead">{item.nameSnapshot}</p>
+            <p className="type-subhead">
+              {item.nameSnapshot}{' '}
+              <EstimateNoticeIcon provenance={item.nutritionProvenance} />
+            </p>
             <p className="text-right">
               <Value size="child" value={item.caloriesSnapshot.toFixed(0)} />
             </p>
@@ -873,14 +819,11 @@ function MealDetails({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
                 {`${formatAmount(item.servingCount ?? 1, locale)} ${item.foodIdentity.servingLabel}`}
               </p>
             ) : null}
-            <div className="col-span-full empty:hidden">
-              <EstimateNotice provenance={item.nutritionProvenance} />
-              {item.notes ? (
-                <p className="mt-1 whitespace-pre-wrap type-footnote text-muted-foreground">
-                  {item.notes}
-                </p>
-              ) : null}
-            </div>
+            {item.notes ? (
+              <p className="col-span-full mt-0.5 whitespace-pre-wrap type-footnote text-muted-foreground">
+                {item.notes}
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

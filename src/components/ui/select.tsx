@@ -88,7 +88,17 @@ function Select<Value extends string = string>({
             : undefined}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      {/* A chip's list opens below it, from its start edge, at least as
+          wide as a phone menu so it covers what it overlaps rather than
+          leaving half-words beside it. Base UI's default lays the selected
+          item over the trigger's value for mouse input, which leaves a chip's
+          leading icon peeking out beside the list; touch already opens
+          below. */}
+      <SelectContent
+        alignItemWithTrigger={variant !== 'chip'}
+        align={variant === 'chip' ? 'start' : 'center'}
+        className={variant === 'chip' ? 'min-w-60' : undefined}
+      >
         <SelectGroup>
           {options.map((option, index) => (
             <SelectItem
@@ -152,7 +162,8 @@ function SelectTrigger({
       {children}
       <SelectPrimitive.Icon
         render={
-          <ChevronDownIcon className="text-muted-foreground size-4 pointer-events-none" />
+          // Turns while open, as a disclosure's chevron does.
+          <ChevronDownIcon className="text-muted-foreground size-4 pointer-events-none transition-transform data-popup-open:rotate-180 motion-reduce:transition-none" />
         }
       />
     </SelectPrimitive.Trigger>
@@ -187,7 +198,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'elevated relative z-50 max-h-(--available-height) min-w-44 w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-2xl bg-popover text-popover-foreground shadow-[0_12px_40px_-8px_oklch(0_0_0/0.25)] ring-1 ring-foreground/8 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+            'elevated relative z-50 max-h-(--available-height) min-w-44 w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-2xl bg-popover text-popover-foreground shadow-[0_12px_40px_-8px_oklch(0_0_0/0.25),0_2px_6px_-1px_oklch(0_0_0/0.1)] ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
             className,
           )}
           {...props}

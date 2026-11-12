@@ -88,6 +88,12 @@ function show() {
   const Page = Route.options.component as ComponentType
   return render(<Page />)
 }
+async function switchPerson(name: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: /^Switch person/ }))
+  fireEvent.keyDown(await screen.findByRole('option', { name }), {
+    key: 'Enter',
+  })
+}
 beforeEach(() => {
   vi.clearAllMocks()
   window.localStorage.clear()
@@ -161,27 +167,12 @@ afterEach(() => {
 
 describe('Today intake dashboard', () => {
   it.each([
-    {
-      logged: 1250,
-      number: '950',
-      label: 'kcal left',
-      accessible: '950 kcal left',
-    },
-    {
-      logged: 2200,
-      number: '0',
-      label: 'Goal reached',
-      accessible: 'goal reached',
-    },
-    {
-      logged: 2368,
-      number: '+168',
-      label: 'kcal over',
-      accessible: '168 kcal over',
-    },
+    { logged: 1250, number: '950', label: 'kcal left' },
+    { logged: 2200, number: '0', label: 'Goal reached' },
+    { logged: 2368, number: '+168', label: 'kcal over' },
   ])(
     'distinguishes the balance when $logged kcal are logged',
-    ({ logged, number, label, accessible }) => {
+    ({ logged, number, label }) => {
       consumedCalories = logged
       show()
       const intake = within(
@@ -189,15 +180,9 @@ describe('Today intake dashboard', () => {
       )
       expect(intake.getByText(number)).toBeTruthy()
       expect(intake.getByText(label)).toBeTruthy()
-      fireEvent.click(screen.getByRole('button', { name: /^Switch person/ }))
-      expect(
-        screen.getByRole('button', {
-          name: `Alex: ${logged} of 2200 kcal logged, ${accessible}`,
-        }),
-      ).toBeTruthy()
     },
   )
-  it('rolls the balance only while it changes in place', () => {
+  it('rolls the balance only while it changes in place', async () => {
     const Page = Route.options.component as ComponentType
     const view = show()
     const balance = () =>
@@ -220,8 +205,7 @@ describe('Today intake dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
     const yesterday = balance()
     expect(yesterday).not.toBe(over)
-    fireEvent.click(screen.getByRole('button', { name: /^Switch person/ }))
-    fireEvent.click(screen.getByRole('button', { name: /^Sam/ }))
+    await switchPerson('Sam')
     expect(balance()).not.toBe(yesterday)
   })
   it('shows server totals independently of loaded meals without mounting entry dependencies', () => {
@@ -253,28 +237,35 @@ describe('Today intake dashboard', () => {
     show()
     fireEvent.click(screen.getByRole('button', { name: /Lunch/ }))
     expect(screen.getByText('Chili')).toBeTruthy()
-    expect(screen.getByText('Recipe estimate: One bowl')).toBeTruthy()
+    // The estimate is an icon by the food; its source opens on tap.
+    expect(screen.queryByText('Recipe estimate: One bowl')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Estimated' }))
+    expect(await screen.findByText('Recipe estimate: One bowl')).toBeTruthy()
     expect(screen.queryByText(/Editor/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Edit meal' }))
     expect(await screen.findByText('Editor meal-lunch')).toBeTruthy()
   })
-  it('keeps device person selection and makes another person selectable', () => {
+  it('keeps device person selection and makes another person selectable', async () => {
     window.localStorage.setItem('calorie-counter:person:account:home', sam._id)
     show()
     expect(screen.getByRole('region', { name: 'Sam’s intake' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /^Alex/ })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /^Switch person/ }))
     expect(
-      screen.getByRole('button', { name: /^Sam/ }).getAttribute('aria-pressed'),
-    ).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: /^Alex/ }))
+      screen.getByRole('combobox', { name: /^Switch person/ }).textContent,
+    ).toContain('Sam')
+    await switchPerson('Alex')
     expect(screen.getByRole('region', { name: 'Alex’s intake' })).toBeTruthy()
-    expect(
-      screen.queryByRole('region', { name: 'Household intake' }),
-    ).toBeNull()
     expect(
       window.localStorage.getItem('calorie-counter:person:account:home'),
     ).toBe(alex._id)
+  })
+  it('offers one Log meal action on an empty day, at every width', async () => {
+    window.localStorage.setItem('calorie-counter:person:account:home', sam._id)
+    show()
+    // The heading's desktop button gives way to the in-list row.
+    const actions = screen.getAllByRole('button', { name: 'Log meal' })
+    expect(actions).toHaveLength(1)
+    fireEvent.click(actions[0])
+    expect(await screen.findByText(`Editor person ${sam._id}`)).toBeTruthy()
   })
   it('honors linked person/date before browser selection and point-loads off-page people', () => {
     loaded = [alex]
@@ -377,10 +368,19 @@ describe('Today intake dashboard', () => {
     expect(
       screen.getByRole('heading', { name: 'okt. 31., szombat', level: 1 }),
     ).toBeTruthy()
-    // The pill always names the year, under a title that may not.
-    expect(screen.getByLabelText('Nap').textContent).toBe(
-      '2026. okt. 31., szombat',
-    )
+  })
+  it('names the day once, in a title that picks the day', () => {
+    show()
+    const title = screen.getByRole('heading', { level: 1 })
+    expect(
+      within(title)
+        .getByRole('button', { name: 'Today' })
+        .getAttribute('aria-haspopup'),
+    ).toBe('dialog')
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
+    expect(within(title).getByRole('button').textContent).toBe('Sat, Oct 31')
+    expect(screen.getAllByText(/Oct 31/)).toHaveLength(1)
   })
   it('keeps archived meal recovery available on its settings page', () => {
     render(<DayDashboard archived />)
