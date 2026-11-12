@@ -11,7 +11,7 @@ export const messages = defineMessages({
     fat: 'Fat',
     // The calorie card's words: "801 kcal left", "Goal reached".
     left: (grams: Figure) => rich(grams, ' g left'),
-    // Short, so it fits a phone's third of the strip beside its check.
+    // Short, so it fits a phone's third of the strip.
     goalReached: 'Reached',
     meal: 'Meal',
     noMacros: 'No macros',

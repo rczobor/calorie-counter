@@ -145,7 +145,7 @@ export function DayBar({
               x={x}
               y={top + overPx}
               width={width}
-              height={barHeight - overPx}
+              height={Math.max(0, barHeight - overPx)}
               fill="var(--color-kcal)"
             />
             <rect
@@ -217,18 +217,14 @@ export function HistoryChart({
   const t = useMessages(messages)
   const locale = useLocale()
   const id = useId().replace(/:/g, '')
+  // History shows the chart only once a day in the range has meals.
   const days = [...rows].reverse()
-  if (days.length === 0) {
-    return (
-      <p className="py-8 text-center type-subhead text-muted-foreground">
-        {t.noChartData}
-      </p>
-    )
-  }
   const max =
     Math.max(1, ...days.map((day) => Math.max(day.consumed, day.goal))) * 1.05
   const showValues = days.length <= 10
-  const labelEvery = days.length <= 14 ? 1 : 5
+  // Every day up to two weeks; past that about six labels, every 5th day on
+  // 30 days.
+  const labelEvery = days.length <= 14 ? 1 : Math.ceil(days.length / 6)
   const last = days.length - 1
   // Even steps back from the last day, so counting columns from a tick
   // always lands on the right date.
@@ -315,9 +311,9 @@ export function HistoryChart({
                     )
               // Thin bars: the end labels hang inward, as on the Weight chart.
               const anchor =
-                days.length > 14 && date === days[0].date
+                days.length > 7 && date === days[0].date
                   ? 'start'
-                  : days.length > 14 && date === days[last].date
+                  : days.length > 7 && date === days[last].date
                     ? 'end'
                     : 'middle'
               return (

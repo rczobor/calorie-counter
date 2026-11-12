@@ -70,8 +70,7 @@
   --over: oklch(0.5 0.13 5);
   --over-surface: oklch(0.95 0.025 5);
   --over-bar: oklch(0.6 0.11 5);
-  /* The empty part of a progress bar and a day without meals in a chart:
-     one track for Today's bar and the History chart (1.25:1 on white). */
+  /* The empty part of a progress bar (1.25:1 on white). */
   --track: oklch(0.925 0.006 286);
   /* Placeholder bars: the empty track, a clear step above a cell. */
   --skeleton: oklch(0.925 0.006 286);

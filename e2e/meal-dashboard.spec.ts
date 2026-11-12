@@ -208,7 +208,7 @@ test('a history bar opens its day using the same intake view', async ({
   // links), so the latest day's bar is found by its drawing.
   await page
     .getByRole('region', { name: 'Daily calories' })
-    .locator('.recharts-bar-rectangle path')
+    .locator('.recharts-bar-rectangle')
     .last()
     .click()
   await expect(

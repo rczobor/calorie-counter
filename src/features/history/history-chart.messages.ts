@@ -5,19 +5,17 @@ export const messages = defineMessages({
     legendOver: 'Over',
     legendGoal: 'Goal',
     noMealsLogged: 'No meals logged',
-    noChartData: 'No chart data for the selected range.',
     // Today's column is still filling up.
     today: 'Today',
     // The chart's text for screen readers; each day follows as a link.
     summary: (days: number, logged: number, over: number) =>
-      `${days} days: ${logged} with meals, ${over} over the goal.`,
+      `${days} ${days === 1 ? 'day' : 'days'}: ${logged} with meals, ${over} over the goal.`,
   },
   hu: {
     // The day balance's word: "kcal túllépés".
     legendOver: 'Túllépés',
     legendGoal: 'Cél',
     noMealsLogged: 'Nincs rögzített étkezés',
-    noChartData: 'A kiválasztott időszakhoz nincs grafikonadat.',
     today: 'Ma',
     summary: (days: number, logged: number, over: number) =>
       `${days} nap: ${logged} napon van étkezés, ${over} napon túllépés.`,

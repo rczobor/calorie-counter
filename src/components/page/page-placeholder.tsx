@@ -306,7 +306,7 @@ export function HistorySkeleton({ label }: { label?: string }) {
       </div>
       <div aria-hidden="true" className="inset-group px-4 pt-3.5 pb-1">
         <p className="type-headline">{t.dailyCalories}</p>
-        <Skeleton className="mt-3 mb-2.5 h-54 w-full rounded-lg bg-skeleton/50" />
+        <Skeleton className="mt-3 h-52 w-full rounded-lg bg-skeleton/50 md:h-64" />
       </div>
       <div aria-hidden="true">
         <p className="type-title">{t.daysHeading}</p>
