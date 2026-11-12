@@ -39,15 +39,18 @@ describe('WeightChart', () => {
   })
 
   it('draws the weigh-ins themselves until a trend has enough behind it', () => {
-    const before = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04']
     const entries = [
-      ...before.map((date, index) => entry(date, 84 - index * 0.1)),
+      entry('2026-09-01', 84),
+      entry('2026-09-02', 83.6),
+      entry('2026-09-03', 84.1),
+      entry('2026-09-04', 83.7),
       // Back after five weeks: nothing in the trend window yet.
       entry('2026-10-09', 83.2),
       entry('2026-10-10', 82.6),
     ]
     const trend = trendByDay(entries)
-    expect(trend.get('2026-09-04')).toBeCloseTo(83.7)
+    // The fitted trend, not the 83.7 weighed that day.
+    expect(trend.get('2026-09-04')).toBeCloseTo(83.79)
     expect(trend.get('2026-10-09')).toBe(83.2)
     expect(trend.get('2026-10-10')).toBe(82.6)
   })
