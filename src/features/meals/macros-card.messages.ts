@@ -9,7 +9,6 @@ export const messages = defineMessages({
     protein: 'Protein',
     carbs: 'Carbs',
     fat: 'Fat',
-    ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
     // The calorie card's words: "801 kcal left", "Goal reached".
     left: (grams: Figure) => rich(grams, ' g left'),
     // Short, so it fits a phone's third of the strip beside its check.
@@ -31,7 +30,6 @@ export const messages = defineMessages({
     protein: 'Fehérje',
     carbs: 'Szénhidrát',
     fat: 'Zsír',
-    ofGoal: (grams: string, goal: string) => `${grams} / ${goal} g`,
     left: (grams: Figure) => rich(grams, ' g maradt'),
     goalReached: 'Elérve',
     meal: 'Étkezés',

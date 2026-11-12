@@ -34,13 +34,14 @@ export function IntakeBar({
       <div className="flex h-2.5 overflow-hidden rounded-full bg-track">
         {bar.over ? (
           <>
-            {/* Up to the goal in a light berry that never matches the empty
-                track, the overage in solid berry. The overage is at least
-                6px wide, so +20 on 2000 never reads as at goal: the base
-                gives up those pixels, while the goal tick stays at its true
-                position (inside the overage when it is that small). */}
+            {/* Up to the goal in the left colour, as under it, and only the
+                overage in berry, like the History chart, so a little over
+                looks a little over. The overage is at least 6px wide, so +20
+                on 2000 never reads as at goal: the base gives up those
+                pixels, while the goal tick stays at its true position
+                (inside the overage when it is that small). */}
             <div
-              className="bg-kcal-over-base"
+              className="bg-kcal-left-bar"
               style={{ width: `${bar.tick}%` }}
             />
             <div data-overage className="min-w-1.5 flex-1 bg-kcal-over-bar" />

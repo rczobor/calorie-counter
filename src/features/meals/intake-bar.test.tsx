@@ -29,13 +29,16 @@ describe('day summary bar', () => {
     expect(intakeBarGeometry(150, 0)).toEqual({ over: true, tick: 0 })
   })
 
-  it('draws the tick and the berry base up to the goal only when over', () => {
+  it('ticks the goal and turns only the overage berry when over', () => {
     const over = render(<IntakeBar consumed={2500} goal={2000} />)
     const tick = over.container.querySelector<HTMLElement>('[data-goal-tick]')
     expect(tick?.style.left).toBe('80%')
-    // Logged-up-to-goal is a berry tint, never the empty track's grey.
-    const base = over.container.querySelector<HTMLElement>('.bg-kcal-over-base')
+    // Up to the goal stays the left colour; only the overage is berry.
+    const base = over.container.querySelector<HTMLElement>('.bg-kcal-left-bar')
     expect(base?.style.width).toBe('80%')
+    expect(over.container.querySelector('[data-overage]')?.classList).toContain(
+      'bg-kcal-over-bar',
+    )
     over.unmount()
     // A small overage keeps a visible segment; its tick stays honest.
     const slightly = render(<IntakeBar consumed={2020} goal={2000} />)
@@ -52,6 +55,6 @@ describe('day summary bar', () => {
     slightly.unmount()
     const under = render(<IntakeBar consumed={1500} goal={2000} />)
     expect(under.container.querySelector('[data-goal-tick]')).toBeNull()
-    expect(under.container.querySelector('.bg-kcal-over-base')).toBeNull()
+    expect(under.container.querySelector('.bg-kcal-over-bar')).toBeNull()
   })
 })

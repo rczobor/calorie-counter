@@ -7,7 +7,6 @@ import { RollingFigure } from '@/components/nutrition/rolling-figure'
 import { Value } from '@/components/nutrition/value'
 import { Sheet } from '@/components/page/sheet'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { intakeBarGeometry } from '@/features/meals/intake-bar'
 import { intlLocale, useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
@@ -37,8 +36,8 @@ function oneDecimal(locale: Locale) {
  * The day's macros for a person who set a macro goal: setting one is how
  * macros are switched on. Each macro with a goal gets a column that says what
  * is still to eat over a neutral bar (the left / over colours belong to
- * calories); the others share one line below. Tapping opens the day's macros
- * by meal.
+ * calories). Macros without a goal, and the eaten / goal grams, live in the
+ * by-meal sheet a tap opens, so Today stays short.
  */
 export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
   const t = useMessages(messages)
@@ -64,12 +63,9 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
       goal: targets.fatG,
     },
   ]
-  // The strip is about the goals the person chose; the other macros are
-  // one quiet line below them.
   const withGoal = macroList.flatMap(({ goal, ...macro }) =>
     goal === undefined ? [] : [{ ...macro, goal: Math.round(goal) }],
   )
-  const others = macroList.filter((macro) => macro.goal === undefined)
   return (
     <button
       type="button"
@@ -110,21 +106,14 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
                   )}
                 </span>
                 <MacroBar eaten={macro.eaten} goal={macro.goal} />
-                <span className="mt-1 block type-footnote whitespace-nowrap text-muted-foreground tabular-nums">
-                  {t.ofGoal(String(macro.eaten), String(macro.goal))}
-                </span>
               </span>
             ))}
           </span>
-        ) : null}
-        {others.length ? (
-          <span
-            className={cn(
-              'block type-footnote text-muted-foreground tabular-nums',
-              withGoal.length && 'mt-1.5',
-            )}
-          >
-            {others.map((macro, index) => (
+        ) : (
+          // Only a per-kg goal whose grams stay private (another member's
+          // weight): the grams eaten are all there is to show.
+          <span className="block type-footnote text-muted-foreground tabular-nums">
+            {macroList.map((macro, index) => (
               // Breaks fall between items, never inside "Szénhidrát 156 g".
               <span key={macro.key} className="whitespace-nowrap">
                 {index ? ' · ' : ''}
@@ -132,7 +121,7 @@ export function MacrosCard({ day, onOpen }: { day: Day; onOpen: () => void }) {
               </span>
             ))}
           </span>
-        ) : null}
+        )}
       </span>
       <ChevronRight
         aria-hidden="true"
