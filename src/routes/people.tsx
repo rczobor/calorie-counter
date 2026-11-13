@@ -68,9 +68,10 @@ function macroGoalDraft(goals: Person['macroGoals']): MacroGoalDraft {
   }
 }
 
-// Empty fields are no goal; no goals at all clears them.
+// Empty or 0 is no goal, as the server reads it; no goals at all clears them.
 function parseMacroGoals(draft: MacroGoalDraft) {
-  const value = (text: string) => (text.trim() ? Number(text) : undefined)
+  const value = (text: string) =>
+    text.trim() && Number(text) !== 0 ? Number(text) : undefined
   const protein = value(draft.protein)
   const goals = {
     proteinG: draft.proteinUnit === 'perDay' ? protein : undefined,

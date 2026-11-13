@@ -597,4 +597,38 @@ describe('macro goals', () => {
     })
     expect(day.macroTargets).toEqual({ proteinG: 140 })
   })
+
+  it('reads a goal of 0 as no goal, so typing 0 clears it', async () => {
+    const t = setup()
+    const robi = asTestUser(t)
+    const householdId = await robi.mutation(api.households.ensurePersonal, {})
+    const personId = await robi.mutation(api.nutrition.createPerson, {
+      householdId,
+      name: 'Robi',
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-04-04',
+      macroGoals: { proteinG: 140, carbsG: 200, fatG: 70 },
+    })
+    const setGoals = (
+      revision: number,
+      macroGoals: { proteinG: number; carbsG: number; fatG: number },
+    ) =>
+      robi.mutation(api.nutrition.updatePerson, {
+        householdId,
+        personId,
+        expectedEditRevision: revision,
+        name: 'Robi',
+        effectiveDate: '2026-04-05',
+        macroGoals,
+      })
+    const goals = async () =>
+      (await t.run((ctx) => ctx.db.get(personId)))?.macroGoals
+    await setGoals(0, { proteinG: 140, carbsG: 0, fatG: 70 })
+    expect(await goals()).toEqual({ proteinG: 140, fatG: 70 })
+    await setGoals(1, { proteinG: 0, carbsG: 0, fatG: 0 })
+    expect(await goals()).toBeUndefined()
+    expect(await robi.query(api.people.tracksMacros, { householdId })).toBe(
+      false,
+    )
+  })
 })

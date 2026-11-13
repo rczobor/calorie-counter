@@ -41,7 +41,10 @@ export function normalizeMacroGrams(
 const MAX_PROTEIN_G_PER_KG = 5
 const MAX_DAILY_GRAMS = 2000
 
-/** Positive goals within human ranges; an empty set of goals is none. */
+/**
+ * Positive goals within human ranges. A goal of 0 is no goal, as an empty
+ * field is: people clear a goal by typing 0. An empty set of goals is none.
+ */
 type MacroGoals = {
   proteinG?: number
   proteinGPerKg?: number
@@ -55,7 +58,7 @@ export function normalizeMacroGoals(goals: MacroGoals) {
       'Set the protein goal in grams a day or per kg of body weight, not both.',
     )
   const check = (value: number | undefined, max: number, name: string) => {
-    if (value === undefined) return undefined
+    if (value === undefined || value === 0) return undefined
     const rounded = Math.round(value * 10) / 10
     if (!Number.isFinite(rounded) || rounded <= 0 || rounded > max)
       throw new DomainError(`${name} must be above 0 and at most ${max}.`)
