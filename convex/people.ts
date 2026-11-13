@@ -295,9 +295,12 @@ export const listGoalHistory = query({
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
+    // The order readDayNutrition picks the goal in effect by: newest date,
+    // then newest change, so the client can fold same-day changes under the
+    // one that applied.
     const result = await ctx.db
       .query('personGoalHistory')
-      .withIndex('by_householdId_and_personId_and_createdAt', (q) =>
+      .withIndex('by_householdId_and_personId_and_effectiveDate', (q) =>
         q.eq('householdId', owner.householdId).eq('personId', args.personId),
       )
       .order('desc')

@@ -375,6 +375,9 @@ describe('People settings', () => {
     expect(screen.queryByText('Consumed')).toBeNull()
     expect(screen.queryByText('Archived')).toBeNull()
     openAlex()
+    // History waits behind its own row instead of lengthening the form.
+    expect(screen.queryByText('Initial goal')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Goal history' }))
     expect(await screen.findByText('Initial goal')).toBeTruthy()
   })
   it('asks for a reason only once the goal changes', () => {

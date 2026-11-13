@@ -670,18 +670,41 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
       .map(withoutOwner)
   } else if (functionName === 'people:listGoalHistory') {
     const input = args as { personId: Id<'people'> }
+    const goalKcal =
+      snapshot.dashboard.people.find((p) => p._id === input.personId)
+        ?.currentDailyGoalKcal ?? 2100
+    const goal = (
+      id: string,
+      effectiveDate: string,
+      kcal: number,
+      createdAt: string,
+      reason?: string,
+    ) => ({
+      _id: id,
+      _creationTime: Date.parse(createdAt),
+      personId: input.personId,
+      effectiveDate,
+      goalKcal: kcal,
+      reason,
+      createdAt: Date.parse(createdAt),
+    })
+    // Server order; the second goal was replaced the same day.
     results = [
-      {
-        _id: 'goal-initial',
-        _creationTime: 1,
-        personId: input.personId,
-        effectiveDate: '2026-01-01',
-        goalKcal:
-          snapshot.dashboard.people.find((p) => p._id === input.personId)
-            ?.currentDailyGoalKcal ?? 2100,
-        reason: 'Initial goal',
-        createdAt: 1,
-      },
+      goal('goal-current', '2026-02-01', goalKcal, '2026-02-01T18:05'),
+      goal(
+        'goal-replaced',
+        '2026-02-01',
+        goalKcal + 20,
+        '2026-02-01T08:40',
+        'Calculator: lose 1% a week',
+      ),
+      goal(
+        'goal-initial',
+        '2026-01-01',
+        goalKcal,
+        '2026-01-01T10:00',
+        'Initial goal',
+      ),
     ]
   } else if (functionName === 'people:list') {
     const archived = (args as { archived: boolean }).archived
