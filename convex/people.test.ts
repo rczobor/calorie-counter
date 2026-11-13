@@ -179,6 +179,42 @@ describe('nutrition people mutations', () => {
     ).resolves.toMatchObject({ page: [], isDone: true })
   })
 
+  it('lists goal history in the order goals take effect', async () => {
+    const t = createConvexTest()
+    const user = asTestUser(t)
+    const personId = await user.mutation(api.nutrition.createPerson, {
+      name: 'Alex',
+      currentDailyGoalKcal: 2200,
+      effectiveDate: '2026-04-04',
+    })
+    // A backdated change and two changes on one later date.
+    for (const [goalKcal, effectiveDate] of [
+      [2100, '2026-04-06'],
+      [2000, '2026-04-06'],
+      [2150, '2026-04-05'],
+    ] as const) {
+      vi.advanceTimersByTime(1000)
+      await user.mutation(api.nutrition.updatePersonGoal, {
+        personId,
+        expectedEditRevision: await readEditRevision(t, personId),
+        goalKcal,
+        effectiveDate,
+      })
+    }
+
+    const { page } = await user.query(api.people.listGoalHistory, {
+      personId,
+      paginationOpts: { cursor: null, numItems: 10 },
+    })
+    // Newest date first, and the change that applied leads its date.
+    expect(page.map((goal) => [goal.effectiveDate, goal.goalKcal])).toEqual([
+      ['2026-04-06', 2000],
+      ['2026-04-06', 2100],
+      ['2026-04-05', 2150],
+      ['2026-04-04', 2200],
+    ])
+  })
+
   it('updates the current goal and appends goal history', async () => {
     const t = createConvexTest()
     const user = asTestUser(t)

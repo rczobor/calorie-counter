@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { describePlan } from '@/features/energy/energy-format'
+import { GoalHistorySheet } from '@/features/energy/goal-history-sheet'
 import { WhichOneIsYou } from '@/features/households/which-one-is-you'
 import { youFirst } from '@/features/households/you-first'
 import {
@@ -37,7 +38,6 @@ import { formatAmount } from '@/i18n/format'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { isConvexConfigured } from '@/integrations/convex/config'
-import { formatDate } from '@/lib/dates'
 import { toErrorMessage, toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 import { messages } from './people.messages'
@@ -111,6 +111,7 @@ function PeopleContent() {
   const [isMeChoice, setIsMeChoice] = useState<boolean | null>(null)
   // The local date the calculator opened on, while it is open.
   const [calculatingOn, setCalculatingOn] = useState<string | null>(null)
+  const [viewingHistory, setViewingHistory] = useState(false)
   // A calculator result waits in the form and saves with the goal.
   const [plan, setPlan] = useState<Pick<
     CalculatorChoice,
@@ -162,12 +163,6 @@ function PeopleContent() {
     if ((openedLink && edit === openedLink) || linkUnusable)
       void navigate({ search: {}, replace: true })
   }, [edit, linkUnusable, navigate, openedLink])
-  // A person removed elsewhere has no goal history to load.
-  const history = usePaginatedQuery(
-    api.people.listGoalHistory,
-    editing && selected !== null ? { personId: editing._id } : 'skip',
-    { initialNumItems: PAGE_SIZE },
-  )
   const latestWeight = useQuery(
     api.weight.latestOnOrBefore,
     calculatingOn && editing
@@ -351,6 +346,7 @@ function PeopleContent() {
     setReason('')
     setPlan(null)
     setIsMeChoice(null)
+    setViewingHistory(false)
   }
   function closeEditor() {
     if (dirty)
@@ -521,35 +517,14 @@ function PeopleContent() {
                 </Field>
               ) : null}
               {editing && selected !== null ? (
-                <section aria-labelledby="goal-history-title" className="pt-1">
-                  <h3 id="goal-history-title" className="group-label">
-                    {t.goalHistory}
-                  </h3>
-                  <RecordList
-                    label={t.goalHistory}
-                    loading={history.status === 'LoadingFirstPage'}
-                    empty={t.noGoalHistory}
-                  >
-                    {history.results.map((entry) => (
-                      <RecordRow
-                        key={entry._id}
-                        title={formatDate(entry.effectiveDate, locale)}
-                        detail={entry.reason}
-                        value={entry.goalKcal.toFixed(0)}
-                        unit={t.kcalPerDay}
-                      />
-                    ))}
-                  </RecordList>
-                  {history.status === 'CanLoadMore' ||
-                  history.status === 'LoadingMore' ? (
-                    <LoadMoreButton
-                      loading={history.status === 'LoadingMore'}
-                      onClick={() => history.loadMore(PAGE_SIZE)}
-                    >
-                      {t.loadMoreGoalHistory}
-                    </LoadMoreButton>
-                  ) : null}
-                </section>
+                // Read-only and open-ended, so it opens on its own sheet
+                // instead of growing this form.
+                <RecordList label={t.goalHistory} empty={null}>
+                  <RecordRow
+                    title={t.goalHistory}
+                    onOpen={() => setViewingHistory(true)}
+                  />
+                </RecordList>
               ) : null}
               {goalLocked ? null : (
                 <fieldset className="mt-1 min-w-0">
@@ -767,6 +742,12 @@ function PeopleContent() {
             description={pendingConfirmation?.message}
           />
         </EditorDialog>
+      ) : null}
+      {viewingHistory && editing && selected !== null ? (
+        <GoalHistorySheet
+          personId={editing._id}
+          onClose={() => setViewingHistory(false)}
+        />
       ) : null}
       {calculatingOn &&
       editing !== undefined &&
