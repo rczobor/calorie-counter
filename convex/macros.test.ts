@@ -419,6 +419,7 @@ describe('macronutrients over MCP', () => {
               itemId: meal.items[0].id,
               calories,
               macros,
+              macrosUnknown: macros === undefined,
             },
           ],
         },
@@ -439,7 +440,7 @@ describe('macronutrients over MCP', () => {
       fatG: 3,
       coveredCalories: 100,
     })
-    // New calories without macros cannot keep macros for the old ones.
+    // New calories with macrosUnknown cannot keep macros for the old ones.
     await correct(150, undefined)
     expect((await summaryFor(t, personId))?.macros).toBeUndefined()
   })
