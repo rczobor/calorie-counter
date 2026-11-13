@@ -144,7 +144,16 @@ creation or device-code flow is exposed in this release.
   macro goal.
 - Assistants should record protein, carbohydrate and fat with the calories of
   every food: from the user's text, a nutrition label in a photo, a lookup, or
-  an estimate labelled as one.
+  an estimate labelled as one. The server enforces this for `customByWeight`
+  and `fixedCalories` meal items, for every person: `preview_meal` (and the
+  template and repeat previews built on it) marks each such item that has
+  calories but no `macros` with a `missingMacros` warning, and `log_meal`
+  refuses it with an error asking for an estimate. `fixedCalories` and
+  `customNutrition` corrections follow the same rule in
+  `preview_meal_correction` and `preview_meal_corrections_batch` (which then
+  reports `ready: false`), and `correct_meal` and `correct_meals_batch` refuse
+  them. Only when no estimate is possible, the item or change sets
+  `macrosUnknown: true` and saves without macros.
 - Add protein, carbohydrate and fat to a catalog ingredient, cooked batch or
   saved food. `preview_food_macros` takes grams on the food's calorie basis
   (per 100 of its unit, per 100 g of a batch's finished weight, or per serving

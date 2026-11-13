@@ -63,7 +63,7 @@ const reusableWrite = {
 export const mcp: McpServer = new McpServer(components.mcp, {
   name: 'calorie-counter',
   title: 'Calorie Counter',
-  version: '1.10.0',
+  version: '1.11.0',
   consentUrl: env.MCP_CONSENT_URL ?? 'https://unconfigured.invalid/connect',
   deviceFlow: false,
   allowedOrigins: [],
@@ -273,7 +273,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_meal_template: tool({
       description:
-        'Preview a saved template for an explicit person and date. Optional multiplier scales every default portion; optional items replaces the full list to edit individual quantities, remove foods or choose another brand from discovery. Replacement items resolve current product nutrition for this preview; unmodified template defaults retain frozen nutrition. Show preview and estimates and obtain approval under the existing policy, then send exact returned input to log_meal. Does not change the template or save a meal.',
+        'Preview a saved template for an explicit person and date. Optional multiplier scales every default portion; optional items replaces the full list to edit individual quantities, remove foods or choose another brand from discovery. Replacement items resolve current product nutrition for this preview; unmodified template defaults retain frozen nutrition. Items whose calories have no macros carry missingMacros, and log_meal refuses them: add estimated macros or macrosUnknown true to those items, or refresh the template first. Show preview and estimates and obtain approval under the existing policy, then send exact returned input to log_meal. Does not change the template or save a meal.',
       args: {
         householdId: v.optional(v.id('households')),
         templateId: v.id('mealTemplates'),
@@ -510,7 +510,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_meal_correction: tool({
       description:
-        'Preview changes to an existing meal without saving. Use mealId, editRevision as expectedEditRevision, and item IDs from a fresh get_meal. itemChanges patches only specified items: portion changes grams on weighted items; fixedCalories changes a fixed total and optionally its explicit positive servingCount (never inferred from calories); customNutrition changes kcal/100 and optionally grams on customByWeight items. Both keep an item’s macros only while its calories stay the same: when calories change, send macros again (scaled for a smaller portion, or null to remove them), or they are dropped. Label new estimates with nutritionProvenance. Optional personId, eatenOn (YYYY-MM-DD), and name change the meal; an empty name clears it. For ingredient and cookedFood items, macros sets protein, carbs and fat per 100 g (null removes them) with nutritionProvenance, and refreshFromCatalog copies the catalog food’s current macros, only when its current kcal/100 g equals the item’s recorded kcal/100 g; neither changes calories or grams. A portion change keeps the item’s recorded macros and never refreshes them. Unmentioned items, notes, and historical catalog snapshots stay intact. Cannot add, remove, or replace foods. For many meals use preview_meal_corrections_batch, or preview_food_macros with applyToPastMeals when they share one catalog food. Show before/after person, date, portions, calories, macros and assumptions, then ask for approval.',
+        'Preview changes to an existing meal without saving. Use mealId, editRevision as expectedEditRevision, and item IDs from a fresh get_meal. itemChanges patches only specified items: portion changes grams on weighted items; fixedCalories changes a fixed total and optionally its explicit positive servingCount (never inferred from calories); customNutrition changes kcal/100 and optionally grams on customByWeight items. Both keep an item’s macros only while its calories stay the same: when calories change, send macros again (scaled for a smaller portion, or estimated). An item these changes leave with calories but no macros gets a missingMacros warning and correct_meal refuses it, unless the change sets macrosUnknown true because no estimate is possible; null removes macros only with macrosUnknown. Label new estimates with nutritionProvenance. Optional personId, eatenOn (YYYY-MM-DD), and name change the meal; an empty name clears it. For ingredient and cookedFood items, macros sets protein, carbs and fat per 100 g (null removes them) with nutritionProvenance, and refreshFromCatalog copies the catalog food’s current macros, only when its current kcal/100 g equals the item’s recorded kcal/100 g; neither changes calories or grams. A portion change keeps the item’s recorded macros and never refreshes them. Unmentioned items, notes, and historical catalog snapshots stay intact. Cannot add, remove, or replace foods. For many meals use preview_meal_corrections_batch, or preview_food_macros with applyToPastMeals when they share one catalog food. Show before/after person, date, portions, calories, macros and assumptions, then ask for approval.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealCorrectionInput,
@@ -531,7 +531,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     correct_meal: tool({
       description:
-        'Save an existing meal correction after the user approves preview_meal_correction. Send the exact preview input and a new unique operationKey; reuse both only for retries of the same correction. Edits the same meal and updates affected daily totals atomically. If the meal changed, read and preview again, then request new approval. Cannot archive/delete a meal or alter catalog foods.',
+        'Save an existing meal correction after the user approves preview_meal_correction. Send the exact preview input and a new unique operationKey; reuse both only for retries of the same correction. Refuses fixedCalories and customNutrition changes that leave an item with calories but no macros, unless they set macrosUnknown true. Edits the same meal and updates affected daily totals atomically. If the meal changed, read and preview again, then request new approval. Cannot archive/delete a meal or alter catalog foods.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealCorrectionInput,
@@ -553,7 +553,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_meal_corrections_batch: tool({
       description:
-        'Preview up to 50 meal corrections as one unit, without saving. corrections holds one preview_meal_correction input per meal (mealId, expectedEditRevision from a fresh get_meal, itemChanges, optional personId, eatenOn and name), each meal at most once. Use it to backfill macros into many meals with one approval: macros or refreshFromCatalog for ingredient and cooked-food items, customNutrition (same kcalPer100) or fixedCalories (same calories) with macros for custom and fixed items. Prefer preview_food_macros with applyToPastMeals when the items all came from one catalog food. Returns each meal’s before and after totals and macros with its changed items, or that meal’s error, plus combined before/after daily summaries. ready is false when any meal fails: fix or drop those corrections and preview again. Meals with many items may not fit one batch; the error then asks to split it. Show it and obtain approval, then call correct_meals_batch with the exact input.',
+        'Preview up to 50 meal corrections as one unit, without saving. corrections holds one preview_meal_correction input per meal (mealId, expectedEditRevision from a fresh get_meal, itemChanges, optional personId, eatenOn and name), each meal at most once. Use it to backfill macros into many meals with one approval: macros or refreshFromCatalog for ingredient and cooked-food items, customNutrition (same kcalPer100) or fixedCalories (same calories) with macros for custom and fixed items. Prefer preview_food_macros with applyToPastMeals when the items all came from one catalog food. Returns each meal’s before and after totals and macros with its changed items, or that meal’s error, plus combined before/after daily summaries. A fixedCalories or customNutrition change that leaves an item with calories but no macros marks it missingMacros unless it sets macrosUnknown true. ready is false when any meal fails or has missingMacros: fix or drop those corrections and preview again. Meals with many items may not fit one batch; the error then asks to split it. Show it and obtain approval, then call correct_meals_batch with the exact input.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealCorrectionsBatchInput,
@@ -569,7 +569,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     correct_meals_batch: tool({
       description:
-        'Save a meal correction batch after the user approves preview_meal_corrections_batch. Send the exact preview input and a new unique operationKey; reuse both only to retry. All or nothing: every correction is checked first, and if any meal fails (for example its editRevision changed) nothing is saved and the error lists each failing meal; read those meals again, preview the batch again and ask for approval. Saves the meals and their daily totals atomically and counts as one write against the rate limit. Cannot archive or delete meals or alter catalog foods.',
+        'Save a meal correction batch after the user approves preview_meal_corrections_batch. Send the exact preview input and a new unique operationKey; reuse both only to retry. All or nothing: every correction is checked first, and if any meal fails (for example its editRevision changed, or an item would have calories but no macros without macrosUnknown true) nothing is saved and the error lists each failing meal; read those meals again, preview the batch again and ask for approval. Saves the meals and their daily totals atomically and counts as one write against the rate limit. Cannot archive or delete meals or alter catalog foods.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealCorrectionsBatchInput,
@@ -591,7 +591,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_meal: tool({
       description:
-        'Validate and calculate a meal without saving. Up to 30 items. Ingredient and cooked-food portions must be grams. Use savedFood with savedFoodId and portion {grams}, {ml} or {servings} for reusable foods. For unknown foods use customByWeight or fixedCalories; if any nutrition or portion is estimated, include nutritionProvenance with a source and explicit assumptions. A fresh label may override one meal with custom nutrition without editing a saved product. customByWeight and fixedCalories accept optional macros from the same source as their calories: grams per 100 g, or for the whole fixed item. Catalog foods, saved foods and cooked batches bring their own. Show returned calories, macros with their coveredCalories, context, dailySummary, projectedDailySummary, and estimates. Ask approval unless the saved explicitOnly policy permits this exact requested new meal.',
+        'Validate and calculate a meal without saving. Up to 30 items. Ingredient and cooked-food portions must be grams. Use savedFood with savedFoodId and portion {grams}, {ml} or {servings} for reusable foods. For unknown foods use customByWeight or fixedCalories; if any nutrition or portion is estimated, include nutritionProvenance with a source and explicit assumptions. A fresh label may override one meal with custom nutrition without editing a saved product. customByWeight and fixedCalories need macros from the same source as their calories (grams per 100 g, or for the whole fixed item); estimate them when no label or lookup gives them, labelled kind estimate. Only when no estimate is possible, set macrosUnknown true. An item with calories but neither gets a missingMacros warning here, and log_meal refuses it. Catalog foods, saved foods and cooked batches bring their own. Show returned calories, macros with their coveredCalories, context, dailySummary, projectedDailySummary, and estimates. Ask approval unless the saved explicitOnly policy permits this exact requested new meal.',
       args: { householdId: v.optional(v.id('households')), input: mealInput },
       returns: mealPreview,
       scope: 'nutrition:read',
@@ -606,7 +606,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     log_meal: tool({
       description:
-        'Record a new meal after preview approval, or in the same turn for an explicit fully specified non-estimated logging request when saved confirmationMode is explicitOnly. Send the exact input returned by preview_meal, including expectedSnapshot fields, and a new unique operationKey. Reuse that same key and input only when retrying the same save. If foods change after a preview, preview again; never save an obsolete preview. Updates the daily total atomically. Returned summaries are point-in-time snapshots, including on retries; use get_day for current totals. Does not edit existing meals or save foods to the catalog.',
+        'Record a new meal after preview approval, or in the same turn for an explicit fully specified non-estimated logging request when saved confirmationMode is explicitOnly. Send the exact input returned by preview_meal, including expectedSnapshot fields, and a new unique operationKey. Reuse that same key and input only when retrying the same save. If foods change after a preview, preview again; never save an obsolete preview. Refuses customByWeight and fixedCalories items with calories but no macros unless they set macrosUnknown true. Updates the daily total atomically. Returned summaries are point-in-time snapshots, including on retries; use get_day for current totals. Does not edit existing meals or save foods to the catalog.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealInput,

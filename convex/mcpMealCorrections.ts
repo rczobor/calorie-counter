@@ -46,6 +46,9 @@ import {
   domainResult,
   findReceipt,
   limiter,
+  missingMacrosError,
+  missingMacrosWarning,
+  refuseMissingMacros,
   requireMcpOwner,
 } from './mcpOperations'
 import {
@@ -445,9 +448,17 @@ async function prepareCorrection(
         eatenOn: args.eatenOn,
         name: args.name,
         totalCalories: sumMealItemCalories(snapshots),
-        items: snapshots.map((item, index) =>
-          describeItem(current.items[index]._id, item),
-        ),
+        items: snapshots.map((item, index) => {
+          const id = current.items[index]._id
+          const change = changes.get(id)
+          return {
+            ...describeItem(id, item),
+            ...(change?.kind === 'fixedCalories' ||
+            change?.kind === 'customNutrition'
+              ? missingMacrosWarning(change, item)
+              : {}),
+          }
+        }),
       },
     },
   }
@@ -511,6 +522,7 @@ export const correctMeal = internalMutation({
         macrosByExistingItemId,
         preview,
       } = await prepareCorrection(ctx, owner, args.input)
+      refuseMissingMacros(preview.after.items)
       await limiter.limit(ctx, 'writes', {
         key: owner.userId,
         throws: true,
@@ -703,7 +715,9 @@ export const previewMealCorrectionsBatch = internalMutation({
       return {
         context: await describeContext(ctx, owner),
         input: args.input,
-        ready: entries.every((entry) => entry.ok),
+        ready: entries.every(
+          (entry) => entry.ok && !missingMacrosError(entry.preview.after.items),
+        ),
         meals: entries.map((entry) => {
           if (!entry.ok) return entry
           const { before, after } = entry.preview
@@ -769,9 +783,12 @@ export const correctMealsBatch = internalMutation({
         owner,
         args.input,
       )
-      const failures = entries.flatMap((entry) =>
-        entry.ok ? [] : [`${entry.mealId}: ${entry.error}`],
-      )
+      const failures = entries.flatMap((entry) => {
+        const error = entry.ok
+          ? missingMacrosError(entry.preview.after.items)
+          : entry.error
+        return error ? [`${entry.mealId}: ${error}`] : []
+      })
       if (failures.length > 0)
         throw new ConvexError(
           `No meals were saved: ${failures.length} of ${entries.length} corrections failed. ${failures.join(' | ')} Fix or remove those corrections, preview the batch again and ask for approval.`,

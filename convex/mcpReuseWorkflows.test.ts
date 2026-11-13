@@ -161,6 +161,7 @@ describe('review regressions', () => {
                       kind: 'customNutrition' as const,
                       itemId: item.id,
                       kcalPer100,
+                      macrosUnknown: true,
                       ...(mode === 'customNutrition'
                         ? { consumedWeightGrams: grams }
                         : {}),
@@ -208,6 +209,7 @@ describe('review regressions', () => {
           ignoreCalories: false,
           consumedWeightGrams: 30,
           servingCount: 1,
+          macros: { proteinG: 75, carbsG: 8, fatG: 5 },
         },
       ],
     })
@@ -274,6 +276,7 @@ describe('review regressions', () => {
           itemId: items[2]._id,
           calories: 100,
           servingCount: 1,
+          macrosUnknown: true,
         },
       ],
     }
@@ -929,6 +932,7 @@ describe('branded products and fixed servings', () => {
             consumedWeightGrams: 50,
             foodIdentity: { basis: 'g', brand: 'Brand B' },
             nutritionProvenance: label,
+            macrosUnknown: true,
           },
         ],
       },
@@ -1071,6 +1075,7 @@ describe('meal templates and suggestions', () => {
       brand: 'Brand B',
       kcalPer100: 50,
       ignoreCalories: false,
+      macros: { proteinG: 3.4, carbsG: 4.8, fatG: 1.5 },
     })
     await t.mutation(internal.mcpFoodReuse.manageMealTemplate, {
       user,

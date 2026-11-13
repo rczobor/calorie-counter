@@ -21,6 +21,11 @@ const notes = {
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
 }
 const weighted = { consumedWeightGrams: v.number(), ...notes }
+// The caller states that protein, carbs and fat cannot be estimated. Saving a
+// custom or fixed item with calories but neither this nor macros is refused.
+const macrosUnknown = { macrosUnknown: v.optional(v.boolean()) }
+// Set on a previewed item that saving would refuse for missing macros.
+const missingMacrosWarning = { missingMacros: v.optional(v.string()) }
 export const savedFoodNutrition = v.union(
   v.object({
     kind: v.literal('byVolume'),
@@ -107,6 +112,7 @@ export const mcpMealItem = v.union(
     ignoreCalories: v.boolean(),
     // Per 100 g, like kcalPer100.
     macros: v.optional(macroGramsValidator),
+    ...macrosUnknown,
     ...weighted,
   }),
   v.object({
@@ -115,6 +121,7 @@ export const mcpMealItem = v.union(
     calories: v.number(),
     // For the whole item, like calories.
     macros: v.optional(macroGramsValidator),
+    ...macrosUnknown,
     ...notes,
   }),
 )
@@ -192,6 +199,7 @@ export const mealPreview = v.object({
       name: v.string(),
       calories: v.number(),
       nutritionProvenance: v.optional(nutritionProvenanceValidator),
+      ...missingMacrosWarning,
     }),
   ),
 })
@@ -280,6 +288,7 @@ export const mealCorrectionInput = v.object({
         servingCount: v.optional(v.number()),
         // For the whole item; null removes them.
         macros: v.optional(v.union(macroGramsValidator, v.null())),
+        ...macrosUnknown,
         ...correctionProvenance,
       }),
       v.object({
@@ -290,6 +299,7 @@ export const mealCorrectionInput = v.object({
         consumedWeightGrams: v.optional(v.number()),
         // Per 100 g; null removes them.
         macros: v.optional(v.union(macroGramsValidator, v.null())),
+        ...macrosUnknown,
         ...correctionProvenance,
       }),
       // Ingredient and cooked-food items only; calories never change.
@@ -324,6 +334,7 @@ export const mealCorrectionItem = v.object({
   // Per 100 g like kcalPer100, or for the whole fixed item like calories.
   macros: v.optional(macroGramsValidator),
   nutritionProvenance: v.optional(nutritionProvenanceValidator),
+  ...missingMacrosWarning,
 })
 const mealCorrectionSummary = {
   personId: v.id('people'),
@@ -363,7 +374,8 @@ const batchMealState = v.object({
 export const mealCorrectionsBatchPreview = v.object({
   context: v.optional(loggingContext),
   input: mealCorrectionsBatchInput,
-  // False when any correction fails; correct_meals_batch would save nothing.
+  // False when any correction fails or an item has missingMacros;
+  // correct_meals_batch would save nothing.
   ready: v.boolean(),
   meals: v.array(
     v.union(

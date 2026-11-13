@@ -35,6 +35,8 @@ import {
   goalChangeResult,
   foodMacrosPreview,
   foodMacrosResult,
+  mealCorrectionsBatchPreview,
+  mealCorrectionsBatchResult,
 } from './mcpValidators'
 import { formulaMaintenance, goalForPlan, shiftDay } from './lib/energy'
 import {
@@ -582,6 +584,7 @@ describe('MCP meal corrections', () => {
           itemId: detail.items[0].id,
           calories: 210,
           name: 'Two bananas',
+          macrosUnknown: true,
         },
       ],
     }
@@ -716,6 +719,7 @@ describe('MCP meal corrections', () => {
             kcalPer100: 100,
             ignoreCalories: false,
             consumedWeightGrams: 100,
+            macrosUnknown: true,
           },
         ],
       },
@@ -747,6 +751,7 @@ describe('MCP meal corrections', () => {
               name: 'Corrected estimate',
               kcalPer100: 150,
               consumedWeightGrams: 200,
+              macrosUnknown: true,
               nutritionProvenance: {
                 source: 'Label',
                 assumptions: 'Updated to 150 kcal/100 g.',
@@ -938,7 +943,12 @@ describe('MCP integration', () => {
       personId,
       eatenOn: '2026-10-29',
       items: [
-        { sourceType: 'fixedCalories' as const, name: 'Lunch', calories: 400 },
+        {
+          sourceType: 'fixedCalories' as const,
+          name: 'Lunch',
+          calories: 400,
+          macrosUnknown: true,
+        },
       ],
     }
     const results = await Promise.all(
@@ -1467,7 +1477,12 @@ describe('MCP household authorization', () => {
       personId,
       eatenOn: '2026-10-31',
       items: [
-        { sourceType: 'fixedCalories' as const, name: 'Snack', calories: 100 },
+        {
+          sourceType: 'fixedCalories' as const,
+          name: 'Snack',
+          calories: 100,
+          macrosUnknown: true,
+        },
       ],
     }
     const preview = await output(
@@ -1589,6 +1604,7 @@ describe('MCP upgrade compatibility', () => {
             sourceType: 'fixedCalories' as const,
             name: 'Snack',
             calories: 125,
+            macrosUnknown: true,
           },
         ],
       },
@@ -1925,6 +1941,7 @@ describe('MCP conversation regressions', () => {
           kcalPer100: 100,
           ignoreCalories: false,
           consumedWeightGrams: 300,
+          macrosUnknown: true,
         },
       ],
     }
@@ -1945,6 +1962,7 @@ describe('MCP conversation regressions', () => {
               kcalPer100: 268,
               ignoreCalories: false,
               consumedWeightGrams: 96,
+              macrosUnknown: true,
             },
           ],
         },
@@ -2032,6 +2050,7 @@ describe('MCP conversation regressions', () => {
               sourceType: 'fixedCalories',
               name: 'Vitamins',
               calories: 14,
+              macrosUnknown: true,
               nutritionProvenance: provenance,
             },
           ],
@@ -2312,7 +2331,14 @@ describe('MCP conversation regressions', () => {
       personId,
       eatenOn: '2026-11-02',
       name,
-      items: [{ sourceType: 'fixedCalories' as const, name, calories }],
+      items: [
+        {
+          sourceType: 'fixedCalories' as const,
+          name,
+          calories,
+          macrosUnknown: true,
+        },
+      ],
     })
     const breakfast = await output(
       await call(t, own.token, 'log_meal', {
@@ -2377,6 +2403,7 @@ describe('MCP reuse tool protocol', () => {
               name: 'Cookie',
               calories: 200,
               servingCount: 2,
+              macrosUnknown: true,
               foodIdentity: {
                 basis: 'serving',
                 brand: 'Brand A',
@@ -3260,6 +3287,7 @@ describe('MCP macronutrient tools', () => {
               name: 'Protein bar',
               calories: 200,
               nutritionProvenance: label,
+              macrosUnknown: true,
             },
           ],
         },
@@ -3351,5 +3379,204 @@ describe('MCP macronutrient tools', () => {
       }),
       'Protein must be between 0',
     )
+  })
+})
+
+describe('MCP custom and fixed items without macros', () => {
+  const refusal = async (response: Response, name: string) =>
+    expect(await response.json()).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            text: expect.stringContaining(
+              `Missing protein, carbs and fat for ${name}.`,
+            ),
+          },
+        ],
+      },
+    })
+
+  it('warns in preview_meal, refuses log_meal, and saves with macrosUnknown', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const { token } = await credential(t)
+    const input = {
+      personId,
+      eatenOn: '2026-11-12',
+      items: [
+        {
+          sourceType: 'customByWeight' as const,
+          name: 'Stew',
+          kcalPer100: 120,
+          ignoreCalories: false,
+          consumedWeightGrams: 300,
+        },
+        {
+          sourceType: 'fixedCalories' as const,
+          name: 'Bar',
+          calories: 200,
+          macros: { proteinG: 20, carbsG: 20, fatG: 4 },
+        },
+        // Nothing to cover without calories.
+        { sourceType: 'fixedCalories' as const, name: 'Water', calories: 0 },
+      ],
+    }
+    const preview = await output(
+      await call(t, token, 'preview_meal', { input }),
+      mealPreview,
+    )
+    expect(preview.items.map((item) => item.missingMacros)).toEqual([
+      expect.stringContaining('macrosUnknown'),
+      undefined,
+      undefined,
+    ])
+    await refusal(
+      await call(t, token, 'log_meal', {
+        input: preview.input,
+        operationKey: 'no-macros',
+      }),
+      'Stew',
+    )
+    expect(await t.run((ctx) => ctx.db.query('meals').take(1))).toEqual([])
+
+    const optedOut = {
+      ...input,
+      items: [
+        { ...input.items[0], macrosUnknown: true },
+        ...input.items.slice(1),
+      ],
+    }
+    const accepted = await output(
+      await call(t, token, 'preview_meal', { input: optedOut }),
+      mealPreview,
+    )
+    expect(accepted.items.some((item) => item.missingMacros)).toBe(false)
+    const saved = await output(
+      await call(t, token, 'log_meal', {
+        input: accepted.input,
+        operationKey: 'macros-unknown',
+      }),
+      mealResult,
+    )
+    expect(saved.totalCalories).toBe(560)
+  })
+
+  it('warns in preview_meal_correction and refuses correct_meal until macros or macrosUnknown', async () => {
+    const { t, own, mealId, detail } = await correctionFixture()
+    const input: Infer<typeof mealCorrectionInput> = {
+      mealId,
+      expectedEditRevision: detail.editRevision,
+      itemChanges: [
+        { kind: 'fixedCalories', itemId: detail.items[0].id, calories: 210 },
+      ],
+    }
+    const preview = await output(
+      await call(t, own.token, 'preview_meal_correction', { input }),
+      mealCorrectionPreview,
+    )
+    // Only the changed item: the untouched coffee is history, not a new entry.
+    expect(preview.after.items.map((item) => item.missingMacros)).toEqual([
+      expect.stringContaining('macrosUnknown'),
+      undefined,
+    ])
+    await refusal(
+      await call(t, own.token, 'correct_meal', {
+        input: preview.input,
+        operationKey: 'no-macros',
+      }),
+      'Banana',
+    )
+    const withMacros = await output(
+      await call(t, own.token, 'preview_meal_correction', {
+        input: {
+          ...input,
+          itemChanges: [
+            {
+              ...input.itemChanges[0],
+              macros: { proteinG: 2.6, carbsG: 54, fatG: 0.8 },
+            },
+          ],
+        },
+      }),
+      mealCorrectionPreview,
+    )
+    expect(withMacros.after.items[0].missingMacros).toBeUndefined()
+    const saved = await output(
+      await call(t, own.token, 'correct_meal', {
+        input: {
+          ...input,
+          itemChanges: [{ ...input.itemChanges[0], macrosUnknown: true }],
+        },
+        operationKey: 'macros-unknown',
+      }),
+      mealResult,
+    )
+    expect(saved.totalCalories).toBe(215)
+  })
+
+  it('marks the batch not ready and refuses it whole until macrosUnknown', async () => {
+    const { t, own, mealId, detail } = await correctionFixture()
+    const input = {
+      corrections: [
+        {
+          mealId,
+          expectedEditRevision: detail.editRevision,
+          itemChanges: [
+            {
+              kind: 'fixedCalories' as const,
+              itemId: detail.items[1].id,
+              calories: 10,
+            },
+          ],
+        },
+      ],
+    }
+    const preview = await output(
+      await call(t, own.token, 'preview_meal_corrections_batch', { input }),
+      mealCorrectionsBatchPreview,
+    )
+    expect(preview.ready).toBe(false)
+    expect(preview.meals[0]).toMatchObject({
+      ok: true,
+      changedItems: [
+        { after: { name: 'Coffee', missingMacros: expect.any(String) } },
+      ],
+    })
+    await refusal(
+      await call(t, own.token, 'correct_meals_batch', {
+        input,
+        operationKey: 'no-macros',
+      }),
+      'Coffee',
+    )
+    const optedOut = {
+      corrections: [
+        {
+          ...input.corrections[0],
+          itemChanges: [
+            { ...input.corrections[0].itemChanges[0], macrosUnknown: true },
+          ],
+        },
+      ],
+    }
+    expect(
+      (
+        await output(
+          await call(t, own.token, 'preview_meal_corrections_batch', {
+            input: optedOut,
+          }),
+          mealCorrectionsBatchPreview,
+        )
+      ).ready,
+    ).toBe(true)
+    const saved = await output(
+      await call(t, own.token, 'correct_meals_batch', {
+        input: optedOut,
+        operationKey: 'macros-unknown',
+      }),
+      mealCorrectionsBatchResult,
+    )
+    expect(saved.meals[0].totalCalories).toBe(115)
   })
 })

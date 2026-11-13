@@ -151,6 +151,39 @@ function requireSnapshots(
     )
 }
 
+// Agents tend to log custom and fixed items with calories only, which leaves
+// part of the day without macros. Saving needs macros or an explicit opt-out.
+export function missingMacrosWarning(
+  item: { macrosUnknown?: boolean },
+  snapshot: { caloriesSnapshot: number; macrosSnapshot?: object },
+) {
+  return snapshot.caloriesSnapshot > 0 &&
+    !snapshot.macrosSnapshot &&
+    !item.macrosUnknown
+    ? {
+        missingMacros:
+          'Calories without protein, carbs or fat. Estimate them (nutritionProvenance kind estimate) or set macrosUnknown true; saving refuses this item otherwise.',
+      }
+    : {}
+}
+
+export function missingMacrosError(
+  items: Array<{ name: string; missingMacros?: string }>,
+) {
+  const names = items.flatMap((item) => (item.missingMacros ? [item.name] : []))
+  return names.length === 0
+    ? undefined
+    : `Missing protein, carbs and fat for ${names.join(', ')}. Estimate them with nutritionProvenance kind estimate, or set macrosUnknown true on the item or correction change when no estimate is possible.`
+}
+
+export function refuseMissingMacros(
+  items: Array<{ name: string; missingMacros?: string }>,
+) {
+  const error = missingMacrosError(items)
+  if (error)
+    throw new ConvexError(`${error} Preview again and ask for approval.`)
+}
+
 export async function resolveMealItems(
   ctx: MutationCtx,
   owner: AuthenticatedOwner,
@@ -328,11 +361,18 @@ export async function prepareMeal(
       ),
       totalCalories,
       macros,
-      items: snapshots.map((item) => ({
-        name: item.nameSnapshot,
-        calories: item.caloriesSnapshot,
-        nutritionProvenance: item.nutritionProvenance,
-      })),
+      items: snapshots.map((item, index) => {
+        const original = input.items[index]
+        return {
+          name: item.nameSnapshot,
+          calories: item.caloriesSnapshot,
+          nutritionProvenance: item.nutritionProvenance,
+          ...(original.sourceType === 'customByWeight' ||
+          original.sourceType === 'fixedCalories'
+            ? missingMacrosWarning(original, item)
+            : {}),
+        }
+      }),
     },
   }
 }
@@ -392,6 +432,7 @@ export const logMeal = internalMutation({
       }
       requireSnapshots(args.input.items)
       const { preview, writeInput } = await prepareMeal(ctx, owner, args.input)
+      refuseMissingMacros(preview.items)
       await limiter.limit(ctx, 'writes', {
         key: owner.userId,
         throws: true,
