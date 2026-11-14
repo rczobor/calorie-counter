@@ -5,6 +5,10 @@ ChatGPT and Claude. The assistant provides the model and conversation; the app
 does not call an LLM API or need an OpenAI or Anthropic API key. The same tools
 can be used by other compatible MCP clients.
 
+For public directory preparation, see the local
+[plugin publication kit](plugin-publication/README.md). Its draft package is
+separate from the currently deployed integration and is not ready to submit.
+
 ## Configure an isolated test environment first
 
 Use a dedicated Convex deployment and frontend, with test Clerk credentials and

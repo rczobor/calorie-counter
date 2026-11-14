@@ -1,0 +1,20 @@
+{
+  "revision": null,
+  "serverVersion": null,
+  "packageVersion": "0.1.0",
+  "model": null,
+  "testedAt": null,
+  "platforms": [],
+  "scopes": [],
+  "confirmationMode": "always",
+  "cases": [
+    { "id": "P1", "status": "not run", "evidence": null },
+    { "id": "P2", "status": "not run", "evidence": null },
+    { "id": "P3", "status": "not run", "evidence": null },
+    { "id": "P4", "status": "not run", "evidence": null },
+    { "id": "P5", "status": "not run", "evidence": null },
+    { "id": "N1", "status": "not run", "evidence": null },
+    { "id": "N2", "status": "not run", "evidence": null },
+    { "id": "N3", "status": "not run", "evidence": null }
+  ]
+}
