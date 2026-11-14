@@ -70,7 +70,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "@vitest/coverage-v8": "^5.1.0",
     "babel-plugin-react-compiler": "^1.0.0",
-    "convex-test": "^0.0.69",
+    "convex-test": "^0.0.70",
     "eslint": "^10.14.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
