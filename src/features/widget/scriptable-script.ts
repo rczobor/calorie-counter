@@ -65,11 +65,13 @@ const RING = {
 // The Lock Screen draws widgets in one vibrant tint where only brightness
 // counts, so its ring is white on a faint track. Over keeps the same shape;
 // the sign and the word beside it say over (Robi's call, 2026-11-09).
+// With no disc behind it, the track sits straight on the wallpaper, as in
+// iOS's own gauges.
 const MONO = {
-  track: new Color('#ffffff', 0.3),
+  track: new Color('#ffffff', 0.25),
   left: new Color('#ffffff'),
   over: new Color('#ffffff'),
-  overTrack: new Color('#ffffff', 0.3),
+  overTrack: new Color('#ffffff', 0.25),
 }
 
 // The ring says what the figure says. Under the goal, a teal arc for what is
@@ -143,15 +145,16 @@ try {
   if (family === 'accessoryCircular') {
     // A gauge like Fitness's Lock Screen ring, with the figure inside. The
     // Lock Screen drops colour, so a sign and a word carry over. The figure
-    // shrinks to fit and never wraps.
-    widget.addAccessoryWidgetBackground = true
+    // shrinks to fit and never wraps. Like iOS's own gauges it has no
+    // background disc, which washed the track out, and a stroke near theirs
+    // (about a tenth of the widget).
     // iOS removes a widget's own background on the Lock Screen, so the ring
     // sits behind a stack that fills the widget instead. The spacers and the
     // centred rows stretch the stack both ways.
     widget.setPadding(0, 0, 0, 0)
     const gauge = widget.addStack()
     gauge.layoutVertically()
-    gauge.backgroundImage = ringImage(day.consumedCalories, day.goalKcal, 72, 6, MONO)
+    gauge.backgroundImage = ringImage(day.consumedCalories, day.goalKcal, 72, 7, MONO)
     gauge.addSpacer()
     // Four characters fit inside the ring; a longer figure isn't forced in,
     // and the ring and the word say it alone.

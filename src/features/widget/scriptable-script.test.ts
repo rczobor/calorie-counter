@@ -30,6 +30,7 @@ function runInScriptable(
   const stacks: Stack[] = []
   class Stack {
     backgroundImage?: unknown
+    addAccessoryWidgetBackground?: boolean
     constructor() {
       stacks.push(this)
     }
@@ -126,6 +127,7 @@ function runInScriptable(
     shown,
     // Where the drawn background landed: the widget itself is stacks[0].
     backgrounds: stacks.map((stack) => stack.backgroundImage !== undefined),
+    disc: stacks[0].addAccessoryWidgetBackground ?? false,
   }))
 }
 
@@ -234,6 +236,8 @@ describe('Scriptable widget script', () => {
     // must sit on a stack inside it.
     expect(under.backgrounds[0]).toBe(false)
     expect(under.backgrounds).toContain(true)
+    // Like iOS's own gauges, the ring sits on the wallpaper, not a disc.
+    expect(under.disc).toBe(false)
     const over = await runInScriptable(script, {
       status: 200,
       body: {
@@ -246,7 +250,7 @@ describe('Scriptable widget script', () => {
     })
     expect(over.texts).toEqual(['+120', 'over'])
     // One tint: the same faint track and bright arc as under.
-    expect(over.ring).toEqual(['#ffffff/0.3', '#ffffff/1'])
+    expect(over.ring).toEqual(['#ffffff/0.25', '#ffffff/1'])
     // A figure that doesn't fit the ring is left out, not forced in.
     const far = await runInScriptable(script, {
       status: 200,
