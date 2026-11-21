@@ -154,6 +154,15 @@ creation or device-code flow is exposed in this release.
   reports `ready: false`), and `correct_meal` and `correct_meals_batch` refuse
   them. Only when no estimate is possible, the item or change sets
   `macrosUnknown: true` and saves without macros.
+- A new custom or fixed item saved with calories but no macros, from an
+  assistant or the app, first borrows them from the latest earlier log of the
+  same food in the household: the exact same name and the same
+  kcal/100 g, or for a fixed item the same calories per serving, scaled to its
+  calories. This happens before the `missingMacros` check, even when the item
+  sets `macrosUnknown`, so a repeated food needs macros only once. Edits of
+  existing items and `macros: null` are left alone. `get_day` and
+  `preview_meal` ask assistants to point out uncovered calories for a person
+  with macro goals and offer a backfill.
 - Add protein, carbohydrate and fat to a catalog ingredient, cooked batch or
   saved food. `preview_food_macros` takes grams on the food's calorie basis
   (per 100 of its unit, per 100 g of a batch's finished weight, or per serving

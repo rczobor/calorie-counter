@@ -3462,6 +3462,100 @@ describe('MCP custom and fixed items without macros', () => {
     expect(saved.totalCalories).toBe(560)
   })
 
+  it('borrows macros from the latest earlier log of the same food', async () => {
+    const t = setup()
+    const personId = await insertPerson(t)
+    const { token } = await credential(t)
+    const log = async (
+      eatenOn: string,
+      items: Array<Record<string, unknown>>,
+      operationKey: string,
+    ) =>
+      output(
+        await call(t, token, 'log_meal', {
+          input: (
+            await output(
+              await call(t, token, 'preview_meal', {
+                input: { personId, eatenOn, items },
+              }),
+              mealPreview,
+            )
+          ).input,
+          operationKey,
+        }),
+        mealResult,
+      )
+    const stew = {
+      sourceType: 'customByWeight',
+      name: 'Stew',
+      kcalPer100: 120,
+      ignoreCalories: false,
+      consumedWeightGrams: 300,
+    }
+    await log(
+      '2026-11-10',
+      [
+        { ...stew, macros: { proteinG: 5, carbsG: 10, fatG: 5 } },
+        {
+          sourceType: 'fixedCalories',
+          name: 'Chicken bites',
+          calories: 573,
+          servingCount: 3,
+          macros: { proteinG: 33.6, carbsG: 43.2, fatG: 29.7 },
+        },
+      ],
+      'first',
+    )
+    // The latest log wins.
+    await log(
+      '2026-11-11',
+      [{ ...stew, macros: { proteinG: 6, carbsG: 10, fatG: 5 } }],
+      'second',
+    )
+
+    const repeat = [
+      { ...stew, consumedWeightGrams: 200, macrosUnknown: true },
+      {
+        sourceType: 'fixedCalories',
+        name: 'Chicken bites',
+        calories: 191,
+        servingCount: 1,
+      },
+      // Other calories are another food.
+      { ...stew, kcalPer100: 130 },
+      { sourceType: 'fixedCalories', name: 'Chicken bites', calories: 250 },
+    ]
+    const preview = await output(
+      await call(t, token, 'preview_meal', {
+        input: { personId, eatenOn: '2026-11-12', items: repeat },
+      }),
+      mealPreview,
+    )
+    expect(preview.items.map((item) => Boolean(item.missingMacros))).toEqual([
+      false,
+      false,
+      true,
+      true,
+    ])
+    const saved = await log('2026-11-12', repeat.slice(0, 2), 'repeat')
+    const items = await t.run(async (ctx) => {
+      const meal = await ctx.db.get(saved.mealId)
+      if (!meal) throw new Error('Meal not saved.')
+      return ctx.db
+        .query('mealItems')
+        .withIndex('by_householdId_and_mealId', (q) =>
+          q.eq('householdId', meal.householdId).eq('mealId', meal._id),
+        )
+        .take(2)
+    })
+    expect(items.map((item) => item.macrosSnapshot)).toEqual(
+      expect.arrayContaining([
+        { proteinG: 6, carbsG: 10, fatG: 5 },
+        { proteinG: 11.2, carbsG: 14.4, fatG: 9.9 },
+      ]),
+    )
+  })
+
   it('warns in preview_meal_correction and refuses correct_meal until macros or macrosUnknown', async () => {
     const { t, own, mealId, detail } = await correctionFixture()
     const input: Infer<typeof mealCorrectionInput> = {

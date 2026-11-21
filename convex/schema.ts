@@ -333,6 +333,8 @@ export default defineSchema({
       filterFields: ['householdId'],
     })
     .index('by_householdId_and_mealId', ['householdId', 'mealId'])
+    // Earlier logs of the same food lend their macros to new items.
+    .index('by_householdId_and_nameSnapshot', ['householdId', 'nameSnapshot'])
     .index('by_householdId_and_cookedFoodId', ['householdId', 'cookedFoodId'])
     .index('by_householdId_and_ingredientId', ['householdId', 'ingredientId']),
   dailySummaries: defineTable(dailySummariesFields)

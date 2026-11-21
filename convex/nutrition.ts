@@ -23,6 +23,7 @@ import {
 import {
   combineMacroTotals,
   isZeroMacroTotals,
+  normalizeMacroGrams,
   macroGrams,
   normalizeMacroGoals,
   resolveInputMacros,
@@ -1439,6 +1440,71 @@ export function normalizeFoodIdentity(
   }
 }
 
+const EARLIER_LOG_CANDIDATES = 32
+
+function sameCalorieFigure(a: number, b: number) {
+  return Math.abs(a - b) <= 0.000_001 * Math.max(1, Math.abs(a))
+}
+
+// The macros an earlier log of the same food implies for this item, when its
+// calories match: the same kcal/100 g, or the same calories per serving.
+function earlierLogMacros(
+  earlier: Doc<'mealItems'>,
+  snapshot: MealItemSnapshot,
+): MacroGrams | undefined {
+  if (!earlier.macrosSnapshot) return undefined
+  if (snapshot.sourceType === 'fixedCalories') {
+    if (
+      earlier.sourceType !== 'fixedCalories' ||
+      earlier.caloriesSnapshot <= 0 ||
+      !sameCalorieFigure(
+        snapshot.caloriesSnapshot / (snapshot.servingCount ?? 1),
+        earlier.caloriesSnapshot / (earlier.servingCount ?? 1),
+      )
+    )
+      return undefined
+    return normalizeMacroGrams(
+      scaleMacros(
+        earlier.macrosSnapshot,
+        snapshot.caloriesSnapshot / earlier.caloriesSnapshot,
+      ),
+      { per100Grams: false },
+    )
+  }
+  return earlier.sourceType !== 'fixedCalories' &&
+    earlier.kcalBasisUnitSnapshot === 'g' &&
+    !earlier.ignoreCaloriesSnapshot &&
+    sameCalorieFigure(earlier.kcalPer100Snapshot, snapshot.kcalPer100Snapshot)
+    ? earlier.macrosSnapshot
+    : undefined
+}
+
+// Agents and quick entries often log a repeated food with calories only. The
+// latest earlier log of the same food (same name, matching calories) already
+// knows its macros, so a new custom or fixed item without any borrows them
+// instead of leaving that part of the day uncovered.
+async function withEarlierLogMacros(
+  earlierLogs: (name: string) => Promise<Array<Doc<'mealItems'>>>,
+  item: Infer<typeof mealItemInputValidator>,
+  snapshot: MealItemSnapshot,
+): Promise<MealItemSnapshot> {
+  if (
+    (snapshot.sourceType !== 'customByWeight' &&
+      snapshot.sourceType !== 'fixedCalories') ||
+    snapshot.macrosSnapshot ||
+    snapshot.caloriesSnapshot <= 0 ||
+    // Edits keep their own rules; null asks for no macros.
+    ('existingMealItemId' in item && item.existingMealItemId) ||
+    ('macros' in item && item.macros === null)
+  )
+    return snapshot
+  for (const earlier of await earlierLogs(snapshot.nameSnapshot)) {
+    const macros = earlierLogMacros(earlier, snapshot)
+    if (macros) return { ...snapshot, macrosSnapshot: macros }
+  }
+  return snapshot
+}
+
 export async function buildMealItemSnapshots(
   db: DatabaseWriter,
   owner: AuthenticatedOwner,
@@ -1808,7 +1874,7 @@ export async function buildMealItemSnapshots(
       }
     }),
   )
-  return snapshots.map((snapshot, index) => {
+  const finished = snapshots.map((snapshot, index) => {
     const item = items[index]
     if (item.sourceType === 'historical') return snapshot
     const existing = item.existingMealItemId
@@ -1852,6 +1918,28 @@ export async function buildMealItemSnapshots(
             snapshot.nutritionProvenance),
     }
   })
+  // One read per name, however many items repeat it. Newest first, so a
+  // corrected log wins over older ones.
+  const logsByName = new Map<string, Promise<Array<Doc<'mealItems'>>>>()
+  const earlierLogs = (name: string) => {
+    let logs = logsByName.get(name)
+    if (!logs) {
+      logs = db
+        .query('mealItems')
+        .withIndex('by_householdId_and_nameSnapshot', (q) =>
+          q.eq('householdId', owner.householdId).eq('nameSnapshot', name),
+        )
+        .order('desc')
+        .take(EARLIER_LOG_CANDIDATES)
+      logsByName.set(name, logs)
+    }
+    return logs
+  }
+  return Promise.all(
+    finished.map((snapshot, index) =>
+      withEarlierLogMacros(earlierLogs, items[index], snapshot),
+    ),
+  )
 }
 
 function mealItemDocument(
