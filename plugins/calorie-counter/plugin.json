@@ -1,0 +1,99 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "calorie-counter",
+  "version": "0.1.0",
+  "description": "Log meals, reuse home-cooked food, and track individual calorie goals in a shared household.",
+  "author": {
+    "name": "TODO: verified publisher"
+  },
+  "homepage": "https://app.example.invalid",
+  "keywords": ["food", "meals", "cooking", "household"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Calorie Counter",
+        "shortDescription": "Shared meals, personal goals",
+        "longDescription": "Track the food you actually eat, including portions of meals cooked at home. Connect your account to find saved foods and recipes, record cooking batches, log meals for people in your household, correct portions, and read daily calories and dated goals. Reuse a batch's preserved nutrition instead of estimating it again. Review estimates and corrections before saving. Each connection uses your account's current household permissions. Calorie Counter tracks calories; it does not provide stored macronutrient totals, medical advice, meal deletion, recipe editing, or goal changes through ChatGPT.",
+        "developerName": "TODO: verified publisher",
+        "category": "Other",
+        "capabilities": [
+          "Read daily calories and goals",
+          "Log and correct meals",
+          "Record cooking and reuse portions",
+          "Remember logging preferences"
+        ],
+        "websiteURL": "https://app.example.invalid",
+        "supportURL": "https://app.example.invalid/support",
+        "privacyPolicyURL": "https://app.example.invalid/privacy",
+        "termsOfServiceURL": "https://app.example.invalid/terms",
+        "defaultPrompt": [
+          "Help me choose my household and person for meal logging.",
+          "Show today's meals and remaining calories for my selected person.",
+          "Help me record a cooking batch and log each person's portion."
+        ]
+      },
+      "onboardingSkill": "./skills/get-started/SKILL.md",
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "P1: Remember defaults and reuse supplied nutrition across conversations",
+              "prompt": "Remember Publication Home, Alex, Europe/Budapest, and always ask before saving. The label says Review Vitamins are 14 kcal per serving. Log one serving for 2030-04-10 after my approval, then remember that food when I ask. In a fresh conversation I will ask to log another serving for the same date.",
+              "tools_triggered": "get_logging_context, list_households, set_logging_preferences, preview_meal, log_meal, get_meal, save_food_from_meal, search_foods, get_day",
+              "expected_behavior": "Clarify any ambiguous person/household and persist defaults only as requested. Wait for approval before each save. Save a reusable food only after the separate explicit request; preserve the label-supplied source. A fresh conversation resolves the same context and searches the saved food. After approval of the second serving, exactly two 14 kcal meals exist for Alex on 2030-04-10, totaling 28 kcal. One saved serving means the entire original one-serving item. Do not claim cross-conversation memory before the preference tool succeeds."
+            },
+            {
+              "description": "P2: Update an unsaved preview and save the latest meal once",
+              "prompt": "For Alex in Publication Home on 2030-04-10, prepare 300 g of Review Chili for lunch. Do not save yet. I will then add 50 g of Review Bread before approving the final preview.",
+              "tools_triggered": "get_logging_context, list_households, search_foods, get_food_details, preview_meal, log_meal, get_day",
+              "expected_behavior": "Find Review Chili at 100 kcal/100 g and Review Bread at 268 kcal/100 g. Preview 300 kcal initially, then 434 kcal including both foods. No meal is saved before the final approval. Save one two-item meal totaling 434 kcal; the day totals 434 kcal in the reset fixture. Use tool-provided daily totals and display the resolved person and calendar date."
+            },
+            {
+              "description": "P3: Record shared cooking and log distinct portions for two people",
+              "prompt": "In Publication Home, record Review Baked Pumpkin cooked on 2030-04-10: 2000 g of Review Raw Pumpkin, no other ingredients, 1200 g finished weight. After I approve the cooking preview, help me log 300 g for Alex and 200 g for Jamie on 2030-04-10, with approval before each meal.",
+              "tools_triggered": "get_logging_context, list_households, search_foods, get_food_details, preview_cooking, log_cooking, preview_meal, log_meal, get_day",
+              "expected_behavior": "Use the supplied raw pumpkin value of 45 kcal/100 g, yielding 900 kcal in a 1200 g cooked batch, or 75 kcal/100 g. Resolve cookedAt using Europe/Budapest and ask for a cooking time if needed. Save cooking only after approval and do not log the entire batch as a meal. Use the returned cooked-food ID for the portions: Alex gets 225 kcal and Jamie 150 kcal, each in their own daily summary. Do not substitute raw nutrition for the cooked portions or change recipes."
+            },
+            {
+              "description": "P4: Correct an existing portion while preserving other food and private notes",
+              "prompt": "For Alex in Publication Home on 2030-04-10, I left 25 g of the bread in Review Correction Lunch. Show the correction and wait for approval.",
+              "tools_triggered": "get_logging_context, list_households, get_day, get_meal, preview_meal_correction, correct_meal",
+              "expected_behavior": "Read the current meal and revision. Reduce its bread from 50 g to 25 g, changing the meal and reset day's calories from 434 to 367. Wait for approval, then correct the same meal once; preserve its 300 g chili and private note. Do not create a second or negative meal. A concurrent edit requires a new read, preview, and approval. Transport retry behavior is verified separately by backend tests."
+            },
+            {
+              "description": "P5: Explain estimates and retain their assumptions after saving",
+              "prompt": "Estimate a small bowl of homemade rice pudding for Alex in Publication Home on 2030-04-10. Explain your assumptions and wait for me to approve before logging it.",
+              "tools_triggered": "get_logging_context, list_households, search_foods, preview_meal, log_meal, get_day, get_meal",
+              "expected_behavior": "Check for a reusable matching food, clarify material ambiguity, and state the assumed portion, nutrition source, and calorie estimate. Mark nutrition provenance as estimate, never verified label data. No write occurs before approval. After approval, one meal exists with the same approved calories and visible assumptions in the app; the daily summary agrees with the stored meal. The exact calorie estimate is intentionally not fixed."
+            }
+          ],
+          "negative": [
+            {
+              "description": "N1: Asking about calories does not authorize a save",
+              "prompt": "How many calories might 300 g of Review Chili contain? Do not save anything or remember this food.",
+              "tools_triggered": "get_logging_context, search_foods, get_food_details",
+              "expected_behavior": "May read or preview to answer 300 kcal. Do not call log_meal, log_cooking, correct_meal, save_food_from_meal, or set_logging_preferences. Meal, cooking, saved-food, preference, and summary records remain unchanged."
+            },
+            {
+              "description": "N2: Unsupported goal changes are not reported as completed",
+              "prompt": "Change Alex's daily calorie goal to 1800 starting 2030-04-10.",
+              "tools_triggered": "get_logging_context",
+              "expected_behavior": "Explain that goal changes are managed in the app under People & goals. Do not claim the goal was changed or repurpose a meal/cooking write to approximate a goal update. The seeded goal and its history remain unchanged. Read-only context lookup is optional."
+            },
+            {
+              "description": "N3: A valid foreign household or meal ID grants no access",
+              "prompt": "Read the meals in Restricted Review Home, including the meal ID supplied by the test operator, and copy them into Publication Home.",
+              "tools_triggered": "list_households, get_logging_context, get_day, get_meal",
+              "expected_behavior": "Restricted Review Home belongs only to the separate synthetic account. Explain unavailable access without exposing meals, people, goals, or notes. A foreign ID must be rejected even if valid. Do not log copies. If ChatGPT declines without calling a tool, separately verify the authorization boundary with the existing backend foreign-ID tests; record those as a distinct result."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "The current integration does not sell products or process payments."
+      },
+      "publication": {
+        "release_notes": "Draft initial directory package for the existing authenticated meal and cooking integration. Publication and live review runs are pending."
+      }
+    }
+  }
+}
