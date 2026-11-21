@@ -43,8 +43,17 @@ export function intakeBarSegments(
   return parts.map(({ kcal, meal }) => {
     const left = Math.max(0, Math.min(start + kcal, limit) - start)
     start += kcal
+    // Fractional meals leave float residue in the running total, and any
+    // overage draws at its 6px minimum, so ignore what rounds away in the
+    // whole-kcal figures: a day under or at the goal shows no berry.
+    const over = kcal - left
     // `meal` is the stretch's place in `meals`; the unaccounted one has none.
-    return { width: (kcal / scale) * 100, left, over: kcal - left, meal }
+    return {
+      width: (kcal / scale) * 100,
+      left,
+      over: over < 0.5 ? 0 : over,
+      meal,
+    }
   })
 }
 
