@@ -756,7 +756,14 @@ export function usePaginatedQuery<Query extends FunctionReference<'query'>>(
           meal.eatenOn === eatenOn &&
           (archived === undefined || meal.archived === archived),
       )
-      .map(withoutOwner)
+      .map((meal) => ({
+        ...withoutOwner(meal),
+        estimateCount: (snapshot.mealDetails[meal._id]?.items ?? []).filter(
+          (item) =>
+            item.nutritionProvenance &&
+            item.nutritionProvenance.kind !== 'provided',
+        ).length,
+      }))
   }
 
   return {

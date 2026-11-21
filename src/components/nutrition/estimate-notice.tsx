@@ -42,7 +42,7 @@ export function EstimateNotice({
 // Lucide has no circled "≈", so this draws its approximately-equal waves,
 // scaled to 70%, inside Info's circle: the two marks share one footprint and
 // weight and differ in shape.
-const CircleApproximately = createLucideIcon('circle-approximately', [
+export const EstimateGlyph = createLucideIcon('circle-approximately', [
   ['circle', { cx: '12', cy: '12', r: '10', key: 'circle' }],
   [
     'path',
@@ -66,7 +66,7 @@ function NoticeGlyph({
   provided: boolean
   className: string
 }) {
-  const Glyph = provided ? Info : CircleApproximately
+  const Glyph = provided ? Info : EstimateGlyph
   return <Glyph aria-hidden="true" className={className} />
 }
 

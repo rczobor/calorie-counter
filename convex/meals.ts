@@ -38,6 +38,10 @@ const mealDto = v.object({
   source: v.optional(mealSourceValidator),
 })
 
+// A day's meal row also says how many of its foods are assistant estimates,
+// so the list shows which meals to check without opening each one.
+const dayMealDto = mealDto.extend({ estimateCount: v.number() })
+
 function mealWithoutOwner(meal: Doc<'meals'>) {
   return { ...withoutOwner(meal), editRevision: meal.editRevision ?? 0 }
 }
@@ -105,7 +109,7 @@ export const listForDay = query({
     archived: v.optional(v.boolean()),
     paginationOpts: paginationOptsValidator,
   },
-  returns: paginationResultValidator(mealDto),
+  returns: paginationResultValidator(dayMealDto),
   handler: async (ctx, args) => {
     const owner = await requireAuthenticatedHousehold(ctx, args.householdId)
     assertPageSize(args.paginationOpts.numItems)
@@ -137,7 +141,29 @@ export const listForDay = query({
                   .eq('archived', archived),
             )
     const result = await mealsQuery.order('desc').paginate(args.paginationOpts)
-    return { ...result, page: result.page.map(mealWithoutOwner) }
+    // Bounded: a page holds at most MAX_PAGE_SIZE meals, each with at most
+    // MAX_CHILD_ROWS foods.
+    const page = await Promise.all(
+      result.page.map(async (meal) => {
+        const items = await ctx.db
+          .query('mealItems')
+          .withIndex('by_householdId_and_mealId', (q) =>
+            q.eq('householdId', owner.householdId).eq('mealId', meal._id),
+          )
+          .take(MAX_CHILD_ROWS)
+        return {
+          ...mealWithoutOwner(meal),
+          // Evidence that is not a supplied source is an estimate, as the
+          // food's own mark reads it.
+          estimateCount: items.filter(
+            (item) =>
+              item.nutritionProvenance &&
+              item.nutritionProvenance.kind !== 'provided',
+          ).length,
+        }
+      }),
+    )
+    return { ...result, page }
   },
 })
 

@@ -11,7 +11,14 @@ import {
   Pencil,
   Plus,
 } from 'lucide-react'
-import { lazy, Suspense, useEffect, useEffectEvent, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useEffectEvent,
+  useState,
+  type ComponentProps,
+} from 'react'
 import type { FunctionReturnType } from 'convex/server'
 
 import { api } from '../../../convex/_generated/api'
@@ -36,9 +43,12 @@ import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
 import { EditorDialog } from '@/components/page/editor-dialog'
-import { EstimateNoticeIcon } from '@/components/nutrition/estimate-notice'
+import {
+  EstimateGlyph,
+  EstimateNoticeIcon,
+} from '@/components/nutrition/estimate-notice'
 import { RollingFigure } from '@/components/nutrition/rolling-figure'
-import { Value } from '@/components/nutrition/value'
+import { Balance, Value } from '@/components/nutrition/value'
 import { Button } from '@/components/ui/button'
 import { LoadingRows, EditorSkeleton } from '@/components/page/loading-content'
 import {
@@ -63,7 +73,7 @@ import {
   toTimestampFromDate,
 } from '@/lib/nutrition'
 import { formatAmount } from '@/i18n/format'
-import { useLocale, type Locale } from '@/i18n/locale'
+import { intlLocale, useLocale, type Locale } from '@/i18n/locale'
 import { messages } from './day-dashboard.messages'
 
 const MealEditor = lazy(async () => ({
@@ -89,6 +99,93 @@ function dayHeading(date: string, today: string, locale: Locale) {
   if (days === 1) return t.tomorrow
   // A bare weekday would read as this week, so other days name their date.
   return formatDate(date, locale)
+}
+
+/** Whether an element has scrolled out past the top of the window. */
+function useScrolledAway(element: HTMLElement | null) {
+  const [away, setAway] = useState(false)
+  useEffect(() => {
+    if (!element || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(([entry]) =>
+      setAway(!entry.isIntersecting && entry.boundingClientRect.bottom <= 0),
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [element])
+  return away
+}
+
+/**
+ * The day's status, pinned on a phone once the calorie card has scrolled
+ * away, so correcting a meal shows its effect on the day without scrolling
+ * back. It repeats the card for the eye only: the card is still in the page
+ * for assistive technology. Wider screens keep the card itself in view.
+ */
+function DayLine({
+  title,
+  remaining,
+  ...bar
+}: {
+  title: string
+  remaining: number
+} & Pick<
+  ComponentProps<typeof IntakeBar>,
+  'consumed' | 'goal' | 'meals' | 'openMeal'
+>) {
+  return (
+    <div
+      aria-hidden="true"
+      data-day-line
+      // A bar of its own floating over the page: the cells' surface, opaque,
+      // with a hairline and the tab bar's shadow under it, so a row sliding
+      // beneath is plainly behind it.
+      className="fixed inset-x-0 top-0 z-30 border-b bg-card px-4 pt-[calc(env(safe-area-inset-top)+0.625rem)] pb-3 shadow-[0_2px_8px_-2px_var(--glass-shadow),0_10px_30px_-10px_var(--glass-shadow)] sm:px-6 md:hidden"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="type-headline">{title}</span>
+        <Balance
+          remaining={remaining}
+          className="type-subhead items-baseline [&>svg]:self-center"
+        />
+      </div>
+      <IntakeBar {...bar} slim className="mt-2" />
+    </div>
+  )
+}
+
+/**
+ * A closed meal's second line: when it was logged, how many foods it holds
+ * and, if some are estimates, the estimate mark with how many, so the meals
+ * worth checking show without opening each one.
+ */
+function MealLine({ meal }: { meal: Meal }) {
+  const locale = useLocale()
+  const t = messages[locale]
+  const logged = new Date(meal.createdAt)
+  return (
+    <>
+      {/* A meal entered for another day has no time of day to show. */}
+      {toLocalDateString(meal.createdAt) === meal.eatenOn
+        ? `${logged.toLocaleTimeString(intlLocale(locale), { hour: 'numeric', minute: '2-digit' })} · `
+        : null}
+      {t.foodCount(meal.itemCount)}
+      {meal.estimateCount > 0 ? (
+        <>
+          {' · '}
+          <span className="font-medium whitespace-nowrap text-caution">
+            <EstimateGlyph
+              aria-hidden="true"
+              className="mr-0.5 inline-block size-3.5 align-[-0.1875rem]"
+            />
+            <span aria-hidden="true">{meal.estimateCount}</span>
+            <span className="sr-only">
+              {t.estimatedFoods(meal.estimateCount)}
+            </span>
+          </span>
+        </>
+      ) : null}
+    </>
+  )
 }
 
 // The logged and goal figures stand out from the words around them.
@@ -233,6 +330,16 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   useEffect(() => {
     if (!archived && hasLoggedMeal) rememberLoggedMeal()
   }, [archived, hasLoggedMeal])
+  // The bar is split into the day's meals as they were eaten; the list runs
+  // newest first.
+  const mealKcal = archived
+    ? undefined
+    : meals.results.map((meal) => meal.totalCalories).reverse()
+  const openIndex = meals.results.findIndex((meal) => meal._id === openMealId)
+  const openMeal =
+    openIndex < 0 ? undefined : meals.results.length - 1 - openIndex
+  const [intakeCard, setIntakeCard] = useState<HTMLElement | null>(null)
+  const intakeScrolledAway = useScrolledAway(intakeCard)
   const overGoal = focused !== undefined && focused.remainingCalories < 0
   const atGoal = focused?.remainingCalories === 0
   const loadingPerson =
@@ -419,6 +526,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
           <div className="md:top-14 md:[@media(min-height:36rem)]:sticky">
             {!archived ? (
               <section
+                ref={setIntakeCard}
                 className="mt-5 inset-group px-4 pt-4 pb-4"
                 aria-label={
                   focused ? t.personIntake(focused.name) : t.dailyIntake
@@ -477,6 +585,8 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                     <IntakeBar
                       consumed={focused.consumedCalories}
                       goal={focused.goalKcal}
+                      meals={mealKcal}
+                      openMeal={openMeal}
                       className="mt-4"
                     />
                     <p className="mt-2.5 type-subhead text-muted-foreground tabular-nums">
@@ -505,6 +615,16 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                   </p>
                 )}
               </section>
+            ) : null}
+            {!archived && focused && intakeScrolledAway ? (
+              <DayLine
+                title={dayHeading(date, today, locale)}
+                remaining={focused.remainingCalories}
+                consumed={focused.consumedCalories}
+                goal={focused.goalKcal}
+                meals={mealKcal}
+                openMeal={openMeal}
+              />
             ) : null}
             {!archived && hasLoggedMeal && !loadingPerson ? (
               // Nothing logged means every goal is still ahead: the calorie card
@@ -670,7 +790,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                         {meal.name?.trim() || t.meal}
                       </span>
                       <span className="mt-0.5 block type-footnote text-muted-foreground">
-                        {t.foodCount(meal.itemCount)}
+                        <MealLine meal={meal} />
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
