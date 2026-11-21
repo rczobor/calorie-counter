@@ -78,6 +78,8 @@ const item = createMealItemDoc('item-chili', meal._id, {
   caloriesSnapshot: 250,
   nutritionProvenance: { source: 'Recipe estimate', assumptions: 'One bowl' },
 })
+// As meals:listForDay returns them: each with its count of estimated foods.
+let dayMeals = [{ ...meal, estimateCount: 0 }]
 let loaded = [alex, sam]
 let peopleLoading = false
 let personLookupLoading = false
@@ -101,6 +103,7 @@ beforeEach(() => {
   window.localStorage.clear()
   window.sessionStorage.clear()
   window.history.replaceState(null, '', '/')
+  dayMeals = [{ ...meal, estimateCount: 0 }]
   loaded = [alex, sam]
   peopleLoading = false
   personLookupLoading = false
@@ -128,7 +131,7 @@ beforeEach(() => {
                 macroTargets: { proteinG: 130 },
               }))
             : args.personId === alex._id && !args.archived
-              ? [meal]
+              ? dayMeals
               : [],
       status: (
         nameOf(ref) === 'people:listForDay' ? peopleLoading : mealsLoading
@@ -189,6 +192,75 @@ describe('Today intake dashboard', () => {
       expect(intake.getByText(label)).toBeTruthy()
     },
   )
+  it('pins the day and its balance once the calorie card scrolls away', () => {
+    let report: IntersectionObserverCallback = () => {}
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          report = callback
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    consumedCalories = 2368
+    const view = show()
+    const pinned = () => view.container.querySelector('[data-day-line]')
+    const scrollCardTo = (bottom: number) =>
+      act(() =>
+        report(
+          [
+            {
+              isIntersecting: bottom > 0,
+              boundingClientRect: { bottom },
+            } as IntersectionObserverEntry,
+          ],
+          {} as IntersectionObserver,
+        ),
+      )
+    expect(pinned()).toBeNull()
+    scrollCardTo(-40)
+    expect(pinned()?.textContent).toBe('Today+168 kcal over')
+    // The card is still in the page, so the line is for the eye only.
+    expect(pinned()?.getAttribute('aria-hidden')).toBe('true')
+    scrollCardTo(120)
+    expect(pinned()).toBeNull()
+    vi.unstubAllGlobals()
+  })
+  it('says when a meal was logged and how many of its foods are estimates', () => {
+    dayMeals = [
+      {
+        ...createMealDoc('meal-dinner', alex._id, {
+          name: 'Dinner',
+          totalCalories: 250,
+          itemCount: 6,
+          eatenOn: '2026-11-02',
+          createdAt: new Date('2026-11-02T19:20:00').getTime(),
+        }),
+        estimateCount: 2,
+      },
+      // Entered a day late: its time of day is not the meal's.
+      {
+        ...meal,
+        estimateCount: 0,
+        createdAt: new Date('2026-11-03T09:00:00').getTime(),
+      },
+    ]
+    consumedCalories = 500
+    show()
+    expect(
+      screen.getByRole('button', { name: /^Dinner/ }).textContent,
+    ).toContain('7:20 PM · 6 foods · 22 estimated')
+    expect(
+      screen.getByRole('button', { name: /^Lunch/ }).textContent,
+    ).toContain('Lunch1 food250')
+    // The bar has a stretch for each meal, oldest first.
+    const bar = screen
+      .getByRole('region', { name: 'Alex’s intake' })
+      .querySelectorAll('.bg-kcal-left-bar')
+    expect(bar).toHaveLength(2)
+  })
   it('shows macro goals only once something is logged', () => {
     const Page = Route.options.component as ComponentType
     mealCount = 0

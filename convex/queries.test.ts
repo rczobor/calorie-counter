@@ -45,7 +45,24 @@ describe('nutrition scoped queries', () => {
       eatenOn: '2026-04-04',
       totalCalories: 500,
     })
-    await insertMealItem(t, mealId, { caloriesSnapshot: 500 })
+    await insertMealItem(t, mealId, { caloriesSnapshot: 400 })
+    // One estimate and one supplied source: only the estimate counts.
+    await insertMealItem(t, mealId, {
+      caloriesSnapshot: 60,
+      nutritionProvenance: {
+        kind: 'estimate',
+        source: 'Assistant estimate',
+        assumptions: 'One large tomato.',
+      },
+    })
+    await insertMealItem(t, mealId, {
+      caloriesSnapshot: 40,
+      nutritionProvenance: {
+        kind: 'provided',
+        source: 'Packaging label',
+        assumptions: '254 kcal per 100 g.',
+      },
+    })
 
     const data = await user.query(api.meals.listForDay, {
       personId,
@@ -59,6 +76,7 @@ describe('nutrition scoped queries', () => {
       _id: mealId,
       totalCalories: 500,
       itemCount: 1,
+      estimateCount: 1,
     })
     expect(data.page[0]).not.toHaveProperty('ownerUserId')
   })

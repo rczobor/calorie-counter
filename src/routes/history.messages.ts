@@ -1,4 +1,6 @@
-import { defineMessages } from '@/i18n/messages'
+import type { ReactNode } from 'react'
+
+import { defineMessages, rich } from '@/i18n/messages'
 
 export const messages = defineMessages({
   en: {
@@ -17,9 +19,18 @@ export const messages = defineMessages({
       `History ranges can include at most ${max} days.`,
     rangeReversed: 'The start date must be on or before the end date.',
     loadingRange: 'Loading the complete date range',
-    dailyAverage: 'Daily average',
-    daysWithMeals: 'Days with meals',
-    ofDays: (count: number) => `of ${count}`,
+    // The verdict: "2014 kcal a day", beside the balance against the goal.
+    kcalADay: 'kcal a day',
+    // Under it: "5 of 7 days over", and the days without meals when the
+    // range has any. The first figure is styled apart from the words.
+    daysOver: (over: ReactNode, logged: number, empty: number) =>
+      rich(
+        over,
+        ` of ${logged} ${logged === 1 ? 'day' : 'days'} over`,
+        empty
+          ? ` · ${empty} ${empty === 1 ? 'day' : 'days'} without meals`
+          : '',
+      ),
     dailyCalories: 'Daily calories',
     daysHeading: 'Days',
     noData: 'No data for the selected range.',
@@ -42,10 +53,15 @@ export const messages = defineMessages({
     rangeTooLong: (max: number) => `Az időszak legfeljebb ${max} nap lehet.`,
     rangeReversed: 'A kezdő dátum nem lehet későbbi a záró dátumnál.',
     loadingRange: 'A teljes időszak betöltése',
-    dailyAverage: 'Napi átlag',
-    daysWithMeals: 'Étkezéses napok',
-    // Under "Days with meals": "2 / 7".
-    ofDays: (count: number) => `/ ${count}`,
+    kcalADay: 'kcal naponta',
+    // "7 napból 5 túllépés"
+    daysOver: (over: ReactNode, logged: number, empty: number) =>
+      rich(
+        `${logged} napból `,
+        over,
+        ' túllépés',
+        empty ? ` · ${empty} nap étkezés nélkül` : '',
+      ),
     dailyCalories: 'Napi kalória',
     daysHeading: 'Napok',
     noData: 'A kiválasztott időszakhoz nincs adat.',

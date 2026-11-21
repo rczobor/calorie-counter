@@ -51,6 +51,8 @@ export const messages = defineMessages({
     editMeal: 'Edit meal',
     meal: 'Meal',
     foodCount: (count: number) => `${count} food${count === 1 ? '' : 's'}`,
+    // Read out for the estimate mark and its count on a closed meal.
+    estimatedFoods: (count: number) => `${count} estimated`,
     loadingMeals: 'Loading meals',
     loadMoreMeals: 'Load more meals',
     discardDraftTitle: 'Discard meal draft?',
@@ -111,6 +113,7 @@ export const messages = defineMessages({
     editMeal: 'Étkezés szerkesztése',
     meal: 'Étkezés',
     foodCount: (count: number) => `${count} étel`,
+    estimatedFoods: (count: number) => `${count} becsült`,
     loadingMeals: 'Étkezések betöltése',
     loadMoreMeals: 'További étkezések betöltése',
     discardDraftTitle: 'Elveted az étkezéspiszkozatot?',

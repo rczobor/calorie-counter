@@ -282,36 +282,22 @@ function HistoryPlaceholder() {
 }
 
 /**
- * History's averages, chart and days with their fixed labels and bars where
- * the numbers go, so data replaces it in place.
+ * History's verdict and a week of days, with bars where the words and numbers
+ * go, so a week's data replaces it in place. Longer ranges add their chart.
  */
 export function HistorySkeleton({ label }: { label?: string }) {
-  const t = useMessages(historyMessages)
   return (
     <div
       role={label ? 'status' : undefined}
       aria-label={label}
-      className="space-y-6"
+      className="space-y-3"
     >
-      <div aria-hidden="true" className="inset-group">
-        <div className="grid grid-cols-2">
-          {[t.dailyAverage, t.daysWithMeals].map((stat) => (
-            <div key={stat} className="px-4 py-3 not-first:border-l">
-              <p className="type-footnote text-muted-foreground">{stat}</p>
-              <Skeleton className="mt-1.5 h-6 w-20" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div aria-hidden="true" className="inset-group px-4 pt-3.5 pb-1">
-        <p className="type-headline">{t.dailyCalories}</p>
-        <Skeleton className="mt-3 h-52 w-full rounded-lg bg-skeleton/50 md:h-64" />
-      </div>
       <div aria-hidden="true">
-        <p className="type-title">{t.daysHeading}</p>
-        <div className="mt-3 inset-group inset-rows">
-          <SkeletonRows rows={3} inset className="h-[3.875rem]" />
-        </div>
+        <Skeleton className="h-6 w-56" />
+        <Skeleton className="mt-2 h-4 w-32" />
+      </div>
+      <div aria-hidden="true" className="inset-group inset-rows">
+        <SkeletonRows rows={7} inset className="h-16" />
       </div>
     </div>
   )

@@ -171,7 +171,7 @@ describe('History route', () => {
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
     expect(screen.getByText('Nothing logged in this range')).toBeTruthy()
-    expect(screen.queryByText('Daily average')).toBeNull()
+    expect(screen.queryByText(/kcal a day/)).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Daily calories' })).toBeNull()
     // Each day still opens, so a missed meal can be logged.
     expect(screen.getAllByRole('listitem')).toHaveLength(7)
@@ -192,19 +192,71 @@ describe('History route', () => {
 
     // The day list runs newest first, one item per day.
     const rows = screen.getAllByRole('listitem')
-    expect(rows[0]?.textContent).toContain('Sat, Apr 4')
-    expect(rows[0]?.textContent).toContain('777 / 2000 kcal')
+    // The range ends today, which the list names instead of dating.
+    expect(rows[0]?.textContent).toContain('Today')
+    expect(rows[0]?.textContent).toContain('1223 kcal left')
+    expect(rows[0]?.textContent).toContain('777 kcal')
     expect(rows[1]?.textContent).toContain('Fri, Apr 3')
-    expect(rows[1]?.textContent).toContain('333 / 2000 kcal')
-    expect(
-      screen.getByText('Daily average').parentElement?.textContent,
-    ).toContain('555 kcal')
+    expect(rows[1]?.textContent).toContain('333 kcal')
+    // Today is still filling up, so the verdict is yesterday's alone.
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
+      '333 kcal a day1667 kcal left',
+    )
     expect(lastPeopleArgs).toEqual({ archived: false })
     expect(lastHistoryArgs).toEqual({
       personId: 'person-1',
       startDate: '2026-03-29',
       endDate: '2026-04-04',
     })
+  })
+
+  it('draws each day on one scale, berry only past the goal, and counts the days over', () => {
+    mockPeople = [
+      createPersonDoc('person-1', 'Alex', { currentDailyGoalKcal: 2000 }),
+    ]
+    mockSummaries = [
+      createDailySummary('over', 'person-1', '2026-04-03', 2500),
+      createDailySummary('under', 'person-1', '2026-04-02', 1000),
+    ]
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
+      '1750 kcal a day250 kcal left',
+    )
+    expect(screen.getByText(/of 2 days over/).textContent).toBe(
+      '1 of 2 days over · 4 days without meals',
+    )
+    const bars = screen
+      .getAllByRole('listitem')
+      .map((row) => row.querySelector('[aria-hidden="true"]:has(> span)'))
+    const widths = (bar: Element | null | undefined) =>
+      [...(bar?.querySelectorAll('span') ?? [])].map(
+        (part) => (part as HTMLElement).style.width,
+      )
+    // A day without meals, here today, keeps its track and has no fill.
+    expect(widths(bars[0])).toEqual(['80%'])
+    // 2500 sets the scale: the goal ends each track at 80%, the overage adds 20%.
+    expect(widths(bars[1])).toEqual(['80%', '100%', '20%'])
+    expect(bars[1]?.querySelector('[data-overage]')).toBeTruthy()
+    // Half the goal fills half the track, and nothing is berry.
+    expect(widths(bars[2])).toEqual(['80%', '50%'])
+    // A week is its own chart.
+    expect(screen.queryByRole('heading', { name: 'Daily calories' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '30 days' }))
+    expect(screen.getByRole('heading', { name: 'Daily calories' })).toBeTruthy()
+  })
+
+  it('gives no verdict while today is the only day with meals', () => {
+    mockSummaries = [createDailySummary('today', 'person-1', '2026-04-04', 777)]
+    const Component = HistoryRoute.options.component as ComponentType
+    render(<Component />)
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull()
+    expect(screen.queryByText('Nothing logged in this range')).toBeNull()
+    expect(screen.getAllByRole('listitem')[0]?.textContent).toContain(
+      '777 kcal',
+    )
   })
 
   it('uses the goal effective on each historical date', () => {
@@ -233,16 +285,15 @@ describe('History route', () => {
 
     const rows = screen.getAllByRole('listitem')
     const aprilFourthRow = rows.find((row) =>
-      row.textContent?.includes('Sat, Apr 4'),
+      row.textContent?.includes('Today'),
     )
     const aprilSecondRow = rows.find((row) =>
       row.textContent?.includes('Thu, Apr 2'),
     )
 
-    expect(aprilFourthRow?.textContent).toContain('2200 kcal')
-    expect(aprilFourthRow?.textContent).toContain('1700 kcal')
-    expect(aprilSecondRow?.textContent).toContain('2000 kcal')
-    expect(aprilSecondRow?.textContent).toContain('1500 kcal')
+    // 500 logged against 2200, then against 2000.
+    expect(aprilFourthRow?.textContent).toContain('1700 kcal left')
+    expect(aprilSecondRow?.textContent).toContain('1500 kcal left')
     expect(screen.queryByText('Current daily goal')).toBeNull()
   })
 
@@ -253,23 +304,20 @@ describe('History route', () => {
     ]
     const Component = HistoryRoute.options.component as ComponentType
     render(<Component />)
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toContain(
+      '100 kcal a day',
+    )
+    // One of the six finished days has meals; the other five are counted.
     expect(
-      screen.getByText('Daily average').parentElement?.textContent,
-    ).toContain('50 kcal')
-    expect(
-      screen.getByText('Days with meals').parentElement?.textContent,
-    ).toContain('2')
+      screen.getByText(/of 1 day over · 5 days without meals/),
+    ).toBeTruthy()
     const rows = screen.getAllByRole('listitem')
     expect(
-      rows.find((row) => row.textContent?.includes('Sat, Apr 4'))?.textContent,
+      rows.find((row) => row.textContent?.includes('Today'))?.textContent,
     ).toContain('0 kcal')
     expect(
       rows.find((row) => row.textContent?.includes('Thu, Apr 2'))?.textContent,
     ).toContain('No meals logged')
-    // The chart is hidden from assistive technology; its summary is not.
-    expect(
-      screen.getByText('7 days: 2 with meals, 0 over the goal.'),
-    ).toBeTruthy()
     // A day with nothing logged still opens, to log it.
     expect(
       rows
@@ -301,9 +349,8 @@ describe('History route', () => {
     render(<Component />)
     const row = screen
       .getAllByRole('listitem')
-      .find((row) => row.textContent?.includes('Sat, Apr 4'))
-    expect(row?.textContent).toContain('2200 kcal')
-    expect(row?.textContent).toContain('1700 kcal')
+      .find((row) => row.textContent?.includes('Today'))
+    expect(row?.textContent).toContain('1700 kcal left')
   })
 
   it('keeps the initial person selected when the active page changes', () => {

@@ -41,11 +41,12 @@ import { formatDate } from '@/lib/dates'
 import { useMarkHintSeen } from '@/features/hints/hints'
 import { EmptyState } from '@/components/page/empty-state'
 import {
-  DayTotals,
   HistoryChart,
   HistoryLegend,
   type DayRow,
 } from '@/features/history/history-chart'
+import { messages as chartMessages } from '@/features/history/history-chart.messages'
+import { cn } from '@/lib/utils'
 import { messages } from './history.messages'
 
 export const Route = createFileRoute('/history')({
@@ -76,6 +77,12 @@ const HISTORY_PAGE_SIZE = 50
 const PEOPLE_PAGE_SIZE = 50
 const MAX_HISTORY_DAYS = 366
 const RANGE_PRESETS = [7, 30]
+// Up to two weeks the list of days is the chart. Past that, rows alone lose
+// the range's shape, so the bar chart stays above them.
+const CHART_MIN_DAYS = 15
+// The balance centres its arrow, figure and words. Beside other text on one
+// line it shares that text's baseline, and only the arrow stays centred.
+const INLINE_BALANCE_CLASS = 'items-baseline [&>svg]:self-center'
 
 function HistoryPage() {
   if (!isConvexConfigured) {
@@ -231,11 +238,30 @@ function HistoryPageContent() {
     isHistoryComplete,
   ])
 
-  const avgConsumed = useMemo(() => {
-    const logged = rows.filter((row) => row.mealCount > 0)
-    if (logged.length === 0) return 0
-    return logged.reduce((sum, row) => sum + row.consumed, 0) / logged.length
-  }, [rows])
+  // The range in one line: what a finished day with meals averaged, how that
+  // sits against the goal, and how many of those days ended over. Today is
+  // still filling up, so it would pull the average down until its last meal;
+  // a custom range may also run into days that have not come yet.
+  const verdict = useMemo(() => {
+    const finished = rows.filter((row) => row.date < today)
+    const logged = finished.filter((row) => row.mealCount > 0)
+    const mean = (pick: (row: DayRow) => number) =>
+      logged.reduce((sum, row) => sum + pick(row), 0) /
+      Math.max(1, logged.length)
+    return {
+      days: logged.length,
+      emptyDays: finished.length - logged.length,
+      consumed: mean((row) => row.consumed),
+      remaining: mean((row) => row.remaining),
+      hasGoal: logged.some((row) => row.goal > 0),
+      overDays: logged.filter(isOver).length,
+    }
+  }, [rows, today])
+  // One scale for every row, so bars compare by length across days.
+  const scale = Math.max(
+    1,
+    ...rows.map((row) => Math.max(row.consumed, row.goal)),
+  )
   const dayHref = (day: string) => {
     const search = new URLSearchParams({
       date: day,
@@ -375,82 +401,86 @@ function HistoryPageContent() {
           <HistorySkeleton label={t.loadingRange} />
         ) : (
           <>
-            {/* An empty range has no average to show; its card says so. */}
-            {isHistoryComplete && loggedDays === 0 ? null : (
-              <div className="inset-group">
-                <div className="grid grid-cols-2">
-                  <div className="px-4 py-3">
-                    <p className="type-footnote text-muted-foreground">
-                      {t.dailyAverage}
-                    </p>
-                    <p className="mt-0.5">
-                      {loggedDays > 0 ? (
-                        <Value size="stat" value={Math.round(avgConsumed)} />
-                      ) : (
-                        <span className="type-title">–</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="border-l px-4 py-3">
-                    <p className="type-footnote text-muted-foreground">
-                      {t.daysWithMeals}
-                    </p>
-                    <p className="mt-0.5">
-                      <Value
-                        size="stat"
-                        value={loggedDays}
-                        unit={t.ofDays(rows.length)}
-                      />
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {isHistoryComplete ? (
-              <>
+              <section
+                aria-labelledby={verdict.days ? 'history-verdict' : undefined}
+                className="space-y-3"
+              >
                 {loggedDays === 0 ? (
-                  // A chart of empty bars says nothing; the Days rows below
+                  // Nothing to average and no bars to draw; the rows below
                   // stay, so a missed day can still be opened and logged.
-                  <section className="inset-group px-4 py-3.5">
+                  <div className="inset-group px-4 py-3.5">
                     <EmptyState title={t.emptyRangeTitle}>
                       {t.emptyRange}
                     </EmptyState>
-                  </section>
-                ) : (
+                  </div>
+                ) : verdict.days === 0 ? null : (
+                  <div>
+                    <h2
+                      id="history-verdict"
+                      className="flex flex-wrap items-baseline gap-x-3"
+                    >
+                      <Value
+                        size="stat"
+                        value={Math.round(verdict.consumed)}
+                        unit={t.kcalADay}
+                      />
+                      {verdict.hasGoal ? (
+                        <Balance
+                          remaining={verdict.remaining}
+                          className={cn('type-headline', INLINE_BALANCE_CLASS)}
+                        />
+                      ) : null}
+                    </h2>
+                    {verdict.hasGoal ? (
+                      <p className="mt-0.5 type-subhead text-muted-foreground tabular-nums">
+                        {t.daysOver(
+                          <span className="font-semibold text-foreground">
+                            {verdict.overDays}
+                          </span>,
+                          verdict.days,
+                          verdict.emptyDays,
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+                {loggedDays > 0 && rows.length >= CHART_MIN_DAYS ? (
                   <section
                     aria-labelledby="history-chart-title"
                     className="inset-group px-4 pt-3.5 pb-1"
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <h2 id="history-chart-title" className="type-headline">
+                      <h3 id="history-chart-title" className="type-headline">
                         {t.dailyCalories}
-                      </h2>
+                      </h3>
                       <HistoryLegend rows={rows} />
                     </div>
                     <HistoryChart rows={rows} today={today} dayHref={dayHref} />
                   </section>
+                ) : null}
+                {rows.length === 0 ? (
+                  <p className="inset-group px-4 py-3 type-subhead text-muted-foreground">
+                    {t.noData}
+                  </p>
+                ) : (
+                  <ul
+                    aria-label={t.daysHeading}
+                    className="inset-group inset-rows"
+                  >
+                    {rows.map((row) => (
+                      <li key={row.date}>
+                        <DayLink
+                          row={row}
+                          href={dayHref(row.date)}
+                          scale={scale}
+                          isToday={row.date === today}
+                        />
+                      </li>
+                    ))}
+                  </ul>
                 )}
-
-                <section aria-labelledby="history-days">
-                  <h2 id="history-days" className="type-title">
-                    {t.daysHeading}
-                  </h2>
-                  {rows.length === 0 ? (
-                    <p className="mt-3 inset-group px-4 py-3 type-subhead text-muted-foreground">
-                      {t.noData}
-                    </p>
-                  ) : (
-                    <ul className="mt-3 inset-group inset-rows">
-                      {rows.map((row) => (
-                        <li key={row.date}>
-                          <DayLink row={row} href={dayHref(row.date)} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              </>
+              </section>
             ) : null}
           </>
         )}
@@ -459,31 +489,113 @@ function HistoryPageContent() {
   )
 }
 
-/** One day in the range: the date, what was logged against the goal, and
- * the balance in its state colour with a sign and arrow. Opens that day. */
-function DayLink({ row, href }: { row: DayRow; href: string }) {
+/** Over as the balance shows it: a rounded overage of at least 1 kcal. */
+const isOver = (row: DayRow) =>
+  row.goal > 0 && Math.round(row.consumed - row.goal) > 0
+
+/**
+ * One day in the range, which is also its bar in the chart the list makes:
+ * the day and its balance in its state colour with a sign and arrow, then the
+ * bar and the day's total. Opens that day.
+ */
+function DayLink({
+  row,
+  href,
+  scale,
+  isToday,
+}: {
+  row: DayRow
+  href: string
+  scale: number
+  isToday: boolean
+}) {
+  const t = useMessages(chartMessages)
   const locale = useLocale()
+  const logged = row.mealCount > 0
   return (
     <a
       href={href}
-      className="flex min-h-15 items-center gap-3 py-2.5 pr-3.5 pl-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+      className="flex min-h-15 items-center gap-1.5 py-2.5 pr-3.5 pl-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-base">{formatDate(row.date, locale)}</span>
-        <span className="mt-0.5 block type-footnote text-muted-foreground tabular-nums">
-          <DayTotals row={row} />
+        <span className="flex items-baseline justify-between gap-3">
+          {/* A day still filling up never reads as a finished low day. */}
+          <span className="text-base">
+            {isToday ? t.today : formatDate(row.date, locale)}
+          </span>
+          {!logged ? (
+            <span className="type-subhead text-muted-foreground">
+              {t.noMealsLogged}
+            </span>
+          ) : row.goal > 0 ? (
+            <Balance
+              remaining={row.remaining}
+              className={cn('type-subhead', INLINE_BALANCE_CLASS)}
+            />
+          ) : null}
+        </span>
+        <span className="mt-0.5 flex h-4.5 items-center gap-2">
+          <DayBar row={row} scale={scale} />
+          <span className="min-w-9 text-right type-footnote font-medium text-muted-foreground tabular-nums">
+            {logged ? (
+              <>
+                {Math.round(row.consumed)}
+                <span className="sr-only"> kcal</span>
+              </>
+            ) : null}
+          </span>
         </span>
       </span>
-      <span className="flex shrink-0 items-center gap-1.5">
-        {row.mealCount > 0 && row.goal > 0 ? (
-          <Balance remaining={row.remaining} className="type-subhead" />
-        ) : null}
-        <ChevronRight
-          aria-hidden="true"
-          className="size-4 text-muted-foreground"
-        />
-      </span>
+      <ChevronRight
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
     </a>
+  )
+}
+
+/**
+ * A day's bar on the range's shared scale. The track is the day's goal, so
+ * track ends line up down the list as the goal; the left colour fills it to
+ * what was logged, and only what lies past the goal is berry, after the
+ * goal's tick. A day without meals is an empty track. Decorative: the row's
+ * text says it.
+ */
+function DayBar({ row, scale }: { row: DayRow; scale: number }) {
+  const over = isOver(row)
+  // Without a goal the bar is just what was logged.
+  const track = row.goal > 0 ? row.goal : row.consumed
+  const fill = row.goal > 0 ? Math.min(1, row.consumed / row.goal) : 1
+  return (
+    <span aria-hidden="true" className="flex h-2 min-w-0 flex-1">
+      <span
+        className={cn(
+          'h-full overflow-hidden bg-track',
+          over ? 'rounded-l-full' : 'rounded-full',
+        )}
+        style={{ width: `${(track / scale) * 100}%` }}
+      >
+        {row.mealCount > 0 ? (
+          <span
+            className={cn(
+              // A logged day of a few kcal still shows a mark.
+              'block h-full min-w-1 bg-kcal-left-bar',
+              !over && 'rounded-full',
+            )}
+            style={{ width: `${fill * 100}%` }}
+          />
+        ) : null}
+      </span>
+      {over ? (
+        <span
+          data-overage
+          // The goal tick of Today's bar, where teal meets berry. At least 4px
+          // of berry, so a small overage never reads as at goal.
+          className="relative h-full min-w-1 rounded-r-full bg-kcal-over-bar before:absolute before:-inset-y-0.75 before:left-0 before:w-0.5 before:-translate-x-1/2 before:rounded-full before:bg-muted-foreground"
+          style={{ width: `${((row.consumed - row.goal) / scale) * 100}%` }}
+        />
+      ) : null}
+    </span>
   )
 }
 
