@@ -15,7 +15,7 @@ it('takes the shape of the page being opened', () => {
   render(view('/history'))
   const status = screen.getByRole('status', { name: 'Loading page' })
   expect(status.textContent).toContain('History')
-  expect(status.textContent).toContain('Daily average')
+  expect(status.textContent).toContain('30 days')
 })
 
 it('falls back to today for an invalid date link', () => {
