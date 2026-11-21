@@ -1484,8 +1484,7 @@ function earlierLogMacros(
 // knows its macros, so a new custom or fixed item without any borrows them
 // instead of leaving that part of the day uncovered.
 async function withEarlierLogMacros(
-  db: DatabaseWriter,
-  owner: AuthenticatedOwner,
+  earlierLogs: (name: string) => Promise<Array<Doc<'mealItems'>>>,
   item: Infer<typeof mealItemInputValidator>,
   snapshot: MealItemSnapshot,
 ): Promise<MealItemSnapshot> {
@@ -1499,27 +1498,11 @@ async function withEarlierLogMacros(
     ('macros' in item && item.macros === null)
   )
     return snapshot
-  const name = snapshot.nameSnapshot.toLocaleLowerCase()
-  const candidates = await db
-    .query('mealItems')
-    .withSearchIndex('search_name', (q) =>
-      q
-        // Convex caps search terms; a few words find the same food.
-        .search(
-          'nameSnapshot',
-          snapshot.nameSnapshot.split(/\s+/).slice(0, 8).join(' '),
-        )
-        .eq('householdId', owner.householdId),
-    )
-    .take(EARLIER_LOG_CANDIDATES)
-  let latest: { macros: MacroGrams; at: number } | undefined
-  for (const earlier of candidates) {
-    if (earlier.nameSnapshot.toLocaleLowerCase() !== name) continue
-    if (latest && earlier._creationTime < latest.at) continue
+  for (const earlier of await earlierLogs(snapshot.nameSnapshot)) {
     const macros = earlierLogMacros(earlier, snapshot)
-    if (macros) latest = { macros, at: earlier._creationTime }
+    if (macros) return { ...snapshot, macrosSnapshot: macros }
   }
-  return latest ? { ...snapshot, macrosSnapshot: latest.macros } : snapshot
+  return snapshot
 }
 
 export async function buildMealItemSnapshots(
@@ -1935,9 +1918,26 @@ export async function buildMealItemSnapshots(
             snapshot.nutritionProvenance),
     }
   })
+  // One read per name, however many items repeat it. Newest first, so a
+  // corrected log wins over older ones.
+  const logsByName = new Map<string, Promise<Array<Doc<'mealItems'>>>>()
+  const earlierLogs = (name: string) => {
+    let logs = logsByName.get(name)
+    if (!logs) {
+      logs = db
+        .query('mealItems')
+        .withIndex('by_householdId_and_nameSnapshot', (q) =>
+          q.eq('householdId', owner.householdId).eq('nameSnapshot', name),
+        )
+        .order('desc')
+        .take(EARLIER_LOG_CANDIDATES)
+      logsByName.set(name, logs)
+    }
+    return logs
+  }
   return Promise.all(
     finished.map((snapshot, index) =>
-      withEarlierLogMacros(db, owner, items[index], snapshot),
+      withEarlierLogMacros(earlierLogs, items[index], snapshot),
     ),
   )
 }

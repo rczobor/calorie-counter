@@ -155,8 +155,8 @@ creation or device-code flow is exposed in this release.
   them. Only when no estimate is possible, the item or change sets
   `macrosUnknown: true` and saves without macros.
 - A new custom or fixed item saved with calories but no macros, from an
-  assistant or the app, first borrows them from a recent earlier log of the
-  same food in the household: the same name (ignoring case) and the same
+  assistant or the app, first borrows them from the latest earlier log of the
+  same food in the household: the exact same name and the same
   kcal/100 g, or for a fixed item the same calories per serving, scaled to its
   calories. This happens before the `missingMacros` check, even when the item
   sets `macrosUnknown`, so a repeated food needs macros only once. Edits of

@@ -3514,7 +3514,7 @@ describe('MCP custom and fixed items without macros', () => {
     )
 
     const repeat = [
-      { ...stew, name: 'stew', consumedWeightGrams: 200, macrosUnknown: true },
+      { ...stew, consumedWeightGrams: 200, macrosUnknown: true },
       {
         sourceType: 'fixedCalories',
         name: 'Chicken bites',
