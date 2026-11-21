@@ -58,6 +58,17 @@ describe('day summary bar', () => {
     expect(intakeBarSegments([], 0, 2000)).toEqual([])
   })
 
+  it('gives fractional meals under or at the goal no overage', () => {
+    // Running totals of these leave float residue that once read as overage.
+    const overages = (meals: number[], consumed: number) =>
+      intakeBarSegments(meals, consumed, 2000).map((segment) => segment.over)
+    expect(
+      overages([312.3, 114.7, 579.1, 340.3, 210.9, 114.8, 115.3], 1787.4),
+    ).toEqual([0, 0, 0, 0, 0, 0, 0])
+    // These add up to exactly the goal.
+    expect(overages([376.5, 304.1, 101.7, 1217.7], 2000)).toEqual([0, 0, 0, 0])
+  })
+
   it('keeps an open meal lit while the others step back, never the overage', () => {
     const { container } = render(
       <IntakeBar
