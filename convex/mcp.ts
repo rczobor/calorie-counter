@@ -63,7 +63,7 @@ const reusableWrite = {
 export const mcp: McpServer = new McpServer(components.mcp, {
   name: 'calorie-counter',
   title: 'Calorie Counter',
-  version: '1.11.0',
+  version: '1.12.0',
   consentUrl: env.MCP_CONSENT_URL ?? 'https://unconfigured.invalid/connect',
   deviceFlow: false,
   allowedOrigins: [],
@@ -472,7 +472,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     get_day: tool({
       description:
-        'Read a person’s meals and full daily calorie totals for an explicit YYYY-MM-DD date. Totals cover the full day; the meal list is paginated at 20 rows. macros sums protein, carbohydrate and fat over the foods that have them, and macros.coveredCalories is how much of the day’s kcal those foods make up: report it with the grams, never as the whole day. macroTargets are the person’s macro goals in grams. A protein goal per kg of body weight gives grams only from the latest weigh-in, so those grams and proteinPerKg are absent without one or for another member’s private weight. Resolve the person using get_logging_context first.',
+        'Read a person’s meals and full daily calorie totals for an explicit YYYY-MM-DD date. Totals cover the full day; the meal list is paginated at 20 rows. macros sums protein, carbohydrate and fat over the foods that have them, and macros.coveredCalories is how much of the day’s kcal those foods make up: report it with the grams, never as the whole day. macroTargets are the person’s macro goals in grams; when a person with them has coveredCalories below the day’s kcal, say how many kcal lack macros and offer to add them with preview_meal_corrections_batch. A protein goal per kg of body weight gives grams only from the latest weigh-in, so those grams and proteinPerKg are absent without one or for another member’s private weight. Resolve the person using get_logging_context first.',
       args: {
         householdId: v.optional(v.id('households')),
         personId: v.id('people'),
@@ -591,7 +591,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_meal: tool({
       description:
-        'Validate and calculate a meal without saving. Up to 30 items. Ingredient and cooked-food portions must be grams. Use savedFood with savedFoodId and portion {grams}, {ml} or {servings} for reusable foods. For unknown foods use customByWeight or fixedCalories; if any nutrition or portion is estimated, include nutritionProvenance with a source and explicit assumptions. A fresh label may override one meal with custom nutrition without editing a saved product. customByWeight and fixedCalories need macros from the same source as their calories (grams per 100 g, or for the whole fixed item); estimate them when no label or lookup gives them, labelled kind estimate. Only when no estimate is possible, set macrosUnknown true. An item with calories but neither gets a missingMacros warning here, and log_meal refuses it. Catalog foods, saved foods and cooked batches bring their own. Show returned calories, macros with their coveredCalories, context, dailySummary, projectedDailySummary, and estimates. Ask approval unless the saved explicitOnly policy permits this exact requested new meal.',
+        'Validate and calculate a meal without saving. Up to 30 items. Ingredient and cooked-food portions must be grams. Use savedFood with savedFoodId and portion {grams}, {ml} or {servings} for reusable foods. For unknown foods use customByWeight or fixedCalories; if any nutrition or portion is estimated, include nutritionProvenance with a source and explicit assumptions. A fresh label may override one meal with custom nutrition without editing a saved product. customByWeight and fixedCalories need macros from the same source as their calories (grams per 100 g, or for the whole fixed item); estimate them when no label or lookup gives them, labelled kind estimate. Only when no estimate is possible, set macrosUnknown true. An item with calories but no macros borrows them from a recent earlier log of the same name with the same kcal/100 g or calories per serving; otherwise it gets a missingMacros warning here unless macrosUnknown is true, and log_meal refuses it. Catalog foods, saved foods and cooked batches bring their own. Show returned calories, macros with their coveredCalories, context, dailySummary, projectedDailySummary, and estimates. When the person has macroTargets and the projected day’s coveredCalories falls short of its kcal, say how many kcal lack macros and offer to add them after saving. Ask approval unless the saved explicitOnly policy permits this exact requested new meal.',
       args: { householdId: v.optional(v.id('households')), input: mealInput },
       returns: mealPreview,
       scope: 'nutrition:read',
