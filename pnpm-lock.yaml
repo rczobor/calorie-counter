@@ -184,17 +184,17 @@ importers:
         specifier: ^1.9.0
         version: 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@clerk/localizations':
-        specifier: 4.25.1
-        version: 4.25.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 4.26.0
+        version: 4.26.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@clerk/react':
-        specifier: 6.19.0
-        version: 6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 6.19.1
+        version: 6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@convex-dev/mcp':
         specifier: 0.1.0-alpha.7
-        version: 0.1.0-alpha.7(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
+        version: 0.1.0-alpha.7(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
       '@convex-dev/rate-limiter':
         specifier: 0.4.3
-        version: 0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
+        version: 0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
@@ -205,8 +205,8 @@ importers:
         specifier: ^1.170.46
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-start':
-        specifier: ^1.169.5
-        version: 1.169.5(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
+        specifier: ^1.169.6
+        version: 1.169.7(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
       '@vercel/analytics':
         specifier: 2.0.1
         version: 2.0.1(react@19.3.1)
@@ -221,7 +221,7 @@ importers:
         version: 2.1.1
       convex:
         specifier: ^1.51.0
-        version: 1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+        version: 1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
@@ -302,8 +302,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       convex-test:
-        specifier: ^0.0.72
-        version: 0.0.72(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))
+        specifier: ^0.0.73
+        version: 0.0.73(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))
       eslint:
         specifier: ^10.15.0
         version: 10.15.0(jiti@2.7.0)
@@ -522,12 +522,12 @@ packages:
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
 
-  '@clerk/localizations@4.25.1':
-    resolution: {integrity: sha512-5yKU6BjPHy32W97RPNDnM399Re5Pxs8zY10Q0+RT3KttHSdV7PZv9GA3YFD7rNMCdkicB+BhUztMzt28wf6pwA==}
+  '@clerk/localizations@4.26.0':
+    resolution: {integrity: sha512-nw6UHZ0hfGAAqxcO+OskwXQh8NA/UKTmJvrluCmyMhtnTvv8DvHDdeC0z6sgFsIajm0DREZdA5b0k3y/3Cs+YA==}
     engines: {node: '>=20.9.0'}
 
-  '@clerk/react@6.19.0':
-    resolution: {integrity: sha512-E2c6O6R/JrLu+lZUos3KKymWgVnc7qc3ytuItMQCYt89H4pq0mmVdTV5hS2nQhxXgrGwfl0Qiv7DUMaGTlG+wQ==}
+  '@clerk/react@6.19.1':
+    resolution: {integrity: sha512-2QF2lW2bGh8k4vpuVTmqo3Y6VkjR/l1IJqA/FtjzkTY58/IW1/8rcfa1JmOcspVNDpimyCcUWH+oPXOlXEv0bQ==}
     engines: {node: '>=20.9.0'}
     peerDependencies:
       react: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
@@ -1416,15 +1416,15 @@ packages:
       react: '>=18.0.0 || >=19.0.0'
       react-dom: '>=18.0.0 || >=19.0.0'
 
-  '@tanstack/react-start-rsc@0.1.66':
-    resolution: {integrity: sha512-Utk9e3xJBZGvg0CcmiciW0m2dL45QOHFm/UGgQUcu1w32QvV6p5i8NmewwVcfr8utnexJXifDZZUWeO2NWiLpg==}
+  '@tanstack/react-start-rsc@0.1.68':
+    resolution: {integrity: sha512-vwJ41g2HMlxeF1ctnzORXBcpiXBij/IqENHKl1zOv8hsS0mslvqfio5SdCFo/4GKAOjcZWmxqG5GJoJWmryDbg==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       '@rspack/core': '>=2.0.0-0'
-      '@vitejs/plugin-rsc': '>=0.5.30'
+      '@vitejs/plugin-rsc': '>=0.5.38'
       react: '>=18.0.0 || >=19.0.0'
       react-dom: '>=18.0.0 || >=19.0.0'
-      react-server-dom-rspack: '>=0.0.2'
+      react-server-dom-rspack: '>=0.1.1'
     peerDependenciesMeta:
       '@rspack/core':
         optional: true
@@ -1440,8 +1440,8 @@ packages:
       react: '>=18.0.0 || >=19.0.0'
       react-dom: '>=18.0.0 || >=19.0.0'
 
-  '@tanstack/react-start@1.169.5':
-    resolution: {integrity: sha512-wbI+pitXm5J2uvFe9aLXVgIjY85ju4efsQ76reE19bZTkqyZzpSb+cBkNV5rZMSrsMzWUsbN5CRctHuWeMkRiA==}
+  '@tanstack/react-start@1.169.7':
+    resolution: {integrity: sha512-8/Qg9iVC2oTtAqSdLdML2K+MZ8eBZe00pe6k54CkWYA4nRmrNyN/n2zbMW+rtjDbLAPeQck/1hgS6QBlblPGnw==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       '@rsbuild/core': ^2.0.5
@@ -1514,8 +1514,8 @@ packages:
     resolution: {integrity: sha512-QWfUZ3Yo923tdQn38LyKMU8rcTw69zc+T4dAvgTWV4O56SqFRsGfS0lSWIMhJRwXIx/bvdi7nTUBDdZtTHtpTQ==}
     engines: {node: '>=22.12.0'}
 
-  '@tanstack/start-plugin-core@1.171.56':
-    resolution: {integrity: sha512-xTzXpxfuBsJjBq4xLbQ0Go0/87SReVukjevkqNR3k/rgeKHfjt8nHJDMaQByS97ko+jmSoVY8+TXtRLaCYvI0A==}
+  '@tanstack/start-plugin-core@1.172.0':
+    resolution: {integrity: sha512-8VbVDauTOvlersYJcJe/wlIQ3LqPV1oQnWiGwMKilA2Z9r1sDhts+7SCIHBHqr9BjK0Z8w1+X0CKvCygNeD/5g==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       '@rsbuild/core': ^2.0.5
@@ -2159,8 +2159,8 @@ packages:
       zod:
         optional: true
 
-  convex-test@0.0.72:
-    resolution: {integrity: sha512-yeI8w2PKT/TO3VnXLWJPz2CDCwaKx8sIcy8HaFJDvcqwdXZBKY+EtD2MOU+iIih+O87Saudx2SVl/1sJZmZyOA==}
+  convex-test@0.0.73:
+    resolution: {integrity: sha512-4VAuW26Iy/6mMKsmWfS3e97golfO0mPGd/qDcN5IT4uCeXHP1a3tYIaOPgXhOKaEuBIw93qLa2URB9uH3Mqo0Q==}
     peerDependencies:
       convex: ^1.46.0
 
@@ -4394,14 +4394,14 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@clerk/localizations@4.25.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@clerk/localizations@4.26.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@clerk/shared': 4.48.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
     transitivePeerDependencies:
       - react
       - react-dom
 
-  '@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@clerk/shared': 4.48.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react: 19.3.1
@@ -4417,10 +4417,10 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@convex-dev/batch-worker@0.3.5(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
+  '@convex-dev/batch-worker@0.3.5(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
     dependencies:
-      convex: 1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
-      convex-helpers: 0.1.131(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
+      convex: 1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      convex-helpers: 0.1.131(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
     transitivePeerDependencies:
       - '@standard-schema/spec'
       - hono
@@ -4428,10 +4428,10 @@ snapshots:
       - typescript
       - zod
 
-  '@convex-dev/mcp@0.1.0-alpha.7(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
+  '@convex-dev/mcp@0.1.0-alpha.7(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
     dependencies:
-      '@convex-dev/rate-limiter': 0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
-      convex: 1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      '@convex-dev/rate-limiter': 0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
+      convex: 1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
     transitivePeerDependencies:
       - '@standard-schema/spec'
       - hono
@@ -4439,10 +4439,10 @@ snapshots:
       - typescript
       - zod
 
-  '@convex-dev/rate-limiter@0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
+  '@convex-dev/rate-limiter@0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
     dependencies:
-      '@convex-dev/batch-worker': 0.3.5(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
-      convex: 1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      '@convex-dev/batch-worker': 0.3.5(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
+      convex: 1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
     optionalDependencies:
       react: 19.3.1
     transitivePeerDependencies:
@@ -5140,14 +5140,14 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@tanstack/react-start-rsc@0.1.66(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))':
+  '@tanstack/react-start-rsc@0.1.68(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))':
     dependencies:
       '@tanstack/react-router': 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/router-core': 1.171.39
       '@tanstack/router-utils': 1.163.0
       '@tanstack/start-client-core': 1.170.39
       '@tanstack/start-fn-stubs': 1.162.0
-      '@tanstack/start-plugin-core': 1.171.56(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(esbuild@0.28.2)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
+      '@tanstack/start-plugin-core': 1.172.0(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(esbuild@0.28.2)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
       '@tanstack/start-storage-context': 1.167.41
       pathe: 2.0.3
       react: 19.3.1
@@ -5173,15 +5173,15 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@tanstack/react-start@1.169.5(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))':
+  '@tanstack/react-start@1.169.7(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))':
     dependencies:
       '@tanstack/react-router': 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-start-client': 1.168.45(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@tanstack/react-start-rsc': 0.1.66(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
+      '@tanstack/react-start-rsc': 0.1.68(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
       '@tanstack/react-start-server': 1.167.52(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/router-utils': 1.163.0
       '@tanstack/start-client-core': 1.170.39
-      '@tanstack/start-plugin-core': 1.171.56(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(esbuild@0.28.2)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
+      '@tanstack/start-plugin-core': 1.172.0(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(esbuild@0.28.2)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
       '@tanstack/start-server-core': 1.169.45
       pathe: 2.0.3
       react: 19.3.1
@@ -5282,7 +5282,7 @@ snapshots:
 
   '@tanstack/start-fn-stubs@1.162.0': {}
 
-  '@tanstack/start-plugin-core@1.171.56(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(esbuild@0.28.2)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))':
+  '@tanstack/start-plugin-core@1.172.0(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(esbuild@0.28.2)(rolldown@1.2.19)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))':
     dependencies:
       '@babel/code-frame': 7.29.7
       '@babel/core': 7.29.7
@@ -5874,26 +5874,26 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.131(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5):
+  convex-helpers@0.1.131(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5):
     dependencies:
-      convex: 1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      convex: 1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
       react: 19.3.1
       typescript: '@typescript/typescript6@6.0.2'
       zod: 4.6.5
 
-  convex-test@0.0.72(convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)):
+  convex-test@0.0.73(convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)):
     dependencies:
-      convex: 1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+      convex: 1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
 
-  convex@1.51.0(@clerk/react@6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1):
+  convex@1.51.0(@clerk/react@6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1):
     dependencies:
       esbuild: 0.28.2
       prettier: 3.10.1
       ws: 8.21.0
     optionalDependencies:
-      '@clerk/react': 6.19.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@clerk/react': 6.19.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react: 19.3.1
     transitivePeerDependencies:
       - bufferutil
