@@ -477,6 +477,12 @@ html.christmas .intake-fill {
   fill: oklch(0.99 0.003 240);
   filter: drop-shadow(0 1px 1px oklch(0 0 0 / 18%));
 }
+/* On the pale light page, a cool shade under the cap keeps it reading as
+   snow rather than a chip out of the button. */
+html:not(.dark) .snow-cap {
+  fill: oklch(0.985 0.006 245);
+  filter: drop-shadow(0 1px 1.5px oklch(0.45 0.05 250 / 45%));
+}
 @media (prefers-reduced-motion: reduce) {
   .winter-clouds,
   .string-lights span,
