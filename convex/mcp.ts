@@ -309,7 +309,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     suggest_reusable_foods: tool({
       description:
-        'Read-only suggestions for explicitly identified foods repeated in recent matching history (at least twice). Supply a logged mealId. Uses brand or provided nutrition evidence plus identical nutrition, never a vague name alone; excludes known saved/catalog foods and batches. Bounded evidence may omit older occurrences. Returns up to five suggestions and saves nothing. Ask explicit permission before save_food_from_meal; do not automatically save every item.',
+        'Read-only suggestions for explicitly identified foods repeated in recent matching history (at least twice). Supply a logged mealId. Uses brand or provided nutrition evidence plus identical nutrition, never a vague name alone; excludes known saved/catalog foods and batches. Bounded evidence may omit older occurrences. Returns up to five suggestions and saves nothing. log_meal already saves branded or label foods the person logs again; for others, ask explicit permission before save_food_from_meal; do not automatically save every item.',
       args: {
         householdId: v.optional(v.id('households')),
         mealId: v.id('meals'),
@@ -606,7 +606,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     log_meal: tool({
       description:
-        'Record a new meal after preview approval, or in the same turn for an explicit fully specified non-estimated logging request when saved confirmationMode is explicitOnly. Send the exact input returned by preview_meal, including expectedSnapshot fields, and a new unique operationKey. Reuse that same key and input only when retrying the same save. If foods change after a preview, preview again; never save an obsolete preview. Refuses customByWeight and fixedCalories items with calories but no macros unless they set macrosUnknown true. Updates the daily total atomically. Returned summaries are point-in-time snapshots, including on retries; use get_day for current totals. Does not edit existing meals or save foods to the catalog.',
+        'Record a new meal after preview approval, or in the same turn for an explicit fully specified non-estimated logging request when saved confirmationMode is explicitOnly. Send the exact input returned by preview_meal, including expectedSnapshot fields, and a new unique operationKey. Reuse that same key and input only when retrying the same save. If foods change after a preview, preview again; never save an obsolete preview. Refuses customByWeight and fixedCalories items with calories but no macros unless they set macrosUnknown true. Updates the daily total atomically. Returned summaries are point-in-time snapshots, including on retries; use get_day for current totals. Does not edit existing meals. A food with a brand or label values that the same person logged before with identical nutrition is saved for reuse on the way and listed in savedFoods; log it from that saved food next time.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealInput,

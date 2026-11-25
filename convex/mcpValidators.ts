@@ -229,6 +229,10 @@ export const mealResult = v.object({
   eatenOn: v.string(),
   totalCalories: v.number(),
   path: v.string(),
+  /** Foods this meal repeated, saved for reuse on the way. */
+  savedFoods: v.optional(
+    v.array(v.object({ foodId: v.id('mcpSavedFoods'), name: v.string() })),
+  ),
 })
 export const cookingResult = v.object({
   context: v.optional(loggingContext),
