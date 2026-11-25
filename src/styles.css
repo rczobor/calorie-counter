@@ -327,18 +327,19 @@ html.christmas .intake-fill {
 .dark .winter-sky {
   background: none;
 }
+/* Four clouds in one 1000px tile that repeats across the sky, so wide
+   screens get clouds all the way across. Every cloud stays inside the tile,
+   since a tile edge would cut a cloud off. */
 .winter-clouds {
   position: absolute;
   inset: -20px -200px 0 -200px;
-  background:
-    radial-gradient(closest-side, oklch(1 0 0 / 9%), transparent) 0 10px / 260px
-      120px no-repeat,
-    radial-gradient(closest-side, oklch(1 0 0 / 7%), transparent) 220px -10px /
-      320px 140px no-repeat,
-    radial-gradient(closest-side, oklch(1 0 0 / 8%), transparent) 480px 40px /
-      280px 110px no-repeat,
-    radial-gradient(closest-side, oklch(1 0 0 / 6%), transparent) 640px 0 /
-      300px 150px no-repeat;
+  background-image:
+    radial-gradient(130px 60px at 130px 70px, oklch(1 0 0 / 9%), transparent),
+    radial-gradient(160px 70px at 380px 60px, oklch(1 0 0 / 7%), transparent),
+    radial-gradient(140px 55px at 620px 95px, oklch(1 0 0 / 8%), transparent),
+    radial-gradient(150px 75px at 790px 75px, oklch(1 0 0 / 6%), transparent);
+  background-size: 1000px 100%;
+  background-repeat: repeat-x;
   animation: winter-drift 70s linear infinite alternate;
 }
 @keyframes winter-drift {
