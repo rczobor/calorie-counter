@@ -15,6 +15,7 @@ import {
 } from './lib/macros'
 import { readDayNutrition } from './lib/dayNutrition'
 import { DomainError } from './lib/validation'
+import { hasAcceptedPrivacyNotice } from './lib/privacy'
 import {
   assertOwnedOrThrow,
   ensureUserId,
@@ -122,17 +123,18 @@ export async function requireMcpOwner(
   }
 }
 
-// With nothing requested or saved, a member of several households tracks
-// where they linked a person to themselves, not in the personal household the
-// app created for them. Undefined keeps that personal household, which agents
-// already rely on when the account has no link.
+// With nothing requested or saved, a member tracks where they linked a person
+// to themselves, not in the personal household the app created for them.
+// Undefined keeps that personal household, which agents already rely on when
+// the account has no link, and leaves the privacy refusal to
+// requireHouseholdForAccount before any household data is read.
 async function linkedHouseholdId(
   ctx: Pick<QueryCtx, 'db'>,
   userId: Id<'users'> | null,
 ) {
-  if (!userId) return undefined
+  if (!userId || !(await hasAcceptedPrivacyNotice(ctx, userId)))
+    return undefined
   const memberships = await listMemberships(ctx, userId, 10)
-  if (memberships.length < 2) return undefined
   const linked = []
   for (const { householdId } of memberships) {
     const person = await findLinkedPerson(ctx, householdId, userId)

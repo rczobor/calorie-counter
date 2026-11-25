@@ -1990,6 +1990,20 @@ describe('MCP conversation regressions', () => {
         )
       ).context?.defaultPerson,
     ).toBe('Viki at home')
+
+    // A newer privacy notice is refused before any household is resolved.
+    await t.run(async (ctx) => {
+      for (const consent of await ctx.db.query('privacyConsents').collect())
+        await ctx.db.delete(consent._id)
+    })
+    expect(
+      await (await call(t, own.token, 'get_logging_context', {})).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ text: expect.stringContaining('privacy notice') }],
+      },
+    })
   })
 
   it('updates a pending lunch, returns server totals, and corrects one meal with both days accounted for', async () => {
