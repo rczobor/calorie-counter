@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react'
 import { useTheme } from 'next-themes'
+import { useRouterState } from '@tanstack/react-router'
 
 import { Switch } from '@/components/ui/switch'
 import { useMessages } from '@/i18n/messages'
@@ -71,6 +72,21 @@ export function useSeason() {
     ...seasonFor(month, day, off),
     inSeason: seasonFor(month, day, false).winter,
   }
+}
+
+/**
+ * The status bar colours for the installed app: iOS tints the strip under
+ * the clock with them, so in winter they match the top of the page (the
+ * night sky, or light mode's frost away from Today) instead of drawing a
+ * black or grey band across the sky.
+ */
+export function useStatusBarColors(normal: { light: string; dark: string }) {
+  const { winter } = useSeason()
+  const onToday = useRouterState({
+    select: (state) => state.location.pathname === '/',
+  })
+  if (!winter) return normal
+  return { light: onToday ? '#16243c' : '#d3e8f7', dark: '#1b2942' }
 }
 
 /**
