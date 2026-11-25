@@ -233,6 +233,8 @@ html.dark.winter {
   --track: oklch(1 0 0 / 14%);
   --left-surface: oklch(0.42 0.06 192 / 55%);
   --over-surface: oklch(0.42 0.07 5 / 55%);
+  /* An open meal's foods sit one slate step below the cell, not a hole. */
+  --recessed: oklch(0.24 0.03 262);
   --glass: oklch(0.34 0.035 262 / 60%);
   --glass-edge: oklch(1 0 0 / 12%);
 }
@@ -255,13 +257,17 @@ html.dark.winter .inset-group:not(.elevated .inset-group) {
 }
 
 /* Christmas: cranberry for the tint and pine for what is left of the day.
-   White text on the cranberry 6.1:1; pine as text 6.4:1 on white. */
+   White text on the cranberry 6.1:1; pine as text 6.4:1 on white. Over
+   moves from berry to plum, so it never shares the cranberry's hue. */
 html.christmas {
   --primary: oklch(0.5 0.17 18);
   --ring: oklch(0.5 0.17 18);
   --left: oklch(0.47 0.09 158);
   --left-surface: oklch(0.95 0.035 158);
   --left-bar: oklch(0.55 0.1 158);
+  --over: oklch(0.48 0.12 320);
+  --over-surface: oklch(0.95 0.03 320);
+  --over-bar: oklch(0.58 0.12 320);
 }
 html.dark.christmas {
   --primary: oklch(0.72 0.15 18);
@@ -270,6 +276,9 @@ html.dark.christmas {
   --left: oklch(0.82 0.11 158);
   --left-surface: oklch(0.42 0.07 158 / 55%);
   --left-bar: oklch(0.72 0.12 158);
+  --over: oklch(0.8 0.09 320);
+  --over-surface: oklch(0.42 0.07 320 / 55%);
+  --over-bar: oklch(0.78 0.11 320);
 }
 /* The calorie bar's logged stretch as a candy cane. */
 html.christmas .intake-fill {
@@ -331,6 +340,10 @@ html.christmas .intake-fill {
 @media (width < 48rem) {
   html.winter:not(.dark) .on-winter-sky {
     color: oklch(0.985 0.003 250);
+  }
+  /* The date picker's chevron, muted on the sky as it is in dark. */
+  html.winter:not(.dark) .on-winter-sky svg {
+    color: oklch(1 0 0 / 70%);
   }
 }
 
