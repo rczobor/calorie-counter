@@ -256,22 +256,12 @@ html.dark.winter .inset-group:not(.elevated .inset-group) {
   }
 }
 
-/* Christmas: cranberry for the tint and pine for what is left of the day.
-   White text on the cranberry 6.1:1; pine as text 6.4:1 on white. Over
-   moves from berry to plum, so it never shares the cranberry's hue. */
-html.christmas {
-  --primary: oklch(0.5 0.17 18);
-  --ring: oklch(0.5 0.17 18);
-  --left: oklch(0.47 0.09 158);
-  --left-surface: oklch(0.95 0.035 158);
-  --left-bar: oklch(0.55 0.1 158);
-  --over: oklch(0.48 0.12 320);
-  --over-surface: oklch(0.95 0.03 320);
-  --over-bar: oklch(0.58 0.12 320);
-}
-/* Dark keeps the same deep cranberry with white on it (5.1:1), so it never
-   turns coral; where the tint is text or an outline on the night, a lighter
-   cranberry keeps it readable (5.8:1 on a cell). */
+/* Christmas in dark mode: cranberry for the tint and pine for what is left
+   of the day; over moves from berry to plum, so it never shares the
+   cranberry's hue. The cranberry stays deep with white on it (5.1:1), so it
+   never turns coral; where the tint is text or an outline on the night, a
+   lighter cranberry keeps it readable (5.8:1 on a cell). Light mode keeps its
+   own colours: the owner chose them over cranberry in a blind vote. */
 html.dark.christmas {
   --primary: oklch(0.56 0.17 18);
   --primary-foreground: oklch(1 0 0);

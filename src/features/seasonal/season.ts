@@ -5,7 +5,7 @@ export const SEASONAL_THEME_KEY = 'calorie-counter:seasonal-theme'
  * Which seasonal layers apply on a calendar day (month 1-12). From November
  * 20 the winter layer (snow, Today's night sky, the winter dark palette) runs
  * through February, and the Christmas layer (tree, string lights, snow caps,
- * the candy-cane bar and the cranberry, pine and plum colours) through
+ * the candy-cane bar and, in dark mode, cranberry, pine and plum) through
  * Epiphany, January 6.
  *
  * Self-contained, using nothing outside itself: the root document inlines its
