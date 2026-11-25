@@ -43,7 +43,10 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
 function currentLinks() {
   render(
@@ -70,5 +73,25 @@ describe('navigation under the consent screen', () => {
     cleanup()
     consent.mockReturnValue(undefined)
     expect(currentLinks()).toEqual(['/', '/'])
+  })
+})
+
+describe('snow on the Log meal button', () => {
+  function snowOn(date: string) {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(`${date}T12:00:00`))
+    consent.mockReturnValue({ accepted: true })
+    render(<BottomNavigation />)
+    return screen
+      .getByRole('button', { name: 'Log meal' })
+      .querySelector('.snow-cap')
+  }
+
+  it('stays through the winter, after Christmas has ended', () => {
+    expect(snowOn('2027-01-20')).not.toBeNull()
+  })
+
+  it('is gone outside the season', () => {
+    expect(snowOn('2027-06-01')).toBeNull()
   })
 })

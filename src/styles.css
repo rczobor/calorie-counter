@@ -367,8 +367,8 @@ html.winter:not(.dark) .on-winter-sky svg {
   color: oklch(1 0 0 / 70%);
 }
 
-/* Light mode's winter: a frosty blue at the top of the other pages, and snow
-   lying along the bottom of the window. */
+/* Light mode's winter: a frosty blue at the top of the other pages. Snow
+   lies along the bottom of the window in both themes. */
 /* Today has its sky instead: its snowbank is the page colour, so frost
    behind it would show a seam. */
 html.winter:not(.dark) body:not(:has(.winter-sky)) {
@@ -386,14 +386,78 @@ html.winter:not(.dark) body:not(:has(.winter-sky)) {
   height: 4.5rem;
   pointer-events: none;
 }
+html.winter {
+  --drift: oklch(0.99 0.004 240);
+}
+/* At night the drift is moonlit rather than white: a slate-blue bank with a
+   paler crest, dim enough that the floating bar still reads over it. */
+html.dark.winter {
+  --drift: oklch(0.36 0.045 255);
+}
 .snow-drift svg {
   width: 100%;
   height: 100%;
-  fill: oklch(0.99 0.004 240);
+  fill: var(--drift);
   filter: drop-shadow(0 -2px 3px oklch(0.45 0.05 250 / 22%));
 }
-.dark .snow-drift {
-  display: none;
+.dark .snow-drift svg {
+  filter: drop-shadow(0 -1px 0 oklch(0.62 0.04 250 / 55%));
+}
+.snowman {
+  --snowman: oklch(0.995 0.003 240);
+  --snowman-shade: oklch(0.45 0.05 250 / 16%);
+  /* The settled snow it stands in on the meals card. */
+  --snowman-foot: oklch(0.99 0.003 240);
+}
+/* The whole snowman stands on the drift's right-hand rise: 95.1% across,
+   where the crest is 49px above the window's foot at any width. */
+.snowman-ground {
+  position: fixed;
+  left: 95.1%;
+  bottom: 2.5rem;
+  z-index: -10;
+  width: 2.75rem;
+  height: 3.625rem;
+  translate: -50% 0;
+  pointer-events: none;
+  --snowman-foot: var(--drift);
+}
+.dark .snowman {
+  --snowman: oklch(0.84 0.025 250);
+  --snowman-shade: oklch(0.2 0.04 260 / 30%);
+}
+.snowman-snow {
+  fill: var(--snowman);
+}
+/* A cool rim draws the white body on the pale light page. */
+html:not(.dark) .snowman-snow {
+  filter: drop-shadow(0 0 1.5px oklch(0.45 0.05 250 / 45%));
+}
+.snowman-shade {
+  fill: var(--snowman-shade);
+}
+.snowman-foot {
+  fill: var(--snowman-foot);
+}
+.snowman-scarf {
+  fill: var(--primary);
+}
+.snowman-hat,
+.snowman-coal {
+  fill: oklch(0.24 0.02 262);
+}
+/* Against the night the hat needs to be lighter than the sky. */
+.dark .snowman-hat {
+  fill: oklch(0.44 0.035 262);
+}
+.snowman-nose {
+  fill: oklch(0.72 0.17 55);
+}
+.snowman-arm {
+  fill: none;
+  stroke: oklch(0.42 0.06 50);
+  stroke-width: 1.4;
+  stroke-linecap: round;
 }
 
 /* String lights across the top of Today, under the top bar on wider
@@ -516,15 +580,18 @@ html.winter:not(.dark) body:not(:has(.winter-sky)) {
     opacity: 0.7;
   }
 }
-.snow-cap {
+.snow-cap,
+.snow-ledge {
   fill: oklch(0.99 0.003 240);
   filter: drop-shadow(0 1px 1px oklch(0 0 0 / 18%));
 }
-/* On the pale light page, a cool shade under the cap keeps it reading as
-   snow rather than a chip out of the button. */
-html:not(.dark) .snow-cap {
-  fill: oklch(0.985 0.006 245);
-  filter: drop-shadow(0 1px 1.5px oklch(0.45 0.05 250 / 45%));
+/* White snow on the pale light page: a cool rim along its crest draws it,
+   and a shade beneath keeps it from reading as a chip out of what it lies
+   on. */
+html:not(.dark) :is(.snow-cap, .snow-ledge) {
+  fill: oklch(0.995 0.003 240);
+  filter: drop-shadow(0 -1px 1px oklch(0.45 0.05 250 / 45%))
+    drop-shadow(0 1px 1px oklch(0.45 0.05 250 / 30%));
 }
 @media (prefers-reduced-motion: reduce) {
   .winter-clouds,

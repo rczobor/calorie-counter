@@ -79,7 +79,7 @@ export function BottomNavigation() {
   const t = useMessages(messages)
   const pathname = usePathname()
   const navigate = useNavigate()
-  const { christmas } = useSeason()
+  const { winter } = useSeason()
   // The consent screen stands in for every page, so no tab is current.
   const activeIndex = useConsentPending()
     ? -1
@@ -144,7 +144,7 @@ export function BottomNavigation() {
               if (pathname !== '/') void navigate({ to: '/' })
             }}
           >
-            {christmas ? <SnowCap /> : null}
+            {winter ? <SnowCap /> : null}
             <Plus aria-hidden="true" strokeWidth={2.5} />
           </Button>
         </div>

@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch'
 import { useMessages } from '@/i18n/messages'
 import { toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
-import { SEASONAL_THEME_KEY, seasonFor } from './season'
+import { SEASONAL_THEME_KEY, seasonFor, snowmanStage } from './season'
 import { messages } from './seasonal.messages'
 
 const Snowfall = lazy(async () => ({
@@ -49,11 +49,17 @@ function subscribeVisibility(onChange: () => void) {
   return () => document.removeEventListener('visibilitychange', onChange)
 }
 
-const OFF_SEASON = { winter: false, christmas: false, inSeason: false }
+const OFF_SEASON = {
+  winter: false,
+  christmas: false,
+  inSeason: false,
+  snowman: 0,
+}
 
 /**
  * Today's seasonal layers on this device. `inSeason` says whether there is a
- * season to show at all, whether or not this device turned it off.
+ * season to show at all, whether or not this device turned it off, and
+ * `snowman` how much of the phone's snowman is built (see `snowmanStage`).
  */
 export function useSeason() {
   const off = useSyncExternalStore(
@@ -71,6 +77,7 @@ export function useSeason() {
   return {
     ...seasonFor(month, day, off),
     inSeason: seasonFor(month, day, false).winter,
+    snowman: off ? 0 : snowmanStage(month, day),
   }
 }
 
@@ -122,13 +129,14 @@ export function SeasonalEffects() {
   if (!winter || !resolvedTheme) return null
   return (
     <>
-      {/* Snow lying along the bottom of the window, in light mode; the
-          snow falls in front of it. */}
+      {/* Snow lying along the bottom of the window; the snow falls in
+          front of it. */}
       <div aria-hidden="true" className="snow-drift">
         <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
           <path d="M0 34 C 80 18, 160 22, 240 30 C 330 40, 420 38, 510 26 C 600 14, 700 16, 790 28 C 880 40, 980 40, 1060 26 C 1120 16, 1170 18, 1200 24 L 1200 60 L 0 60 Z" />
         </svg>
       </div>
+      <Snowman className="snowman-ground hidden lg:block" />
       <Suspense fallback={null}>
         <Snowfall dark={resolvedTheme === 'dark'} />
       </Suspense>
@@ -149,6 +157,92 @@ export function SeasonalSetting() {
         onCheckedChange={(next) => setTurnedOff(!next)}
       />
     </label>
+  )
+}
+
+/**
+ * A snowman, built as far as `stage` (see `snowmanStage`). A whole one stands
+ * on the drift's right-hand rise, where wide windows have an empty margin
+ * beside the page; phones build one where the tree stood. The scarf takes
+ * the tint, so it is cranberry over Christmas.
+ */
+export function Snowman({
+  stage = 5,
+  className,
+}: {
+  stage?: number
+  className?: string
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 44 58"
+      className={cn('snowman', className)}
+    >
+      {stage >= 4 ? (
+        <>
+          <path className="snowman-arm" d="M12 34 L2 26 M5 28.5 L3 32" />
+          <path className="snowman-arm" d="M32 34 L42 27 M39 29 L42 32" />
+        </>
+      ) : null}
+      <circle className="snowman-snow" cx="22" cy="41" r="13" />
+      {/* Shade on the side away from the moon. */}
+      <path
+        className="snowman-shade"
+        d="M30 30.8 A 13 13 0 0 1 22 54 A 13 13 0 0 1 12.6 50 A 15 15 0 0 0 30 30.8 Z"
+      />
+      {stage >= 2 ? (
+        <>
+          <circle className="snowman-snow" cx="22" cy="20" r="9" />
+          <path
+            className="snowman-shade"
+            d="M28.2 13.5 A 9 9 0 0 1 17 27.5 A 10.5 10.5 0 0 0 28.2 13.5 Z"
+          />
+        </>
+      ) : null}
+      {stage >= 5 ? (
+        <>
+          <path
+            className="snowman-scarf"
+            d="M13.6 25.5 Q 22 31 30.4 25.5 L 31.6 28.6 Q 27 31.6 24.6 32 L 25.4 40 L 21 40.6 L 20.6 32.4 Q 16 31.4 12.4 28.6 Z"
+          />
+          <rect
+            className="snowman-hat"
+            x="14"
+            y="2"
+            width="16"
+            height="10"
+            rx="1"
+          />
+          <rect
+            className="snowman-hat"
+            x="11"
+            y="10.4"
+            width="22"
+            height="2.6"
+            rx="1.3"
+          />
+          <rect
+            className="snowman-scarf"
+            x="14"
+            y="8"
+            width="16"
+            height="2.4"
+          />
+        </>
+      ) : null}
+      {stage >= 3 ? (
+        <>
+          <circle className="snowman-coal" cx="18.6" cy="18" r="1.2" />
+          <circle className="snowman-coal" cx="25.4" cy="18" r="1.2" />
+          <path className="snowman-nose" d="M21.4 20.4 L30 22.4 L21.4 23.4 Z" />
+          <circle className="snowman-coal" cx="22.6" cy="44" r="1.2" />
+          <circle className="snowman-coal" cx="22.6" cy="49" r="1.2" />
+        </>
+      ) : null}
+      {/* The snow heaped around its foot. */}
+      <ellipse className="snowman-foot" cx="22" cy="55.5" rx="17" ry="4" />
+    </svg>
   )
 }
 
@@ -270,7 +364,24 @@ const BAUBLES = [
   { x: 45, y: 50, r: 2.2, color: 'blue', delay: 0.7 },
 ] as const
 
-/** A small decorated tree: snowy tiers, twinkling baubles and a gold star. */
+const WRAP = {
+  cranberry: 'oklch(0.54 0.17 18)',
+  gold: 'oklch(0.84 0.14 88)',
+  blue: 'oklch(0.6 0.11 240)',
+  white: 'oklch(0.97 0.006 250)',
+}
+/** Left of the trunk, in the tree's units; they stand on its baseline. */
+const PRESENTS = [
+  { x: -35, y: 58, w: 11, h: 10, box: WRAP.gold, ribbon: WRAP.cranberry },
+  { x: -23, y: 52, w: 16, h: 16, box: WRAP.cranberry, ribbon: WRAP.gold },
+  { x: -7, y: 57, w: 13, h: 12, box: WRAP.blue, ribbon: WRAP.white },
+]
+
+/**
+ * A small decorated tree: snowy tiers, twinkling baubles and a gold star,
+ * with presents at its foot. The presents are drawn left of its box, so they
+ * need that much clear room beside it.
+ */
 export function ChristmasTree({ className }: { className?: string }) {
   return (
     <svg
@@ -278,7 +389,42 @@ export function ChristmasTree({ className }: { className?: string }) {
       viewBox="0 0 60 72"
       className={cn('christmas-tree', className)}
     >
+      <ellipse className="tree-mound" cx="-13" cy="68" rx="27" ry="3.5" />
       <ellipse className="tree-mound" cx="30" cy="67" rx="24" ry="4.5" />
+      {PRESENTS.map(({ x, y, w, h, box, ribbon }) => {
+        const middle = x + w / 2
+        return (
+          <g key={x}>
+            <rect
+              x={x}
+              y={y + 3}
+              width={w}
+              height={h - 3}
+              rx="0.8"
+              fill={box}
+            />
+            <rect
+              x={x - 1.2}
+              y={y}
+              width={w + 2.4}
+              height="3.8"
+              rx="0.8"
+              fill={box}
+            />
+            {/* The lid's shadow on the box. */}
+            <rect
+              x={x}
+              y={y + 3.8}
+              width={w}
+              height="1"
+              fill="oklch(0 0 0 / 18%)"
+            />
+            <rect x={middle - 1.5} y={y} width="3" height={h} fill={ribbon} />
+            <circle cx={middle - 2.2} cy={y - 1} r="2" fill={ribbon} />
+            <circle cx={middle + 2.2} cy={y - 1} r="2" fill={ribbon} />
+          </g>
+        )
+      })}
       <rect
         className="tree-trunk"
         x="26.5"
@@ -322,6 +468,23 @@ export function ChristmasTree({ className }: { className?: string }) {
 }
 
 /**
+ * Snow settled along a card's top edge. Placed by its caller, outside the
+ * card, which clips anything on it.
+ */
+export function SnowLedge({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 400 12"
+      preserveAspectRatio="none"
+      className={cn('snow-ledge pointer-events-none', className)}
+    >
+      <path d="M2 12 C 0 9, 6 6, 16 6 C 26 3, 44 2, 58 5 C 74 3, 96 4, 110 7 C 128 6, 150 8, 166 7 C 180 3, 204 1, 222 4 C 240 3, 262 5, 276 7 C 296 6, 316 8, 330 6 C 344 2, 366 2, 378 5 C 390 5, 400 8, 398 12 Z" />
+    </svg>
+  )
+}
+
+/**
  * Snow resting on a Log meal button: the phone's round one, or the desktop's
  * pill (`wide`), along its whole top.
  */
@@ -342,8 +505,8 @@ export function SnowCap({ wide = false }: { wide?: boolean }) {
       <path
         d={
           wide
-            ? 'M4 14 C 4 6, 12 2, 20 4 C 26 0, 34 1, 40 5 C 48 1, 58 2, 64 5 C 72 1, 82 2, 88 5 C 96 2, 106 3, 110 7 C 116 8, 118 11, 116 14 C 112 12, 108 15, 104 12 C 98 15, 92 12, 88 15 C 82 12, 76 15, 70 12 C 64 15, 58 12, 52 15 C 46 12, 40 15, 34 12 C 28 15, 22 12, 18 15 C 14 12, 9 15, 4 14 Z'
-            : 'M4 14 C 4 6, 12 2, 20 4 C 26 0, 34 1, 38 5 C 44 4, 50 8, 48 14 C 44 12, 40 15, 36 12 C 32 15, 27 12, 24 15 C 20 12, 15 15, 12 12 C 9 15, 6 12, 4 14 Z'
+            ? 'M3 15 C 3 9, 8 4, 18 4 C 26 1, 38 1, 46 4 C 56 2, 68 2, 76 4.5 C 86 2, 98 2, 104 5 C 112 5, 117 10, 117 15 C 113 11.5, 106 11, 98 11.5 C 88 12.5, 80 10.5, 70 11 C 60 11.5, 52 12.5, 42 11.5 C 32 10.5, 22 11, 14 11.5 C 9 12, 5 13, 3 15 Z'
+            : 'M7.5 14 C 6 9, 12 4.5, 19 4.5 C 24 1, 33 1, 37.5 4.5 C 44 5, 48 10, 45.5 14 C 42 11.5, 37 10, 32 10.3 C 28 11.2, 23 10.4, 19 10.6 C 14 10.8, 10 12, 7.5 14 Z'
         }
       />
     </svg>
