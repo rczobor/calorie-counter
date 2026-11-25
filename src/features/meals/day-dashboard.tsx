@@ -457,7 +457,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         contentClassName={cn(
           'max-w-3xl',
           // Room for the string lights above the title on phones.
-          christmas && 'max-md:pt-[calc(env(safe-area-inset-top)+3.25rem)]',
+          christmas && 'max-md:pt-[calc(env(safe-area-inset-top)+2.25rem)]',
         )}
       >
         {archived ? (

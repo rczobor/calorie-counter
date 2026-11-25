@@ -311,7 +311,7 @@ html.christmas .intake-fill {
   background: linear-gradient(oklch(0.26 0.05 262), oklch(0.37 0.06 238));
 }
 .winter-sky-tall {
-  height: calc(env(safe-area-inset-top) + 11.5rem);
+  height: calc(env(safe-area-inset-top) + 10.5rem);
 }
 .dark .winter-sky {
   background: none;
