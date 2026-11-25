@@ -96,7 +96,7 @@ function UsageReport({ data }: { data: Engagement }) {
           </section>
         ) : null
       })}
-      <Totals totals={data.totals} />
+      <Totals totals={data.totals} accounts={data.accounts.length} />
     </div>
   )
 }
@@ -131,7 +131,7 @@ function AccountRow({ account }: { account: Account }) {
   )
 }
 
-function Totals({ totals }: { totals: Totals }) {
+function Totals({ totals, accounts }: { totals: Totals; accounts: number }) {
   const t = useMessages(messages)
   const locale = useLocale()
   const items =
@@ -144,6 +144,7 @@ function Totals({ totals }: { totals: Totals }) {
   const ofMeals = (count: number) => share(count, totals.meals, locale)
   const ofItems = (count: number) => share(count, items, locale)
   const ofDays = (count: number) => share(count, days, locale)
+  const ofAccounts = (count: number) => t.ofAccounts(count, accounts)
   return (
     <>
       <TotalsGroup id="usage-how" title={t.howPeopleLog} note={t.allAccounts}>
@@ -157,9 +158,11 @@ function Totals({ totals }: { totals: Totals }) {
           />
         ) : null}
         <Figure label={t.edited} value={ofMeals(totals.editedMeals)} />
+        <Figure label={t.archived} value={ofMeals(totals.archivedMeals)} />
+        <Figure label={t.late} value={ofMeals(totals.lateMeals)} />
         <Figure label={t.batches} value={totals.cookSessions} />
       </TotalsGroup>
-      <TotalsGroup id="usage-foods" title={t.foods}>
+      <TotalsGroup id="usage-foods" title={t.foods} note={t.foodsNote}>
         <Figure
           label={t.fromLibrary}
           value={ofItems(totals.items.ingredient)}
@@ -176,6 +179,39 @@ function Totals({ totals }: { totals: Totals }) {
           label={t.caloriesOnly}
           value={ofItems(totals.items.fixedCalories)}
         />
+        <Figure
+          label={t.withoutMacros}
+          value={share(
+            totals.calories.withoutMacros,
+            totals.calories.total,
+            locale,
+          )}
+        />
+        <Figure
+          label={t.reused}
+          value={share(
+            totals.agentItems.reused,
+            totals.agentItems.reused + totals.agentItems.typed,
+            locale,
+          )}
+        />
+      </TotalsGroup>
+      <TotalsGroup id="usage-features" title={t.features} note={t.featuresNote}>
+        <Figure
+          label={t.weighIns}
+          value={ofAccounts(totals.features.weighIns)}
+        />
+        <Figure label={t.goals} value={ofAccounts(totals.features.goals)} />
+        <Figure
+          label={t.savedFoods}
+          value={ofAccounts(totals.features.savedFoods)}
+        />
+        <Figure
+          label={t.templates}
+          value={ofAccounts(totals.features.templates)}
+        />
+        <Figure label={t.cooking} value={ofAccounts(totals.features.cooking)} />
+        <Figure label={t.recipes} value={ofAccounts(totals.features.recipes)} />
       </TotalsGroup>
       <TotalsGroup
         id="usage-goals"

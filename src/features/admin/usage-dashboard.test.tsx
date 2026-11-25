@@ -43,6 +43,7 @@ describe('usage dashboard', () => {
       'Never started 1',
       'How people log',
       'Foods',
+      'Features used',
       'Finished days',
     ])
     const active = screen.getByRole('region', { name: 'Active 2' })
@@ -75,6 +76,12 @@ describe('usage dashboard', () => {
     expect(figure(how, 'Before this was recorded')).toBe('4%')
     const foods = screen.getByRole('region', { name: 'Foods' })
     expect(figure(foods, 'From the food library')).toBe('35%')
+    expect(figure(how, 'Entered on a later day')).toBe('21%')
+    expect(figure(foods, 'Calories without macros')).toBe('22%')
+    expect(figure(foods, 'Reused by the assistant')).toBe('40%')
+    const features = screen.getByRole('region', { name: 'Features used' })
+    // Out of the six accounts on the page.
+    expect(figure(features, 'Weigh-ins')).toBe('3 of 6')
     const days = screen.getByRole('region', { name: 'Finished days' })
     expect(figure(days, 'Within 10% of the goal')).toBe('43%')
   })

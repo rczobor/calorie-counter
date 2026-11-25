@@ -3,6 +3,7 @@ import { v, type Infer } from 'convex/values'
 import { env, query, type QueryCtx } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import { findUserId, listMemberships } from './lib/auth'
+import { localCalendarDate } from './mcpContext'
 import { shiftDay } from './lib/energy'
 import { hasAcceptedPrivacyNotice } from './lib/privacy'
 import { DomainError, normalizeRequiredDate } from './lib/validation'
@@ -29,8 +30,12 @@ const NEAR_GOAL_SHARE = 0.1
 //   meals shared by every account                      8,000
 //   foods 2,000 + batches 500 + day summaries 2,000    4,500
 //   200 people × (1 person + 10 goals)                 2,200
-// About 17,500 documents and 1,200 index reads at most. Reads take the newest
-// rows first; past a cap the page says its figures are partial.
+//   200 logging preferences + 1,000 agent receipts      1,200
+//   6 feature tables × 500 rows + people for goals     3,500
+// About 22,200 documents and 1,400 index reads at most. Receipts hold their
+// input and result as JSON, a few KB each, so they get the smallest cap that
+// still covers a busy month. Reads take the newest rows first; past a cap the
+// page says its figures are partial.
 const MAX_ACCOUNTS = 200
 const MAX_MEMBERSHIPS = 10
 const MEAL_BUDGET = 8_000
@@ -40,6 +45,16 @@ const MAX_COOK_SESSIONS = 500
 const MAX_DAY_SUMMARIES = 2_000
 const MAX_GOAL_PEOPLE = 200
 const MAX_GOAL_ROWS = 10
+const MAX_RECEIPTS = 1_000
+const MAX_FEATURE_ROWS = 500
+
+/** Agent meal items that reuse a recorded food rather than typing one in. */
+const REUSED_SOURCES = new Set([
+  'historical',
+  'savedFood',
+  'ingredient',
+  'cookedFood',
+])
 
 const statusValidator = v.union(
   v.literal('active'),
@@ -91,6 +106,22 @@ const engagementValidator = v.object({
   totals: v.object({
     ...sourceCounts,
     editedMeals: v.number(),
+    archivedMeals: v.number(),
+    /** Entered on a later day than they were eaten, in the account's time zone. */
+    lateMeals: v.number(),
+    /** Calories of meals still kept, and how many of them have no macros. */
+    calories: v.object({ total: v.number(), withoutMacros: v.number() }),
+    /** Foods the AI assistant logged: repeated from records, or typed in. */
+    agentItems: v.object({ reused: v.number(), typed: v.number() }),
+    /** Accounts that used each feature in the window. */
+    features: v.object({
+      weighIns: v.number(),
+      goals: v.number(),
+      savedFoods: v.number(),
+      templates: v.number(),
+      cooking: v.number(),
+      recipes: v.number(),
+    }),
     items: v.object({
       ingredient: v.number(),
       cookedFood: v.number(),
@@ -127,6 +158,42 @@ async function findSuperAdmin(ctx: QueryCtx) {
 
 function isoDay(timestamp: number) {
   return new Date(timestamp).toISOString().slice(0, 10)
+}
+
+/** The calendar day in a saved time zone, or in UTC without a valid one. */
+function dayIn(timeZone: string | undefined, timestamp: number) {
+  if (timeZone) {
+    try {
+      return localCalendarDate(timeZone, timestamp)
+    } catch {
+      // A zone this runtime does not know falls back to UTC.
+    }
+  }
+  return isoDay(timestamp)
+}
+
+/**
+ * The item source types of one of the assistant's saved meals. Receipts store
+ * the exact input as JSON; anything that does not parse as a meal gives none.
+ */
+export function itemSourceTypes(json: string) {
+  let input: unknown
+  try {
+    input = JSON.parse(json)
+  } catch {
+    return []
+  }
+  if (typeof input !== 'object' || input === null || !('items' in input))
+    return []
+  if (!Array.isArray(input.items)) return []
+  const items: ReadonlyArray<unknown> = input.items
+  return items.flatMap((item) => {
+    const sourceType =
+      typeof item === 'object' && item !== null && 'sourceType' in item
+        ? item.sourceType
+        : undefined
+    return typeof sourceType === 'string' ? [sourceType] : []
+  })
 }
 
 function dayStart(date: string) {
@@ -183,7 +250,7 @@ async function readAccount(
   previousStart: string,
   mealLimit: number,
 ) {
-  const [memberships, readMeals, latestMeal] = await Promise.all([
+  const [memberships, readMeals, latestMeal, preferences] = await Promise.all([
     listMemberships(ctx, user._id, MAX_MEMBERSHIPS),
     ctx.db
       .query('meals')
@@ -203,6 +270,10 @@ async function readAccount(
       )
       .order('desc')
       .first(),
+    ctx.db
+      .query('mcpPreferences')
+      .withIndex('by_userId', (q) => q.eq('userId', user._id))
+      .first(),
   ])
   const partial = readMeals.length > mealLimit
   const recentMeals = readMeals.slice(0, mealLimit)
@@ -221,6 +292,10 @@ async function readAccount(
     undefined,
   )
   const lastLoggedOn = latestMeal?.eatenOn ?? null
+  // Moving a meal to an earlier day also counts; it is rare.
+  const lateMeals = meals.filter(
+    (meal) => dayIn(preferences?.timeZone, meal.createdAt) > meal.eatenOn,
+  ).length
   return {
     account: {
       userId: user._id,
@@ -241,6 +316,7 @@ async function readAccount(
       partial,
     },
     meals,
+    lateMeals,
     mealsRead: recentMeals.length,
     householdIds: memberships.map((row) => row.householdId),
   }
@@ -366,11 +442,23 @@ export const engagement = query({
       )
     const meals = rows.flatMap((row) => row.meals)
     const households = new Set(rows.flatMap((row) => row.householdIds))
+    const accountIds = new Set(accounts.map((account) => account.userId))
 
     // Meals count by the day they were eaten, foods and batches by the UTC
     // day they were entered, so a backdated meal's foods may fall in another
     // window. Close enough for shares.
-    const [items, cookSessions, goals] = await Promise.all([
+    const [
+      items,
+      cookSessions,
+      goals,
+      receipts,
+      weighIns,
+      goalChanges,
+      savedFoods,
+      templates,
+      recipeVersions,
+      cookedFoods,
+    ] = await Promise.all([
       ctx.db
         .query('mealItems')
         .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
@@ -390,7 +478,72 @@ export const engagement = query({
         windowStart,
         shiftDay(today, -1),
       ),
+      ctx.db
+        .query('mcpOperations')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_RECEIPTS),
+      ctx.db
+        .query('weightEntries')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
+      ctx.db
+        .query('personGoalHistory')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
+      ctx.db
+        .query('mcpSavedFoods')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
+      ctx.db
+        .query('mealTemplates')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
+      ctx.db
+        .query('recipeVersions')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
+      ctx.db
+        .query('cookedFoods')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
     ])
+    // How many consenting accounts wrote at least one of these rows.
+    const reach = (rows: Array<{ ownerUserId: Id<'users'> }>) =>
+      new Set(
+        rows
+          .map((row) => row.ownerUserId)
+          .filter((userId) => accountIds.has(userId)),
+      ).size
+    const keptMeals = meals.filter((meal) => !meal.archived)
+    const agentMeals = receipts
+      .filter(
+        (receipt) =>
+          receipt.operation === 'meal' && accountIds.has(receipt.ownerUserId),
+      )
+      .map((receipt) => ({
+        ownerUserId: receipt.ownerUserId,
+        sourceTypes: itemSourceTypes(receipt.input),
+      }))
+    const agentSourceTypes = agentMeals.flatMap((meal) => meal.sourceTypes)
+    const reusedItems = agentSourceTypes.filter((sourceType) =>
+      REUSED_SOURCES.has(sourceType),
+    ).length
+    // Adding a person saves their first goal with the person's own createdAt;
+    // that is not using goals.
+    const goalSetters = new Set<Id<'users'>>()
+    for (const row of goalChanges) {
+      if (!accountIds.has(row.ownerUserId) || goalSetters.has(row.ownerUserId))
+        continue
+      const person = await ctx.db.get(row.personId)
+      if (person?.createdAt !== row.createdAt) goalSetters.add(row.ownerUserId)
+    }
     const itemCounts = {
       ingredient: 0,
       cookedFood: 0,
@@ -408,13 +561,57 @@ export const engagement = query({
         rows.some((row) => row.account.partial) ||
         items.length === MAX_ITEMS ||
         cookSessions.length === MAX_COOK_SESSIONS ||
-        goals.partial,
+        goals.partial ||
+        receipts.length === MAX_RECEIPTS ||
+        [
+          weighIns,
+          goalChanges,
+          savedFoods,
+          templates,
+          recipeVersions,
+          cookedFoods,
+        ].some((rows) => rows.length === MAX_FEATURE_ROWS),
       totals: {
         ...countSources(meals),
         // Archiving also bumps editRevision, and is not an edit.
-        editedMeals: meals.filter(
-          (meal) => !meal.archived && (meal.editRevision ?? 0) > 0,
-        ).length,
+        editedMeals: keptMeals.filter((meal) => (meal.editRevision ?? 0) > 0)
+          .length,
+        archivedMeals: meals.length - keptMeals.length,
+        lateMeals: rows.reduce((sum, row) => sum + row.lateMeals, 0),
+        calories: keptMeals.reduce(
+          (sum, meal) => ({
+            total: sum.total + meal.totalCalories,
+            withoutMacros:
+              sum.withoutMacros +
+              Math.max(
+                0,
+                meal.totalCalories - (meal.macros?.coveredCalories ?? 0),
+              ),
+          }),
+          { total: 0, withoutMacros: 0 },
+        ),
+        agentItems: {
+          reused: reusedItems,
+          typed: agentSourceTypes.length - reusedItems,
+        },
+        features: {
+          weighIns: reach(weighIns),
+          goals: goalSetters.size,
+          // Saving one, or the assistant logging one.
+          savedFoods: reach([
+            ...savedFoods,
+            ...agentMeals.filter((meal) =>
+              meal.sourceTypes.includes('savedFood'),
+            ),
+          ]),
+          templates: reach(templates),
+          cooking: reach(cookSessions),
+          // Writing or editing one, or cooking from one.
+          recipes: reach([
+            ...recipeVersions,
+            ...cookedFoods.filter((food) => food.recipeVersionId !== undefined),
+          ]),
+        },
         items: itemCounts,
         cookSessions: cookSessions.filter((session) =>
           households.has(session.householdId),

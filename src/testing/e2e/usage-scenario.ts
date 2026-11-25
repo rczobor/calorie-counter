@@ -109,6 +109,18 @@ export function createUsageData(today: string): Engagement {
       agentMeals: 65,
       untaggedMeals: 7,
       editedMeals: 14,
+      archivedMeals: 5,
+      lateMeals: 38,
+      calories: { total: 98_400, withoutMacros: 21_300 },
+      agentItems: { reused: 74, typed: 112 },
+      features: {
+        weighIns: 3,
+        goals: 2,
+        savedFoods: 2,
+        templates: 1,
+        cooking: 2,
+        recipes: 0,
+      },
       items: {
         ingredient: 96,
         cookedFood: 41,
