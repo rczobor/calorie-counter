@@ -366,13 +366,16 @@ html.winter:not(.dark) .on-winter-sky svg {
   color: oklch(1 0 0 / 70%);
 }
 
-/* Light mode's winter: a frosty blue at the top of every page, and snow
+/* Light mode's winter: a frosty blue at the top of the other pages, and snow
    lying along the bottom of the window. */
-html.winter:not(.dark) body {
+/* Today has its sky instead: its snowbank is the page colour, so frost
+   behind it would show a seam. */
+html.winter:not(.dark) body:not(:has(.winter-sky)) {
   background-image: linear-gradient(
     oklch(0.92 0.03 240),
     oklch(0.963 0.0066 286.3) 22rem
   );
+  background-repeat: no-repeat;
 }
 .snow-drift {
   position: fixed;
