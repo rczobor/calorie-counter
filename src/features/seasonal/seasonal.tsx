@@ -87,9 +87,18 @@ export function SeasonalEffects() {
   }, [winter, christmas])
   if (!winter || !resolvedTheme) return null
   return (
-    <Suspense fallback={null}>
-      <Snowfall dark={resolvedTheme === 'dark'} />
-    </Suspense>
+    <>
+      {/* Snow lying along the bottom of the window, in light mode; the
+          snow falls in front of it. */}
+      <div aria-hidden="true" className="snow-drift">
+        <svg viewBox="0 0 1200 60" preserveAspectRatio="none">
+          <path d="M0 34 C 80 18, 160 22, 240 30 C 330 40, 420 38, 510 26 C 600 14, 700 16, 790 28 C 880 40, 980 40, 1060 26 C 1120 16, 1170 18, 1200 24 L 1200 60 L 0 60 Z" />
+        </svg>
+      </div>
+      <Suspense fallback={null}>
+        <Snowfall dark={resolvedTheme === 'dark'} />
+      </Suspense>
+    </>
   )
 }
 
@@ -110,7 +119,7 @@ export function SeasonalSetting() {
 }
 
 /**
- * The night sky behind Today's title on phones: drifting clouds over a navy
+ * The night sky behind Today's title: drifting clouds over a navy
  * sky ending in a snowbank in light mode; in dark mode the page itself is the
  * night, so only the clouds remain. It sits under the snow.
  */
@@ -118,7 +127,7 @@ export function WinterSky({ tall }: { tall: boolean }) {
   return (
     <div
       aria-hidden="true"
-      className={cn('winter-sky md:hidden', tall && 'winter-sky-tall')}
+      className={cn('winter-sky', tall && 'winter-sky-tall')}
     >
       <div className="winter-clouds" />
       <svg
@@ -133,56 +142,68 @@ export function WinterSky({ tall }: { tall: boolean }) {
 }
 
 const BULB_COLORS = ['red', 'gold', 'green', 'blue'] as const
-const SWAGS = [
-  [
-    [-5, 6],
-    [60, 30],
-    [130, 8],
-  ],
-  [
-    [130, 8],
-    [195, 32],
-    [260, 8],
-  ],
-  [
-    [260, 8],
-    [325, 30],
-    [395, 6],
-  ],
-] as const
-// Four bulbs along each of the three swags, in a 390 × 48 box.
-const BULBS = SWAGS.flatMap(([p0, p1, p2]) =>
-  [0.15, 0.38, 0.62, 0.85].map((u) => {
-    const k = 1 - u
-    return {
-      x: k * k * p0[0] + 2 * k * u * p1[0] + u * u * p2[0],
-      y: k * k * p0[1] + 2 * k * u * p1[1] + u * u * p2[1],
-    }
-  }),
-).map((point, index) => ({
-  ...point,
-  color: BULB_COLORS[index % BULB_COLORS.length],
-  // Uneven timing, so the string flickers like real bulbs, not in lockstep.
-  delay: (index * 0.37) % 2.6,
-  duration: 1.9 + ((index * 0.73) % 1.7),
-}))
+/** Each swag of the string spans this many units of its box. */
+const SWAG = 130
 
-/** A string of twinkling lights across the top of Today on phones. */
-export function StringLights() {
+/**
+ * A string of lights hung in `swags` sagging loops across a box `swags × 130`
+ * wide and 48 tall, with four bulbs along each loop.
+ */
+function garland(swags: number) {
+  const loops = Array.from({ length: swags }, (_, i) => {
+    const start = i * SWAG
+    return [
+      [i === 0 ? start - 5 : start, 7],
+      [start + SWAG / 2, i % 2 ? 32 : 30],
+      [i === swags - 1 ? start + SWAG + 5 : start + SWAG, 7],
+    ] as const
+  })
+  const width = swags * SWAG
+  const path =
+    `M${loops[0][0][0]} ${loops[0][0][1]}` +
+    loops.map(([, [cx, cy], [x, y]]) => ` Q ${cx} ${cy} ${x} ${y}`).join('')
+  const bulbs = loops
+    .flatMap(([p0, p1, p2]) =>
+      [0.15, 0.38, 0.62, 0.85].map((u) => {
+        const k = 1 - u
+        return {
+          x: k * k * p0[0] + 2 * k * u * p1[0] + u * u * p2[0],
+          y: k * k * p0[1] + 2 * k * u * p1[1] + u * u * p2[1],
+        }
+      }),
+    )
+    .map((point, index) => ({
+      ...point,
+      color: BULB_COLORS[index % BULB_COLORS.length],
+      // Uneven timing, so the string flickers like real bulbs, not in lockstep.
+      delay: (index * 0.37) % 2.6,
+      duration: 1.9 + ((index * 0.73) % 1.7),
+    }))
+  return { width, path, bulbs }
+}
+
+// Three loops across a phone; ten across a desktop window.
+const PHONE_LIGHTS = garland(3)
+const WIDE_LIGHTS = garland(10)
+
+function Lights({
+  lights,
+  className,
+}: {
+  lights: ReturnType<typeof garland>
+  className: string
+}) {
   return (
-    <div aria-hidden="true" className="string-lights md:hidden">
-      <svg viewBox="0 0 390 48" preserveAspectRatio="none">
-        <path
-          d="M-5 6 Q 60 30 130 8 Q 195 32 260 8 Q 325 30 395 6"
-          vectorEffect="non-scaling-stroke"
-        />
+    <div aria-hidden="true" className={cn('string-lights', className)}>
+      <svg viewBox={`0 0 ${lights.width} 48`} preserveAspectRatio="none">
+        <path d={lights.path} vectorEffect="non-scaling-stroke" />
       </svg>
-      {BULBS.map((bulb, index) => (
+      {lights.bulbs.map((bulb, index) => (
         <span
           key={index}
           data-color={bulb.color}
           style={{
-            left: `${((bulb.x - 4) / 390) * 100}%`,
+            left: `${((bulb.x - 4) / lights.width) * 100}%`,
             top: `${bulb.y + 2}px`,
             animationDelay: `${bulb.delay}s`,
             animationDuration: `${bulb.duration}s`,
@@ -190,6 +211,16 @@ export function StringLights() {
         />
       ))}
     </div>
+  )
+}
+
+/** A string of twinkling lights across the top of Today. */
+export function StringLights() {
+  return (
+    <>
+      <Lights lights={PHONE_LIGHTS} className="md:hidden" />
+      <Lights lights={WIDE_LIGHTS} className="hidden md:block" />
+    </>
   )
 }
 

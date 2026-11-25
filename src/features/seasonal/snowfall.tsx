@@ -169,8 +169,8 @@ function makeSprite(kind: Layer['kind'], dark: boolean) {
   }
   // On the light page a slate halo keeps white flakes visible; on the night
   // a faint white one only softens the edge.
-  g.shadowColor = dark ? 'rgba(240,244,250,0.6)' : 'rgba(90,110,140,0.5)'
-  g.shadowBlur = dark ? 2 : 6
+  g.shadowColor = dark ? 'rgba(240,244,250,0.6)' : 'rgba(70,92,130,0.75)'
+  g.shadowBlur = dark ? 2 : 5
   g.fillStyle = 'rgb(236,240,247)'
   if (kind === 'dot') {
     g.beginPath()
@@ -193,6 +193,8 @@ function makeSprite(kind: Layer['kind'], dark: boolean) {
 function startSnow(canvas: HTMLCanvasElement, dark: boolean, still: boolean) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
+  // White flakes on the pale light page need more presence than on the night.
+  const visibility = dark ? 1 : 1.35
   const sprites = LAYERS.map((layer) =>
     Array.from({ length: VARIANTS }, () => makeSprite(layer.kind, dark)),
   )
@@ -377,7 +379,7 @@ function startSnow(canvas: HTMLCanvasElement, dark: boolean, still: boolean) {
       } else {
         ctx.setTransform(scale, 0, 0, scale, x * scale, flake.y * scale)
       }
-      ctx.globalAlpha = flake.alpha * ramp
+      ctx.globalAlpha = Math.min(1, flake.alpha * ramp * visibility)
       ctx.drawImage(
         sprites[flake.layer][flake.variant],
         -size / 2,

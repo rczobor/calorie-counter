@@ -457,8 +457,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         }
         contentClassName={cn(
           'max-w-3xl',
-          // Room for the string lights above the title on phones.
-          christmas && 'max-md:pt-[calc(env(safe-area-inset-top)+2.25rem)]',
+          // Room for the string lights above the title.
+          christmas &&
+            'max-md:pt-[calc(env(safe-area-inset-top)+2.25rem)] md:pt-12',
         )}
       >
         {archived ? (
@@ -740,6 +741,11 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                       : t.personMeals(selected.name)
                   : t.meals}
               </h2>
+              {christmas ? (
+                // Wider screens stand it at the right, before Log meal; its
+                // foot reaches down past the row to the list's top edge.
+                <ChristmasTree className="pointer-events-none ml-auto -mb-3.25 hidden h-13.25 w-11 self-end md:block" />
+              ) : null}
               {!archived && !emptyDay ? (
                 // Phones log from the bottom navigation instead.
                 <Button
