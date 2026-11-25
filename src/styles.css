@@ -256,12 +256,22 @@ html.dark.winter .inset-group:not(.elevated .inset-group) {
   }
 }
 
-/* Christmas in dark mode: cranberry for the tint and pine for what is left
-   of the day; over moves from berry to plum, so it never shares the
-   cranberry's hue. The cranberry stays deep with white on it (5.1:1), so it
-   never turns coral; where the tint is text or an outline on the night, a
-   lighter cranberry keeps it readable (5.8:1 on a cell). Light mode keeps its
-   own colours: the owner chose them over cranberry in a blind vote. */
+/* Christmas: cranberry for the tint and pine for what is left of the day.
+   White text on the cranberry 6.1:1; pine as text 6.4:1 on white. Over
+   moves from berry to plum, so it never shares the cranberry's hue. */
+html.christmas {
+  --primary: oklch(0.5 0.17 18);
+  --ring: oklch(0.5 0.17 18);
+  --left: oklch(0.47 0.09 158);
+  --left-surface: oklch(0.95 0.035 158);
+  --left-bar: oklch(0.55 0.1 158);
+  --over: oklch(0.48 0.12 320);
+  --over-surface: oklch(0.95 0.03 320);
+  --over-bar: oklch(0.58 0.12 320);
+}
+/* Dark keeps the same deep cranberry with white on it (5.1:1), so it never
+   turns coral; where the tint is text or an outline on the night, a lighter
+   cranberry keeps it readable (5.8:1 on a cell). */
 html.dark.christmas {
   --primary: oklch(0.56 0.17 18);
   --primary-foreground: oklch(1 0 0);
@@ -303,6 +313,17 @@ html.christmas .intake-fill {
 .winter-sky-tall {
   height: calc(env(safe-area-inset-top) + 10.5rem);
 }
+/* Wider screens hang the sky under the top bar and end its snowbank just
+   above the summary card, clear of the meals heading beside it. */
+@media (width >= 48rem) {
+  .winter-sky {
+    top: 3.5rem;
+    height: 8.75rem;
+  }
+  .winter-sky-tall {
+    height: 9.75rem;
+  }
+}
 .dark .winter-sky {
   background: none;
 }
@@ -337,23 +358,51 @@ html.christmas .intake-fill {
   display: none;
 }
 /* The title reads in white on the light-mode sky. */
-@media (width < 48rem) {
-  html.winter:not(.dark) .on-winter-sky {
-    color: oklch(0.985 0.003 250);
-  }
-  /* The date picker's chevron, muted on the sky as it is in dark. */
-  html.winter:not(.dark) .on-winter-sky svg {
-    color: oklch(1 0 0 / 70%);
-  }
+html.winter:not(.dark) .on-winter-sky {
+  color: oklch(0.985 0.003 250);
+}
+/* The date picker's chevron, muted on the sky as it is in dark. */
+html.winter:not(.dark) .on-winter-sky svg {
+  color: oklch(1 0 0 / 70%);
 }
 
-/* String lights across the top of Today on phones. */
+/* Light mode's winter: a frosty blue at the top of every page, and snow
+   lying along the bottom of the window. */
+html.winter:not(.dark) body {
+  background-image: linear-gradient(
+    oklch(0.92 0.03 240),
+    oklch(0.963 0.0066 286.3) 22rem
+  );
+}
+.snow-drift {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: -10;
+  height: 4.5rem;
+  pointer-events: none;
+}
+.snow-drift svg {
+  width: 100%;
+  height: 100%;
+  fill: oklch(0.99 0.004 240);
+  filter: drop-shadow(0 -2px 3px oklch(0.45 0.05 250 / 22%));
+}
+.dark .snow-drift {
+  display: none;
+}
+
+/* String lights across the top of Today, under the top bar on wider
+   screens. */
 .string-lights {
   position: absolute;
   inset-inline: 0;
   top: env(safe-area-inset-top);
   height: 3rem;
   pointer-events: none;
+  @media (width >= 48rem) {
+    top: 3.5rem;
+  }
 }
 .string-lights svg {
   position: absolute;
