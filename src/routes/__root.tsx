@@ -204,6 +204,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        {/* The installed iPhone app starts below a solid status bar, which
+            iOS paints with theme-color. Drawing the page under the clock
+            instead makes iOS 26 lay a dark frosted scrim across it that a
+            page cannot remove (WebKit bug 301994). iOS reads this only when
+            the app is added to the Home Screen. */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta
           name="theme-color"
           content={statusBar.light}
