@@ -1112,6 +1112,119 @@ export const suggestReusableFoods = internalMutation({
     }),
 })
 
+/** Earlier logs read when deciding whether a food is a repeat. */
+const MAX_REPEAT_CANDIDATES = 20
+
+/**
+ * Saves the foods in a newly logged meal that this person has logged before,
+ * so the assistant reuses them next time instead of typing them in again.
+ * Only foods with a brand or label values qualify; generic estimates never
+ * do. A repeat has the same name, nutrition and identity; the provenance
+ * wording, which often notes the portion, may differ.
+ */
+export async function saveRepeatedFoods(
+  ctx: Pick<MutationCtx, 'db'>,
+  owner: AuthenticatedOwner,
+  meal: Doc<'meals'>,
+) {
+  const items = await ctx.db
+    .query('mealItems')
+    .withIndex('by_householdId_and_mealId', (q) =>
+      q.eq('householdId', owner.householdId).eq('mealId', meal._id),
+    )
+    .take(MAX_REUSE_ITEMS)
+  const saved: Array<{ foodId: Id<'mcpSavedFoods'>; name: string }> = []
+  for (const item of items) {
+    if (
+      item.sourceType !== 'customByWeight' &&
+      item.sourceType !== 'fixedCalories'
+    )
+      continue
+    if ('ingredientId' in item && item.ingredientId) continue
+    if (
+      !item.foodIdentity?.brand &&
+      item.nutritionProvenance?.kind !== 'provided'
+    )
+      continue
+    if (item.sourceType === 'fixedCalories' && item.servingCount === undefined)
+      continue
+    // A saved food without macros would hide the gap on every later log.
+    if (!item.macrosSnapshot) continue
+    const foodIdentity = normalizeFoodIdentity(reusableIdentity(item))
+    // The same rules save_food_from_meal refuses on.
+    if (foodIdentity?.basis === 'ml' && item.sourceType !== 'fixedCalories')
+      continue
+    if (item.sourceType === 'fixedCalories' && foodIdentity?.basis === 'g')
+      continue
+    const nutrition = reusableNutrition(item)
+    const sameFood = (
+      food: Pick<Doc<'mcpSavedFoods'>, 'nutrition' | 'foodIdentity'>,
+    ) =>
+      canonical({ nutrition: food.nutrition, identity: food.foodIdentity }) ===
+      canonical({ nutrition, identity: foodIdentity })
+    // Archived ones count too: an archived food stays out of the catalog.
+    const savedFoods = await ctx.db
+      .query('mcpSavedFoods')
+      .withIndex('by_householdId_and_name', (q) =>
+        q.eq('householdId', owner.householdId).eq('name', item.nameSnapshot),
+      )
+      .take(21)
+    if (savedFoods.some(sameFood)) continue
+    const earlier = await ctx.db
+      .query('mealItems')
+      .withIndex('by_householdId_and_nameSnapshot', (q) =>
+        q
+          .eq('householdId', owner.householdId)
+          .eq('nameSnapshot', item.nameSnapshot),
+      )
+      .order('desc')
+      .take(MAX_REPEAT_CANDIDATES)
+    let repeated = false
+    for (const candidate of earlier) {
+      if (
+        candidate._id === item._id ||
+        candidate.mealId === meal._id ||
+        candidate.sourceType !== item.sourceType ||
+        !sameFood({
+          nutrition: reusableNutrition(candidate),
+          foodIdentity: normalizeFoodIdentity(reusableIdentity(candidate)),
+        })
+      )
+        continue
+      const parent = await ctx.db.get(candidate.mealId)
+      if (parent && !parent.archived && parent.personId === meal.personId) {
+        repeated = true
+        break
+      }
+    }
+    if (!repeated) continue
+    const reusable = {
+      ...item,
+      foodIdentity,
+      servingCount: item.servingCount ?? 1,
+    }
+    const foodId = await ctx.db.insert('mcpSavedFoods', {
+      ...ownerFields(owner),
+      name: item.nameSnapshot,
+      identityKey: savedFoodIdentityKey(
+        item.nameSnapshot,
+        nutrition,
+        foodIdentity,
+        item.nutritionProvenance,
+      ),
+      foodIdentity,
+      nutrition,
+      nutritionProvenance: item.nutritionProvenance,
+      macros: reusableMacros(reusable, nutrition),
+      sourceMealId: meal._id,
+      sourceItemId: item._id,
+      createdAt: Date.now(),
+    })
+    saved.push({ foodId, name: item.nameSnapshot })
+  }
+  return saved
+}
+
 type SavedMealItem = Extract<
   Infer<typeof mcpMealItem>,
   { sourceType: 'savedFood' }

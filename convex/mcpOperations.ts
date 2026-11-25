@@ -12,7 +12,11 @@ import {
   requireMcpOwner,
 } from './mcpContext'
 export { domainResult, requireMcpOwner } from './mcpContext'
-import { resolveCookedIngredient, resolveSavedMealItem } from './mcpFoodReuse'
+import {
+  resolveCookedIngredient,
+  resolveSavedMealItem,
+  saveRepeatedFoods,
+} from './mcpFoodReuse'
 import { savedFoodQuery } from './savedFoods'
 import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter'
 import {
@@ -438,6 +442,8 @@ export const logMeal = internalMutation({
         throws: true,
       })
       const mealId = await createMealForOwner(ctx, owner, writeInput, 'agent')
+      const meal = await ctx.db.get(mealId)
+      const savedFoods = meal ? await saveRepeatedFoods(ctx, owner, meal) : []
       const result = {
         context: await describeContext(ctx, owner),
         dailySummary: await readDailySummary(
@@ -454,6 +460,7 @@ export const logMeal = internalMutation({
         url: appUrl(
           `/?householdId=${owner.householdId}&personId=${preview.input.personId}&date=${preview.input.eatenOn}`,
         ),
+        ...(savedFoods.length ? { savedFoods } : {}),
       }
       await ctx.db.insert('mcpOperations', {
         ...ownerFields(owner),

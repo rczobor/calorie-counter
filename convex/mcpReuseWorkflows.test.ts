@@ -1219,52 +1219,115 @@ describe('meal templates and suggestions', () => {
     ).rejects.toThrow('Meal item not found')
   })
 
-  it('suggests meaningful repeats without saving, skips vague names, and stops after saving', async () => {
-    const { t, user, mealId, personId, items } = await fixture()
-    const preview = await t.mutation(internal.mcpFoodReuse.previewRepeatMeal, {
-      user,
-      input: { mealId, personId, eatenOn: '2026-11-02' },
-    })
-    await t.mutation(internal.mcpOperations.logMeal, {
-      user,
-      input: preview.input,
-      operationKey: 'repeated',
-    })
-    const suggestions = await t.mutation(
-      internal.mcpFoodReuse.suggestReusableFoods,
-      { user, mealId },
-    )
-    expect(suggestions.suggestions).toMatchObject(
-      expect.arrayContaining([
-        {
-          mealId,
-          itemId: items[2]._id,
-          name: 'Cookie',
-          occurrences: 2,
-          foodIdentity: {
-            basis: 'serving',
-            brand: 'Cookie Brand',
-            servingLabel: 'cookie',
-          },
+  it('treats a label food logged with a different portion note as a repeat', async () => {
+    const { t, user, personId } = await fixture()
+    const log = (eatenOn: string, grams: number) =>
+      t.mutation(internal.mcpOperations.logMeal, {
+        user,
+        operationKey: `skyr-${eatenOn}`,
+        input: {
+          personId,
+          eatenOn,
+          items: [
+            {
+              sourceType: 'customByWeight',
+              name: 'Exquisa Skyr Mild, vanilla',
+              kcalPer100: 78,
+              ignoreCalories: false,
+              consumedWeightGrams: grams,
+              macros: { proteinG: 10.2, carbsG: 8.4, fatG: 0.2 },
+              foodIdentity: { basis: 'g', brand: 'Exquisa' },
+              nutritionProvenance: {
+                kind: 'provided',
+                origin: 'label',
+                source: 'Package label photo',
+                assumptions: `${grams} g weighed`,
+              },
+            },
+            // A generic estimate is never saved, however often it repeats.
+            {
+              sourceType: 'customByWeight',
+              name: 'Pear',
+              kcalPer100: 57,
+              ignoreCalories: false,
+              consumedWeightGrams: 150,
+              macros: { proteinG: 0.4, carbsG: 15, fatG: 0.1 },
+              nutritionProvenance: {
+                kind: 'estimate',
+                origin: 'generic',
+                source: 'Generic raw pear',
+                assumptions: '~57 kcal/100 g',
+              },
+            },
+          ],
         },
-      ]),
-    )
+      })
+    expect((await log('2026-11-02', 75)).savedFoods).toBeUndefined()
+    const repeat = await log('2026-11-03', 120)
+    expect(repeat.savedFoods?.map((food) => food.name)).toEqual([
+      'Exquisa Skyr Mild, vanilla',
+    ])
+    const [saved] = await t.run((ctx) => ctx.db.query('mcpSavedFoods').take(5))
+    expect(saved).toMatchObject({
+      nutrition: { kind: 'byWeight', kcalPer100: 78, ignoreCalories: false },
+      macros: { proteinG: 10.2, carbsG: 8.4, fatG: 0.2 },
+    })
+    // Archived by the user: logging it again must not bring it back.
+    await t.run((ctx) => ctx.db.patch(saved._id, { archived: true }))
+    expect((await log('2026-11-04', 90)).savedFoods).toBeUndefined()
+    expect(
+      await t.run((ctx) => ctx.db.query('mcpSavedFoods').take(5)),
+    ).toHaveLength(1)
+  })
+
+  it('saves branded repeats on the second log, once, and stops suggesting them', async () => {
+    const { t, user, mealId, personId, items } = await fixture()
+    // Only foods with macros are saved; the fixture logged its foods without.
+    await t.run(async (ctx) => {
+      for (const item of items)
+        await ctx.db.patch(item._id, {
+          macrosSnapshot: { proteinG: 1, carbsG: 2, fatG: 3 },
+        })
+    })
+    const repeat = async (operationKey: string, eatenOn: string) => {
+      const preview = await t.mutation(
+        internal.mcpFoodReuse.previewRepeatMeal,
+        { user, input: { mealId, personId, eatenOn } },
+      )
+      return await t.mutation(internal.mcpOperations.logMeal, {
+        user,
+        input: preview.input,
+        operationKey,
+      })
+    }
+    const first = await repeat('repeated', '2026-11-02')
+    // Catalog ingredients are already reusable; branded foods get saved.
+    expect(first.savedFoods?.map((food) => food.name).sort()).toEqual([
+      'Chai latte powder',
+      'Cookie',
+    ])
+    const saved = await t.run((ctx) => ctx.db.query('mcpSavedFoods').take(10))
+    expect(saved).toHaveLength(2)
+    expect(saved.find((food) => food.name === 'Cookie')).toMatchObject({
+      foodIdentity: {
+        basis: 'serving',
+        brand: 'Cookie Brand',
+        servingLabel: 'cookie',
+      },
+      sourceMealId: first.mealId,
+    })
+    const second = await repeat('repeated-again', '2026-11-03')
+    expect(second.savedFoods).toBeUndefined()
     expect(
       await t.run((ctx) => ctx.db.query('mcpSavedFoods').take(10)),
-    ).toEqual([])
-    await t.mutation(internal.mcpFoodReuse.saveFoodFromMeal, {
-      user,
-      mealId,
-      itemId: items[2]._id,
-      operationKey: 'save-suggested-cookie',
-    })
+    ).toHaveLength(2)
     expect(
       (
         await t.mutation(internal.mcpFoodReuse.suggestReusableFoods, {
           user,
           mealId,
         })
-      ).suggestions.some((item) => item.name === 'Cookie'),
-    ).toBe(false)
+      ).suggestions,
+    ).toEqual([])
   })
 })
