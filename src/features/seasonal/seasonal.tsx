@@ -256,17 +256,31 @@ export function ChristmasTree({ className }: { className?: string }) {
   )
 }
 
-/** Snow resting on the Log meal button. */
-export function SnowCap() {
+/**
+ * Snow resting on a Log meal button: the phone's round one, or the desktop's
+ * pill (`wide`), along its whole top.
+ */
+export function SnowCap({ wide = false }: { wide?: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      viewBox="0 0 52 16"
+      viewBox={wide ? '0 0 120 16' : '0 0 52 16'}
+      preserveAspectRatio={wide ? 'none' : undefined}
       // Sized inline: the button sizes every icon inside it to 24px.
       className="snow-cap pointer-events-none absolute -top-1.5 -left-0.5"
-      style={{ width: 56, height: 18 }}
+      style={
+        wide
+          ? { width: 'calc(100% + 4px)', height: 14 }
+          : { width: 56, height: 18 }
+      }
     >
-      <path d="M4 14 C 4 6, 12 2, 20 4 C 26 0, 34 1, 38 5 C 44 4, 50 8, 48 14 C 44 12, 40 15, 36 12 C 32 15, 27 12, 24 15 C 20 12, 15 15, 12 12 C 9 15, 6 12, 4 14 Z" />
+      <path
+        d={
+          wide
+            ? 'M4 14 C 4 6, 12 2, 20 4 C 26 0, 34 1, 40 5 C 48 1, 58 2, 64 5 C 72 1, 82 2, 88 5 C 96 2, 106 3, 110 7 C 116 8, 118 11, 116 14 C 112 12, 108 15, 104 12 C 98 15, 92 12, 88 15 C 82 12, 76 15, 70 12 C 64 15, 58 12, 52 15 C 46 12, 40 15, 34 12 C 28 15, 22 12, 18 15 C 14 12, 9 15, 4 14 Z'
+            : 'M4 14 C 4 6, 12 2, 20 4 C 26 0, 34 1, 38 5 C 44 4, 50 8, 48 14 C 44 12, 40 15, 36 12 C 32 15, 27 12, 24 15 C 20 12, 15 15, 12 12 C 9 15, 6 12, 4 14 Z'
+        }
+      />
     </svg>
   )
 }

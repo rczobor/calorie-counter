@@ -41,6 +41,7 @@ import { IntakeBar } from '@/features/meals/intake-bar'
 import { MacrosByMealSheet, MacrosCard } from '@/features/meals/macros-card'
 import {
   ChristmasTree,
+  SnowCap,
   StringLights,
   useSeason,
   WinterSky,
@@ -743,12 +744,13 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 // Phones log from the bottom navigation instead.
                 <Button
                   size="sm"
-                  className="hidden md:inline-flex"
+                  className="relative hidden md:inline-flex"
                   disabled={!selected}
                   onClick={() =>
                     openEditor({ personId: selected?._id ?? '', date })
                   }
                 >
+                  {christmas ? <SnowCap wide /> : null}
                   <Plus aria-hidden="true" />
                   {t.logMeal}
                 </Button>
