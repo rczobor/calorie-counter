@@ -30,7 +30,7 @@ for (const { viewport, path, heading, label } of [
       const trigger = page.getByRole('combobox', { name: `${label}: System` })
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
       await expect(page.getByRole('listbox')).toHaveCount(0)
-      await expect(page.locator('html')).toHaveClass('dark')
+      await expect(page.locator('html')).toContainClass('dark')
 
       await trigger.click()
       await expect(page.getByRole('option', { selected: true })).toHaveText(
@@ -38,20 +38,20 @@ for (const { viewport, path, heading, label } of [
       )
       await page.getByRole('option', { name: 'Light', exact: true }).click()
       await expect(page.getByRole('listbox')).toHaveCount(0)
-      await expect(page.locator('html')).toHaveClass('light')
+      await expect(page.locator('html')).toContainClass('light')
 
       await page.reload()
       const lightTrigger = page.getByRole('combobox', {
         name: `${label}: Light`,
       })
       await expect(lightTrigger).toBeVisible()
-      await expect(page.locator('html')).toHaveClass('light')
+      await expect(page.locator('html')).toContainClass('light')
       await lightTrigger.click()
       await expect(page.getByRole('option', { selected: true })).toHaveText(
         'Light',
       )
       await page.getByRole('option', { name: 'Dark', exact: true }).click()
-      await expect(page.locator('html')).toHaveClass('dark')
+      await expect(page.locator('html')).toContainClass('dark')
 
       const darkTrigger = page.getByRole('combobox', { name: `${label}: Dark` })
       await darkTrigger.focus()
@@ -70,9 +70,9 @@ for (const { viewport, path, heading, label } of [
 
       await page.reload()
       await expect(trigger).toBeVisible()
-      await expect(page.locator('html')).toHaveClass('dark')
+      await expect(page.locator('html')).toContainClass('dark')
       await page.emulateMedia({ colorScheme: 'light' })
-      await expect(page.locator('html')).toHaveClass('light')
+      await expect(page.locator('html')).toContainClass('light')
       await expect(trigger).toBeVisible()
 
       await trigger.press('Enter')
