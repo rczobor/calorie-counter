@@ -2,8 +2,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
-import { engagementStatus } from './admin'
+import { countAgentItems, engagementStatus } from './admin'
 import { shiftDay } from './lib/energy'
+import { canonical } from './mcpOperations'
 import {
   acceptPrivacyNotice,
   asTestUser,
@@ -179,6 +180,20 @@ describe('usage dashboard', () => {
       agentMeals: 1,
       untaggedMeals: 1,
       editedMeals: 1,
+      archivedMeals: 1,
+      // Every meal was entered today for an earlier day.
+      lateMeals: 4,
+      calories: { total: 2200, withoutMacros: 2200 },
+      agentItems: { reused: 0, typed: 0 },
+      // The holdout's batch does not count.
+      features: {
+        weighIns: 0,
+        goals: 1,
+        savedFoods: 0,
+        templates: 0,
+        cooking: 1,
+        recipes: 0,
+      },
       items: {
         ingredient: 0,
         cookedFood: 0,
@@ -188,6 +203,101 @@ describe('usage dashboard', () => {
       cookSessions: 1,
       // Day -1: 2000 of a 2600 goal. Days -3 to -5 predate it: 2000.
       goalDays: { under: 2, near: 1, over: 1 },
+    })
+  })
+
+  it('shows where logging is hard: late entries, missing macros, retyped foods', async () => {
+    const t = createConvexTest()
+    const admin = asTestUser(t)
+    await admin.query(api.admin.isSuperAdmin, {})
+    const adminId = await testUserId(t)
+    const householdId = testHouseholdId(t)
+    const personId = await insertPerson(t)
+    process.env.SUPER_ADMIN_USER_IDS = adminId
+    // Twelve hours behind UTC: 06:00 UTC today is still yesterday there.
+    const timeZone = 'Etc/GMT+12'
+    const holdout = 'https://example.test|holdout'
+    await insertPerson(t, { account: holdout })
+    const holdoutId = await testUserId(t, holdout)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('mcpPreferences', {
+        userId: adminId,
+        householdId,
+        personId,
+        timeZone,
+        confirmationMode: 'always',
+      })
+      await ctx.db.insert('weightEntries', {
+        ownerUserId: adminId,
+        householdId,
+        personId,
+        measuredOn: day(-1),
+        weightKg: 70,
+        editRevision: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    })
+    const onTime = await insertMeal(t, personId, {
+      eatenOn: day(-1),
+      createdAt: Date.parse(`${today}T06:00:00Z`),
+      source: 'agent',
+      totalCalories: 500,
+      macros: { proteinG: 20, carbsG: 30, fatG: 10, coveredCalories: 300 },
+    })
+    await insertMeal(t, personId, {
+      eatenOn: day(-3),
+      source: 'agent',
+      totalCalories: 200,
+    })
+    await insertMeal(t, personId, {
+      eatenOn: day(-2),
+      archived: true,
+      totalCalories: 1000,
+    })
+    const receipt = (
+      ownerUserId: typeof adminId,
+      operation: 'meal' | 'savedFood',
+      sourceTypes: Array<string>,
+    ) =>
+      t.run((ctx) =>
+        ctx.db.insert('mcpOperations', {
+          ownerUserId,
+          householdId,
+          connectionId: 'connection',
+          operation,
+          key: `${operation}:${sourceTypes.join()}`,
+          input: canonical({
+            personId,
+            eatenOn: day(-1),
+            items: sourceTypes.map((sourceType) => ({ sourceType })),
+          }),
+          result: {
+            mealId: onTime,
+            personId,
+            eatenOn: day(-1),
+            totalCalories: 500,
+            path: '/',
+          },
+        }),
+      )
+    await receipt(adminId, 'meal', [
+      'historical',
+      'customByWeight',
+      'savedFood',
+    ])
+    // Another kind of save, and an account outside the report.
+    await receipt(adminId, 'savedFood', ['customByWeight'])
+    await receipt(holdoutId, 'meal', ['fixedCalories'])
+
+    const { totals } = await admin.query(api.admin.engagement, { today })
+    expect(totals).toMatchObject({
+      meals: 3,
+      archivedMeals: 1,
+      lateMeals: 2,
+      calories: { total: 700, withoutMacros: 400 },
+      agentItems: { reused: 2, typed: 1 },
+      features: { weighIns: 1, goals: 0, cooking: 0 },
     })
   })
 
@@ -234,6 +344,25 @@ describe('usage dashboard', () => {
     await expect(
       admin.query(api.admin.engagement, { today: 'yesterday' }),
     ).rejects.toThrow('Today must be in YYYY-MM-DD format.')
+  })
+})
+
+describe('agent item counts', () => {
+  it('sorts recorded foods from typed ones and skips anything unreadable', () => {
+    expect(
+      countAgentItems([
+        canonical({
+          items: [
+            { sourceType: 'ingredient' },
+            { sourceType: 'cookedFood' },
+            { sourceType: 'fixedCalories' },
+          ],
+        }),
+        'not json',
+        canonical({ items: 'none' }),
+        canonical({ items: [null, { name: 'no source' }] }),
+      ]),
+    ).toEqual({ reused: 2, typed: 1 })
   })
 })
 
