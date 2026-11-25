@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-const SHELL_BACKGROUND_CLASS = 'flex-1 bg-background'
+// The body already paints the page colour; the page stays clear so the
+// seasonal snow behind it shows through.
+const SHELL_BACKGROUND_CLASS = 'flex-1'
 
 const WIDTH_CLASS_MAP = {
   '6xl': 'max-w-6xl',

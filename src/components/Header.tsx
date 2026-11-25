@@ -5,6 +5,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import ClerkHeader from '../integrations/clerk/header-user.tsx'
 import { Button } from '@/components/ui/button'
 import { requestLogMeal } from '@/features/meals/log-meal-request'
+import { SnowCap, useSeason } from '@/features/seasonal/seasonal'
 import { useConsentPending } from '@/features/privacy/use-consent-pending'
 import { useMessages } from '@/i18n/messages'
 import { isClerkConfigured } from '@/integrations/clerk/config'
@@ -78,6 +79,7 @@ export function BottomNavigation() {
   const t = useMessages(messages)
   const pathname = usePathname()
   const navigate = useNavigate()
+  const { christmas } = useSeason()
   // The consent screen stands in for every page, so no tab is current.
   const activeIndex = useConsentPending()
     ? -1
@@ -136,12 +138,13 @@ export function BottomNavigation() {
           <Button
             size="icon"
             aria-label={t.logMeal}
-            className="size-13 rounded-full shadow-[inset_0_1px_0_oklch(1_0_0/0.25),0_10px_30px_-10px_var(--glass-shadow),0_2px_8px_-2px_var(--glass-shadow)] hover:bg-primary motion-safe:active:scale-90 [&_svg:not([class*='size-'])]:size-6"
+            className="relative size-13 rounded-full shadow-[inset_0_1px_0_oklch(1_0_0/0.25),0_10px_30px_-10px_var(--glass-shadow),0_2px_8px_-2px_var(--glass-shadow)] hover:bg-primary motion-safe:active:scale-90 [&_svg:not([class*='size-'])]:size-6"
             onClick={() => {
               requestLogMeal()
               if (pathname !== '/') void navigate({ to: '/' })
             }}
           >
+            {christmas ? <SnowCap /> : null}
             <Plus aria-hidden="true" strokeWidth={2.5} />
           </Button>
         </div>

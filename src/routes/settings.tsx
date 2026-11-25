@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { LIST_ROW_CLASS } from '@/components/page/list-row'
 import { InstallEntry } from '@/features/install/install-entry'
 import { LanguageSetting } from '@/features/language/language-setting'
+import { SeasonalSetting } from '@/features/seasonal/seasonal'
 import { DeleteAccount } from '@/features/privacy/delete-account'
 import { intlLocale, useLocale, type Locale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
@@ -84,6 +85,7 @@ function SettingsPage() {
         </h2>
         <div className="inset-group inset-rows">
           <InstallEntry variant="settings" />
+          <SeasonalSetting />
           <SettingsLink
             to="/settings/widget"
             title={t.widget}
