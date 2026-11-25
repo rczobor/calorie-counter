@@ -42,6 +42,8 @@ import { MacrosByMealSheet, MacrosCard } from '@/features/meals/macros-card'
 import {
   ChristmasTree,
   SnowCap,
+  SnowLedge,
+  Snowman,
   StringLights,
   useSeason,
   WinterSky,
@@ -213,6 +215,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
   // The archive is a settings page; the season decorates the day itself.
   const winter = season.winter && !archived
   const christmas = season.christmas && !archived
+  const snowman = archived ? 0 : season.snowman
   const locale = useLocale()
   const t = messages[locale]
   const { userId } = useDraftPersistenceIdentity()
@@ -364,6 +367,9 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
     !loadingPerson &&
     meals.status !== 'LoadingFirstPage' &&
     meals.results.length === 0
+  // The decorations stand on the meals card, which is not drawn while there
+  // is nobody to show.
+  const onMealsCard = Boolean(selected) || loadingPerson
 
   return (
     <>
@@ -726,9 +732,22 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             {/* As tall as its button, so the meals stay put when an empty
                 day's row replaces it. */}
             <div className="relative mt-8 flex flex-wrap items-center justify-between gap-3 md:min-h-10">
-              {christmas ? (
+              {winter && onMealsCard ? (
+                // Settled on the meals list's top edge, 12px below this row,
+                // and over its outline.
+                <SnowLedge className="absolute -bottom-3.5 left-2.5 z-10 h-3 w-[calc(100%-1.25rem)]" />
+              ) : null}
+              {snowman > 0 && onMealsCard ? (
+                // Phones build it where the tree stood; wider screens have
+                // theirs on the ground.
+                <Snowman
+                  stage={snowman}
+                  className="pointer-events-none absolute right-2 -bottom-3.25 z-20 h-13.25 w-10 md:hidden"
+                />
+              ) : null}
+              {christmas && onMealsCard ? (
                 // Stands on the meals list's top edge, at its right end.
-                <ChristmasTree className="pointer-events-none absolute right-2 -bottom-3.25 h-13.25 w-11 md:hidden" />
+                <ChristmasTree className="pointer-events-none absolute right-2 -bottom-3.25 z-20 h-13.25 w-11 md:hidden" />
               ) : null}
               <h2 className="type-title">
                 {selected
@@ -741,10 +760,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                       : t.personMeals(selected.name)
                   : t.meals}
               </h2>
-              {christmas ? (
+              {christmas && onMealsCard ? (
                 // Wider screens stand it at the right, before Log meal; its
                 // foot reaches down past the row to the list's top edge.
-                <ChristmasTree className="pointer-events-none ml-auto -mb-3.25 hidden h-13.25 w-11 self-end md:block" />
+                <ChristmasTree className="pointer-events-none z-20 ml-auto -mb-3.25 hidden h-13.25 w-11 self-end md:block" />
               ) : null}
               {!archived && !emptyDay ? (
                 // Phones log from the bottom navigation instead.
@@ -756,7 +775,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                     openEditor({ personId: selected?._id ?? '', date })
                   }
                 >
-                  {christmas ? <SnowCap wide /> : null}
+                  {winter ? <SnowCap wide /> : null}
                   <Plus aria-hidden="true" />
                   {t.logMeal}
                 </Button>

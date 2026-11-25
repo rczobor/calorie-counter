@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SEASONAL_THEME_KEY, seasonFor, seasonScript } from './season'
+import {
+  SEASONAL_THEME_KEY,
+  seasonFor,
+  seasonScript,
+  snowmanStage,
+} from './season'
 
 describe('seasonFor', () => {
   it.each([
@@ -21,6 +26,23 @@ describe('seasonFor', () => {
       winter: false,
       christmas: false,
     })
+  })
+})
+
+describe('snowmanStage', () => {
+  it.each([
+    [12, 24, 0],
+    [1, 6, 0],
+    [1, 7, 1],
+    [1, 9, 1],
+    [1, 10, 2],
+    [1, 16, 4],
+    [1, 19, 5],
+    [1, 31, 5],
+    [2, 29, 5],
+    [3, 1, 0],
+  ])('month %i day %i', (month, day, stage) => {
+    expect(snowmanStage(month, day)).toBe(stage)
   })
 })
 
