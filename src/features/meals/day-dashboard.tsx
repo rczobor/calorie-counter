@@ -39,6 +39,13 @@ import { TodayHint } from '@/features/hints/hints'
 import { rememberLoggedMeal } from '@/features/install/install-provider'
 import { IntakeBar } from '@/features/meals/intake-bar'
 import { MacrosByMealSheet, MacrosCard } from '@/features/meals/macros-card'
+import {
+  ChristmasTree,
+  SnowCap,
+  StringLights,
+  useSeason,
+  WinterSky,
+} from '@/features/seasonal/seasonal'
 import { SettingsBreadcrumbs } from '@/components/page/settings-breadcrumbs'
 import { PageShell } from '@/components/page/page-shell'
 import { ConfirmDestructiveDialog } from '@/components/page/confirm-destructive-dialog'
@@ -202,6 +209,10 @@ function readLinkedDate() {
 }
 
 export function DayDashboard({ archived = false }: { archived?: boolean }) {
+  const season = useSeason()
+  // The archive is a settings page; the season decorates the day itself.
+  const winter = season.winter && !archived
+  const christmas = season.christmas && !archived
   const locale = useLocale()
   const t = messages[locale]
   const { userId } = useDraftPersistenceIdentity()
@@ -366,8 +377,10 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         header={
           archived ? undefined : (
             <div className="w-full">
+              {winter ? <WinterSky tall={christmas} /> : null}
+              {christmas ? <StringLights /> : null}
               {/* The title is the day, so it is the date picker too. */}
-              <h1 className="min-w-0 type-large-title text-foreground">
+              <h1 className="on-winter-sky min-w-0 type-large-title text-foreground">
                 <DatePicker
                   variant="title"
                   value={date}
@@ -442,7 +455,11 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             </div>
           )
         }
-        contentClassName="max-w-3xl"
+        contentClassName={cn(
+          'max-w-3xl',
+          // Room for the string lights above the title on phones.
+          christmas && 'max-md:pt-[calc(env(safe-area-inset-top)+2.25rem)]',
+        )}
       >
         {archived ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -707,7 +724,11 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
             />
             {/* As tall as its button, so the meals stay put when an empty
                 day's row replaces it. */}
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 md:min-h-10">
+            <div className="relative mt-8 flex flex-wrap items-center justify-between gap-3 md:min-h-10">
+              {christmas ? (
+                // Stands on the meals list's top edge, at its right end.
+                <ChristmasTree className="pointer-events-none absolute right-2 -bottom-3.25 h-13.25 w-11 md:hidden" />
+              ) : null}
               <h2 className="type-title">
                 {selected
                   ? archived
@@ -723,12 +744,13 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 // Phones log from the bottom navigation instead.
                 <Button
                   size="sm"
-                  className="hidden md:inline-flex"
+                  className="relative hidden md:inline-flex"
                   disabled={!selected}
                   onClick={() =>
                     openEditor({ personId: selected?._id ?? '', date })
                   }
                 >
+                  {christmas ? <SnowCap wide /> : null}
                   <Plus aria-hidden="true" />
                   {t.logMeal}
                 </Button>

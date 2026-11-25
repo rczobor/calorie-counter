@@ -107,7 +107,7 @@ export function IntakeBar({
               {segment.left > 0 ? (
                 <div
                   className={cn(
-                    'bg-kcal-left-bar',
+                    'intake-fill bg-kcal-left-bar',
                     // Under the goal the latest meal ends the fill with the
                     // bar's round cap.
                     last && !bar.over && 'rounded-r-full',

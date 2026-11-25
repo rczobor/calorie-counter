@@ -208,6 +208,280 @@
   --input: oklch(0.6 0.006 286);
 }
 
+/*
+ * The seasonal theme (src/features/seasonal). <html> carries `winter` from
+ * November 20 through February and `christmas` through January 6, unless
+ * this device turned it off in Settings. Snow falls behind the page content
+ * (a fixed canvas at z-index -10), so page backgrounds above it stay clear.
+ */
+
+/* Winter in dark mode is a snowy night like iOS Weather: a slate-blue sky
+   for the page, slate fills, and grouped cells that are nearly solid, so the
+   snow shows in the gaps and only faintly through them. Light mode keeps its
+   palette; there the snow and Today's sky carry the season. */
+html.dark.winter {
+  --background: oklch(0.15 0.028 262);
+  --card: oklch(0.285 0.033 262);
+  --sidebar: oklch(0.285 0.033 262);
+  --secondary: oklch(0.33 0.035 262);
+  --muted: oklch(0.33 0.035 262);
+  --accent: oklch(0.37 0.035 262);
+  --control: oklch(0.33 0.035 262);
+  --field: oklch(0.33 0.035 262);
+  --border: oklch(1 0 0 / 10%);
+  /* The empty bar and the balance pills stay visible on slate. */
+  --track: oklch(1 0 0 / 14%);
+  --left-surface: oklch(0.42 0.06 192 / 55%);
+  --over-surface: oklch(0.42 0.07 5 / 55%);
+  /* An open meal's foods sit one slate step below the cell, not a hole. */
+  --recessed: oklch(0.24 0.03 262);
+  --glass: oklch(0.34 0.035 262 / 60%);
+  --glass-edge: oklch(1 0 0 / 12%);
+}
+html.dark.winter body {
+  background-image: linear-gradient(
+    oklch(0.28 0.05 262),
+    oklch(0.2 0.038 262) 38%,
+    oklch(0.13 0.025 262)
+  );
+}
+/* Sheets keep their own grey cells. */
+html.dark.winter .inset-group:not(.elevated .inset-group) {
+  background-color: oklch(0.31 0.035 262 / 84%);
+  box-shadow: inset 0 0 0 1px oklch(1 0 0 / 8%);
+  backdrop-filter: blur(24px) saturate(1.3);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--card);
+    backdrop-filter: none;
+  }
+}
+
+/* Christmas in dark mode: cranberry for the tint and pine for what is left
+   of the day; over moves from berry to plum, so it never shares the
+   cranberry's hue. The cranberry stays deep with white on it (5.1:1), so it
+   never turns coral; where the tint is text or an outline on the night, a
+   lighter cranberry keeps it readable (5.8:1 on a cell). Light mode keeps its
+   own colours: the owner chose them over cranberry in a blind vote. */
+html.dark.christmas {
+  --primary: oklch(0.56 0.17 18);
+  --primary-foreground: oklch(1 0 0);
+  --ring: oklch(0.74 0.14 18);
+  --left: oklch(0.82 0.11 158);
+  --left-surface: oklch(0.42 0.07 158 / 55%);
+  --left-bar: oklch(0.72 0.12 158);
+  --over: oklch(0.8 0.09 320);
+  --over-surface: oklch(0.42 0.07 320 / 55%);
+  --over-bar: oklch(0.78 0.11 320);
+}
+html.dark.christmas .text-primary {
+  color: oklch(0.74 0.14 18);
+}
+html.dark.christmas .border-primary {
+  border-color: oklch(0.74 0.14 18);
+}
+
+/* The calorie bar's logged stretch as a candy cane. */
+html.christmas .intake-fill {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    oklch(1 0 0 / 50%) 5px 10px
+  );
+}
+
+/* Today's night sky on phones, behind the title and under the snow. Its
+   height reaches just behind the top of the day's summary card. */
+.winter-sky {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: -20;
+  height: calc(env(safe-area-inset-top) + 9.5rem);
+  overflow: hidden;
+  background: linear-gradient(oklch(0.26 0.05 262), oklch(0.37 0.06 238));
+}
+.winter-sky-tall {
+  height: calc(env(safe-area-inset-top) + 10.5rem);
+}
+.dark .winter-sky {
+  background: none;
+}
+.winter-clouds {
+  position: absolute;
+  inset: -20px -200px 0 -200px;
+  background:
+    radial-gradient(closest-side, oklch(1 0 0 / 9%), transparent) 0 10px / 260px
+      120px no-repeat,
+    radial-gradient(closest-side, oklch(1 0 0 / 7%), transparent) 220px -10px /
+      320px 140px no-repeat,
+    radial-gradient(closest-side, oklch(1 0 0 / 8%), transparent) 480px 40px /
+      280px 110px no-repeat,
+    radial-gradient(closest-side, oklch(1 0 0 / 6%), transparent) 640px 0 /
+      300px 150px no-repeat;
+  animation: winter-drift 70s linear infinite alternate;
+}
+@keyframes winter-drift {
+  to {
+    transform: translateX(160px);
+  }
+}
+.winter-snowbank {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 30px;
+  fill: var(--background);
+}
+.dark .winter-snowbank {
+  display: none;
+}
+/* The title reads in white on the light-mode sky. */
+@media (width < 48rem) {
+  html.winter:not(.dark) .on-winter-sky {
+    color: oklch(0.985 0.003 250);
+  }
+  /* The date picker's chevron, muted on the sky as it is in dark. */
+  html.winter:not(.dark) .on-winter-sky svg {
+    color: oklch(1 0 0 / 70%);
+  }
+}
+
+/* String lights across the top of Today on phones. */
+.string-lights {
+  position: absolute;
+  inset-inline: 0;
+  top: env(safe-area-inset-top);
+  height: 3rem;
+  pointer-events: none;
+}
+.string-lights svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: oklch(0.42 0.05 150);
+  stroke-width: 1.5;
+}
+.string-lights span {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+  background: var(--bulb);
+  box-shadow: 0 0 9px 2px color-mix(in oklch, var(--bulb) 55%, transparent);
+  animation: twinkle 2.6s ease-in-out infinite;
+}
+.string-lights span::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: -3px;
+  width: 6px;
+  height: 4px;
+  border-radius: 1px;
+  background: oklch(0.32 0.03 150);
+}
+:is(.string-lights, .christmas-tree) [data-color='red'] {
+  --bulb: oklch(0.64 0.21 25);
+}
+:is(.string-lights, .christmas-tree) [data-color='gold'] {
+  --bulb: oklch(0.88 0.15 88);
+}
+:is(.string-lights, .christmas-tree) [data-color='green'] {
+  --bulb: oklch(0.72 0.17 150);
+}
+:is(.string-lights, .christmas-tree) [data-color='blue'] {
+  --bulb: oklch(0.74 0.12 235);
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.9;
+  }
+  55% {
+    opacity: 0.4;
+  }
+  70% {
+    opacity: 0.95;
+  }
+}
+
+/* The tree on the meals list, without a glow. */
+.christmas-tree {
+  --pine-1: oklch(0.4 0.09 155);
+  --pine-2: oklch(0.46 0.1 153);
+  --pine-3: oklch(0.52 0.11 150);
+  --tree-snow: oklch(0.97 0.006 250);
+  --tree-mound: oklch(0.9 0.014 250);
+  overflow: visible;
+}
+.dark .christmas-tree {
+  --pine-1: oklch(0.45 0.1 155);
+  --pine-2: oklch(0.52 0.11 153);
+  --pine-3: oklch(0.58 0.12 150);
+  --tree-mound: oklch(0.97 0.006 250);
+}
+.tree-mound {
+  fill: var(--tree-mound);
+}
+.tree-trunk {
+  fill: oklch(0.42 0.06 50);
+}
+.tree-tier-1 {
+  fill: var(--pine-1);
+}
+.tree-tier-2 {
+  fill: var(--pine-2);
+}
+.tree-tier-3 {
+  fill: var(--pine-3);
+}
+.tree-snow {
+  fill: var(--tree-snow);
+}
+.tree-bauble {
+  fill: var(--bulb);
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+.tree-bauble[data-color='red'] {
+  --bulb: oklch(0.55 0.19 22);
+}
+.dark .tree-bauble[data-color='red'] {
+  --bulb: oklch(0.68 0.19 22);
+}
+.tree-star {
+  fill: oklch(0.86 0.15 88);
+  animation: star-pulse 3s ease-in-out infinite;
+}
+@keyframes star-pulse {
+  50% {
+    opacity: 0.7;
+  }
+}
+.snow-cap {
+  fill: oklch(0.99 0.003 240);
+  filter: drop-shadow(0 1px 1px oklch(0 0 0 / 18%));
+}
+/* On the pale light page, a cool shade under the cap keeps it reading as
+   snow rather than a chip out of the button. */
+html:not(.dark) .snow-cap {
+  fill: oklch(0.985 0.006 245);
+  filter: drop-shadow(0 1px 1.5px oklch(0.45 0.05 250 / 45%));
+}
+@media (prefers-reduced-motion: reduce) {
+  .winter-clouds,
+  .string-lights span,
+  .tree-bauble,
+  .tree-star {
+    animation: none;
+  }
+}
+
 /* A floating "liquid glass" surface: content shows through it, blurred. It
    turns opaque when the user asks for reduced transparency. */
 @utility glass {

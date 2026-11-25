@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import {
   HeadContent,
   Link,
+  ScriptOnce,
   Scripts,
   createRootRoute,
   useRouterState,
@@ -41,6 +42,8 @@ import { Button } from '../components/ui/button'
 import { isE2eMockMode } from '../testing/e2e/config'
 import { markStartup } from '@/lib/startup-timing'
 import { AccountLocaleSync } from '@/features/language/language-setting'
+import { SeasonalEffects } from '@/features/seasonal/seasonal'
+import { seasonScript } from '@/features/seasonal/season'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { messages } from './__root.messages'
@@ -204,6 +207,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           content={DARK_THEME_COLOR}
           media="(prefers-color-scheme: dark)"
         />
+        {/* The season's classes before the first paint, so its colours never
+            flash in after hydration. It runs once and removes itself, so
+            there is nothing to hydrate. */}
+        <ScriptOnce>{seasonScript}</ScriptOnce>
         <HeadContent />
       </head>
       <body>
@@ -215,6 +222,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
+          <SeasonalEffects />
           {IS_MAINTENANCE_MODE ? (
             <MaintenanceScreen />
           ) : (
