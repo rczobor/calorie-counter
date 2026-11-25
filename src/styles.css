@@ -269,10 +269,13 @@ html.christmas {
   --over-surface: oklch(0.95 0.03 320);
   --over-bar: oklch(0.58 0.12 320);
 }
+/* Dark keeps the same deep cranberry with white on it (5.1:1), so it never
+   turns coral; where the tint is text or an outline on the night, a lighter
+   cranberry keeps it readable (5.8:1 on a cell). */
 html.dark.christmas {
-  --primary: oklch(0.72 0.15 18);
-  --primary-foreground: oklch(0.17 0.02 18);
-  --ring: oklch(0.72 0.15 18);
+  --primary: oklch(0.56 0.17 18);
+  --primary-foreground: oklch(1 0 0);
+  --ring: oklch(0.74 0.14 18);
   --left: oklch(0.82 0.11 158);
   --left-surface: oklch(0.42 0.07 158 / 55%);
   --left-bar: oklch(0.72 0.12 158);
@@ -280,6 +283,13 @@ html.dark.christmas {
   --over-surface: oklch(0.42 0.07 320 / 55%);
   --over-bar: oklch(0.78 0.11 320);
 }
+html.dark.christmas .text-primary {
+  color: oklch(0.74 0.14 18);
+}
+html.dark.christmas .border-primary {
+  border-color: oklch(0.74 0.14 18);
+}
+
 /* The calorie bar's logged stretch as a candy cane. */
 html.christmas .intake-fill {
   background-image: repeating-linear-gradient(
