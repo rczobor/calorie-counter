@@ -1925,6 +1925,87 @@ describe('MCP conversation regressions', () => {
     ).toBe(guestHousehold)
   })
 
+  it('defaults a member of several households to the one where they linked themselves, and asks when linked in several', async () => {
+    const t = setup()
+    const host = asTestUser(t)
+    const guest = asTestUserWithToken(t, 'guest|token')
+    const householdId = await host.mutation(api.households.ensurePersonal, {})
+    const guestHousehold = await guest.mutation(
+      api.households.ensurePersonal,
+      {},
+    )
+    await guest.mutation(api.households.acceptInvitation, {
+      token: await host.mutation(api.households.invite, { householdId }),
+    })
+    const person = {
+      currentDailyGoalKcal: 2000,
+      effectiveDate: '2026-11-01',
+    }
+    await host.mutation(api.nutrition.createPerson, {
+      ...person,
+      householdId,
+      name: 'Alex',
+    })
+    const guestPersonId = await guest.mutation(api.nutrition.createPerson, {
+      ...person,
+      householdId,
+      name: 'Viki',
+      linkedToMe: true,
+    })
+    const own = await credential(t, 'guest|token')
+    const linked = await output(
+      await call(t, own.token, 'get_logging_context', {}),
+      loggingContextResult,
+    )
+    expect(linked.context).toMatchObject({
+      householdId,
+      defaultPersonId: guestPersonId,
+      confirmationMode: 'always',
+      requiresPersonSelection: false,
+    })
+
+    await guest.mutation(api.nutrition.createPerson, {
+      ...person,
+      householdId: guestHousehold,
+      name: 'Viki at home',
+      linkedToMe: true,
+    })
+    expect(
+      await (await call(t, own.token, 'get_logging_context', {})).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          { text: expect.stringContaining('linked in several households') },
+        ],
+      },
+    })
+    expect(
+      (
+        await output(
+          await call(t, own.token, 'get_logging_context', {
+            householdId: guestHousehold,
+          }),
+          loggingContextResult,
+        )
+      ).context?.defaultPerson,
+    ).toBe('Viki at home')
+
+    // A newer privacy notice is refused before any household is resolved.
+    await t.run(async (ctx) => {
+      for (const consent of await ctx.db.query('privacyConsents').collect())
+        await ctx.db.delete(consent._id)
+    })
+    expect(
+      await (await call(t, own.token, 'get_logging_context', {})).json(),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ text: expect.stringContaining('privacy notice') }],
+      },
+    })
+  })
+
   it('updates a pending lunch, returns server totals, and corrects one meal with both days accounted for', async () => {
     const t = setup()
     const personId = await insertPerson(t)

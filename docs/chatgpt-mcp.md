@@ -437,9 +437,11 @@ call, including discovery and reads, without needing a browser visit. This
 transactional bootstrap never restores a removed membership.
 
 Use `list_households` to discover choices, ask which household the user means,
-and pass `householdId` to nutrition tools. Omitting it uses explicitly saved MCP preferences, or the account's original
-personal household when no preferences exist; browser selection never changes
-an MCP connection's target. Read, preview, and meal/cooking save responses include resolved context.
+and pass `householdId` to nutrition tools. Omitting it uses explicitly saved MCP preferences. Without them, it uses the
+household where the account linked a person to itself, otherwise the account's
+original personal household; an account linked in several households must
+choose. Context defaults to the saved person, otherwise the linked one. Browser
+selection never changes an MCP connection's target. Read, preview, and meal/cooking save responses include resolved context.
 An explicit household overrides saved defaults without importing a person from
 another household. If membership in the remembered household is removed, calls
 refuse access and request a new selection; they never silently fall back.
