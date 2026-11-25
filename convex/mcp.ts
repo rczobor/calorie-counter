@@ -63,7 +63,7 @@ const reusableWrite = {
 export const mcp: McpServer = new McpServer(components.mcp, {
   name: 'calorie-counter',
   title: 'Calorie Counter',
-  version: '1.12.0',
+  version: '1.13.0',
   consentUrl: env.MCP_CONSENT_URL ?? 'https://unconfigured.invalid/connect',
   deviceFlow: false,
   allowedOrigins: [],
@@ -786,7 +786,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     get_logging_context: tool({
       description:
-        'Start here to read active people, remembered defaults, resolved household context, and current localDate before logging. Omitting householdId uses explicitly saved preferences, otherwise the original personal household. Explicit householdId overrides saved defaults. Use context.defaultPersonId and timeZone when present; ask only for missing or ambiguous choices. Supplied IANA timeZone overrides the saved timezone for this call. Refresh context when resolving a new relative date. Returns at most 50 people; use the cursor to continue.',
+        'Start here to read active people, remembered defaults, resolved household context, and current localDate before logging. Omitting householdId uses explicitly saved preferences, otherwise the household where the user linked a person to themselves, otherwise their personal household; when they are linked in several it asks you to choose. defaultPersonId is the saved person, otherwise the person linked to the user. Explicit householdId overrides saved defaults. Use context.defaultPersonId and timeZone when present; ask only for missing or ambiguous choices. Supplied IANA timeZone overrides the saved timezone for this call. Refresh context when resolving a new relative date. Returns at most 50 people; use the cursor to continue.',
       args: {
         householdId: v.optional(v.id('households')),
         timeZone: v.optional(v.string()),

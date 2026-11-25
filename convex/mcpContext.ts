@@ -18,7 +18,9 @@ import { DomainError } from './lib/validation'
 import {
   assertOwnedOrThrow,
   ensureUserId,
+  findLinkedPerson,
   findUserId,
+  listMemberships,
   requireHouseholdForAccount,
   type AuthenticatedOwner,
 } from './lib/auth'
@@ -95,14 +97,15 @@ export async function requireMcpOwner(
 ): Promise<AuthenticatedOwner> {
   requireAccount(user, scope)
   await ensurePersonalHousehold(ctx, user.userId)
-  const preferences = householdId
-    ? null
-    : await getPreferences(ctx, await findUserId(ctx, user.userId))
+  const userId = await findUserId(ctx, user.userId)
+  const preferences = householdId ? null : await getPreferences(ctx, userId)
   try {
     return await requireHouseholdForAccount(
       ctx,
       user.userId,
-      householdId ?? preferences?.householdId,
+      householdId ??
+        preferences?.householdId ??
+        (await linkedHouseholdId(ctx, userId)),
     )
   } catch (error) {
     if (
@@ -119,6 +122,28 @@ export async function requireMcpOwner(
   }
 }
 
+// With nothing requested or saved, a member of several households tracks
+// where they linked a person to themselves, not in the personal household the
+// app created for them. Undefined keeps that personal household, which agents
+// already rely on when the account has no link.
+async function linkedHouseholdId(
+  ctx: Pick<QueryCtx, 'db'>,
+  userId: Id<'users'> | null,
+) {
+  if (!userId) return undefined
+  const memberships = await listMemberships(ctx, userId, 10)
+  if (memberships.length < 2) return undefined
+  const linked = []
+  for (const { householdId } of memberships) {
+    const person = await findLinkedPerson(ctx, householdId, userId)
+    if (person && !person.archived) linked.push(householdId)
+  }
+  if (linked.length < 2) return linked[0]
+  throw new ConvexError(
+    'You are linked in several households. Use list_households, ask which one the user means, then pass its householdId; no fallback was used.',
+  )
+}
+
 export async function describeContext(
   ctx: MutationCtx,
   owner: AuthenticatedOwner,
@@ -126,26 +151,26 @@ export async function describeContext(
   const household = await ctx.db.get(owner.householdId)
   if (!household) throw new ConvexError('Household not found.')
   const preferences = await getPreferences(ctx, owner.userId)
-  const person =
-    preferences?.householdId === owner.householdId
-      ? await ctx.db.get(preferences.personId)
+  const saved =
+    preferences?.householdId === owner.householdId ? preferences : null
+  const savedPerson = saved && (await ctx.db.get(saved.personId))
+  const savedDefault =
+    savedPerson?.householdId === owner.householdId && !savedPerson.archived
+      ? savedPerson
       : null
+  const linkedPerson = savedDefault
+    ? null
+    : await findLinkedPerson(ctx, owner.householdId, owner.userId)
   const defaultPerson =
-    person && person.householdId === owner.householdId && !person.archived
-      ? person
-      : null
+    savedDefault ?? (linkedPerson?.archived ? null : linkedPerson)
   return {
     householdId: owner.householdId,
     household: household.name,
     defaultPersonId: defaultPerson?._id,
     defaultPerson: defaultPerson?.name,
-    timeZone:
-      preferences?.householdId === owner.householdId
-        ? preferences.timeZone
-        : undefined,
-    confirmationMode: defaultPerson
-      ? (preferences?.confirmationMode ?? 'always')
-      : 'always',
+    timeZone: saved?.timeZone,
+    // The saved approval policy belongs to the saved person, never a fallback.
+    confirmationMode: savedDefault && saved ? saved.confirmationMode : 'always',
     requiresPersonSelection: !defaultPerson,
   }
 }
