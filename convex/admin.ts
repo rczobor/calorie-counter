@@ -31,8 +31,8 @@ const NEAR_GOAL_SHARE = 0.1
 //   foods 2,000 + batches 500 + day summaries 2,000    4,500
 //   200 people × (1 person + 10 goals)                 2,200
 //   200 logging preferences + 1,000 agent receipts      1,200
-//   5 features × 500 rows + their people for goals     3,000
-// About 21,700 documents and 1,400 index reads at most. Receipts hold their
+//   6 feature tables × 500 rows + people for goals     3,500
+// About 22,200 documents and 1,400 index reads at most. Receipts hold their
 // input and result as JSON, a few KB each, so they get the smallest cap that
 // still covers a busy month. Reads take the newest rows first; past a cap the
 // page says its figures are partial.
@@ -173,35 +173,27 @@ function dayIn(timeZone: string | undefined, timestamp: number) {
 }
 
 /**
- * Counts the foods in the assistant's saved meals by whether they reuse a
- * recorded food. Receipts store the exact input as JSON; anything that does
- * not parse as a meal is skipped.
+ * The item source types of one of the assistant's saved meals. Receipts store
+ * the exact input as JSON; anything that does not parse as a meal gives none.
  */
-export function countAgentItems(inputs: Array<string>) {
-  let reused = 0
-  let typed = 0
-  for (const json of inputs) {
-    let input: unknown
-    try {
-      input = JSON.parse(json)
-    } catch {
-      continue
-    }
-    if (typeof input !== 'object' || input === null || !('items' in input))
-      continue
-    if (!Array.isArray(input.items)) continue
-    const items: ReadonlyArray<unknown> = input.items
-    for (const item of items) {
-      const sourceType =
-        typeof item === 'object' && item !== null && 'sourceType' in item
-          ? item.sourceType
-          : undefined
-      if (typeof sourceType !== 'string') continue
-      if (REUSED_SOURCES.has(sourceType)) reused += 1
-      else typed += 1
-    }
+export function itemSourceTypes(json: string) {
+  let input: unknown
+  try {
+    input = JSON.parse(json)
+  } catch {
+    return []
   }
-  return { reused, typed }
+  if (typeof input !== 'object' || input === null || !('items' in input))
+    return []
+  if (!Array.isArray(input.items)) return []
+  const items: ReadonlyArray<unknown> = input.items
+  return items.flatMap((item) => {
+    const sourceType =
+      typeof item === 'object' && item !== null && 'sourceType' in item
+        ? item.sourceType
+        : undefined
+    return typeof sourceType === 'string' ? [sourceType] : []
+  })
 }
 
 function dayStart(date: string) {
@@ -465,6 +457,7 @@ export const engagement = query({
       savedFoods,
       templates,
       recipeVersions,
+      cookedFoods,
     ] = await Promise.all([
       ctx.db
         .query('mealItems')
@@ -515,6 +508,11 @@ export const engagement = query({
         .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
         .order('desc')
         .take(MAX_FEATURE_ROWS),
+      ctx.db
+        .query('cookedFoods')
+        .withIndex('by_creation_time', (q) => q.gte('_creationTime', since))
+        .order('desc')
+        .take(MAX_FEATURE_ROWS),
     ])
     // How many consenting accounts wrote at least one of these rows.
     const reach = (rows: Array<{ ownerUserId: Id<'users'> }>) =>
@@ -524,6 +522,19 @@ export const engagement = query({
           .filter((userId) => accountIds.has(userId)),
       ).size
     const keptMeals = meals.filter((meal) => !meal.archived)
+    const agentMeals = receipts
+      .filter(
+        (receipt) =>
+          receipt.operation === 'meal' && accountIds.has(receipt.ownerUserId),
+      )
+      .map((receipt) => ({
+        ownerUserId: receipt.ownerUserId,
+        sourceTypes: itemSourceTypes(receipt.input),
+      }))
+    const agentSourceTypes = agentMeals.flatMap((meal) => meal.sourceTypes)
+    const reusedItems = agentSourceTypes.filter((sourceType) =>
+      REUSED_SOURCES.has(sourceType),
+    ).length
     // Adding a person saves their first goal with the person's own createdAt;
     // that is not using goals.
     const goalSetters = new Set<Id<'users'>>()
@@ -552,9 +563,14 @@ export const engagement = query({
         cookSessions.length === MAX_COOK_SESSIONS ||
         goals.partial ||
         receipts.length === MAX_RECEIPTS ||
-        [weighIns, goalChanges, savedFoods, templates, recipeVersions].some(
-          (rows) => rows.length === MAX_FEATURE_ROWS,
-        ),
+        [
+          weighIns,
+          goalChanges,
+          savedFoods,
+          templates,
+          recipeVersions,
+          cookedFoods,
+        ].some((rows) => rows.length === MAX_FEATURE_ROWS),
       totals: {
         ...countSources(meals),
         // Archiving also bumps editRevision, and is not an edit.
@@ -574,22 +590,27 @@ export const engagement = query({
           }),
           { total: 0, withoutMacros: 0 },
         ),
-        agentItems: countAgentItems(
-          receipts
-            .filter(
-              (receipt) =>
-                receipt.operation === 'meal' &&
-                accountIds.has(receipt.ownerUserId),
-            )
-            .map((receipt) => receipt.input),
-        ),
+        agentItems: {
+          reused: reusedItems,
+          typed: agentSourceTypes.length - reusedItems,
+        },
         features: {
           weighIns: reach(weighIns),
           goals: goalSetters.size,
-          savedFoods: reach(savedFoods),
+          // Saving one, or the assistant logging one.
+          savedFoods: reach([
+            ...savedFoods,
+            ...agentMeals.filter((meal) =>
+              meal.sourceTypes.includes('savedFood'),
+            ),
+          ]),
           templates: reach(templates),
           cooking: reach(cookSessions),
-          recipes: reach(recipeVersions),
+          // Writing or editing one, or cooking from one.
+          recipes: reach([
+            ...recipeVersions,
+            ...cookedFoods.filter((food) => food.recipeVersionId !== undefined),
+          ]),
         },
         items: itemCounts,
         cookSessions: cookSessions.filter((session) =>

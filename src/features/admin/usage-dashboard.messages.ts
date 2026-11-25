@@ -54,9 +54,9 @@ export const messages = defineMessages({
     reused: 'Reused by the assistant',
     foodsNote:
       'Reused: foods the AI assistant took from earlier meals, saved foods or the library instead of typing them in.',
-    features: 'Saved something new',
+    features: 'Features used',
     featuresNote:
-      'Accounts that added one in the last 28 days. Reusing an old one doesn’t count.',
+      'Accounts that used each one in the last 28 days. Meal templates count only when saved, not when reused.',
     ofAccounts: (count: number, total: number) => `${count} of ${total}`,
     weighIns: 'Weigh-ins',
     goals: 'Setting goals',
@@ -122,9 +122,9 @@ export const messages = defineMessages({
     reused: 'Az asszisztens újrahasználta',
     foodsNote:
       'Újrahasznált: az AI-asszisztens korábbi étkezésből, a mentett ételek vagy az ételtár közül vette, nem begépelte.',
-    features: 'Újat mentett',
+    features: 'Használt funkciók',
     featuresNote:
-      'Fiókok, amelyek az elmúlt 28 napban újat vettek fel. Egy régi újrahasználata nem számít.',
+      'Az elmúlt 28 napban ezeket használó fiókok. Az étkezéssablonok csak mentéskor számítanak, újrahasználatkor nem.',
     ofAccounts: (count: number, total: number) => `${count}/${total}`,
     weighIns: 'Testsúlymérés',
     goals: 'Célok beállítása',

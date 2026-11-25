@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
-import { countAgentItems, engagementStatus } from './admin'
+import { engagementStatus, itemSourceTypes } from './admin'
 import { shiftDay } from './lib/energy'
 import { canonical } from './mcpOperations'
 import {
@@ -301,6 +301,40 @@ describe('usage dashboard', () => {
     // Another kind of save, and an account outside the report.
     await receipt(adminId, 'savedFood', ['customByWeight'])
     await receipt(holdoutId, 'meal', ['fixedCalories'])
+    // Cooking from a recipe someone else wrote is still using recipes.
+    const sessionId = await insertCookSession(t)
+    await t.run(async (ctx) => {
+      const recipeId = await ctx.db.insert('recipes', {
+        ownerUserId: holdoutId,
+        householdId,
+        name: 'Stew',
+        archived: false,
+        latestVersionNumber: 1,
+        createdAt: Date.now(),
+      })
+      const recipeVersionId = await ctx.db.insert('recipeVersions', {
+        ownerUserId: holdoutId,
+        householdId,
+        recipeId,
+        versionNumber: 1,
+        name: 'Stew',
+        createdAt: Date.now(),
+      })
+      await ctx.db.insert('cookedFoods', {
+        ownerUserId: adminId,
+        householdId,
+        cookSessionId: sessionId,
+        name: 'Stew',
+        recipeId,
+        recipeVersionId,
+        finishedWeightGrams: 1000,
+        totalRawWeightGrams: 1100,
+        totalCalories: 1200,
+        kcalPer100: 120,
+        archived: false,
+        createdAt: Date.now(),
+      })
+    })
 
     const { totals } = await admin.query(api.admin.engagement, { today })
     expect(totals).toMatchObject({
@@ -309,7 +343,14 @@ describe('usage dashboard', () => {
       lateMeals: 2,
       calories: { total: 700, withoutMacros: 400 },
       agentItems: { reused: 2, typed: 1 },
-      features: { weighIns: 1, goals: 0, cooking: 0 },
+      // The assistant logged a saved food; no new one was saved.
+      features: {
+        weighIns: 1,
+        goals: 0,
+        savedFoods: 1,
+        cooking: 1,
+        recipes: 1,
+      },
     })
   })
 
@@ -360,21 +401,16 @@ describe('usage dashboard', () => {
 })
 
 describe('agent item counts', () => {
-  it('sorts recorded foods from typed ones and skips anything unreadable', () => {
+  it('reads source types and skips anything unreadable', () => {
     expect(
-      countAgentItems([
+      itemSourceTypes(
         canonical({
-          items: [
-            { sourceType: 'ingredient' },
-            { sourceType: 'cookedFood' },
-            { sourceType: 'fixedCalories' },
-          ],
+          items: [{ sourceType: 'savedFood' }, null, { name: 'no source' }],
         }),
-        'not json',
-        canonical({ items: 'none' }),
-        canonical({ items: [null, { name: 'no source' }] }),
-      ]),
-    ).toEqual({ reused: 2, typed: 1 })
+      ),
+    ).toEqual(['savedFood'])
+    expect(itemSourceTypes('not json')).toEqual([])
+    expect(itemSourceTypes(canonical({ items: 'none' }))).toEqual([])
   })
 })
 
