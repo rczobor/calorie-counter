@@ -42,7 +42,10 @@ import { Button } from '../components/ui/button'
 import { isE2eMockMode } from '../testing/e2e/config'
 import { markStartup } from '@/lib/startup-timing'
 import { AccountLocaleSync } from '@/features/language/language-setting'
-import { SeasonalEffects } from '@/features/seasonal/seasonal'
+import {
+  SeasonalEffects,
+  useStatusBarColors,
+} from '@/features/seasonal/seasonal'
 import { seasonScript } from '@/features/seasonal/season'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
@@ -188,6 +191,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const publicPage = useRouterState({
     select: (state) => state.location.pathname === '/privacy',
   })
+  const statusBar = useStatusBarColors({
+    light: LIGHT_THEME_COLOR,
+    dark: DARK_THEME_COLOR,
+  })
   useEffect(() => {
     markStartup('app')
     if (IS_MAINTENANCE_MODE) unregisterServiceWorkers()
@@ -199,12 +206,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <meta
           name="theme-color"
-          content={LIGHT_THEME_COLOR}
+          content={statusBar.light}
           media="(prefers-color-scheme: light)"
         />
         <meta
           name="theme-color"
-          content={DARK_THEME_COLOR}
+          content={statusBar.dark}
           media="(prefers-color-scheme: dark)"
         />
         {/* The season's classes before the first paint, so its colours never
