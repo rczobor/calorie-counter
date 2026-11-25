@@ -74,19 +74,37 @@ export function useSeason() {
   }
 }
 
+// The app's own theme: the `dark` class next-themes puts on <html>, which
+// can differ from the phone's setting. Unknown until the page is running.
+function subscribeThemeClass(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributeFilter: ['class'] })
+  return () => observer.disconnect()
+}
+
 /**
- * The status bar colours for the installed app: iOS tints the strip under
- * the clock with them, so in winter they match the top of the page (the
- * night sky, or light mode's frost away from Today) instead of drawing a
- * black or grey band across the sky.
+ * The colours for the installed app's status bar, a solid bar iOS paints
+ * from theme-color. In winter they match the top of the page (the night
+ * sky, or light mode's frost away from Today). Once the app's own theme is
+ * known, both media variants take that theme's colour, so a dark app on a
+ * light phone never gets a light bar.
  */
 export function useStatusBarColors(normal: { light: string; dark: string }) {
   const { winter } = useSeason()
   const onToday = useRouterState({
     select: (state) => state.location.pathname === '/',
   })
-  if (!winter) return normal
-  return { light: onToday ? '#16243c' : '#d3e8f7', dark: '#1b2942' }
+  const appDark = useSyncExternalStore<boolean | null>(
+    subscribeThemeClass,
+    () => document.documentElement.classList.contains('dark'),
+    () => null,
+  )
+  const colors = winter
+    ? { light: onToday ? '#16243c' : '#d3e8f7', dark: '#1b2942' }
+    : normal
+  if (appDark === null) return colors
+  const color = appDark ? colors.dark : colors.light
+  return { light: color, dark: color }
 }
 
 /**
