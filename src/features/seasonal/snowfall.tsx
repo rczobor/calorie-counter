@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 /*
  * Snow modelled on iOS Weather, measured from screen recordings with
@@ -190,11 +190,9 @@ function makeSprite(kind: Layer['kind'], dark: boolean) {
   return sprite
 }
 
-function startSnow(canvas: HTMLCanvasElement, dark: boolean) {
+function startSnow(canvas: HTMLCanvasElement, dark: boolean, still: boolean) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
-  const still =
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   const sprites = LAYERS.map((layer) =>
     Array.from({ length: VARIANTS }, () => makeSprite(layer.kind, dark)),
   )
@@ -405,13 +403,28 @@ function startSnow(canvas: HTMLCanvasElement, dark: boolean) {
   }
 }
 
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+
+// The installed app stays open for days, so a reduced-motion change made
+// meanwhile must still stop the snow.
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia?.(REDUCED_MOTION)
+  query?.addEventListener('change', onChange)
+  return () => query?.removeEventListener('change', onChange)
+}
+
 /** Falling snow behind the page, for the winter season. */
 export function Snowfall({ dark }: { dark: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const still = useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia?.(REDUCED_MOTION).matches ?? false,
+    () => false,
+  )
   useEffect(() => {
     if (!canvas.current) return
-    return startSnow(canvas.current, dark)
-  }, [dark])
+    return startSnow(canvas.current, dark, still)
+  }, [dark, still])
   return (
     <canvas
       ref={canvas}

@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Snowfall } from './snowfall'
@@ -58,13 +58,25 @@ describe('Snowfall', () => {
     expect(cancelAnimationFrame).toHaveBeenCalled()
   })
 
-  it('draws one still scene with reduced motion', () => {
+  it('stills when reduced motion is turned on while it falls', () => {
+    const query = Object.assign(new EventTarget(), { matches: false })
     vi.stubGlobal(
       'matchMedia',
-      vi.fn(() => ({ matches: true })),
+      vi.fn(() => query),
     )
     render(<Snowfall dark={false} />)
     expect(runFrame(1000)).toBe(true)
+    expect(frames).toHaveLength(1)
+
+    query.matches = true
+    act(() => {
+      query.dispatchEvent(new Event('change'))
+    })
+    expect(cancelAnimationFrame).toHaveBeenCalled()
+    // One still frame from the restarted scene, then nothing more.
+    frames = frames.slice(-1)
+    drawImage.mockClear()
+    expect(runFrame(2000)).toBe(true)
     expect(drawImage).toHaveBeenCalled()
     expect(frames).toHaveLength(0)
   })
