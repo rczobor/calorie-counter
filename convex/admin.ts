@@ -31,8 +31,8 @@ const NEAR_GOAL_SHARE = 0.1
 //   foods 2,000 + batches 500 + day summaries 2,000    4,500
 //   200 people × (1 person + 10 goals)                 2,200
 //   200 logging preferences + 1,000 agent receipts      1,200
-//   5 features × 500 rows                              2,500
-// About 21,200 documents and 1,400 index reads at most. Receipts hold their
+//   5 features × 500 rows + their people for goals     3,000
+// About 21,700 documents and 1,400 index reads at most. Receipts hold their
 // input and result as JSON, a few KB each, so they get the smallest cap that
 // still covers a busy month. Reads take the newest rows first; past a cap the
 // page says its figures are partial.
@@ -524,6 +524,15 @@ export const engagement = query({
           .filter((userId) => accountIds.has(userId)),
       ).size
     const keptMeals = meals.filter((meal) => !meal.archived)
+    // Adding a person saves their first goal with the person's own createdAt;
+    // that is not using goals.
+    const goalSetters = new Set<Id<'users'>>()
+    for (const row of goalChanges) {
+      if (!accountIds.has(row.ownerUserId) || goalSetters.has(row.ownerUserId))
+        continue
+      const person = await ctx.db.get(row.personId)
+      if (person?.createdAt !== row.createdAt) goalSetters.add(row.ownerUserId)
+    }
     const itemCounts = {
       ingredient: 0,
       cookedFood: 0,
@@ -576,7 +585,7 @@ export const engagement = query({
         ),
         features: {
           weighIns: reach(weighIns),
-          goals: reach(goalChanges),
+          goals: goalSetters.size,
           savedFoods: reach(savedFoods),
           templates: reach(templates),
           cooking: reach(cookSessions),

@@ -55,7 +55,8 @@ export const messages = defineMessages({
     foodsNote:
       'Reused: foods the AI assistant took from earlier meals, saved foods or the library instead of typing them in.',
     features: 'Features used',
-    featuresNote: 'Accounts that used each one in the last 28 days.',
+    featuresNote:
+      'Accounts that saved something new with each one in the last 28 days.',
     ofAccounts: (count: number, total: number) => `${count} of ${total}`,
     weighIns: 'Weigh-ins',
     goals: 'Setting goals',
@@ -122,7 +123,7 @@ export const messages = defineMessages({
     foodsNote:
       'Újrahasznált: az AI-asszisztens korábbi étkezésből, a mentett ételek vagy az ételtár közül vette, nem begépelte.',
     features: 'Használt funkciók',
-    featuresNote: 'Az elmúlt 28 napban ezeket használó fiókok.',
+    featuresNote: 'Fiókok, amelyek az elmúlt 28 napban újat mentettek ezekkel.',
     ofAccounts: (count: number, total: number) => `${count}/${total}`,
     weighIns: 'Testsúlymérés',
     goals: 'Célok beállítása',

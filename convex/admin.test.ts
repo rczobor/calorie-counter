@@ -109,7 +109,8 @@ describe('usage dashboard', () => {
         personId,
         effectiveDate: day(-2),
         goalKcal: 2600,
-        createdAt: Date.now(),
+        // Later than the person, so a change rather than their first goal.
+        createdAt: Date.now() + 1,
       })
       for (const [offset, consumedCalories] of [
         [-3, 1500],
@@ -220,6 +221,17 @@ describe('usage dashboard', () => {
     await insertPerson(t, { account: holdout })
     const holdoutId = await testUserId(t, holdout)
     await t.run(async (ctx) => {
+      // The goal a new person starts with is not a goal change.
+      const person = await ctx.db.get(personId)
+      if (person)
+        await ctx.db.insert('personGoalHistory', {
+          ownerUserId: adminId,
+          householdId,
+          personId,
+          effectiveDate: day(-1),
+          goalKcal: 2000,
+          createdAt: person.createdAt,
+        })
       await ctx.db.insert('mcpPreferences', {
         userId: adminId,
         householdId,
