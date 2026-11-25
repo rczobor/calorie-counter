@@ -104,7 +104,8 @@ export function PagePlaceholderView({
       </>
     )
   return (
-    <main className="flex-1 bg-background">
+    // Clear like PageShell's, so the winter night and snow show while loading.
+    <main className="flex-1">
       <section
         role="status"
         aria-label={label}

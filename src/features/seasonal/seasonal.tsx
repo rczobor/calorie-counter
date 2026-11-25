@@ -36,7 +36,7 @@ function setTurnedOff(off: boolean) {
     if (off) window.localStorage.setItem(SEASONAL_THEME_KEY, 'off')
     else window.localStorage.removeItem(SEASONAL_THEME_KEY)
   } catch {
-    // Without storage the switch still works until the app reloads.
+    // Without storage the season stays on; the switch has nowhere to keep it.
   }
   window.dispatchEvent(new Event(PREFERENCE_EVENT))
 }

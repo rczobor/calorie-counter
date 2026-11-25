@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import {
   HeadContent,
   Link,
+  ScriptOnce,
   Scripts,
   createRootRoute,
   useRouterState,
@@ -207,8 +208,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           media="(prefers-color-scheme: dark)"
         />
         {/* The season's classes before the first paint, so its colours never
-            flash in after hydration. */}
-        <script dangerouslySetInnerHTML={{ __html: seasonScript }} />
+            flash in after hydration. It runs once and removes itself, so
+            there is nothing to hydrate. */}
+        <ScriptOnce>{seasonScript}</ScriptOnce>
         <HeadContent />
       </head>
       <body>
