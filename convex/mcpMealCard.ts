@@ -76,17 +76,26 @@ function el(tag, className, text) {
 // Save answers the preview in the chat for the person, as if they had typed
 // it, so the assistant logs the meal through its usual approval flow. ChatGPT
 // gets its own follow-up call where it has one: developers report its
-// ui/message posts the text without the assistant answering.
+// ui/message posts the text without the assistant answering. The total tells
+// a revised preview from the one before it; the name goes on one short line,
+// since a typed name must not add lines to the person's reply.
 function save() {
   const t = MESSAGES[language()];
-  const name = result.structuredContent.input.name;
-  const text = name ? fill(t.saveNamed, { meal: name }) : t.saveUnnamed;
+  const preview = result.structuredContent;
+  const name = (preview.input.name || '').replace(/\s+/g, ' ').trim();
+  const values = {
+    meal: name.length > 60 ? name.slice(0, 59) + '…' : name,
+    kcal: kcal(preview.totalCalories),
+  };
+  const text = fill(name ? t.saveNamed : t.saveUnnamed, values);
   saveSent = true;
   render();
   const openai = window.openai;
   const sent =
     openai && typeof openai.sendFollowUpMessage === 'function'
-      ? Promise.resolve(openai.sendFollowUpMessage({ prompt: text }))
+      ? new Promise(function (resolve) {
+          resolve(openai.sendFollowUpMessage({ prompt: text }));
+        })
       : request('ui/message', {
           role: 'user',
           content: [{ type: 'text', text: text }],
