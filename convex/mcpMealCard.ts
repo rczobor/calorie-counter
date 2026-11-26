@@ -265,7 +265,6 @@ const style = `
   --left-bar: light-dark(oklch(0.58 0.1 192), oklch(0.72 0.11 190));
   --over: light-dark(oklch(0.5 0.13 5), oklch(0.8 0.085 5));
   --over-bar: light-dark(oklch(0.6 0.11 5), oklch(0.8 0.11 5));
-  --danger: var(--color-text-danger, light-dark(oklch(0.55 0.21 27), oklch(0.7 0.18 22)));
   --text: var(--color-text-primary, light-dark(oklch(0.17 0.004 286), oklch(0.98 0.002 286)));
   --muted: var(--color-text-secondary, light-dark(oklch(0.47 0.008 286), oklch(0.75 0.008 286)));
   --line: var(--color-border-tertiary, light-dark(oklch(0.885 0.005 286), oklch(0.34 0.0034 286)));
@@ -298,7 +297,7 @@ h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhe
 .kcal { text-align: right; }
 .tag { font-size: 12px; font-weight: 500; }
 .tag.estimate { color: var(--caution); }
-.tag.warning { color: var(--danger); }
+.tag.warning { color: var(--muted); }
 .macros { margin-top: 10px; }
 .day { margin-top: 12px; }
 .bar { position: relative; }
