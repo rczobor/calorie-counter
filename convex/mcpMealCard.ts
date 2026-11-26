@@ -3,7 +3,7 @@ import { mealCardMessages } from './mcpMealCard.messages'
 /**
  * The meal preview card, an MCP App (https://modelcontextprotocol.io/extensions/apps):
  * hosts that support apps fetch this HTML once and show it in a sandboxed frame
- * beside each meal preview, filled from the tool's structured result. The
+ * beside each meal preview, filled from the tool's result. The
  * assistant then no longer has to draw the preview itself.
  *
  * The script is a string, not a stringified function: Convex bundles with
@@ -120,21 +120,24 @@ function render() {
   root.appendChild(header);
 
   const list = el('ul', 'items');
-  for (const item of preview.items) {
+  // Each item's amount ({ value, unit } or null), by index, from the result's
+  // _meta: the published outputSchema has no field for it.
+  const amounts = (result._meta && result._meta.amounts) || [];
+  preview.items.forEach(function (item, index) {
     const row = el('li');
-    const weighed = item.consumedWeightGrams !== undefined;
-    // A food without a weight lets its name run into the amount column.
-    const name = el('span', weighed ? 'name' : 'name wide');
+    const amount = amounts[index];
+    // A food without an amount lets its name run into the amount column.
+    const name = el('span', amount ? 'name' : 'name wide');
     name.appendChild(el('span', '', item.name));
     if (item.nutritionProvenance && item.nutritionProvenance.kind === 'estimate')
       name.appendChild(el('span', 'tag estimate', t.estimated));
     if (item.missingMacros) name.appendChild(el('span', 'tag warning', t.noMacros));
     row.appendChild(name);
-    if (weighed)
-      row.appendChild(el('span', 'amount', Math.round(item.consumedWeightGrams) + ' g'));
+    if (amount)
+      row.appendChild(el('span', 'amount', Math.round(amount.value) + ' ' + amount.unit));
     row.appendChild(el('span', 'kcal', kcal(item.calories)));
     list.appendChild(row);
-  }
+  });
   root.appendChild(list);
 
   const macros = preview.macros;
@@ -230,14 +233,20 @@ window.addEventListener('message', function (event) {
   }
 });
 
+// Like the MCP Apps SDK: the width is the frame's, so a host that applies it
+// never shrinks the card by a scrollbar on every report.
 let lastSize = '';
-new ResizeObserver(function () {
-  const box = document.documentElement.getBoundingClientRect();
-  const size = { width: Math.ceil(box.width), height: Math.ceil(box.height) };
-  if (JSON.stringify(size) === lastSize) return;
-  lastSize = JSON.stringify(size);
-  post({ method: 'ui/notifications/size-changed', params: size });
-}).observe(document.documentElement);
+function watchSize() {
+  new ResizeObserver(function () {
+    const size = {
+      width: Math.ceil(window.innerWidth),
+      height: Math.ceil(document.documentElement.getBoundingClientRect().height),
+    };
+    if (JSON.stringify(size) === lastSize) return;
+    lastSize = JSON.stringify(size);
+    post({ method: 'ui/notifications/size-changed', params: size });
+  }).observe(document.documentElement);
+}
 
 render();
 request('ui/initialize', {
@@ -248,6 +257,7 @@ request('ui/initialize', {
   function (initialized) {
     applyContext((initialized && initialized.hostContext) || {});
     post({ method: 'ui/notifications/initialized', params: {} });
+    watchSize();
   },
   function () {
     failed = true;
