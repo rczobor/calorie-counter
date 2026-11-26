@@ -52,6 +52,7 @@ describe('seasonScript', () => {
     vi.useRealTimers()
     window.localStorage.clear()
     document.documentElement.className = ''
+    document.head.innerHTML = ''
   })
 
   function run(date: string) {
@@ -96,7 +97,6 @@ describe('seasonScript', () => {
     reset()
     run('2027-06-01')
     expect(first()).toBe('#f2f2f7')
-    document.head.innerHTML = ''
   })
 
   it('respects the device turning it off', () => {
