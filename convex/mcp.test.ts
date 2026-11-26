@@ -7,6 +7,7 @@ import { v, type GenericValidator, type Infer } from 'convex/values'
 import { api, internal, components } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { mcp } from './mcp'
+import { MCP_APP_MIME_TYPE, MEAL_CARD_URI, mealCardHtml } from './mcpMealCard'
 import {
   mealPreview,
   mealResult,
@@ -275,22 +276,25 @@ describe('MCP cooked-food finished-weight corrections', () => {
     const { t, personId, ingredientId, own, input } =
       await cookedWeightFixture()
     const user = asTestUser(t)
-    const originalMeal = await output(
-      await call(t, own.token, 'preview_meal', {
-        input: {
-          personId,
-          eatenOn: '2026-11-06',
-          items: [
-            {
-              sourceType: 'cookedFood',
-              cookedFoodId: input.cookedFoodId,
-              consumedWeightGrams: 100,
-            },
-          ],
-        },
-      }),
-      mealPreview,
-    )
+    const previewed = await call(t, own.token, 'preview_meal', {
+      input: {
+        personId,
+        eatenOn: '2026-11-06',
+        items: [
+          {
+            sourceType: 'cookedFood',
+            cookedFoodId: input.cookedFoodId,
+            consumedWeightGrams: 100,
+          },
+        ],
+      },
+    })
+    // The meal card's amounts ride in _meta, outside the published schema.
+    const previewBody: unknown = await previewed.clone().json()
+    expect(previewBody).toMatchObject({
+      result: { _meta: { amounts: [{ value: 100, unit: 'g' }] } },
+    })
+    const originalMeal = await output(previewed, mealPreview)
     const { mealId } = await output(
       await call(t, own.token, 'log_meal', {
         input: originalMeal.input,
@@ -1053,6 +1057,47 @@ describe('MCP integration', () => {
     expect((await call(t, read.token, 'log_meal', {})).status).toBe(403)
     expect((await call(t, read.token, 'log_cooking', {})).status).toBe(403)
     expect((await call(t, read.token, 'correct_meal', {})).status).toBe(403)
+  })
+
+  it('serves the meal card that meal previews point at', async () => {
+    const t = setup()
+    const read = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
+    const card = { ui: { resourceUri: MEAL_CARD_URI } }
+    const listed: unknown = await (
+      await rpc(t, read.token, 'tools/list')
+    ).json()
+    expect(listed).toMatchObject({
+      result: {
+        tools: expect.arrayContaining(
+          ['preview_meal', 'preview_repeat_meal', 'preview_meal_template'].map(
+            (name) => expect.objectContaining({ name, _meta: card }),
+          ),
+        ),
+      },
+    })
+    const resources: unknown = await (
+      await rpc(t, read.token, 'resources/list')
+    ).json()
+    expect(resources).toMatchObject({
+      result: {
+        resources: [{ uri: MEAL_CARD_URI, mimeType: MCP_APP_MIME_TYPE }],
+      },
+    })
+    const contents: unknown = await (
+      await rpc(t, read.token, 'resources/read', { uri: MEAL_CARD_URI })
+    ).json()
+    expect(contents).toMatchObject({
+      result: {
+        contents: [
+          {
+            uri: MEAL_CARD_URI,
+            mimeType: MCP_APP_MIME_TYPE,
+            text: mealCardHtml,
+            _meta: { ui: { prefersBorder: false } },
+          },
+        ],
+      },
+    })
   })
 
   it('runs OAuth registration, consent, token exchange and owner-scoped revocation', async () => {
