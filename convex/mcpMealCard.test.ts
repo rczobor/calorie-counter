@@ -72,8 +72,12 @@ describe('meal card', () => {
   it('has a new URI for each change, and the earlier ones stay served', () => {
     // Changing the card changes its URI: move the URI pinned here into
     // RETIRED_MEAL_CARD_URIS, then pin the new one.
-    expect(MEAL_CARD_URI).toBe('ui://calorie-counter/meal-card-420unp.html')
+    expect(MEAL_CARD_URI).toBe('ui://calorie-counter/meal-card-awoee6.html')
     expect(RETIRED_MEAL_CARD_URIS).not.toContain(MEAL_CARD_URI)
+  })
+
+  it('names no http(s) URL: Claude web and desktop stopped showing the card when it did', () => {
+    expect(mealCardHtml).not.toMatch(/https?:/)
   })
 
   it('joins the host, takes its theme and language, and shows the preview as text', async () => {
@@ -176,6 +180,9 @@ describe('meal card', () => {
       params: { structuredContent: preview },
     })
     const save = () => card().querySelector('button')!
+    expect(save().querySelector('svg path')?.namespaceURI).toBe(
+      'http://www.w3.org/2000/svg',
+    )
     save().click()
     const message = sent.find((sent) => sent.method === 'ui/message')
     expect(message).toMatchObject({

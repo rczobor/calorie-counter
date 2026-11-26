@@ -248,13 +248,11 @@ function render() {
 
   const button = el('button', 'save');
   button.type = 'button';
-  const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  check.setAttribute('viewBox', '0 0 24 24');
-  check.setAttribute('aria-hidden', 'true');
-  const tickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  tickPath.setAttribute('d', 'M5 12l5 5L20 7');
-  check.appendChild(tickPath);
-  button.appendChild(check);
+  // Fixed markup, no data: the HTML parser gives the svg its namespace, so the
+  // card spells out no URL. Claude's web and desktop apps stopped showing the
+  // card when it began to name the SVG namespace URL.
+  button.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   button.appendChild(document.createTextNode(t.save));
   button.disabled = saveSent;
   button.addEventListener('click', save);
@@ -429,4 +427,5 @@ export const MEAL_CARD_URI = `ui://calorie-counter/meal-card-${fnv1a(mealCardHtm
 // the card changes, add the URI it had here.
 export const RETIRED_MEAL_CARD_URIS = [
   'ui://calorie-counter/meal-card-9b04f7.html',
+  'ui://calorie-counter/meal-card-420unp.html',
 ]
