@@ -11,7 +11,6 @@ import { mealCardMessages } from './mcpMealCard.messages'
  * helpers in a function's source. Data reaches the page only through
  * `textContent`, never as markup: food and person names are typed by people.
  */
-export const MEAL_CARD_URI = 'ui://calorie-counter/meal-card.html'
 export const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app'
 
 const script = String.raw`
@@ -34,12 +33,17 @@ function request(method, params) {
   });
 }
 
+// Most hosts send hostContext.locale; ChatGPT also mirrors the chat's
+// language onto the frame's <html lang>.
+function locale() {
+  return context.locale || document.documentElement.lang || '';
+}
 function language() {
-  return /^hu\b/i.test(context.locale || '') ? 'hu' : 'en';
+  return /^hu\b/i.test(locale()) ? 'hu' : 'en';
 }
 function intlTag() {
   if (language() === 'hu') return 'hu-HU';
-  return /^en\b/i.test(context.locale || '') ? context.locale : 'en-US';
+  return /^en\b/i.test(locale()) ? locale() : 'en-US';
 }
 function fill(template, values) {
   return template.replace(/\{(\w+)\}/g, function (_, key) {
@@ -310,7 +314,7 @@ h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhe
 `
 
 export const mealCardHtml = `<!doctype html>
-<html lang="en">
+<html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -322,3 +326,13 @@ export const mealCardHtml = `<!doctype html>
 </body>
 </html>
 `
+
+// Hosts cache the card by its URI (ChatGPT: "treat the resource URI as a
+// cache key"), so the URI carries a hash of the HTML and changes with it.
+function fnv1a(text: string) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++)
+    hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193)
+  return (hash >>> 0).toString(36)
+}
+export const MEAL_CARD_URI = `ui://calorie-counter/meal-card-${fnv1a(mealCardHtml)}.html`

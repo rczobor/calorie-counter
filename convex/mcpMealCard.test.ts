@@ -5,8 +5,9 @@ type Message = { id?: number; method?: string; params?: unknown }
 
 // Runs the card's script against its own parsed document and a stand-in
 // window whose parent is the host, so each test gets a fresh, isolated card.
-function openCard() {
+function openCard({ lang = '' } = {}) {
   const document = new DOMParser().parseFromString(mealCardHtml, 'text/html')
+  document.documentElement.lang = lang
   const script = document.querySelector('script')!.textContent
   const sent: Message[] = []
   const listeners: Array<(event: { source: unknown; data: unknown }) => void> =
@@ -101,6 +102,20 @@ describe('meal card', () => {
     )
     expect(card().querySelector('.day-line')!.textContent).toBe(
       '1540 / 2100 kcal560 kcal maradt',
+    )
+  })
+
+  it('takes the language from <html lang> when the host sends no locale', async () => {
+    const { sent, fromHost, card } = openCard({ lang: 'hu-HU' })
+    expect(card().textContent).toBe('Betöltés…')
+    fromHost({ id: sent[0].id, result: { hostContext: { theme: 'light' } } })
+    await Promise.resolve()
+    fromHost({
+      method: 'ui/notifications/tool-result',
+      params: { structuredContent: preview },
+    })
+    expect(card().querySelector('.remaining')!.textContent).toBe(
+      '560 kcal maradt',
     )
   })
 
