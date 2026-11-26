@@ -220,9 +220,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           content={statusBar.dark}
           media="(prefers-color-scheme: dark)"
         />
-        {/* The season's classes before the first paint, so its colours never
-            flash in after hydration. It runs once and removes itself, so
-            there is nothing to hydrate. */}
+        {/* The season's classes and status bar colour before the first
+            paint, so they never flash in after hydration. It runs once and
+            removes itself, so there is nothing to hydrate. */}
         <ScriptOnce>{seasonScript}</ScriptOnce>
         <HeadContent />
       </head>

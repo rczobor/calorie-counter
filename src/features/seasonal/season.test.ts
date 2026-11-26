@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   SEASONAL_THEME_KEY,
+  WINTER_STATUS_BAR,
   seasonFor,
   seasonScript,
   snowmanStage,
@@ -51,6 +52,7 @@ describe('seasonScript', () => {
     vi.useRealTimers()
     window.localStorage.clear()
     document.documentElement.className = ''
+    document.head.innerHTML = ''
   })
 
   function run(date: string) {
@@ -71,6 +73,30 @@ describe('seasonScript', () => {
     expect(run('2027-01-20').contains('christmas')).toBe(false)
     expect(document.documentElement.classList.contains('winter')).toBe(true)
     expect(run('2027-03-02').contains('winter')).toBe(false)
+  })
+
+  it('paints the status bar for the season before React runs', () => {
+    const first = () => {
+      const meta = document.querySelector('meta[name="theme-color"]')
+      return meta?.getAttribute('content')
+    }
+    const reset = () => {
+      document.head.innerHTML =
+        '<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">'
+    }
+    reset()
+    window.localStorage.setItem('theme', 'light')
+    run('2026-12-24')
+    expect(first()).toBe(WINTER_STATUS_BAR.today)
+
+    reset()
+    window.localStorage.setItem('theme', 'dark')
+    run('2026-12-24')
+    expect(first()).toBe(WINTER_STATUS_BAR.dark)
+
+    reset()
+    run('2027-06-01')
+    expect(first()).toBe('#f2f2f7')
   })
 
   it('respects the device turning it off', () => {

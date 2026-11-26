@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SEASONAL_THEME_KEY } from './season'
@@ -36,6 +36,18 @@ describe('seasonal theme', () => {
 
     fireEvent.click(toggle)
     expect(window.localStorage.getItem(SEASONAL_THEME_KEY)).toBeNull()
+    expect(classes.contains('winter')).toBe(true)
+  })
+
+  it('ends Christmas at midnight while the app stays open', () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    vi.setSystemTime(new Date('2027-01-06T23:59:00'))
+    render(<SeasonalEffects />)
+    const classes = document.documentElement.classList
+    expect(classes.contains('christmas')).toBe(true)
+
+    act(() => vi.advanceTimersByTime(2 * 60_000))
+    expect(classes.contains('christmas')).toBe(false)
     expect(classes.contains('winter')).toBe(true)
   })
 

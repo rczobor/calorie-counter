@@ -431,7 +431,7 @@ export function Snowfall({ dark }: { dark: boolean }) {
     <canvas
       ref={canvas}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-10 size-full"
+      className="snowfall pointer-events-none fixed inset-0 -z-10 size-full"
     />
   )
 }
