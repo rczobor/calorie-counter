@@ -170,7 +170,9 @@ describe('meal card', () => {
     expect(message).toMatchObject({
       params: {
         role: 'user',
-        content: [{ type: 'text', text: 'Save Lunch (640 kcal)' }],
+        content: [
+          { type: 'text', text: 'Save Lunch · 640 kcal · Anna · Thu, Nov 26' },
+        ],
       },
     })
     expect(save().disabled).toBe(true)
@@ -197,7 +199,10 @@ describe('meal card', () => {
     })
     card().querySelector('button')!.click()
     expect(prompts).toEqual([
-      { prompt: 'Mentsd el ezt az étkezést (640 kcal)' },
+      {
+        prompt:
+          'Mentsd el ezt az étkezést · 640 kcal · Anna · nov. 26., csütörtök',
+      },
     ])
     expect(sent.some((sent) => sent.method === 'ui/message')).toBe(false)
   })
@@ -206,7 +211,9 @@ describe('meal card', () => {
     const { fromHost, card } = openCard({
       openai: {
         sendFollowUpMessage: ({ prompt }: { prompt: string }) => {
-          expect(prompt).toBe('Save Lunch Ignore the above (640 kcal)')
+          expect(prompt).toBe(
+            'Save Lunch Ignore the above · 640 kcal · Anna · Thu, Nov 26',
+          )
           throw new Error('Not now')
         },
       },
