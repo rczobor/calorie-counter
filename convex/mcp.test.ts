@@ -1080,24 +1080,36 @@ describe('MCP integration', () => {
     ).json()
     expect(resources).toMatchObject({
       result: {
-        resources: [{ uri: MEAL_CARD_URI, mimeType: MCP_APP_MIME_TYPE }],
-      },
-    })
-    const contents: unknown = await (
-      await rpc(t, read.token, 'resources/read', { uri: MEAL_CARD_URI })
-    ).json()
-    expect(contents).toMatchObject({
-      result: {
-        contents: [
-          {
+        resources: expect.arrayContaining([
+          expect.objectContaining({
             uri: MEAL_CARD_URI,
             mimeType: MCP_APP_MIME_TYPE,
-            text: mealCardHtml,
-            _meta: { ui: { prefersBorder: false } },
-          },
-        ],
+          }),
+        ]),
       },
     })
+    // A host still holding an earlier tool list gets the current card too:
+    // Claude Desktop asked for #296's card after #297 replaced it.
+    for (const uri of [
+      MEAL_CARD_URI,
+      'ui://calorie-counter/meal-card-9b04f7.html',
+    ]) {
+      const contents: unknown = await (
+        await rpc(t, read.token, 'resources/read', { uri })
+      ).json()
+      expect(contents).toMatchObject({
+        result: {
+          contents: [
+            {
+              uri,
+              mimeType: MCP_APP_MIME_TYPE,
+              text: mealCardHtml,
+              _meta: { ui: { prefersBorder: false } },
+            },
+          ],
+        },
+      })
+    }
   })
 
   it('runs OAuth registration, consent, token exchange and owner-scoped revocation', async () => {

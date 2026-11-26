@@ -422,3 +422,11 @@ function fnv1a(text: string) {
   return (hash >>> 0).toString(36)
 }
 export const MEAL_CARD_URI = `ui://calorie-counter/meal-card-${fnv1a(mealCardHtml)}.html`
+
+// Hosts also keep a tool list, with the card URI in it, for a while after a
+// deploy: Claude asked for #296's card after #297 had replaced it and showed
+// an error instead. So every earlier URI keeps serving the current card. When
+// the card changes, add the URI it had here.
+export const RETIRED_MEAL_CARD_URIS = [
+  'ui://calorie-counter/meal-card-9b04f7.html',
+]
