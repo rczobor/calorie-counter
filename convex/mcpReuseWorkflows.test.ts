@@ -995,6 +995,7 @@ describe('branded products and fixed servings', () => {
       },
     })
     expect(preview.totalCalories).toBe(128)
+    expect(preview.amounts).toEqual([{ value: 200, unit: 'ml' }])
     await t.mutation(internal.mcpOperations.logMeal, {
       user,
       input: preview.input,

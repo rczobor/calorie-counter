@@ -378,11 +378,18 @@ export async function prepareMeal(
         }
       }),
     },
-    amounts: snapshots.map((item) =>
-      item.sourceType === 'fixedCalories'
-        ? null
-        : { value: item.consumedWeightGrams, unit: item.kcalBasisUnitSnapshot },
-    ),
+    amounts: snapshots.map((item) => {
+      if (item.sourceType !== 'fixedCalories')
+        return {
+          value: item.consumedWeightGrams,
+          unit: item.kcalBasisUnitSnapshot,
+        }
+      // A fixed total by volume records its millilitres as servingCount.
+      return item.foodIdentity?.basis === 'ml' &&
+        item.servingCount !== undefined
+        ? { value: item.servingCount, unit: 'ml' as const }
+        : null
+    }),
   }
 }
 
