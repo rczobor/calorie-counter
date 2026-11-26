@@ -382,7 +382,7 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
         title={t.archivedMeals}
         header={
           archived ? undefined : (
-            <div className="w-full">
+            <div className="winter-sky-header w-full">
               {winter ? <WinterSky tall={christmas} /> : null}
               {christmas ? <StringLights /> : null}
               {/* The title is the day, so it is the date picker too. */}

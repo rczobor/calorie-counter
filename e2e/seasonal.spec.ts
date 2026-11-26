@@ -54,28 +54,30 @@ test('the printed page has a readable title and no scenery', async ({
       await expect(element).toBeHidden()
 })
 
-test('the title keeps a light focus ring on the night sky', async ({
-  page,
-}) => {
-  const title = page.locator('h1.on-winter-sky button')
-  await title.focus()
-  await page.keyboard.press('Shift+Tab')
-  await page.keyboard.press('Tab')
-  await expect(title).toBeFocused()
-  // The ring is a box shadow; read its colour back as sRGB.
-  const lightness = await title.evaluate((button) => {
-    // Tailwind stacks empty shadows around the one ring that has a spread.
-    const ring = /(\S+\([^)]*\)) 0px 0px 0px 3px/.exec(
-      getComputedStyle(button).boxShadow,
-    )?.[1]
-    if (!ring) throw new Error('no focus ring')
-    const canvas = document.createElement('canvas').getContext('2d')
-    if (!canvas) throw new Error('no canvas')
-    canvas.fillStyle = ring
-    canvas.fillRect(0, 0, 1, 1)
-    const [r, g, b] = canvas.getImageData(0, 0, 1, 1).data
-    return (r + g + b) / 3
-  })
-  // White at the ring's 40%, not the deep cranberry, which vanishes on navy.
-  expect(lightness).toBeGreaterThan(200)
+test('focus rings stay light on the night sky', async ({ page }) => {
+  for (const control of [
+    page.locator('h1.on-winter-sky button'),
+    page.getByRole('button', { name: 'Previous day' }),
+  ]) {
+    await control.focus()
+    await page.keyboard.press('Shift+Tab')
+    await page.keyboard.press('Tab')
+    await expect(control).toBeFocused()
+    // The ring is a box shadow that grows in; once it has its full 3px,
+    // read its colour back as sRGB.
+    const lightness = () =>
+      control.evaluate((button) => {
+        const ring = /(\S+\([^)]*\)) 0px 0px 0px 3px/.exec(
+          getComputedStyle(button).boxShadow,
+        )?.[1]
+        const canvas = document.createElement('canvas').getContext('2d')
+        if (!ring || !canvas) return 0
+        canvas.fillStyle = ring
+        canvas.fillRect(0, 0, 1, 1)
+        const [r, g, b] = canvas.getImageData(0, 0, 1, 1).data
+        return (r + g + b) / 3
+      })
+    // White at the ring's 40%, not the deep cranberry, which vanishes on navy.
+    await expect.poll(lightness).toBeGreaterThan(200)
+  }
 })
