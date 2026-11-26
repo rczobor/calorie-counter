@@ -332,8 +332,7 @@ const style = `
   --muted: var(--color-text-secondary, light-dark(oklch(0.47 0.008 286), oklch(0.75 0.008 286)));
   --line: var(--color-border-tertiary, light-dark(oklch(0.885 0.005 286), oklch(0.34 0.0034 286)));
   --track: light-dark(oklch(0.925 0.006 286), oklch(0.349 0.0034 286));
-  --primary: light-dark(oklch(0.55 0.18 42), oklch(0.74 0.16 48));
-  --on-primary: light-dark(oklch(1 0 0), oklch(0.17 0.01 48));
+  --button: var(--color-background-secondary, light-dark(oklch(0.945 0.005 286), oklch(0.32 0.004 286)));
 }
 :root[data-theme='light'] { color-scheme: light; }
 :root[data-theme='dark'] { color-scheme: dark; }
@@ -389,11 +388,11 @@ h1.fallback { color: var(--muted); }
 .save {
   display: block; width: 100%; height: 44px; margin-top: 14px;
   border: 0; border-radius: 999px; font: inherit; font-weight: 500;
-  background: var(--primary); color: var(--on-primary); cursor: pointer;
+  background: var(--button); color: var(--text); cursor: pointer;
 }
 .save:active { opacity: 0.7; }
 .save:disabled { opacity: 0.5; cursor: default; }
-.save:focus-visible { outline: 3px solid color-mix(in oklch, var(--primary) 40%, transparent); outline-offset: 2px; }
+.save:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 `
 
 export const mealCardHtml = `<!doctype html>
