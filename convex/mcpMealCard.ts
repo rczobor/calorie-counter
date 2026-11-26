@@ -122,17 +122,16 @@ function render() {
   const list = el('ul', 'items');
   for (const item of preview.items) {
     const row = el('li');
-    const name = el('span', 'name');
+    const weighed = item.consumedWeightGrams !== undefined;
+    // A food without a weight lets its name run into the amount column.
+    const name = el('span', weighed ? 'name' : 'name wide');
     name.appendChild(el('span', '', item.name));
     if (item.nutritionProvenance && item.nutritionProvenance.kind === 'estimate')
       name.appendChild(el('span', 'tag estimate', t.estimated));
     if (item.missingMacros) name.appendChild(el('span', 'tag warning', t.noMacros));
     row.appendChild(name);
-    row.appendChild(
-      el('span', 'amount', item.consumedWeightGrams === undefined
-        ? ''
-        : Math.round(item.consumedWeightGrams) + ' g'),
-    );
+    if (weighed)
+      row.appendChild(el('span', 'amount', Math.round(item.consumedWeightGrams) + ' g'));
     row.appendChild(el('span', 'kcal', kcal(item.calories)));
     list.appendChild(row);
   }
@@ -297,10 +296,12 @@ h1.fallback { color: var(--muted); }
   display: grid; grid-template-columns: 1fr auto 4ch; gap: 12px; align-items: baseline;
   padding: 8px 0; border-bottom: 1px solid var(--line);
 }
-.name { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; overflow-wrap: anywhere; }
+.name { overflow-wrap: anywhere; }
+.name.wide { grid-column: span 2; }
 .amount { color: var(--muted); font-size: 13px; text-align: right; }
 .kcal { text-align: right; }
-.tag { font-size: 12px; font-weight: 500; }
+/* Tags flow after the name's last word, onto its last line when it wraps. */
+.tag { margin-left: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; }
 .tag.estimate { color: var(--caution); }
 .tag.warning { color: var(--muted); }
 .macros { margin-top: 10px; }
