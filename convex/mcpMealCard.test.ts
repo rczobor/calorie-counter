@@ -114,7 +114,7 @@ describe('meal card', () => {
       'Fehérje 42 g · Szénhidrát 60 g · Zsír 18 g',
     )
     expect(card().querySelector('.day-line')!.textContent).toBe(
-      '1540 / 2100 kcal560 kcal maradt',
+      '1540 / 2100 kcal',
     )
   })
 
@@ -148,7 +148,7 @@ describe('meal card', () => {
       },
     })
     expect(card().querySelector('.remaining')!.textContent).toBe(
-      '120 kcal over',
+      '120 kcal over after this',
     )
 
     fromHost({

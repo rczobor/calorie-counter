@@ -159,11 +159,60 @@ function render() {
     .join(' · ');
   titles.appendChild(el('p', 'subtitle', subtitle));
   header.appendChild(titles);
-  const total = el('p', 'total');
-  total.appendChild(el('span', 'figure', kcal(preview.totalCalories)));
-  total.appendChild(el('span', 'unit', ' kcal'));
-  header.appendChild(total);
+  header.appendChild(el('p', 'total', '+' + kcal(preview.totalCalories) + ' kcal'));
   root.appendChild(header);
+
+  // Where the day lands leads, as the biggest figure: it is what the person
+  // checks before saving. The foods follow, quieter.
+  if (day && day.goalKcal > 0) {
+    const section = el('section', 'day');
+    const over = day.remainingCalories < 0;
+    const parts = (over ? t.over : t.left).split('{n}');
+    const big = el('p', over ? 'remaining over' : 'remaining');
+    if (parts[0]) big.appendChild(document.createTextNode(parts[0]));
+    big.appendChild(el('span', 'figure', kcal(Math.abs(day.remainingCalories))));
+    if (parts[1]) big.appendChild(document.createTextNode(parts[1]));
+    section.appendChild(big);
+
+    // The app's day bar: the day so far in the left colour, this meal at full
+    // strength after the earlier meals, and only the part over the goal in
+    // berry, with a tick at the goal.
+    const goal = day.goalKcal;
+    const after = day.consumedCalories;
+    const before = Math.min(
+      after,
+      preview.dailySummary ? preview.dailySummary.consumedCalories : 0,
+    );
+    const scale = Math.max(goal, after);
+    const bar = el('div', 'bar');
+    bar.setAttribute('aria-hidden', 'true');
+    const track = el('div', 'track');
+    function stretch(className, from, to) {
+      const group = el('span', className);
+      group.style.width = (100 * (to - from)) / scale + '%';
+      const left = Math.max(0, Math.min(to, goal) - from);
+      if (left > 0) group.appendChild(el('span', 'left')).style.flexGrow = left;
+      if (to > goal)
+        group.appendChild(el('span', 'over')).style.flexGrow = to - Math.max(from, goal);
+      return group;
+    }
+    if (before > 0) track.appendChild(stretch('earlier', 0, before));
+    if (after > before) track.appendChild(stretch('meal', before, after));
+    bar.appendChild(track);
+    if (after > goal) {
+      const tick = el('span', 'tick');
+      tick.style.left = (100 * goal) / scale + '%';
+      bar.appendChild(tick);
+    }
+    section.appendChild(bar);
+    section.appendChild(
+      el('p', 'day-line', fill(t.dayTotal, {
+        consumed: kcal(day.consumedCalories),
+        goal: kcal(day.goalKcal),
+      })),
+    );
+    root.appendChild(section);
+  }
 
   const list = el('ul', 'items');
   // Each item's amount ({ value, unit } or null), by index, from the result's
@@ -197,58 +246,16 @@ function render() {
     root.appendChild(line);
   }
 
-  if (day && day.goalKcal > 0) {
-    // The app's day bar: the day so far in the left colour, this meal at full
-    // strength after the earlier meals, and only the part over the goal in
-    // berry, with a tick at the goal.
-    const goal = day.goalKcal;
-    const after = day.consumedCalories;
-    const before = Math.min(
-      after,
-      preview.dailySummary ? preview.dailySummary.consumedCalories : 0,
-    );
-    const scale = Math.max(goal, after);
-    const section = el('section', 'day');
-    const bar = el('div', 'bar');
-    bar.setAttribute('aria-hidden', 'true');
-    const track = el('div', 'track');
-    function stretch(className, from, to) {
-      const group = el('span', className);
-      group.style.width = (100 * (to - from)) / scale + '%';
-      const left = Math.max(0, Math.min(to, goal) - from);
-      if (left > 0) group.appendChild(el('span', 'left')).style.flexGrow = left;
-      if (to > goal)
-        group.appendChild(el('span', 'over')).style.flexGrow = to - Math.max(from, goal);
-      return group;
-    }
-    if (before > 0) track.appendChild(stretch('earlier', 0, before));
-    if (after > before) track.appendChild(stretch('meal', before, after));
-    bar.appendChild(track);
-    if (after > goal) {
-      const tick = el('span', 'tick');
-      tick.style.left = (100 * goal) / scale + '%';
-      bar.appendChild(tick);
-    }
-    section.appendChild(bar);
-    const line = el('p', 'day-line');
-    line.appendChild(
-      el('span', '', fill(t.dayTotal, {
-        consumed: kcal(day.consumedCalories),
-        goal: kcal(day.goalKcal),
-      })),
-    );
-    line.appendChild(
-      el('span', day.remainingCalories < 0 ? 'remaining over' : 'remaining',
-        day.remainingCalories < 0
-          ? fill(t.over, { n: kcal(-day.remainingCalories) })
-          : fill(t.left, { n: kcal(day.remainingCalories) })),
-    );
-    section.appendChild(line);
-    root.appendChild(section);
-  }
-
-  const button = el('button', 'save', t.save);
+  const button = el('button', 'save');
   button.type = 'button';
+  const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  check.setAttribute('viewBox', '0 0 24 24');
+  check.setAttribute('aria-hidden', 'true');
+  const tickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  tickPath.setAttribute('d', 'M5 12l5 5L20 7');
+  check.appendChild(tickPath);
+  button.appendChild(check);
+  button.appendChild(document.createTextNode(t.save));
   button.disabled = saveSent;
   button.addEventListener('click', save);
   root.appendChild(button);
@@ -332,7 +339,9 @@ const style = `
   --muted: var(--color-text-secondary, light-dark(oklch(0.47 0.008 286), oklch(0.75 0.008 286)));
   --line: var(--color-border-tertiary, light-dark(oklch(0.885 0.005 286), oklch(0.34 0.0034 286)));
   --track: light-dark(oklch(0.925 0.006 286), oklch(0.349 0.0034 286));
-  --button: var(--color-background-secondary, light-dark(oklch(0.945 0.005 286), oklch(0.32 0.004 286)));
+  /* The chat's own primary button: white on dark, black on light. */
+  --button: var(--color-background-inverse, light-dark(oklch(0.17 0.004 286), oklch(0.98 0.002 286)));
+  --on-button: var(--color-text-inverse, light-dark(oklch(1 0 0), oklch(0.17 0.004 286)));
 }
 :root[data-theme='light'] { color-scheme: light; }
 :root[data-theme='dark'] { color-scheme: dark; }
@@ -346,7 +355,7 @@ body {
 /* The card draws its own outline (resources ask hosts for none), so a wide
    chat shows a 520px card rather than a wide frame with an empty strip. */
 #card {
-  max-width: 520px; padding: 14px 16px;
+  max-width: 520px; padding: 16px;
   border: 1px solid var(--color-border-secondary, light-dark(oklch(0.885 0.005 286), oklch(0.34 0.0034 286)));
   border-radius: var(--border-radius-lg, 12px);
 }
@@ -354,42 +363,37 @@ header { display: flex; align-items: baseline; justify-content: space-between; g
 h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 /* A meal without a name: the stand-in word is not something anyone typed. */
 h1.fallback { color: var(--muted); }
+.total { font-size: 17px; font-weight: 600; white-space: nowrap; }
 .subtitle, .status, .macros, .day-line { color: var(--muted); font-size: 13px; }
-/* Who and which day is half of the first check, so it reads in body ink. */
-.subtitle { margin-top: 2px; color: var(--text); }
-.total { white-space: nowrap; }
-.total .figure { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-.total .unit { color: var(--muted); font-size: 13px; }
-.items { list-style: none; margin-top: 10px; border-top: 1px solid var(--line); }
-.items li {
-  display: grid; grid-template-columns: 1fr auto 4ch; gap: 12px; align-items: baseline;
-  padding: 8px 0; border-bottom: 1px solid var(--line);
-}
-.name { overflow-wrap: anywhere; }
-.name.wide { grid-column: span 2; }
-.amount { color: var(--muted); font-size: 13px; text-align: right; }
-.kcal { text-align: right; }
-/* Tags flow after the name's last word, onto its last line when it wraps. */
-.tag { margin-left: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; }
-.tag.estimate { color: var(--caution); }
-.tag.warning { color: var(--muted); }
-.macros { margin-top: 10px; }
-.day { margin-top: 12px; }
-.bar { position: relative; }
-.track { display: flex; gap: 2px; height: 6px; border-radius: 999px; overflow: hidden; background: var(--track); }
+.subtitle { margin-top: 2px; }
+.remaining { margin-top: 16px; color: var(--left); font-size: 15px; font-weight: 500; line-height: 1.15; }
+.remaining .figure { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+.remaining.over { color: var(--over); }
+.bar { position: relative; margin-top: 10px; }
+.track { display: flex; gap: 2px; height: 10px; border-radius: 999px; overflow: hidden; background: var(--track); }
 .track > span { display: flex; min-width: 4px; }
 .track .left { background: var(--left-bar); }
 .track .over { background: var(--over-bar); min-width: 6px; }
 .track .earlier .left { opacity: 0.4; }
 .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 999px; background: var(--muted); }
-.day-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 6px; }
-.remaining { color: var(--left); font-size: 15px; font-weight: 500; }
-.remaining.over { color: var(--over); }
+.day-line { margin-top: 6px; }
+.items { list-style: none; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
+.items li { display: grid; grid-template-columns: 1fr auto 4ch; gap: 12px; align-items: baseline; padding: 3px 0; }
+.name { overflow-wrap: anywhere; }
+.name.wide { grid-column: span 2; }
+.amount, .kcal { color: var(--muted); text-align: right; }
+/* Tags flow after the name's last word, onto its last line when it wraps. */
+.tag { margin-left: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.tag.estimate { color: var(--caution); }
+.tag.warning { color: var(--muted); }
+.macros { margin-top: 6px; }
 .save {
-  display: block; width: 100%; height: 44px; margin-top: 14px;
-  border: 0; border-radius: 999px; font: inherit; font-weight: 500;
-  background: var(--button); color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 44px; margin-top: 14px;
+  border: 0; border-radius: 999px; font: inherit; font-weight: 600;
+  background: var(--button); color: var(--on-button); cursor: pointer;
 }
+.save svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .save:active { opacity: 0.7; }
 .save:disabled { opacity: 0.5; cursor: default; }
 .save:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
