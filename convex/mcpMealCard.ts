@@ -105,7 +105,9 @@ function render() {
   const day = preview.projectedDailySummary;
   const header = el('header');
   const titles = el('div', 'titles');
-  titles.appendChild(el('h1', '', preview.input.name || t.meal));
+  titles.appendChild(
+    el('h1', preview.input.name ? '' : 'fallback', preview.input.name || t.meal),
+  );
   const subtitle = [day && day.person, formatDate(preview.input.eatenOn)]
     .filter(Boolean)
     .join(' · ');
@@ -282,6 +284,8 @@ body {
 #card { max-width: 520px; padding: 14px 16px; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+/* A meal without a name: the stand-in word is not something anyone typed. */
+h1.fallback { color: var(--muted); }
 .subtitle, .status, .macros, .day-line { color: var(--muted); font-size: 13px; }
 .subtitle { margin-top: 2px; }
 .total { white-space: nowrap; }
