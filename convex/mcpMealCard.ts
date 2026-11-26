@@ -307,8 +307,8 @@ h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhe
 .track .over { background: var(--over-bar); min-width: 6px; }
 .track .earlier .left { opacity: 0.4; }
 .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 999px; background: var(--muted); }
-.day-line { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; }
-.remaining { color: var(--left); font-weight: 500; }
+.day-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.remaining { color: var(--left); font-size: 15px; font-weight: 500; }
 .remaining.over { color: var(--over); }
 `
 
