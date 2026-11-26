@@ -19,6 +19,7 @@ const root = document.getElementById('card');
 let context = {};
 let result = null;
 let failed = false;
+let saveSent = false;
 let nextId = 1;
 const pending = new Map();
 
@@ -70,6 +71,36 @@ function el(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+// Save answers the preview in the chat for the person, as if they had typed
+// it, so the assistant logs the meal through its usual approval flow. ChatGPT
+// gets its own follow-up call where it has one: developers report its
+// ui/message posts the text without the assistant answering.
+function save() {
+  const t = MESSAGES[language()];
+  const name = result.structuredContent.input.name;
+  const text = name ? fill(t.saveNamed, { meal: name }) : t.saveUnnamed;
+  saveSent = true;
+  render();
+  const openai = window.openai;
+  const sent =
+    openai && typeof openai.sendFollowUpMessage === 'function'
+      ? Promise.resolve(openai.sendFollowUpMessage({ prompt: text }))
+      : request('ui/message', {
+          role: 'user',
+          content: [{ type: 'text', text: text }],
+        });
+  sent.then(
+    function (reply) {
+      if (reply && reply.isError) retrySave();
+    },
+    retrySave,
+  );
+}
+function retrySave() {
+  saveSent = false;
+  render();
 }
 
 function applyContext(next) {
@@ -200,6 +231,12 @@ function render() {
     section.appendChild(line);
     root.appendChild(section);
   }
+
+  const button = el('button', 'save', t.save);
+  button.type = 'button';
+  button.disabled = saveSent;
+  button.addEventListener('click', save);
+  root.appendChild(button);
 }
 
 window.addEventListener('message', function (event) {
@@ -280,6 +317,8 @@ const style = `
   --muted: var(--color-text-secondary, light-dark(oklch(0.47 0.008 286), oklch(0.75 0.008 286)));
   --line: var(--color-border-tertiary, light-dark(oklch(0.885 0.005 286), oklch(0.34 0.0034 286)));
   --track: light-dark(oklch(0.925 0.006 286), oklch(0.349 0.0034 286));
+  --primary: light-dark(oklch(0.55 0.18 42), oklch(0.74 0.16 48));
+  --on-primary: light-dark(oklch(1 0 0), oklch(0.17 0.01 48));
 }
 :root[data-theme='light'] { color-scheme: light; }
 :root[data-theme='dark'] { color-scheme: dark; }
@@ -332,6 +371,14 @@ h1.fallback { color: var(--muted); }
 .day-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 6px; }
 .remaining { color: var(--left); font-size: 15px; font-weight: 500; }
 .remaining.over { color: var(--over); }
+.save {
+  display: block; width: 100%; height: 44px; margin-top: 14px;
+  border: 0; border-radius: 999px; font: inherit; font-weight: 500;
+  background: var(--primary); color: var(--on-primary); cursor: pointer;
+}
+.save:active { opacity: 0.7; }
+.save:disabled { opacity: 0.5; cursor: default; }
+.save:focus-visible { outline: 3px solid color-mix(in oklch, var(--primary) 40%, transparent); outline-offset: 2px; }
 `
 
 export const mealCardHtml = `<!doctype html>

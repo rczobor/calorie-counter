@@ -5,7 +5,10 @@ type Message = { id?: number; method?: string; params?: unknown }
 
 // Runs the card's script against its own parsed document and a stand-in
 // window whose parent is the host, so each test gets a fresh, isolated card.
-function openCard({ lang = '' } = {}) {
+function openCard({
+  lang = '',
+  openai,
+}: { lang?: string; openai?: object } = {}) {
   const document = new DOMParser().parseFromString(mealCardHtml, 'text/html')
   document.documentElement.lang = lang
   const script = document.querySelector('script')!.textContent
@@ -16,6 +19,7 @@ function openCard({ lang = '' } = {}) {
     addEventListener: (_: string, listener: (typeof listeners)[number]) =>
       listeners.push(listener),
     parent: { postMessage: (message: Message) => sent.push(message) },
+    openai,
   }
   class ResizeObserver {
     observe() {}
@@ -152,5 +156,44 @@ describe('meal card', () => {
       params: { isError: true, content: [{ type: 'text', text: 'No person' }] },
     })
     expect(card().textContent).toBe('Something went wrong')
+  })
+
+  it('answers the preview in the chat when Save is tapped, and offers it again if that fails', async () => {
+    const { sent, fromHost, card } = openCard()
+    fromHost({
+      method: 'ui/notifications/tool-result',
+      params: { structuredContent: preview },
+    })
+    const save = () => card().querySelector('button')!
+    save().click()
+    const message = sent.find((sent) => sent.method === 'ui/message')
+    expect(message).toMatchObject({
+      params: { role: 'user', content: [{ type: 'text', text: 'Save Lunch' }] },
+    })
+    expect(save().disabled).toBe(true)
+
+    fromHost({ id: message!.id, error: { code: -32000, message: 'Denied' } })
+    await Promise.resolve()
+    expect(save().disabled).toBe(false)
+  })
+
+  it("uses ChatGPT's follow-up message where it has one", () => {
+    const prompts: unknown[] = []
+    const { sent, fromHost, card } = openCard({
+      lang: 'hu-HU',
+      openai: { sendFollowUpMessage: (args: unknown) => prompts.push(args) },
+    })
+    fromHost({
+      method: 'ui/notifications/tool-result',
+      params: {
+        structuredContent: {
+          ...preview,
+          input: { ...preview.input, name: undefined },
+        },
+      },
+    })
+    card().querySelector('button')!.click()
+    expect(prompts).toEqual([{ prompt: 'Mentsd el ezt az étkezést' }])
+    expect(sent.some((sent) => sent.method === 'ui/message')).toBe(false)
   })
 })

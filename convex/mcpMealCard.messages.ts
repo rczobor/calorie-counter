@@ -13,6 +13,10 @@ const en = {
   fat: 'Fat',
   loading: 'Loading…',
   failed: 'Something went wrong',
+  save: 'Save',
+  // Sent into the chat as the person's own reply when they tap Save.
+  saveNamed: 'Save {meal}',
+  saveUnnamed: 'Save this meal',
 }
 
 export const mealCardMessages = {
@@ -29,5 +33,8 @@ export const mealCardMessages = {
     fat: 'Zsír',
     loading: 'Betöltés…',
     failed: 'Hiba történt',
+    save: 'Mentés',
+    saveNamed: 'Mentsd el: {meal}',
+    saveUnnamed: 'Mentsd el ezt az étkezést',
   } satisfies typeof en,
 }
