@@ -58,7 +58,7 @@ import {
   searchResult,
   dayResult,
   mealInput,
-  mealPreview,
+  mealPreviewWithAmounts,
   mealResult,
   cookingInput,
   cookingPreview,
@@ -370,9 +370,6 @@ export async function prepareMeal(
         return {
           name: item.nameSnapshot,
           calories: item.caloriesSnapshot,
-          ...('consumedWeightGrams' in item
-            ? { consumedWeightGrams: item.consumedWeightGrams }
-            : {}),
           nutritionProvenance: item.nutritionProvenance,
           ...(original.sourceType === 'customByWeight' ||
           original.sourceType === 'fixedCalories'
@@ -381,7 +378,20 @@ export async function prepareMeal(
         }
       }),
     },
+    amounts: snapshots.map((item) =>
+      item.sourceType === 'fixedCalories'
+        ? null
+        : { value: item.consumedWeightGrams, unit: item.kcalBasisUnitSnapshot },
+    ),
   }
+}
+
+/** The preview with each item's amount, for the meal card. */
+export function withAmounts({
+  preview,
+  amounts,
+}: Awaited<ReturnType<typeof prepareMeal>>) {
+  return { ...preview, amounts }
 }
 
 export const previewMeal = internalMutation({
@@ -390,22 +400,21 @@ export const previewMeal = internalMutation({
     user: vMcpUser(),
     input: mealInput,
   },
-  returns: mealPreview,
+  returns: mealPreviewWithAmounts,
   handler: (ctx, args) =>
-    domainResult(
-      async () =>
-        (
-          await prepareMeal(
+    domainResult(async () =>
+      withAmounts(
+        await prepareMeal(
+          ctx,
+          await requireMcpOwner(
             ctx,
-            await requireMcpOwner(
-              ctx,
-              args.user,
-              'nutrition:read',
-              args.householdId,
-            ),
-            args.input,
-          )
-        ).preview,
+            args.user,
+            'nutrition:read',
+            args.householdId,
+          ),
+          args.input,
+        ),
+      ),
     ),
 })
 

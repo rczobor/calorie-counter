@@ -276,23 +276,25 @@ describe('MCP cooked-food finished-weight corrections', () => {
     const { t, personId, ingredientId, own, input } =
       await cookedWeightFixture()
     const user = asTestUser(t)
-    const originalMeal = await output(
-      await call(t, own.token, 'preview_meal', {
-        input: {
-          personId,
-          eatenOn: '2026-11-06',
-          items: [
-            {
-              sourceType: 'cookedFood',
-              cookedFoodId: input.cookedFoodId,
-              consumedWeightGrams: 100,
-            },
-          ],
-        },
-      }),
-      mealPreview,
-    )
-    expect(originalMeal.items).toMatchObject([{ consumedWeightGrams: 100 }])
+    const previewed = await call(t, own.token, 'preview_meal', {
+      input: {
+        personId,
+        eatenOn: '2026-11-06',
+        items: [
+          {
+            sourceType: 'cookedFood',
+            cookedFoodId: input.cookedFoodId,
+            consumedWeightGrams: 100,
+          },
+        ],
+      },
+    })
+    // The meal card's amounts ride in _meta, outside the published schema.
+    const previewBody: unknown = await previewed.clone().json()
+    expect(previewBody).toMatchObject({
+      result: { _meta: { amounts: [{ value: 100, unit: 'g' }] } },
+    })
+    const originalMeal = await output(previewed, mealPreview)
     const { mealId } = await output(
       await call(t, own.token, 'log_meal', {
         input: originalMeal.input,

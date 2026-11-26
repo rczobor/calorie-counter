@@ -1,4 +1,4 @@
-import { McpServer, tool } from '@convex-dev/mcp'
+import { McpServer, callToolResult, tool } from '@convex-dev/mcp'
 import { v, type Infer } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { env, query } from './_generated/server'
@@ -9,6 +9,7 @@ import {
   dayResult,
   mealInput,
   mealPreview,
+  mealPreviewWithAmounts,
   mealResult,
   mealDetails,
   mealCorrectionInput,
@@ -57,7 +58,21 @@ const readOnly = {
 // Hosts that support MCP Apps show these previews as the meal card.
 const mealCard = { ui: { resourceUri: MEAL_CARD_URI } }
 const mealCardNote =
-  ' Hosts that show app cards display this preview as a card: then confirm it in a sentence instead of redrawing it.'
+  ' Hosts that show app cards display this preview as a card: then confirm it in a sentence, with any estimate assumptions, instead of redrawing it.'
+
+// Only the card reads the items' amounts, from _meta.
+async function mealCardResult(
+  preview: Promise<Infer<typeof mealPreviewWithAmounts>>,
+) {
+  const { amounts, ...structuredContent } = await preview
+  return callToolResult({
+    content: [
+      { type: 'text', text: JSON.stringify(structuredContent, null, 2) },
+    ],
+    structuredContent,
+    _meta: { amounts },
+  })
+}
 
 const reusableWrite = {
   readOnlyHint: false,
@@ -129,10 +144,12 @@ export const mcp: McpServer = new McpServer(components.mcp, {
       scope: 'nutrition:read',
       annotations: readOnly,
       handler: (ctx, args, user) =>
-        ctx.runMutation(internal.mcpFoodReuse.previewRepeatMeal, {
-          ...args,
-          user,
-        }),
+        mealCardResult(
+          ctx.runMutation(internal.mcpFoodReuse.previewRepeatMeal, {
+            ...args,
+            user,
+          }),
+        ),
     }),
     discover_foods: tool({
       description:
@@ -307,10 +324,12 @@ export const mcp: McpServer = new McpServer(components.mcp, {
       scope: 'nutrition:read',
       annotations: readOnly,
       handler: (ctx, args, user) =>
-        ctx.runMutation(internal.mcpFoodReuse.previewMealTemplate, {
-          ...args,
-          user,
-        }),
+        mealCardResult(
+          ctx.runMutation(internal.mcpFoodReuse.previewMealTemplate, {
+            ...args,
+            user,
+          }),
+        ),
     }),
     preview_meal_template_refresh: tool({
       description:
@@ -625,7 +644,12 @@ export const mcp: McpServer = new McpServer(components.mcp, {
         idempotentHint: true,
       },
       handler: (ctx, args, user) =>
-        ctx.runMutation(internal.mcpOperations.previewMeal, { ...args, user }),
+        mealCardResult(
+          ctx.runMutation(internal.mcpOperations.previewMeal, {
+            ...args,
+            user,
+          }),
+        ),
     }),
     log_meal: tool({
       description:

@@ -30,7 +30,7 @@ import {
   savedFoodResult,
   mealInput,
   mcpMealItem,
-  mealPreview,
+  mealPreviewWithAmounts,
   repeatMealInput,
   mealHistoryResult,
   templateSearchResult,
@@ -55,7 +55,7 @@ import {
   scaleOptionalMacros,
   type MacroGrams,
 } from './lib/macros'
-import { prepareMeal, resolveMealItems } from './mcpOperations'
+import { prepareMeal, resolveMealItems, withAmounts } from './mcpOperations'
 import { describeContext } from './mcpContext'
 
 export function savedFoodIdentityKey(
@@ -204,7 +204,7 @@ export const previewRepeatMeal = internalMutation({
     householdId: v.optional(v.id('households')),
     input: repeatMealInput,
   },
-  returns: mealPreview,
+  returns: mealPreviewWithAmounts,
   handler: (ctx, args) =>
     domainResult(async () => {
       const owner = await requireMcpOwner(
@@ -228,7 +228,7 @@ export const previewRepeatMeal = internalMutation({
         if (!items.some((item) => item._id === selected.itemId))
           throw new ConvexError('Meal item not found in this meal.')
       }
-      return (
+      return withAmounts(
         await prepareMeal(ctx, owner, {
           personId: args.input.personId,
           eatenOn: args.input.eatenOn,
@@ -240,8 +240,8 @@ export const previewRepeatMeal = internalMutation({
             })),
             ...(args.input.additions ?? []),
           ],
-        })
-      ).preview
+        }),
+      )
     }),
 })
 
@@ -959,7 +959,7 @@ export const previewMealTemplate = internalMutation({
     multiplier: v.optional(v.number()),
     items: v.optional(v.array(mcpMealItem)),
   },
-  returns: mealPreview,
+  returns: mealPreviewWithAmounts,
   handler: (ctx, args) =>
     domainResult(async () => {
       const owner = await requireMcpOwner(
@@ -1000,14 +1000,14 @@ export const previewMealTemplate = internalMutation({
             'Template must contain frozen nutrition snapshots.',
           )
         })
-      return (
+      return withAmounts(
         await prepareMeal(ctx, owner, {
           personId: args.personId,
           eatenOn: args.eatenOn,
           name: template.name,
           items,
-        })
-      ).preview
+        }),
+      )
     }),
 })
 

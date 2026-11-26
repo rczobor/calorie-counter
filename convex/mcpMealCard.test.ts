@@ -45,16 +45,20 @@ const preview = {
     remainingCalories: 560,
   },
   items: [
-    { name: 'Chicken breast', calories: 248, consumedWeightGrams: 150 },
+    { name: 'Chicken breast', calories: 248 },
     {
       name: '<img src=x onerror="window.hacked=1">',
       calories: 392.4,
-      consumedWeightGrams: 120,
       nutritionProvenance: { kind: 'estimate', source: 's', assumptions: 'a' },
       missingMacros: 'Add macros',
     },
   ],
 }
+const amounts = [
+  { value: 150, unit: 'g' },
+  { value: 120, unit: 'g' },
+]
+const juice = { name: 'Orange juice', calories: 110 }
 
 describe('meal card', () => {
   it('joins the host, takes its theme and language, and shows the preview as text', async () => {
@@ -79,7 +83,11 @@ describe('meal card', () => {
 
     fromHost({
       method: 'ui/notifications/tool-result',
-      params: { content: [], structuredContent: preview },
+      params: {
+        content: [],
+        structuredContent: { ...preview, items: [...preview.items, juice] },
+        _meta: { amounts: [...amounts, { value: 250, unit: 'ml' }] },
+      },
     })
     const rows = [...card().querySelectorAll('li')].map((row) =>
       [...row.children].map((cell) => cell.textContent),
@@ -95,6 +103,7 @@ describe('meal card', () => {
         '120 g',
         '392',
       ],
+      ['Orange juice', '250 ml', '110'],
     ])
     expect(card().querySelector('img')).toBeNull()
     expect(card().querySelector('.macros')!.textContent).toBe(

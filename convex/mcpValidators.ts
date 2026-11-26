@@ -198,11 +198,22 @@ export const mealPreview = v.object({
     v.object({
       name: v.string(),
       calories: v.number(),
-      // Absent on fixed-calorie items, which have no weight.
-      consumedWeightGrams: v.optional(v.number()),
       nutritionProvenance: v.optional(nutritionProvenanceValidator),
       ...missingMacrosWarning,
     }),
+  ),
+})
+// What the meal preview tools' handlers receive: the preview plus each item's
+// amount, by index (null for a fixed-calorie item). The amounts go to the meal
+// card in the result's _meta, so the published outputSchema stays as hosts
+// that cached it expect.
+export const mealPreviewWithAmounts = v.object({
+  ...mealPreview.fields,
+  amounts: v.array(
+    v.union(
+      v.object({ value: v.number(), unit: nutritionUnitValidator }),
+      v.null(),
+    ),
   ),
 })
 export const cookingPreview = v.object({
