@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { mealCardHtml } from './mcpMealCard'
+import {
+  MEAL_CARD_URI,
+  RETIRED_MEAL_CARD_URIS,
+  mealCardHtml,
+} from './mcpMealCard'
 
 type Message = { id?: number; method?: string; params?: unknown }
 
@@ -65,6 +69,13 @@ const amounts = [
 const juice = { name: 'Orange juice', calories: 110 }
 
 describe('meal card', () => {
+  it('has a new URI for each change, and the earlier ones stay served', () => {
+    // Changing the card changes its URI: move the URI pinned here into
+    // RETIRED_MEAL_CARD_URIS, then pin the new one.
+    expect(MEAL_CARD_URI).toBe('ui://calorie-counter/meal-card-420unp.html')
+    expect(RETIRED_MEAL_CARD_URIS).not.toContain(MEAL_CARD_URI)
+  })
+
   it('joins the host, takes its theme and language, and shows the preview as text', async () => {
     const { document, sent, fromHost, card } = openCard()
     expect(card().textContent).toBe('Loading…')
