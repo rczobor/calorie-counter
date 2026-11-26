@@ -287,7 +287,8 @@ h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhe
 /* A meal without a name: the stand-in word is not something anyone typed. */
 h1.fallback { color: var(--muted); }
 .subtitle, .status, .macros, .day-line { color: var(--muted); font-size: 13px; }
-.subtitle { margin-top: 2px; }
+/* Who and which day is half of the first check, so it reads in body ink. */
+.subtitle { margin-top: 2px; color: var(--text); }
 .total { white-space: nowrap; }
 .total .figure { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
 .total .unit { color: var(--muted); font-size: 13px; }
