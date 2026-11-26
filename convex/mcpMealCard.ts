@@ -280,7 +280,7 @@ body {
   font: 15px/1.35 var(--font-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
   font-variant-numeric: tabular-nums;
 }
-#card { padding: 14px 16px; }
+#card { max-width: 520px; padding: 14px 16px; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .subtitle, .status, .macros, .day-line { color: var(--muted); font-size: 13px; }
