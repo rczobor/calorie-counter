@@ -280,7 +280,13 @@ body {
   font: 15px/1.35 var(--font-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
   font-variant-numeric: tabular-nums;
 }
-#card { max-width: 520px; padding: 14px 16px; }
+/* The card draws its own outline (resources ask hosts for none), so a wide
+   chat shows a 520px card rather than a wide frame with an empty strip. */
+#card {
+  max-width: 520px; padding: 14px 16px;
+  border: 1px solid var(--color-border-secondary, light-dark(oklch(0.885 0.005 286), oklch(0.34 0.0034 286)));
+  border-radius: var(--border-radius-lg, 12px);
+}
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 h1 { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 /* A meal without a name: the stand-in word is not something anyone typed. */

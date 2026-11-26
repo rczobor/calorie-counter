@@ -1091,7 +1091,7 @@ describe('MCP integration', () => {
             uri: MEAL_CARD_URI,
             mimeType: MCP_APP_MIME_TYPE,
             text: mealCardHtml,
-            _meta: { ui: { prefersBorder: true } },
+            _meta: { ui: { prefersBorder: false } },
           },
         ],
       },

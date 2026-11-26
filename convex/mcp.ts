@@ -84,7 +84,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
       mimeType: MCP_APP_MIME_TYPE,
       handler: async () => ({
         text: mealCardHtml,
-        _meta: { ui: { prefersBorder: true } },
+        _meta: { ui: { prefersBorder: false } },
       }),
     },
   },
