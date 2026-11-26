@@ -358,13 +358,31 @@ html.christmas .intake-fill {
 .dark .winter-snowbank {
   display: none;
 }
-/* The title reads in white on the light-mode sky. */
-html.winter:not(.dark) .on-winter-sky {
-  color: oklch(0.985 0.003 250);
+/* The title reads in white on the light-mode sky, and so does its focus
+   ring (3.7:1 at the ring's 40%). Print has no sky, so it keeps the page's
+   colours there. */
+@media screen {
+  html.winter:not(.dark) .on-winter-sky {
+    color: oklch(0.985 0.003 250);
+    --ring: oklch(1 0 0);
+  }
+  /* The date picker's chevron, muted on the sky as it is in dark. */
+  html.winter:not(.dark) .on-winter-sky svg {
+    color: oklch(1 0 0 / 70%);
+  }
 }
-/* The date picker's chevron, muted on the sky as it is in dark. */
-html.winter:not(.dark) .on-winter-sky svg {
-  color: oklch(1 0 0 / 70%);
+/* A printed page carries the season's colours but none of its scenery. */
+@media print {
+  .winter-sky,
+  .string-lights,
+  .christmas-tree,
+  .snowman,
+  .snow-drift,
+  .snow-ledge,
+  .snow-cap,
+  .snowfall {
+    display: none;
+  }
 }
 
 /* Light mode's winter: a frosty blue at the top of the other pages. Snow

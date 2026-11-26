@@ -138,7 +138,12 @@ export function BottomNavigation() {
           <Button
             size="icon"
             aria-label={t.logMeal}
-            className="relative size-13 rounded-full shadow-[inset_0_1px_0_oklch(1_0_0/0.25),0_10px_30px_-10px_var(--glass-shadow),0_2px_8px_-2px_var(--glass-shadow)] hover:bg-primary motion-safe:active:scale-90 [&_svg:not([class*='size-'])]:size-6"
+            className={cn(
+              "size-13 rounded-full shadow-[inset_0_1px_0_oklch(1_0_0/0.25),0_10px_30px_-10px_var(--glass-shadow),0_2px_8px_-2px_var(--glass-shadow)] hover:bg-primary motion-safe:active:scale-90 [&_svg:not([class*='size-'])]:size-6",
+              // Only for the snow cap: positioning the button changes how its
+              // shadow paints over the tabs, so out of season it stays as it was.
+              winter && 'relative',
+            )}
             onClick={() => {
               requestLogMeal()
               if (pathname !== '/') void navigate({ to: '/' })

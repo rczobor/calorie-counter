@@ -94,4 +94,11 @@ describe('snow on the Log meal button', () => {
   it('is gone outside the season', () => {
     expect(snowOn('2027-06-01')).toBeNull()
   })
+
+  it('leaves the button unpositioned outside the season', () => {
+    snowOn('2027-06-01')
+    // Positioning it changes how its shadow paints over the tabs.
+    const button = screen.getByRole('button', { name: 'Log meal' })
+    expect(button.classList.contains('relative')).toBe(false)
+  })
 })

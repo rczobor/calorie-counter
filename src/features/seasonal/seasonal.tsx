@@ -6,7 +6,12 @@ import { Switch } from '@/components/ui/switch'
 import { useMessages } from '@/i18n/messages'
 import { toLocalDateString } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
-import { SEASONAL_THEME_KEY, seasonFor, snowmanStage } from './season'
+import {
+  SEASONAL_THEME_KEY,
+  WINTER_STATUS_BAR,
+  seasonFor,
+  snowmanStage,
+} from './season'
 import { messages } from './seasonal.messages'
 
 const Snowfall = lazy(async () => ({
@@ -42,11 +47,34 @@ function setTurnedOff(off: boolean) {
   window.dispatchEvent(new Event(PREFERENCE_EVENT))
 }
 
-// The installed app can stay open for days, so the date is read again
-// whenever it comes back to the foreground.
-function subscribeVisibility(onChange: () => void) {
-  document.addEventListener('visibilitychange', onChange)
-  return () => document.removeEventListener('visibilitychange', onChange)
+// The installed app can stay open for days, so the date is read again at
+// each local midnight and whenever it comes back to the foreground, where a
+// timer may have slept past midnight. Every reader then switches together.
+function subscribeToday(onChange: () => void) {
+  let timer = 0
+  function untilMidnight() {
+    const now = new Date()
+    const midnight = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    )
+    timer = window.setTimeout(() => {
+      onChange()
+      untilMidnight()
+    }, midnight.getTime() - now.getTime())
+  }
+  function onVisibility() {
+    window.clearTimeout(timer)
+    untilMidnight()
+    onChange()
+  }
+  untilMidnight()
+  document.addEventListener('visibilitychange', onVisibility)
+  return () => {
+    window.clearTimeout(timer)
+    document.removeEventListener('visibilitychange', onVisibility)
+  }
 }
 
 const OFF_SEASON = {
@@ -68,7 +96,7 @@ export function useSeason() {
     () => false,
   )
   const today = useSyncExternalStore(
-    subscribeVisibility,
+    subscribeToday,
     () => toLocalDateString(Date.now()),
     () => '',
   )
@@ -107,8 +135,17 @@ export function useStatusBarColors(normal: { light: string; dark: string }) {
     () => null,
   )
   const colors = winter
-    ? { light: onToday ? '#16243c' : '#d3e8f7', dark: '#1b2942' }
+    ? {
+        light: onToday ? WINTER_STATUS_BAR.today : WINTER_STATUS_BAR.light,
+        dark: WINTER_STATUS_BAR.dark,
+      }
     : normal
+  // Once the app's theme is known these colours are final, so the season
+  // script's early tag can go (see season.ts).
+  useEffect(() => {
+    if (appDark !== null)
+      document.querySelector('meta[data-season-status-bar]')?.remove()
+  }, [appDark])
   if (appDark === null) return colors
   const color = appDark ? colors.dark : colors.light
   return { light: color, dark: color }

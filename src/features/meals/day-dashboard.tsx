@@ -749,7 +749,17 @@ export function DayDashboard({ archived = false }: { archived?: boolean }) {
                 // Stands on the meals list's top edge, at its right end.
                 <ChristmasTree className="pointer-events-none absolute right-2 -bottom-3.25 z-20 h-13.25 w-11 md:hidden" />
               ) : null}
-              <h2 className="type-title">
+              {/* Phones keep the heading clear of the tree and its
+                  presents, or the snowman, at its right end. */}
+              <h2
+                className={cn(
+                  'type-title',
+                  onMealsCard &&
+                    (christmas
+                      ? 'max-md:pr-20'
+                      : snowman > 0 && 'max-md:pr-12'),
+                )}
+              >
                 {selected
                   ? archived
                     ? selected.linkedAccount === 'you'
