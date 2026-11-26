@@ -198,6 +198,8 @@ export const mealPreview = v.object({
     v.object({
       name: v.string(),
       calories: v.number(),
+      // Absent on fixed-calorie items, which have no weight.
+      consumedWeightGrams: v.optional(v.number()),
       nutritionProvenance: v.optional(nutritionProvenanceValidator),
       ...missingMacrosWarning,
     }),

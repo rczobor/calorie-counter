@@ -1,0 +1,393 @@
+diff --git a/dist/client/index.d.ts b/dist/client/index.d.ts
+index 6313f048233604302ebb73d47993e3b08f81c1b7..68139fabfb1983bd09caaac0d6c246a2da4a273e 100644
+--- a/dist/client/index.d.ts
++++ b/dist/client/index.d.ts
+@@ -1,10 +1,12 @@
+-import type { Auth, GenericActionCtx, GenericDataModel, HttpRouter } from "convex/server";
++import type { GenericActionCtx, GenericDataModel, GenericMutationCtx, GenericQueryCtx, HttpRouter } from "convex/server";
+ import type { GenericValidator, Infer, ObjectType, PropertyValidators, VString } from "convex/values";
+ import type { ComponentApi } from "../component/_generated/component.js";
+ import type { JSONSchema } from "./schema.js";
+ export { toJsonSchema, checkValue } from "./schema.js";
+ /** The `ctx` tool handlers receive: an HTTP action context. */
+ export type ToolCtx = GenericActionCtx<GenericDataModel>;
++/** The ctx of a query, mutation or action, as passed to `getUserId` in `mcp.api()`. */
++export type FunctionCtx<DataModel extends GenericDataModel = GenericDataModel> = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel> | GenericActionCtx<DataModel>;
+ /**
+  * Who a tool call acts for. `userId` comes from a verified credential: it is
+  * the value your `getUserId` returned when the user connected the agent.
+@@ -78,6 +80,7 @@ export type CallToolResult = {
+     content: ContentBlock[];
+     structuredContent?: Record<string, unknown>;
+     isError?: boolean;
++    _meta?: Record<string, unknown>;
+ };
+ declare const RESULT: unique symbol;
+ /**
+@@ -97,6 +100,15 @@ export type ToolDefinition<Args extends PropertyValidators = PropertyValidators,
+     /** Optional validator for the result; exposed as `outputSchema`. */
+     returns?: Returns;
+     annotations?: ToolAnnotations;
++    /**
++     * App metadata advertised with this tool in `tools/list`. Opaque to the
++     * component and passed through verbatim: MCP reserves `_meta` on every
++     * object for metadata like this, and only keys with MCP-reserved prefixes
++     * (second label `modelcontextprotocol` or `mcp`, e.g.
++     * `io.modelcontextprotocol/`) are protocol-owned. For example,
++     * `{ "com.example/category": "reports" }`.
++     */
++    meta?: Record<string, unknown>;
+     /**
+      * OAuth scope required to see and call this tool. Must be one of the
+      * server's `scopes`. Tools without a scope are available to every
+@@ -116,6 +128,37 @@ export declare function tool<Args extends PropertyValidators = Record<string, ne
+  * ```
+  */
+ export declare function createTool<UserId extends string>(): <Args extends PropertyValidators = Record<string, never>, Returns extends GenericValidator | undefined = undefined>(definition: ToolDefinition<Args, Returns, UserId>) => ToolDefinition<any, any, UserId>;
++/** What a resource handler returns: text, or binary data as base64. */
++export type ResourceContents = ({
++    text: string;
++} | {
++    blob: string;
++}) & {
++    /** App metadata sent with these contents in `resources/read`. */
++    _meta?: Record<string, unknown>;
++};
++/** https://modelcontextprotocol.io/specification/2025-11-25/server/resources */
++export type ResourceDefinition<UserId extends string = string> = {
++    /** Programmatic name, required by MCP. */
++    name: string;
++    /** Human-friendly display name. */
++    title?: string;
++    description?: string;
++    mimeType?: string;
++    /**
++     * App metadata advertised with this resource in `resources/list`. Opaque to
++     * the component and passed through verbatim, like a tool's `meta`.
++     */
++    meta?: Record<string, unknown>;
++    /**
++     * OAuth scope required to see and read this resource. Must be one of the
++     * server's `scopes`. Resources without a scope are available to every
++     * connection.
++     */
++    scope?: string;
++    /** A string becomes text contents. */
++    handler: (ctx: ToolCtx, user: McpUser<UserId>) => Promise<string | ResourceContents>;
++};
+ export type McpServerOptions<UserId extends string = string> = {
+     /** Server name reported to clients in `serverInfo`. */
+     name: string;
+@@ -124,6 +167,11 @@ export type McpServerOptions<UserId extends string = string> = {
+     /** Guidance for the model on how to use this server's tools. */
+     instructions?: string;
+     tools: Record<string, ToolDefinition<any, any, UserId>>;
++    /**
++     * Resources keyed by URI, e.g. `"ui://widgets/card.html"`. The server
++     * advertises the `resources` capability only when this is non-empty.
++     */
++    resources?: Record<string, ResourceDefinition<UserId>>;
+     /**
+      * Your app's consent page. Users are sent to `${consentUrl}?request=<id>`;
+      * the page signs them in, shows `getAuthRequest`, and calls `authorize`.
+@@ -188,6 +236,7 @@ export declare class McpServer<UserId extends string = string> {
+     component: ComponentApi;
+     options: McpServerOptions<UserId>;
+     private readonly tools;
++    private readonly resources;
+     readonly path: string;
+     private warned;
+     constructor(component: ComponentApi, options: McpServerOptions<UserId>);
+@@ -248,10 +297,19 @@ export declare class McpServer<UserId extends string = string> {
+     private handleLegacyMessage;
+     private get serverInfo();
+     private get capabilities();
++    /**
++     * The method to dispatch, or null (method not found) for `resources/*` on a
++     * server that doesn't advertise the `resources` capability.
++     */
++    private served;
+     /** Tools visible to this connection, in definition order (deterministic). */
+     private listTools;
+     private toolFor;
++    /** Resources visible to this connection, in definition order. */
++    private listResources;
++    private resourceFor;
+     private allowed;
++    private readResource;
+     private insufficientScope;
+     private callTool;
+     private handleRegister;
+@@ -288,11 +346,12 @@ export declare class McpServer<UserId extends string = string> {
+      * `getUserId` decides who a connection acts for; tools receive the same
+      * value as `user.userId`. Use a stable ID that cannot collide across
+      * identity providers (e.g. `tokenIdentifier`, or your users table ID).
++     * It receives the ctx of the query, mutation or action being called, so it
++     * can also check that the user is still allowed in (e.g. with `"db" in ctx`
++     * to tell queries and mutations from actions).
+      */
+-    api(opts: {
+-        getUserId: (ctx: {
+-            auth: Auth;
+-        }) => Promise<UserId | null>;
++    api<DataModel extends GenericDataModel = GenericDataModel>(opts: {
++        getUserId: (ctx: FunctionCtx<DataModel>) => Promise<UserId | null>;
+     }): {
+         /** Details of a pending request, for the consent page. */
+         getAuthRequest: import("convex/server").RegisteredQuery<"public", {
+diff --git a/dist/client/index.js b/dist/client/index.js
+index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd64794c467 100644
+--- a/dist/client/index.js
++++ b/dist/client/index.js
+@@ -61,7 +61,7 @@ const META = "io.modelcontextprotocol/";
+ // JSON-RPC error codes defined by MCP 2026-07-28.
+ const HEADER_MISMATCH = -32020;
+ const UNSUPPORTED_PROTOCOL_VERSION = -32022;
+-const TOOLS_LIST_TTL_MS = 5 * 60_000;
++const LIST_TTL_MS = 5 * 60_000;
+ const AUTH_REQUEST_TTL_MS = 10 * 60_000;
+ const CODE_TTL_MS = 60_000;
+ /** Pre-registered public client for agents using the device flow. */
+@@ -77,6 +77,7 @@ export class McpServer {
+     component;
+     options;
+     tools;
++    resources;
+     path;
+     warned = false;
+     constructor(component, options) {
+@@ -108,6 +109,29 @@ export class McpServer {
+                     ...(definition.annotations
+                         ? { annotations: definition.annotations }
+                         : {}),
++                    ...(definition.meta ? { _meta: definition.meta } : {}),
++                },
++            });
++        }
++        this.resources = new Map();
++        for (const [uri, definition] of Object.entries(options.resources ?? {})) {
++            // An absolute URI (RFC 3986): a scheme, then no whitespace.
++            if (!/^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(uri)) {
++                throw new Error(`Invalid MCP resource URI "${uri}"`);
++            }
++            if (definition.scope && !options.scopes?.[definition.scope]) {
++                throw new Error(`Resource "${uri}" requires scope "${definition.scope}", which is not in \`scopes\``);
++            }
++            this.resources.set(uri, {
++                uri,
++                definition,
++                listing: {
++                    uri,
++                    name: definition.name,
++                    ...(definition.title ? { title: definition.title } : {}),
++                    ...(definition.description ? { description: definition.description } : {}),
++                    ...(definition.mimeType ? { mimeType: definition.mimeType } : {}),
++                    ...(definition.meta ? { _meta: definition.meta } : {}),
+                 },
+             });
+         }
+@@ -370,12 +394,15 @@ export class McpServer {
+                 return mismatch("Mcp-Name does not match the request body");
+             }
+         }
+-        const result = (value) => json(rpcResult(id, {
+-            resultType: "complete",
+-            ...value,
+-            _meta: { [`${META}serverInfo`]: this.serverInfo },
+-        }), 200);
+-        switch (method) {
++        const result = (value) => {
++            const appMeta = isObject(value._meta) ? value._meta : {};
++            return json(rpcResult(id, {
++                resultType: "complete",
++                ...value,
++                _meta: { ...appMeta, [`${META}serverInfo`]: this.serverInfo },
++            }), 200);
++        };
++        switch (this.served(method)) {
+             case "server/discover":
+                 return result({
+                     supportedVersions: PROTOCOL_VERSIONS,
+@@ -383,13 +410,13 @@ export class McpServer {
+                     ...(this.options.instructions
+                         ? { instructions: this.options.instructions }
+                         : {}),
+-                    ttlMs: TOOLS_LIST_TTL_MS,
++                    ttlMs: LIST_TTL_MS,
+                     cacheScope: "public",
+                 });
+             case "tools/list":
+                 return result({
+                     tools: this.listTools(user),
+-                    ttlMs: TOOLS_LIST_TTL_MS,
++                    ttlMs: LIST_TTL_MS,
+                     // The list depends on the caller's scopes.
+                     cacheScope: "private",
+                 });
+@@ -402,6 +429,27 @@ export class McpServer {
+                     return this.insufficientScope(t.definition.scope);
+                 return result(await this.callTool(ctx, t, params.arguments ?? {}, user));
+             }
++            case "resources/list":
++                return result({
++                    resources: this.listResources(user),
++                    ttlMs: LIST_TTL_MS,
++                    // Like tools/list, the list depends on the caller's scopes.
++                    cacheScope: "private",
++                });
++            case "resources/templates/list":
++                return result({ resourceTemplates: [], ttlMs: LIST_TTL_MS, cacheScope: "public" });
++            case "resources/read": {
++                const r = this.resourceFor(params.uri);
++                // 2026-07-28 reports a missing resource as invalid params; earlier
++                // versions used -32002.
++                if (!r) {
++                    return json(rpcError(id, -32602, "Resource not found", { uri: params.uri }), 200);
++                }
++                if (!this.allowed(r, user))
++                    return this.insufficientScope(r.definition.scope);
++                const read = await this.readResource(ctx, r, user);
++                return "error" in read ? json(rpcError(id, -32603, read.error), 200) : result(read);
++            }
+             default:
+                 return json(rpcError(id, -32601, `Method not found: ${method}`), 404);
+         }
+@@ -446,7 +494,7 @@ export class McpServer {
+             return rpcError(null, -32600, "Invalid Request");
+         }
+         const p = isObject(params) ? params : {};
+-        switch (method) {
++        switch (this.served(method)) {
+             case "initialize": {
+                 const requested = p.protocolVersion;
+                 const protocolVersion = typeof requested === "string" && LEGACY_PROTOCOL_VERSIONS.includes(requested)
+@@ -474,6 +522,20 @@ export class McpServer {
+                 }
+                 return rpcResult(id, await this.callTool(ctx, t, p.arguments ?? {}, user));
+             }
++            case "resources/list":
++                return rpcResult(id, { resources: this.listResources(user) });
++            case "resources/templates/list":
++                return rpcResult(id, { resourceTemplates: [] });
++            case "resources/read": {
++                const r = this.resourceFor(p.uri);
++                if (!r)
++                    return rpcError(id, -32002, "Resource not found", { uri: p.uri });
++                if (!this.allowed(r, user)) {
++                    return this.insufficientScope(r.definition.scope);
++                }
++                const read = await this.readResource(ctx, r, user);
++                return "error" in read ? rpcError(id, -32603, read.error) : rpcResult(id, read);
++            }
+             default:
+                 return rpcError(id, -32601, `Method not found: ${method}`);
+         }
+@@ -486,7 +548,17 @@ export class McpServer {
+         };
+     }
+     get capabilities() {
+-        return { tools: { listChanged: false } };
++        return {
++            tools: { listChanged: false },
++            ...(this.resources.size ? { resources: { listChanged: false } } : {}),
++        };
++    }
++    /**
++     * The method to dispatch, or null (method not found) for `resources/*` on a
++     * server that doesn't advertise the `resources` capability.
++     */
++    served(method) {
++        return method.startsWith("resources/") && !this.resources.size ? null : method;
+     }
+     /** Tools visible to this connection, in definition order (deterministic). */
+     listTools(user) {
+@@ -497,8 +569,45 @@ export class McpServer {
+     toolFor(name) {
+         return typeof name === "string" ? this.tools.get(name) : undefined;
+     }
+-    allowed(t, user) {
+-        return !t.definition.scope || user.scopes.includes(t.definition.scope);
++    /** Resources visible to this connection, in definition order. */
++    listResources(user) {
++        return [...this.resources.values()]
++            .filter((r) => this.allowed(r, user))
++            .map((r) => r.listing);
++    }
++    resourceFor(uri) {
++        return typeof uri === "string" ? this.resources.get(uri) : undefined;
++    }
++    allowed(item, user) {
++        return !item.definition.scope || user.scopes.includes(item.definition.scope);
++    }
++    async readResource(ctx, r, user) {
++        let value;
++        try {
++            value = await r.definition.handler(ctx, user);
++        }
++        catch (error) {
++            if (error instanceof ConvexError) {
++                const data = error.data;
++                return {
++                    error: typeof data === "string" ? data : JSON.stringify(toJsonValue(data)),
++                };
++            }
++            console.error(`MCP resource "${r.uri}" failed`, error);
++            return { error: `Resource "${r.uri}" failed. Please try again later.` };
++        }
++        const contents = typeof value === "string" ? { text: value } : value;
++        return {
++            contents: [
++                {
++                    uri: r.uri,
++                    ...(r.definition.mimeType ? { mimeType: r.definition.mimeType } : {}),
++                    // Copy only known fields, so nothing else a handler returns leaks.
++                    ...("text" in contents ? { text: contents.text } : { blob: contents.blob }),
++                    ...(contents._meta ? { _meta: contents._meta } : {}),
++                },
++            ],
++        };
+     }
+     insufficientScope(scope) {
+         return json({ error: "insufficient_scope" }, 403, {
+@@ -524,7 +633,7 @@ export class McpServer {
+             return errorResult(`Tool "${t.name}" failed. Please try again later.`);
+         }
+         if (isObject(value) && value[RESULT]) {
+-            const { content, structuredContent, isError } = value;
++            const { content, structuredContent, isError, _meta } = value;
+             // structuredContent must still match `returns`. Content blocks are the
+             // developer's responsibility.
+             if (t.returns && !isError) {
+@@ -538,6 +647,7 @@ export class McpServer {
+                 content,
+                 ...(structuredContent ? { structuredContent } : {}),
+                 ...(isError ? { isError } : {}),
++                ...(_meta ? { _meta } : {}),
+             };
+         }
+         if (t.returns) {
+@@ -897,6 +1007,9 @@ export class McpServer {
+      * `getUserId` decides who a connection acts for; tools receive the same
+      * value as `user.userId`. Use a stable ID that cannot collide across
+      * identity providers (e.g. `tokenIdentifier`, or your users table ID).
++     * It receives the ctx of the query, mutation or action being called, so it
++     * can also check that the user is still allowed in (e.g. with `"db" in ctx`
++     * to tell queries and mutations from actions).
+      */
+     api(opts) {
+         const component = this.component;
+@@ -1163,8 +1276,12 @@ function errorResult(text) {
+ function rpcResult(id, result) {
+     return { jsonrpc: "2.0", id, result };
+ }
+-function rpcError(id, code, message) {
+-    return { jsonrpc: "2.0", id, error: { code, message } };
++function rpcError(id, code, message, data) {
++    return {
++        jsonrpc: "2.0",
++        id,
++        error: { code, message, ...(data === undefined ? {} : { data }) },
++    };
+ }
+ const PUBLIC_CORS = {
+     "Access-Control-Allow-Origin": "*",

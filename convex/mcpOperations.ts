@@ -370,6 +370,9 @@ export async function prepareMeal(
         return {
           name: item.nameSnapshot,
           calories: item.caloriesSnapshot,
+          ...('consumedWeightGrams' in item
+            ? { consumedWeightGrams: item.consumedWeightGrams }
+            : {}),
           nutritionProvenance: item.nutritionProvenance,
           ...(original.sourceType === 'customByWeight' ||
           original.sourceType === 'fixedCalories'

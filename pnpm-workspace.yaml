@@ -9,3 +9,7 @@ allowBuilds:
   '@clerk/shared': true
   esbuild: true
   unrs-resolver: true
+# alpha.7 plus upstream main and convex/mcp#13 (resources), for the meal card.
+# Remove once a release ships both: https://github.com/convex/mcp/pull/13
+patchedDependencies:
+  '@convex-dev/mcp@0.1.0-alpha.7': patches/@convex-dev__mcp@0.1.0-alpha.7.patch
