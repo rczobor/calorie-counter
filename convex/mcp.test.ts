@@ -1110,6 +1110,38 @@ describe('MCP integration', () => {
         },
       })
     }
+    // MCP 2026-07-28 clients, such as Claude on the web and desktop, reject a
+    // resources/read result without cache hints and show an error card.
+    const modern = await t.fetch('/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${read.token}`,
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'resources/read',
+        'Mcp-Name': MEAL_CARD_URI,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'resources/read',
+        params: {
+          uri: MEAL_CARD_URI,
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': {},
+          },
+        },
+      }),
+    })
+    expect(await modern.json()).toMatchObject({
+      result: {
+        resultType: 'complete',
+        ttlMs: expect.any(Number),
+        cacheScope: 'private',
+        contents: [{ uri: MEAL_CARD_URI, text: mealCardHtml }],
+      },
+    })
   })
 
   it('runs OAuth registration, consent, token exchange and owner-scoped revocation', async () => {

@@ -187,7 +187,7 @@ overrides:
   hono: 4.13.21
 
 patchedDependencies:
-  '@convex-dev/mcp@0.1.0-alpha.7': 0b0c6bd368c72f64e81dcaffc049cab25cbea8630662c8160c486b737d8900aa
+  '@convex-dev/mcp@0.1.0-alpha.7': bc2357afeebc7be827d71d51a6c1745da1f8a9f105da6280d881a351e50ec29a
 
 importers:
 
@@ -204,7 +204,7 @@ importers:
         version: 6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@convex-dev/mcp':
         specifier: 0.1.0-alpha.7
-        version: 0.1.0-alpha.7(patch_hash=0b0c6bd368c72f64e81dcaffc049cab25cbea8630662c8160c486b737d8900aa)(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
+        version: 0.1.0-alpha.7(patch_hash=bc2357afeebc7be827d71d51a6c1745da1f8a9f105da6280d881a351e50ec29a)(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
       '@convex-dev/rate-limiter':
         specifier: 0.4.3
         version: 0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
@@ -4384,7 +4384,7 @@ snapshots:
       - typescript
       - zod
 
-  '@convex-dev/mcp@0.1.0-alpha.7(patch_hash=0b0c6bd368c72f64e81dcaffc049cab25cbea8630662c8160c486b737d8900aa)(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
+  '@convex-dev/mcp@0.1.0-alpha.7(patch_hash=bc2357afeebc7be827d71d51a6c1745da1f8a9f105da6280d881a351e50ec29a)(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)':
     dependencies:
       '@convex-dev/rate-limiter': 0.4.3(@standard-schema/spec@1.1.0)(@typescript/typescript6@6.0.2)(convex@1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(react@19.3.1)(zod@4.6.5)
       convex: 1.51.0(@clerk/react@6.19.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)

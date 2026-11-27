@@ -136,7 +136,7 @@ index 6313f048233604302ebb73d47993e3b08f81c1b7..68139fabfb1983bd09caaac0d6c246a2
          /** Details of a pending request, for the consent page. */
          getAuthRequest: import("convex/server").RegisteredQuery<"public", {
 diff --git a/dist/client/index.js b/dist/client/index.js
-index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd64794c467 100644
+index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..b4e2a2997c4a5bda4652340e5bd1c679995a9f2f 100644
 --- a/dist/client/index.js
 +++ b/dist/client/index.js
 @@ -61,7 +61,7 @@ const META = "io.modelcontextprotocol/";
@@ -224,7 +224,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
                      // The list depends on the caller's scopes.
                      cacheScope: "private",
                  });
-@@ -402,6 +429,27 @@ export class McpServer {
+@@ -402,6 +429,32 @@ export class McpServer {
                      return this.insufficientScope(t.definition.scope);
                  return result(await this.callTool(ctx, t, params.arguments ?? {}, user));
              }
@@ -247,12 +247,17 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
 +                if (!this.allowed(r, user))
 +                    return this.insufficientScope(r.definition.scope);
 +                const read = await this.readResource(ctx, r, user);
-+                return "error" in read ? json(rpcError(id, -32603, read.error), 200) : result(read);
++                // 2026-07-28 makes resources/read cacheable: clients reject a
++                // result without ttlMs and cacheScope. Private, like
++                // resources/list, because scopes decide who may read it.
++                return "error" in read
++                    ? json(rpcError(id, -32603, read.error), 200)
++                    : result({ ...read, ttlMs: LIST_TTL_MS, cacheScope: "private" });
 +            }
              default:
                  return json(rpcError(id, -32601, `Method not found: ${method}`), 404);
          }
-@@ -446,7 +494,7 @@ export class McpServer {
+@@ -446,7 +499,7 @@ export class McpServer {
              return rpcError(null, -32600, "Invalid Request");
          }
          const p = isObject(params) ? params : {};
@@ -261,7 +266,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
              case "initialize": {
                  const requested = p.protocolVersion;
                  const protocolVersion = typeof requested === "string" && LEGACY_PROTOCOL_VERSIONS.includes(requested)
-@@ -474,6 +522,20 @@ export class McpServer {
+@@ -474,6 +527,20 @@ export class McpServer {
                  }
                  return rpcResult(id, await this.callTool(ctx, t, p.arguments ?? {}, user));
              }
@@ -282,7 +287,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
              default:
                  return rpcError(id, -32601, `Method not found: ${method}`);
          }
-@@ -486,7 +548,17 @@ export class McpServer {
+@@ -486,7 +553,17 @@ export class McpServer {
          };
      }
      get capabilities() {
@@ -301,7 +306,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
      }
      /** Tools visible to this connection, in definition order (deterministic). */
      listTools(user) {
-@@ -497,8 +569,45 @@ export class McpServer {
+@@ -497,8 +574,45 @@ export class McpServer {
      toolFor(name) {
          return typeof name === "string" ? this.tools.get(name) : undefined;
      }
@@ -349,7 +354,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
      }
      insufficientScope(scope) {
          return json({ error: "insufficient_scope" }, 403, {
-@@ -524,7 +633,7 @@ export class McpServer {
+@@ -524,7 +638,7 @@ export class McpServer {
              return errorResult(`Tool "${t.name}" failed. Please try again later.`);
          }
          if (isObject(value) && value[RESULT]) {
@@ -358,7 +363,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
              // structuredContent must still match `returns`. Content blocks are the
              // developer's responsibility.
              if (t.returns && !isError) {
-@@ -538,6 +647,7 @@ export class McpServer {
+@@ -538,6 +652,7 @@ export class McpServer {
                  content,
                  ...(structuredContent ? { structuredContent } : {}),
                  ...(isError ? { isError } : {}),
@@ -366,7 +371,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
              };
          }
          if (t.returns) {
-@@ -897,6 +1007,9 @@ export class McpServer {
+@@ -897,6 +1012,9 @@ export class McpServer {
       * `getUserId` decides who a connection acts for; tools receive the same
       * value as `user.userId`. Use a stable ID that cannot collide across
       * identity providers (e.g. `tokenIdentifier`, or your users table ID).
@@ -376,7 +381,7 @@ index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..db4cb2ebc7c00dc0dc4bde8d54d3bdd6
       */
      api(opts) {
          const component = this.component;
-@@ -1163,8 +1276,12 @@ function errorResult(text) {
+@@ -1163,8 +1281,12 @@ function errorResult(text) {
  function rpcResult(id, result) {
      return { jsonrpc: "2.0", id, result };
  }
