@@ -1092,7 +1092,7 @@ describe('MCP integration', () => {
     // Claude Desktop asked for #296's card after #297 replaced it.
     for (const uri of [
       MEAL_CARD_URI,
-      'ui://calorie-counter/meal-card-9b04f7.html',
+      'ui://calorie-counter/meal-card-awoee6.html',
     ]) {
       const contents: unknown = await (
         await rpc(t, read.token, 'resources/read', { uri })
