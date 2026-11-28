@@ -63,19 +63,27 @@ const readOnly = {
 // Hosts that support MCP Apps show these previews as the meal card.
 const mealCard = { ui: { resourceUri: MEAL_CARD_URI } }
 const mealCardNote =
-  ' Hosts that show app cards display this preview as a card: then confirm it in a sentence, with any estimate assumptions, instead of redrawing it. Its Save button sends the user\'s approval as their chat reply ("Save <meal name> · <total> kcal · <person> · <date>", or "Save this meal · …"; in Hungarian "Mentsd el"): it approves the preview matching those, not another one; if several match, ask which.'
+  ' Hosts that show app cards display this preview as a card: then confirm it in a sentence, with any estimate assumptions, instead of redrawing it. Its Save button logs the meal with the preview’s operationKey, so a save from you with that key returns the same meal instead of a second one.'
 
-// Only the card reads the items' amounts, from _meta.
+// Only the card reads the items' amounts, from _meta. Each preview gets one
+// operationKey, for the card's Save button and the assistant's log_meal alike:
+// whichever saves second gets the first save back instead of a second meal.
+// It goes in the text the assistant reads and in _meta for the card, not in
+// structuredContent, whose published outputSchema hosts may have cached.
 async function mealCardResult(
   preview: Promise<Infer<typeof mealPreviewWithAmounts>>,
 ) {
   const { amounts, ...structuredContent } = await preview
+  const operationKey = `preview-${crypto.randomUUID()}`
   return callToolResult({
     content: [
-      { type: 'text', text: JSON.stringify(structuredContent, null, 2) },
+      {
+        type: 'text',
+        text: JSON.stringify({ ...structuredContent, operationKey }, null, 2),
+      },
     ],
     structuredContent,
-    _meta: { amounts },
+    _meta: { amounts, operationKey },
   })
 }
 
@@ -89,7 +97,7 @@ const reusableWrite = {
 export const mcp: McpServer = new McpServer(components.mcp, {
   name: 'calorie-counter',
   title: 'Calorie Counter',
-  version: '1.17.0',
+  version: '1.18.0',
   consentUrl: env.MCP_CONSENT_URL ?? 'https://unconfigured.invalid/connect',
   deviceFlow: false,
   allowedOrigins: [],
@@ -141,7 +149,7 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     preview_repeat_meal: tool({
       description:
-        'Preview a new meal using exact historical nutrition and provenance, even after catalog edits. Original meal is unchanged. Omit selections for all foods, or select itemIds from that meal with multipliers to resize or remove items; one selection repeats a single food. Multiplier 1 repeats its entire original portion; grams desired / historical grams scales weighted items. For fixed items use recorded servingCount; do not guess how many cookies an unknown legacy portion contained. additions accepts replacement brands or one-off overrides from normal meal inputs. Returns ordinary preview input: show it and obtain approval under the existing policy, then call log_meal with that exact input and a unique operationKey. Preview saves nothing.' +
+        'Preview a new meal using exact historical nutrition and provenance, even after catalog edits. Original meal is unchanged. Omit selections for all foods, or select itemIds from that meal with multipliers to resize or remove items; one selection repeats a single food. Multiplier 1 repeats its entire original portion; grams desired / historical grams scales weighted items. For fixed items use recorded servingCount; do not guess how many cookies an unknown legacy portion contained. additions accepts replacement brands or one-off overrides from normal meal inputs. Returns ordinary preview input: show it and obtain approval under the existing policy, then call log_meal with that exact input and its operationKey. Preview saves nothing.' +
         mealCardNote,
       args: {
         householdId: v.optional(v.id('households')),
@@ -661,13 +669,16 @@ export const mcp: McpServer = new McpServer(components.mcp, {
     }),
     log_meal: tool({
       description:
-        'Record a new meal after preview approval, or in the same turn for an explicit fully specified non-estimated logging request when saved confirmationMode is explicitOnly. Send the exact input returned by preview_meal, including expectedSnapshot fields, and a new unique operationKey. Reuse that same key and input only when retrying the same save. If foods change after a preview, preview again; never save an obsolete preview. Refuses customByWeight and fixedCalories items with calories but no macros unless they set macrosUnknown true. Updates the daily total atomically. Returned summaries are point-in-time snapshots, including on retries; use get_day for current totals. Does not edit existing meals. A food with a brand or label values that the same person logged before with identical nutrition is saved for reuse on the way and listed in savedFoods; log it from that saved food next time.',
+        'Record a new meal after preview approval, or in the same turn for an explicit fully specified non-estimated logging request when saved confirmationMode is explicitOnly. Send the exact input returned by preview_meal, including expectedSnapshot fields, and the operationKey that preview returned (a new unique one if it returned none). Reuse that same key and input only when retrying the same save; if the meal card already saved that preview, the key returns that meal. If foods change after a preview, preview again; never save an obsolete preview. Refuses customByWeight and fixedCalories items with calories but no macros unless they set macrosUnknown true. Updates the daily total atomically. Returned summaries are point-in-time snapshots, including on retries; use get_day for current totals. Does not edit existing meals. A food with a brand or label values that the same person logged before with identical nutrition is saved for reuse on the way and listed in savedFoods; log it from that saved food next time.',
       args: {
         householdId: v.optional(v.id('households')),
         input: mealInput,
         operationKey: v.string(),
       },
       returns: mealResult,
+      // The meal card's Save button calls this. Claude lets apps call tools by
+      // default; ChatGPT only those marked widget-accessible.
+      meta: { 'openai/widgetAccessible': true },
       scope: 'meals:write',
       annotations: {
         readOnlyHint: false,

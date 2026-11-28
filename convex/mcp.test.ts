@@ -289,19 +289,42 @@ describe('MCP cooked-food finished-weight corrections', () => {
         ],
       },
     })
-    // The meal card's amounts ride in _meta, outside the published schema.
-    const previewBody: unknown = await previewed.clone().json()
-    expect(previewBody).toMatchObject({
-      result: { _meta: { amounts: [{ value: 100, unit: 'g' }] } },
+    // The meal card's amounts and the preview's key ride in _meta, outside
+    // the published schema; the assistant reads the key in the text.
+    const previewBody = validated(
+      v.object({
+        jsonrpc: v.string(),
+        id: v.number(),
+        result: v.object({
+          content: v.array(v.object({ type: v.string(), text: v.string() })),
+          structuredContent: v.any(),
+          _meta: v.object({
+            amounts: v.array(v.any()),
+            operationKey: v.string(),
+          }),
+        }),
+      }),
+      await previewed.clone().json(),
+    )
+    const { amounts, operationKey } = previewBody.result._meta
+    expect(amounts).toEqual([{ value: 100, unit: 'g' }])
+    expect(operationKey).toMatch(/^preview-/)
+    expect(JSON.parse(previewBody.result.content[0].text)).toMatchObject({
+      operationKey,
     })
     const originalMeal = await output(previewed, mealPreview)
-    const { mealId } = await output(
-      await call(t, own.token, 'log_meal', {
-        input: originalMeal.input,
-        operationKey: 'original-portion',
-      }),
-      mealResult,
-    )
+    // The card's Save and the assistant both save with the preview's key:
+    // the second gets the first meal back, not a second one.
+    const logOriginal = async () =>
+      output(
+        await call(t, own.token, 'log_meal', {
+          input: originalMeal.input,
+          operationKey,
+        }),
+        mealResult,
+      )
+    const { mealId } = await logOriginal()
+    expect((await logOriginal()).mealId).toBe(mealId)
     expect(await t.run((ctx) => ctx.db.get(mealId))).toMatchObject({
       source: 'agent',
     })

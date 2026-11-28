@@ -19,7 +19,8 @@ const root = document.getElementById('card');
 let context = {};
 let result = null;
 let failed = false;
-let saveSent = false;
+// 'idle', 'saving', 'saved' or 'failed'.
+let saveState = 'idle';
 let nextId = 1;
 const pending = new Map();
 
@@ -73,49 +74,43 @@ function el(tag, className, text) {
   return node;
 }
 
-// Save answers the preview in the chat for the person, as if they had typed
-// it, so the assistant logs the meal through its usual approval flow. ChatGPT
-// gets its own follow-up call where it has one: developers report its
-// ui/message posts the text without the assistant answering. The reply names
-// the total, person and date as the card shows them, so the assistant can tell
-// this preview from a revised one; a typed name stays on one short line.
+// Save logs the meal itself, as log_meal from the card: a tap is the person's
+// approval, and a card's own tool call needs no host prompt, unlike a chat
+// message sent for them (Claude asks before each one). It uses the key the
+// preview came with, as the assistant does, so a retry, a second tap, the card
+// loading again or the assistant saving too returns the first save, never a
+// second meal.
 function save() {
-  const t = MESSAGES[language()];
   const preview = result.structuredContent;
-  const name = (preview.input.name || '').replace(/\s+/g, ' ').trim();
-  const day = preview.projectedDailySummary;
-  const text = [
-    name
-      ? fill(t.saveNamed, { meal: name.length > 60 ? name.slice(0, 59) + '…' : name })
-      : t.saveUnnamed,
-    kcal(preview.totalCalories) + ' kcal',
-    day && day.person,
-    formatDate(preview.input.eatenOn),
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  saveSent = true;
+  saveState = 'saving';
   render();
-  const openai = window.openai;
-  const sent =
-    openai && typeof openai.sendFollowUpMessage === 'function'
-      ? new Promise(function (resolve) {
-          resolve(openai.sendFollowUpMessage({ prompt: text }));
-        })
-      : request('ui/message', {
-          role: 'user',
-          content: [{ type: 'text', text: text }],
-        });
-  sent.then(
-    function (reply) {
-      if (reply && reply.isError) retrySave();
+  request('tools/call', {
+    name: 'log_meal',
+    arguments: {
+      householdId: preview.context.householdId,
+      input: preview.input,
+      operationKey: result._meta.operationKey,
     },
-    retrySave,
+  }).then(
+    function (reply) {
+      saveState = reply && !reply.isError ? 'saved' : 'failed';
+      render();
+      if (saveState !== 'saved') return;
+      // So the assistant knows, and does not ask about this preview again.
+      request('ui/update-model-context', {
+        content: [
+          {
+            type: 'text',
+            text: 'The person tapped Save on the meal card, which logged this preview. Do not log it again.',
+          },
+        ],
+      }).catch(function () {});
+    },
+    function () {
+      saveState = 'failed';
+      render();
+    },
   );
-}
-function retrySave() {
-  saveSent = false;
-  render();
 }
 
 function applyContext(next) {
@@ -246,6 +241,9 @@ function render() {
     root.appendChild(line);
   }
 
+  // Previews from before the server gave each one a key get no button.
+  const key = result._meta && result._meta.operationKey;
+  if (!key || !preview.context) return;
   const button = el('button', 'save');
   button.type = 'button';
   // Fixed markup, no data: the HTML parser gives the svg its namespace, so the
@@ -253,10 +251,19 @@ function render() {
   // card when it began to name the SVG namespace URL.
   button.innerHTML =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
-  button.appendChild(document.createTextNode(t.save));
-  button.disabled = saveSent;
+  button.appendChild(
+    document.createTextNode(
+      saveState === 'saved' ? t.saved : saveState === 'saving' ? t.saving : t.save,
+    ),
+  );
+  button.disabled = saveState === 'saving' || saveState === 'saved';
   button.addEventListener('click', save);
   root.appendChild(button);
+  if (saveState === 'failed') {
+    const error = el('p', 'save-error', t.saveFailed);
+    error.setAttribute('role', 'alert');
+    root.appendChild(error);
+  }
 }
 
 window.addEventListener('message', function (event) {
@@ -395,6 +402,7 @@ h1.fallback { color: var(--muted); }
 .save:active { opacity: 0.7; }
 .save:disabled { opacity: 0.5; cursor: default; }
 .save:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
+.save-error { margin-top: 8px; color: var(--over); font-size: 13px; }
 `
 
 export const mealCardHtml = `<!doctype html>
@@ -426,6 +434,7 @@ export const MEAL_CARD_URI = `ui://calorie-counter/meal-card-${fnv1a(mealCardHtm
 // the Save card's URI. So every earlier URI keeps serving the current card.
 // When the card changes, add the URI it had here.
 export const RETIRED_MEAL_CARD_URIS = [
+  'ui://calorie-counter/meal-card-awoee6.html',
   'ui://calorie-counter/meal-card-9b04f7.html',
   'ui://calorie-counter/meal-card-420unp.html',
 ]

@@ -14,9 +14,9 @@ const en = {
   loading: 'Loading…',
   failed: 'Something went wrong',
   save: 'Save',
-  // Sent into the chat as the person's own reply when they tap Save.
-  saveNamed: 'Save {meal}',
-  saveUnnamed: 'Save this meal',
+  saving: 'Saving…',
+  saved: 'Saved',
+  saveFailed: "Couldn't save. Try again.",
 }
 
 export const mealCardMessages = {
@@ -34,7 +34,8 @@ export const mealCardMessages = {
     loading: 'Betöltés…',
     failed: 'Hiba történt',
     save: 'Mentés',
-    saveNamed: 'Mentsd el: {meal}',
-    saveUnnamed: 'Mentsd el ezt az étkezést',
+    saving: 'Mentés…',
+    saved: 'Mentve',
+    saveFailed: 'Nem sikerült menteni. Próbáld újra.',
   } satisfies typeof en,
 }
