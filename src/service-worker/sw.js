@@ -21,10 +21,16 @@ self.addEventListener('install', (event) => {
   event.waitUntil(precache())
 })
 
-// A page about to reload into this build asks it to take over early. Only the
-// asking page may be open, so no other page loses its chunks. A closing tab
-// also asks, and may already be gone from the list.
+// A page about to reload into this build asks it to take over early. Unasked
+// ('activate'), only the asking page may be open, so no other page loses its
+// chunks; a closing tab also asks, and may already be gone from the list. A
+// person who taps Refresh ('refresh') switches every tab: the others reload,
+// or offer to, as soon as this build takes over.
 self.addEventListener('message', (event) => {
+  if (event.data === 'refresh') {
+    event.waitUntil(self.skipWaiting())
+    return
+  }
   if (event.data !== 'activate') return
   event.waitUntil(
     self.clients

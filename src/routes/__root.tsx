@@ -1,5 +1,5 @@
 import { PagePlaceholder } from '@/components/page/page-placeholder'
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import {
   HeadContent,
   Link,
@@ -53,7 +53,9 @@ import { messages } from './__root.messages'
 import {
   registerServiceWorker,
   unregisterServiceWorkers,
+  type AppUpdate,
 } from '@/service-worker/register'
+import { UpdateNotice } from '@/service-worker/update-notice'
 import {
   Card,
   CardDescription,
@@ -195,11 +197,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     light: LIGHT_THEME_COLOR,
     dark: DARK_THEME_COLOR,
   })
+  const [update, setUpdate] = useState<AppUpdate | null>(null)
   useEffect(() => {
     markStartup('app')
     if (IS_MAINTENANCE_MODE) unregisterServiceWorkers()
     else if (import.meta.env.PROD && !isE2eMockMode)
-      registerServiceWorker(hasPendingConvexWrites)
+      registerServiceWorker(hasPendingConvexWrites, setUpdate)
   }, [])
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -268,6 +271,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                     }}
                   />
                 </Suspense>
+                <UpdateNotice update={update} />
                 {import.meta.env.DEV ? (
                   <TanStackDevtools
                     config={{
