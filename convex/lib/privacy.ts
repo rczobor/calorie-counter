@@ -7,7 +7,7 @@ import type { QueryCtx } from '../_generated/server'
  * account then sees the consent screen, and household data stays locked
  * (assistants included) until they accept.
  */
-export const PRIVACY_NOTICE_VERSION = '2026-11-09'
+export const PRIVACY_NOTICE_VERSION = '2026-11-28'
 
 export async function hasAcceptedPrivacyNotice(
   ctx: Pick<QueryCtx, 'db'>,
