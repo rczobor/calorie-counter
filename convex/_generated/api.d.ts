@@ -10,6 +10,7 @@
 
 import type * as account from "../account.js";
 import type * as admin from "../admin.js";
+import type * as aiMealDraft from "../aiMealDraft.js";
 import type * as catalog from "../catalog.js";
 import type * as cooking from "../cooking.js";
 import type * as energy from "../energy.js";
@@ -57,6 +58,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   account: typeof account;
   admin: typeof admin;
+  aiMealDraft: typeof aiMealDraft;
   catalog: typeof catalog;
   cooking: typeof cooking;
   energy: typeof energy;

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import {
+  useAction as useConvexAction,
   useConvex as useConvexClient,
   useMutation as useConvexMutation,
   usePaginatedQuery as useConvexPaginatedQuery,
@@ -38,6 +39,24 @@ export function useMutation<Mutation extends FunctionReference<'mutation'>>(
       )
     },
     [householdId, mutation],
+  )
+}
+
+export function useAction<Action extends FunctionReference<'action'>>(
+  reference: Action,
+) {
+  const { householdId } = useHousehold()
+  const action = useConvexAction(reference)
+  return useCallback(
+    (...args: OptionalRestArgs<Action>) => {
+      const [input] = args
+      return action(
+        ...([
+          householdId ? { ...input, householdId } : input,
+        ] as OptionalRestArgs<Action>),
+      )
+    },
+    [householdId, action],
   )
 }
 

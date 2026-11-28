@@ -801,6 +801,8 @@ export function useQuery<Query extends FunctionReference<'query'>>(
     ] as FunctionReturnType<Query>
   if (functionName === 'households:inspectInvitation')
     return null as FunctionReturnType<Query>
+  if (functionName === 'aiMealDraft:isEnabled')
+    return true as FunctionReturnType<Query>
   if (functionName === 'mcp:getConfiguration')
     return {
       enabled: true,
@@ -1393,6 +1395,37 @@ export function useConvex() {
   }
 }
 
+const synthesizedMealDraft = {
+  status: 'ok',
+  mealName: 'Breakfast',
+  items: [
+    {
+      sourceType: 'fixedCalories',
+      name: 'Scrambled eggs, 2 eggs',
+      calories: 182,
+      macros: { proteinG: 12.6, carbsG: 1.4, fatG: 13.8 },
+      nutritionProvenance: {
+        kind: 'estimate',
+        origin: 'generic',
+        source: 'Claude estimate',
+        assumptions: 'Two large eggs scrambled with a little butter.',
+      },
+    },
+    {
+      sourceType: 'fixedCalories',
+      name: 'Sourdough toast with butter',
+      calories: 165,
+      macros: { proteinG: 4.1, carbsG: 22.5, fatG: 6.3 },
+      nutritionProvenance: {
+        kind: 'estimate',
+        origin: 'generic',
+        source: 'Claude estimate',
+        assumptions: 'One 40 g slice with 5 g butter.',
+      },
+    },
+  ],
+}
+
 export function useAction<Action extends FunctionReference<'action'>>(
   action: Action,
 ) {
@@ -1400,6 +1433,11 @@ export function useAction<Action extends FunctionReference<'action'>>(
   return useCallback<
     (args: FunctionArgs<Action>) => Promise<FunctionReturnType<Action>>
   >(async () => {
+    if (name === 'aiMealDraft:draft') {
+      // Long enough to review the pending state.
+      await new Promise((resolve) => setTimeout(resolve, 1_200))
+      return synthesizedMealDraft as FunctionReturnType<Action>
+    }
     throw new Error(`The browser smoke adapter does not implement ${name}.`)
   }, [name])
 }
