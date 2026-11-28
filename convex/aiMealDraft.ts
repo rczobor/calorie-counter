@@ -10,7 +10,6 @@ import {
   localeValidator,
   macroGramsValidator,
   nutritionProvenanceValidator,
-  nutritionUnitValidator,
 } from './validators'
 
 // Claude reads a description or a photo and suggests items for the meal
@@ -42,7 +41,6 @@ const candidateValidator = v.union(
     brand: v.optional(v.string()),
     variant: v.optional(v.string()),
     kcalPer100: v.number(),
-    unit: nutritionUnitValidator,
     ignoreCalories: v.boolean(),
     macros: v.optional(macroGramsValidator),
   }),
@@ -63,7 +61,7 @@ const draftItemValidator = v.union(
     ingredientId: v.id('ingredients'),
     nameSnapshot: v.string(),
     kcalPer100Snapshot: v.number(),
-    kcalBasisUnitSnapshot: nutritionUnitValidator,
+    kcalBasisUnitSnapshot: v.literal('g'),
     ignoreCaloriesSnapshot: v.boolean(),
     consumedWeightGrams: v.number(),
     caloriesPerWeightSnapshot: v.number(),
@@ -153,10 +151,10 @@ export type ClaudeMealOutput = {
 
 const SYSTEM_PROMPT = `You turn a description or photo of what someone ate into items for a calorie tracker.
 
-The user message lists the household's own foods, one per line, each with a key such as i3 or c1, its calories per 100 of its unit, and its macros per 100 when known.
+The user message lists the household's own foods, one per line, each with a key such as i3 or c1, its calories per 100 g, and its macros per 100 g when known.
 
 For each food eaten:
-- If a listed food clearly is that food, set foodRef to its key and amount to how much was eaten in that food's unit (grams for g, millilitres for ml, pieces for piece, and so on). Set calories and macros to 0; the tracker computes them.
+- If a listed food clearly is that food, set foodRef to its key and amount to the grams eaten. Set calories and macros to 0; the tracker computes them.
 - Otherwise set foodRef to "" and amount to 0, and give calories and protein, carbs and fat in grams for the whole portion eaten.
 - For a nutrition label in a photo, use the label's values scaled to the portion described, or one serving as printed on the label when no portion is given, and set fromLabel to true. Otherwise fromLabel is false.
 - assumptions: one short English sentence on the portion size and what the numbers are based on.
@@ -176,8 +174,8 @@ function candidateLine(candidate: Candidate, key: string) {
     .join(', ')
   const kcal = candidate.ignoreCalories
     ? 'calories not counted'
-    : `${candidate.kcalPer100} kcal per 100 ${candidate.unit}`
-  return `${key}: ${label}; unit ${candidate.unit}; ${kcal}${macros}`
+    : `${candidate.kcalPer100} kcal per 100 g`
+  return `${key}: ${label}; ${kcal}${macros}`
 }
 
 function candidateKey(candidate: Candidate, index: number) {
@@ -230,7 +228,7 @@ export function toDraftItems(
           ingredientId: candidate.id,
           nameSnapshot: candidate.name,
           kcalPer100Snapshot: candidate.kcalPer100,
-          kcalBasisUnitSnapshot: candidate.unit,
+          kcalBasisUnitSnapshot: 'g',
           ignoreCaloriesSnapshot: candidate.ignoreCalories,
           consumedWeightGrams: amount,
           caloriesPerWeightSnapshot: candidate.ignoreCalories
@@ -314,10 +312,16 @@ export const prepare = internalMutation({
       key: owner.userId,
     })
     if (!ok) return { limited: true as const }
+    // Meals take ingredients by weight only; other units are for recipes.
     const ingredients = await ctx.db
       .query('ingredients')
-      .withIndex('by_householdId_and_archived_and_name', (q) =>
-        q.eq('householdId', owner.householdId).eq('archived', false),
+      .withIndex(
+        'by_householdId_and_archived_and_kcalBasisUnit_and_name',
+        (q) =>
+          q
+            .eq('householdId', owner.householdId)
+            .eq('archived', false)
+            .eq('kcalBasisUnit', 'g'),
       )
       .take(INGREDIENT_CANDIDATES)
     // Newest batches first: older ones are likely eaten up.
@@ -344,7 +348,6 @@ export const prepare = internalMutation({
         brand: ingredient.brand,
         variant: ingredient.variant,
         kcalPer100: ingredient.kcalPer100,
-        unit: ingredient.kcalBasisUnit,
         ignoreCalories: ingredient.ignoreCalories,
         macros: macroGrams(ingredient.macros),
       })),

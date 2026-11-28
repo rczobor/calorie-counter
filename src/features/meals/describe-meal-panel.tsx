@@ -55,6 +55,15 @@ export function DescribeMealPanel({
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [pending, setPending] = useState(false)
   const [problem, setProblem] = useState<Problem | null>(null)
+  // Cancel unmounts the panel while a request may still be running; its
+  // answer must not add foods or reset whatever the person opened next.
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!photo) return
@@ -88,6 +97,7 @@ export function DescribeMealPanel({
           ? { image: { data: photo.bytes, mediaType: 'image/jpeg' as const } }
           : {}),
       })
+      if (!mounted.current) return
       if (result.status !== 'ok') {
         setProblem(result.status)
         return

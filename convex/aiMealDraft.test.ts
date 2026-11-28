@@ -30,7 +30,6 @@ const candidates = [
     id: ingredientId,
     name: 'Greek yogurt',
     kcalPer100: 97,
-    unit: 'g' as const,
     ignoreCalories: false,
   },
   {
@@ -176,6 +175,12 @@ describe('draft', () => {
       kcalPer100: 97,
       ignoreCalories: false,
     })
+    await account.mutation(api.nutrition.createIngredient, {
+      name: 'Olive oil',
+      kcalPer100: 120,
+      kcalBasisUnit: 'tablespoon',
+      ignoreCalories: false,
+    })
     return { t, account, yogurtId }
   }
 
@@ -204,7 +209,9 @@ describe('draft', () => {
     })
     const [request] = parse.mock.calls[0]
     const prompt = request.messages[0].content.at(-1).text
-    expect(prompt).toContain('i0: Greek yogurt; unit g; 97 kcal per 100 g')
+    expect(prompt).toContain('i0: Greek yogurt; 97 kcal per 100 g')
+    // Meals reject ingredients measured in other units.
+    expect(prompt).not.toContain('Olive oil')
     expect(prompt).toContain('Write names in Hungarian.')
     expect(prompt).toContain('yogurt and toast')
   })

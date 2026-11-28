@@ -134,6 +134,31 @@ afterEach(() => {
 })
 
 describe('Meal editor', () => {
+  it('drops suggestions that arrive after Cancel', async () => {
+    configureMutationMocks()
+    let answer: (value: unknown) => void = () => {}
+    mockUseAction.mockReturnValue(
+      () => new Promise((resolve) => (answer = resolve)),
+    )
+    mockAiEnabled = true
+    renderMealsRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Describe or snap' }))
+    fireEvent.change(screen.getByLabelText('What did you eat?'), {
+      target: { value: 'toast' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest foods' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await act(async () => {
+      answer({
+        status: 'ok',
+        items: [{ sourceType: 'fixedCalories', name: 'Toast', calories: 90 }],
+      })
+    })
+
+    expect(screen.queryByText('Toast')).toBe(null)
+  })
+
   it('adds the foods Claude suggests from a description, for review before saving', async () => {
     const mutations = configureMutationMocks()
     const draft = vi.fn(async () => ({
