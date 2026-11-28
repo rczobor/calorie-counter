@@ -25,7 +25,8 @@ self.addEventListener('install', (event) => {
 // ('activate'), only the asking page may be open, so no other page loses its
 // chunks; a closing tab also asks, and may already be gone from the list. A
 // person who taps Refresh ('refresh') switches every tab: the others reload,
-// or offer to, as soon as this build takes over.
+// or offer to, as soon as this build takes over. A tab that waits keeps
+// running its old build, so activation below keeps that build's cache.
 self.addEventListener('message', (event) => {
   if (event.data === 'refresh') {
     event.waitUntil(self.skipWaiting())
@@ -43,8 +44,14 @@ self.addEventListener('message', (event) => {
   )
 })
 
+// Older builds go once a build takes over with at most one page open; until
+// then another page may still lazy-load from them.
 self.addEventListener('activate', (event) => {
-  event.waitUntil(deleteOtherBuilds())
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windows) => (windows.length > 1 ? null : deleteOtherBuilds())),
+  )
 })
 
 self.addEventListener('fetch', (event) => {

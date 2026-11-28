@@ -220,6 +220,15 @@ describe('service worker', () => {
     expect(self.skipWaiting).toHaveBeenCalled()
   })
 
+  it('keeps older builds while another tab may still run one', async () => {
+    const { stores, dispatch } = setup({ windows: ['page', 'other'] })
+    stores.set('app-old', new Map())
+
+    await dispatch('activate')
+
+    expect(stores.has('app-old')).toBe(true)
+  })
+
   it('leaves OAuth consent and API traffic to the network', async () => {
     const { dispatch } = setup()
 
