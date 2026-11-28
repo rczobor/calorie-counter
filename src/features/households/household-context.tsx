@@ -1,9 +1,6 @@
-import { LoadingRows } from '@/components/page/loading-content'
 import { PagePlaceholder } from '@/components/page/page-placeholder'
 import {
   createContext,
-  lazy,
-  Suspense,
   useContext,
   useEffect,
   useState,
@@ -17,16 +14,13 @@ import {
   useDraftPersistenceIdentity,
 } from '../cooking/draft-persistence-identity'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { toErrorMessage } from '@/lib/nutrition'
 import { HouseholdInvitation } from './household-invitation'
 import { markStartup } from '@/lib/startup-timing'
 import { useLocale } from '@/i18n/locale'
 import { useMessages } from '@/i18n/messages'
 import { messages } from './household-context.messages'
-
-const Select = lazy(async () => ({
-  default: (await import('@/components/ui/select')).Select,
-}))
 
 export type HouseholdContextValue = {
   householdId?: Id<'households'>
@@ -161,21 +155,17 @@ function HouseholdSession({
         ) : (
           <>
             <p>{t.selectionUnavailable}</p>
-            <Suspense
-              fallback={<LoadingRows label={t.loadingChoices} rows={1} />}
-            >
-              <Select
-                ariaLabel={t.household}
-                options={households.map((row) => ({
-                  value: row._id,
-                  label: row.name,
-                }))}
-                onValueChange={(id) => {
-                  const choice = households.find((row) => row._id === id)
-                  if (choice) selectHousehold(choice._id)
-                }}
-              />
-            </Suspense>
+            <Select
+              ariaLabel={t.household}
+              options={households.map((row) => ({
+                value: row._id,
+                label: row.name,
+              }))}
+              onValueChange={(id) => {
+                const choice = households.find((row) => row._id === id)
+                if (choice) selectHousehold(choice._id)
+              }}
+            />
           </>
         )}
         <HouseholdInvitation onJoined={selectHousehold} />
