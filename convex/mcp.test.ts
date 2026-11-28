@@ -109,6 +109,37 @@ async function rpc(
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   })
 }
+// MCP 2026-07-28: stateless, with the version in each request's _meta and
+// the method (and name, for resources/read) mirrored in headers.
+async function modernRpc(
+  t: Test,
+  token: string,
+  method: string,
+  params: { uri?: string } = {},
+) {
+  return t.fetch('/mcp', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'MCP-Protocol-Version': '2026-07-28',
+      'Mcp-Method': method,
+      ...(params.uri ? { 'Mcp-Name': params.uri } : {}),
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method,
+      params: {
+        ...params,
+        _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientCapabilities': {},
+        },
+      },
+    }),
+  })
+}
 async function call(t: Test, token: string, name: string, args: unknown) {
   return rpc(t, token, 'tools/call', { name, arguments: args })
 }
@@ -1133,38 +1164,39 @@ describe('MCP integration', () => {
         },
       })
     }
-    // MCP 2026-07-28 clients, such as Claude on the web and desktop, reject a
-    // resources/read result without cache hints and show an error card.
-    const modern = await t.fetch('/mcp', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${read.token}`,
-        'Content-Type': 'application/json',
-        'MCP-Protocol-Version': '2026-07-28',
-        'Mcp-Method': 'resources/read',
-        'Mcp-Name': MEAL_CARD_URI,
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'resources/read',
-        params: {
-          uri: MEAL_CARD_URI,
-          _meta: {
-            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
-            'io.modelcontextprotocol/clientCapabilities': {},
-          },
+    expect(
+      await (
+        await modernRpc(t, read.token, 'resources/read', { uri: MEAL_CARD_URI })
+      ).json(),
+    ).toMatchObject({
+      result: { contents: [{ uri: MEAL_CARD_URI, text: mealCardHtml }] },
+    })
+  })
+
+  // Claude on the web and desktop and ChatGPT speak 2026-07-28, which makes
+  // these results cacheable: both reject one without ttlMs and cacheScope, and
+  // showed an error instead of the meal card when resources/read had none.
+  it('gives every cacheable 2026-07-28 result cache hints', async () => {
+    const t = setup()
+    const read = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
+    for (const [method, params] of [
+      ['server/discover', {}],
+      ['tools/list', {}],
+      ['resources/list', {}],
+      ['resources/templates/list', {}],
+      ['resources/read', { uri: MEAL_CARD_URI }],
+    ] as const) {
+      expect(
+        await (await modernRpc(t, read.token, method, params)).json(),
+        method,
+      ).toMatchObject({
+        result: {
+          resultType: 'complete',
+          ttlMs: expect.any(Number),
+          cacheScope: expect.stringMatching(/^(public|private)$/),
         },
-      }),
-    })
-    expect(await modern.json()).toMatchObject({
-      result: {
-        resultType: 'complete',
-        ttlMs: expect.any(Number),
-        cacheScope: 'private',
-        contents: [{ uri: MEAL_CARD_URI, text: mealCardHtml }],
-      },
-    })
+      })
+    }
   })
 
   it('runs OAuth registration, consent, token exchange and owner-scoped revocation', async () => {
