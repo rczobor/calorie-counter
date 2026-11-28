@@ -209,6 +209,26 @@ describe('service worker', () => {
     expect(closing.self.skipWaiting).not.toHaveBeenCalled()
   })
 
+  it('takes over beside other tabs when someone taps Refresh', async () => {
+    const { self, dispatch } = setup({ windows: ['page', 'other'] })
+
+    await dispatch('message', undefined, {
+      data: 'refresh',
+      source: { id: 'page' },
+    })
+
+    expect(self.skipWaiting).toHaveBeenCalled()
+  })
+
+  it('keeps older builds while another tab may still run one', async () => {
+    const { stores, dispatch } = setup({ windows: ['page', 'other'] })
+    stores.set('app-old', new Map())
+
+    await dispatch('activate')
+
+    expect(stores.has('app-old')).toBe(true)
+  })
+
   it('leaves OAuth consent and API traffic to the network', async () => {
     const { dispatch } = setup()
 
