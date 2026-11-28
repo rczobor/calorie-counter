@@ -13,7 +13,7 @@ export const messages = defineMessages({
     suggest: 'Suggest foods',
     suggesting: 'Reading…',
     privacy:
-      'Your text and photo go to Anthropic’s Claude to suggest foods. Numbers are estimates.',
+      'Your text and photo, with your household’s foods to match against, go to Anthropic’s Claude. Numbers are estimates.',
     photoUnreadable: 'This photo can’t be read. Try a JPEG or PNG.',
     empty: 'No food found in that. Try describing it differently.',
     limited: 'You’ve used today’s suggestions. Try again tomorrow.',
@@ -34,7 +34,7 @@ export const messages = defineMessages({
     suggest: 'Ételek javaslása',
     suggesting: 'Olvasás…',
     privacy:
-      'A szöveget és a fotót az Anthropic Claude kapja meg az ételek javaslásához. A számok becsültek.',
+      'A szöveget és a fotót, a háztartás ételeivel együtt az egyeztetéshez, az Anthropic Claude kapja meg. A számok becsültek.',
     photoUnreadable: 'Ez a fotó nem olvasható. Próbáld JPEG vagy PNG fájllal.',
     empty: 'Nem találtunk benne ételt. Próbáld másképp leírni.',
     limited: 'Elfogytak a mai javaslatok. Próbáld újra holnap.',
