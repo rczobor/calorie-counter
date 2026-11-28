@@ -1179,12 +1179,13 @@ describe('MCP integration', () => {
   it('gives every cacheable 2026-07-28 result cache hints', async () => {
     const t = setup()
     const read = await credential(t, TEST_TOKEN_IDENTIFIER, ['nutrition:read'])
-    for (const [method, params] of [
-      ['server/discover', {}],
-      ['tools/list', {}],
-      ['resources/list', {}],
-      ['resources/templates/list', {}],
-      ['resources/read', { uri: MEAL_CARD_URI }],
+    // Lists that depend on the token's scopes must stay out of shared caches.
+    for (const [method, params, cacheScope] of [
+      ['server/discover', {}, 'public'],
+      ['tools/list', {}, 'private'],
+      ['resources/list', {}, 'private'],
+      ['resources/templates/list', {}, 'public'],
+      ['resources/read', { uri: MEAL_CARD_URI }, 'private'],
     ] as const) {
       expect(
         await (await modernRpc(t, read.token, method, params)).json(),
@@ -1193,7 +1194,7 @@ describe('MCP integration', () => {
         result: {
           resultType: 'complete',
           ttlMs: expect.any(Number),
-          cacheScope: expect.stringMatching(/^(public|private)$/),
+          cacheScope,
         },
       })
     }
