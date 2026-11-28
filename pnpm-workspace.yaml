@@ -3,8 +3,8 @@ nodeOptions: '${NODE_OPTIONS:-} --no-experimental-webstorage'
 minimumReleaseAge: 1440
 overrides:
   esbuild: 0.28.2
-  fast-uri: 4.2.3
-  hono: 4.13.21
+  fast-uri: 4.2.4
+  hono: 4.13.22
 allowBuilds:
   '@clerk/shared': true
   esbuild: true
