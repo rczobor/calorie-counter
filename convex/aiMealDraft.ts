@@ -4,7 +4,10 @@ import { DAY, RateLimiter } from '@convex-dev/rate-limiter'
 import { ConvexError, v, type Infer } from 'convex/values'
 import { components, internal } from './_generated/api'
 import { action, env, internalMutation, query } from './_generated/server'
-import { requireAuthenticatedHousehold } from './lib/auth'
+import {
+  requireAuthenticatedHousehold,
+  requireAuthenticatedUser,
+} from './lib/auth'
 import { MAX_NAME_LENGTH, MAX_NOTES_LENGTH } from './lib/validation'
 import {
   localeValidator,
@@ -294,7 +297,10 @@ export const isEnabled = query({
   // The web client sends its household with every query; it doesn't matter here.
   args: { householdId: v.optional(v.id('households')) },
   returns: v.boolean(),
-  handler: () => Promise.resolve(Boolean(env.ANTHROPIC_API_KEY)),
+  handler: async (ctx) => {
+    await requireAuthenticatedUser(ctx)
+    return Boolean(env.ANTHROPIC_API_KEY)
+  },
 })
 
 export const prepare = internalMutation({

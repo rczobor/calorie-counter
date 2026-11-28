@@ -134,6 +134,37 @@ afterEach(() => {
 })
 
 describe('Meal editor', () => {
+  it('keeps a meal name typed while Claude is still answering', async () => {
+    configureMutationMocks()
+    let answer: (value: unknown) => void = () => {}
+    mockUseAction.mockReturnValue(
+      () => new Promise((resolve) => (answer = resolve)),
+    )
+    mockAiEnabled = true
+    renderMealsRoute()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Describe or snap' }))
+    fireEvent.change(screen.getByLabelText('What did you eat?'), {
+      target: { value: 'toast' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest foods' }))
+    fireEvent.change(screen.getByLabelText(/meal name/i), {
+      target: { value: 'Second breakfast' },
+    })
+    await act(async () => {
+      answer({
+        status: 'ok',
+        mealName: 'Breakfast',
+        items: [{ sourceType: 'fixedCalories', name: 'Toast', calories: 90 }],
+      })
+    })
+
+    expect(screen.getByLabelText(/meal name/i)).toHaveProperty(
+      'value',
+      'Second breakfast',
+    )
+  })
+
   it('drops suggestions that arrive after Cancel', async () => {
     configureMutationMocks()
     let answer: (value: unknown) => void = () => {}

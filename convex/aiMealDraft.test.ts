@@ -228,11 +228,52 @@ describe('draft', () => {
       }),
     ).toBe(false)
 
+    await expect(t.query(api.aiMealDraft.isEnabled, {})).rejects.toThrow(
+      'Authentication required.',
+    )
+
     vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
     parse.mockResolvedValue({ stop_reason: 'refusal', parsed_output: null })
     expect(
       await account.action(api.aiMealDraft.draft, { locale: 'en', text: 'x' }),
     ).toEqual({ status: 'failed' })
+  })
+
+  it('sends a photo to Claude as a base64 image', async () => {
+    const { account } = await fixture()
+    parse.mockResolvedValue({
+      stop_reason: 'end_turn',
+      parsed_output: { mealName: '', items: [item({ calories: 210 })] },
+    })
+    // Longer than one encoding chunk, so the chunks must join up.
+    const bytes = new Uint8Array(0x8003).map((_, index) => index % 251)
+
+    await account.action(api.aiMealDraft.draft, {
+      locale: 'en',
+      image: { data: bytes.buffer, mediaType: 'image/jpeg' },
+    })
+
+    const [request] = parse.mock.calls[0]
+    const [image, text] = request.messages[0].content
+    expect(image).toMatchObject({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/jpeg' },
+    })
+    const decoded = atob(image.source.data)
+    expect(decoded.length).toBe(bytes.length)
+    expect(decoded.charCodeAt(0x8002)).toBe(0x8002 % 251)
+    expect(text.text).toContain('(see the photo)')
+  })
+
+  it('refuses an oversized photo before calling Claude', async () => {
+    const { account } = await fixture()
+    await expect(
+      account.action(api.aiMealDraft.draft, {
+        locale: 'en',
+        image: { data: new ArrayBuffer(3_750_001), mediaType: 'image/jpeg' },
+      }),
+    ).rejects.toThrow('The photo is too large.')
+    expect(parse).not.toHaveBeenCalled()
   })
 
   it('limits each account to 30 suggestions a day', async () => {

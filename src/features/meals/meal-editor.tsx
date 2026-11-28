@@ -826,7 +826,9 @@ function MealEditorContent({
     suggestedName: string | undefined,
   ) => {
     setMealItems((current) => [...current, ...items])
-    if (suggestedName && !mealName.trim()) setMealName(suggestedName)
+    // The request can outlast typing: keep a name entered meanwhile.
+    if (suggestedName)
+      setMealName((current) => (current.trim() ? current : suggestedName))
     resetDraftItemInputs()
   }
 
