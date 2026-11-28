@@ -8,7 +8,7 @@ import {
 } from '@/features/households/convex-hooks'
 import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Plus, SquarePen, Trash2, X, Zap } from 'lucide-react'
+import { Pencil, Plus, Sparkles, SquarePen, Trash2, X, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { api } from '../../../convex/_generated/api'
@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils'
 import { Value } from '@/components/nutrition/value'
 import { useLocale } from '@/i18n/locale'
 import { messages } from './meal-editor.messages'
+import { DescribeMealPanel } from './describe-meal-panel'
 
 type MealMutationItem = FunctionArgs<
   typeof api.nutrition.createMeal
@@ -265,19 +266,21 @@ function MealEditorContent({
   const [query, setQuery] = useState('')
   // The search whose full match list is shown; any other search shows the first few.
   const [expandedQuery, setExpandedQuery] = useState<string | null>(null)
-  const [entry, setEntry] = useState<'search' | 'quick' | 'new'>(() => {
-    if (
-      restoredDraft?.itemMode === 'new' &&
-      (restoredDraft.itemCustomName || restoredDraft.itemCustomKcalPer100)
-    )
-      return 'new'
-    if (
-      restoredDraft?.itemMode === 'quick' &&
-      (restoredDraft.itemQuickName || restoredDraft.itemQuickCalories)
-    )
-      return 'quick'
-    return 'search'
-  })
+  const [entry, setEntry] = useState<'search' | 'quick' | 'new' | 'describe'>(
+    () => {
+      if (
+        restoredDraft?.itemMode === 'new' &&
+        (restoredDraft.itemCustomName || restoredDraft.itemCustomKcalPer100)
+      )
+        return 'new'
+      if (
+        restoredDraft?.itemMode === 'quick' &&
+        (restoredDraft.itemQuickName || restoredDraft.itemQuickCalories)
+      )
+        return 'quick'
+      return 'search'
+    },
+  )
   // Recovered edits keep their original snapshots and revision, even if the server meal is newer.
   const hydratedMealIdRef = useRef<Id<'meals'> | null>(
     restoredDraft?.editingMealId ?? null,
@@ -355,6 +358,7 @@ function MealEditorContent({
   }, [people, selectedPersonId, setSelectedPersonId])
 
   const createMeal = useMutation(api.nutrition.createMeal)
+  const canDescribe = useQuery(api.aiMealDraft.isEnabled, {}) === true
   const updateMeal = useMutation(api.nutrition.updateMeal)
   const pointLoadedIngredient = useQuery(
     api.catalog.getIngredient,
@@ -583,7 +587,9 @@ function MealEditorContent({
       ? 'quick'
       : entry === 'new'
         ? 'new'
-        : 'search'
+        : entry === 'describe'
+          ? 'describe'
+          : 'search'
 
   const resetDraftItemInputs = () => {
     setItemIngredientId('')
@@ -805,6 +811,23 @@ function MealEditorContent({
     if (name) setItemCustomName(name)
     setEntry('new')
     setQuery('')
+  }
+
+  const openDescribe = () => {
+    setItemIngredientId('')
+    setItemCookedFoodId('')
+    setEditingDraftItemIndex(null)
+    setEntry('describe')
+    setQuery('')
+  }
+
+  const addDescribedItems = (
+    items: DraftMealItem[],
+    suggestedName: string | undefined,
+  ) => {
+    setMealItems((current) => [...current, ...items])
+    if (suggestedName && !mealName.trim()) setMealName(suggestedName)
+    resetDraftItemInputs()
   }
 
   const editDraftItem = (index: number) => {
@@ -1399,6 +1422,11 @@ function MealEditorContent({
                   />
                 </div>
               </div>
+            ) : panel === 'describe' ? (
+              <DescribeMealPanel
+                closeButton={closePanel}
+                onItems={addDescribedItems}
+              />
             ) : (
               <div>
                 <SearchField
@@ -1474,9 +1502,27 @@ function MealEditorContent({
                     <div
                       className={cn(
                         'mt-3 gap-2',
-                        mealItems.length === 0 ? 'grid grid-cols-2' : 'flex',
+                        mealItems.length === 0
+                          ? 'grid grid-cols-2'
+                          : 'flex flex-wrap',
                       )}
                     >
+                      {canDescribe ? (
+                        <Button
+                          variant="outline"
+                          size={mealItems.length === 0 ? 'default' : 'sm'}
+                          className={cn(
+                            'justify-start pl-3.5',
+                            mealItems.length === 0 && 'col-span-2',
+                          )}
+                          onClick={openDescribe}
+                        >
+                          <Sparkles />
+                          {mealItems.length === 0
+                            ? t.describeMeal
+                            : t.describeMealShort}
+                        </Button>
+                      ) : null}
                       <Button
                         variant="outline"
                         size={mealItems.length === 0 ? 'default' : 'sm'}

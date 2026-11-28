@@ -23,6 +23,8 @@ import {
 } from '@/tests/factories'
 
 const mockUseMutation = vi.fn()
+const mockUseAction = vi.fn()
+let mockAiEnabled = false
 const mockUsePaginatedQuery = vi.fn()
 const mockUseQuery = vi.fn()
 const mockLoadMore = vi.fn()
@@ -52,6 +54,7 @@ let mockPointLoadedCookedFoodDetail: {
 let mockPaginatedStatuses: Record<string, string> = {}
 
 vi.mock('convex/react', () => ({
+  useAction: (reference: unknown) => mockUseAction(reference),
   useMutation: (reference: unknown) => mockUseMutation(reference),
   usePaginatedQuery: (...args: unknown[]) => mockUsePaginatedQuery(...args),
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -118,6 +121,7 @@ beforeEach(() => {
   mockPointLoadedCookSession = null
   mockPointLoadedCookedFoodDetail = null
   mockPaginatedStatuses = {}
+  mockAiEnabled = false
   paginatedQueryCalls.length = 0
   mockUsePaginatedQuery.mockImplementation(resolvePaginatedQuery)
   mockUseQuery.mockImplementation(resolveQuery)
@@ -130,6 +134,68 @@ afterEach(() => {
 })
 
 describe('Meal editor', () => {
+  it('adds the foods Claude suggests from a description, for review before saving', async () => {
+    const mutations = configureMutationMocks()
+    const draft = vi.fn(async () => ({
+      status: 'ok' as const,
+      mealName: 'Breakfast',
+      items: [
+        {
+          sourceType: 'fixedCalories' as const,
+          name: 'Toast',
+          calories: 90,
+          nutritionProvenance: {
+            kind: 'estimate' as const,
+            origin: 'generic' as const,
+            source: 'Claude estimate',
+            assumptions: 'One slice.',
+          },
+        },
+      ],
+    }))
+    mockUseAction.mockReturnValue(draft)
+    const view = renderMealsRoute()
+    expect(screen.queryByRole('button', { name: 'Describe or snap' })).toBe(
+      null,
+    )
+    mockAiEnabled = true
+    view.rerender(<EditorHost />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Describe or snap' }))
+    fireEvent.change(screen.getByLabelText('What did you eat?'), {
+      target: { value: '  a slice of toast ' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Suggest foods' }))
+    })
+
+    expect(draft).toHaveBeenCalledWith({
+      locale: 'en',
+      text: 'a slice of toast',
+    })
+    expect(mealItemText('Toast')).toContain('90 kcal')
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /save meal \(1 food\)/i }),
+      )
+    })
+    expect(mutations.createMeal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Breakfast',
+        items: [
+          expect.objectContaining({
+            sourceType: 'fixedCalories',
+            name: 'Toast',
+            calories: 90,
+            nutritionProvenance: expect.objectContaining({
+              source: 'Claude estimate',
+            }),
+          }),
+        ],
+      }),
+    )
+  })
+
   it('restores the device person selection independently of drafts and account identity', () => {
     const alex = createPersonDoc('person-alex', 'Alex')
     const viki = createPersonDoc('person-viki', 'Viki')
@@ -1140,6 +1206,7 @@ function resolveQuery(reference: unknown, args: unknown) {
       ) ?? null
     )
   }
+  if (functionName === 'aiMealDraft:isEnabled') return mockAiEnabled
   if (functionName === 'catalog:getIngredient') {
     return mockPointLoadedIngredient
   }

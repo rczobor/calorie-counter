@@ -38,7 +38,7 @@ export const messages = defineMessages({
     who: [
       'Members of a household you share see that household’s data, with one exception: once you mark a person as yourself, only you see that person’s body weight and only you can change their goal.',
       'AI assistants you connect, such as ChatGPT or Claude, receive what they ask for on your behalf. Their own privacy terms apply to it.',
-      'The service providers that run the app: Clerk (sign-in), Convex (database) and Vercel (hosting and statistics). They process data only on the operator’s instructions, under data processing agreements. Some are based in the United States; transfers rely on the safeguards in those agreements, such as standard contractual clauses or the EU–US Data Privacy Framework.',
+      'The service providers that run the app: Clerk (sign-in), Convex (database), Vercel (hosting and statistics) and Anthropic (suggesting foods when you describe or photograph a meal in the app). They process data only on the operator’s instructions, under data processing agreements. Some are based in the United States; transfers rely on the safeguards in those agreements, such as standard contractual clauses or the EU–US Data Privacy Framework.',
       'Nobody else. Your data is never sold or used for advertising.',
     ],
     keepHeading: 'How long it is kept',
@@ -96,7 +96,7 @@ export const messages = defineMessages({
     who: [
       'A közös háztartásod tagjai látják a háztartás adatait, egy kivétellel: ha egy személyt magadként jelölsz meg, a testsúlyát csak te látod, és a célját csak te módosíthatod.',
       'Az összekapcsolt AI-asszisztensek (például a ChatGPT vagy a Claude) megkapják, amit a nevedben lekérnek. Ezekre a saját adatvédelmi feltételeik vonatkoznak.',
-      'Az alkalmazást működtető szolgáltatók: a Clerk (bejelentkezés), a Convex (adatbázis) és a Vercel (tárhely és statisztikák). Csak az üzemeltető utasítására, adatfeldolgozási szerződés alapján kezelik az adatokat. Egyesek az Egyesült Államokban működnek; az adattovábbítást a szerződésekben foglalt garanciák, például általános adatvédelmi kikötések vagy az EU–USA adatvédelmi keret védik.',
+      'Az alkalmazást működtető szolgáltatók: a Clerk (bejelentkezés), a Convex (adatbázis), a Vercel (tárhely és statisztikák) és az Anthropic (ételjavaslatok, ha az alkalmazásban leírsz vagy lefotózol egy étkezést). Csak az üzemeltető utasítására, adatfeldolgozási szerződés alapján kezelik az adatokat. Egyesek az Egyesült Államokban működnek; az adattovábbítást a szerződésekben foglalt garanciák, például általános adatvédelmi kikötések vagy az EU–USA adatvédelmi keret védik.',
       'Senki más. Az adataidat soha nem adjuk el, és nem használjuk hirdetésre.',
     ],
     keepHeading: 'Meddig őrizzük',
