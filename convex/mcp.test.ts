@@ -1089,10 +1089,10 @@ describe('MCP integration', () => {
       },
     })
     // A host still holding an earlier tool list gets the current card too:
-    // Claude Desktop asked for #296's card after #297 replaced it.
+    // ChatGPT asked for the Save card's URI after #302 replaced it.
     for (const uri of [
       MEAL_CARD_URI,
-      'ui://calorie-counter/meal-card-awoee6.html',
+      'ui://calorie-counter/meal-card-9b04f7.html',
     ]) {
       const contents: unknown = await (
         await rpc(t, read.token, 'resources/read', { uri })

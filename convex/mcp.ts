@@ -63,7 +63,7 @@ const readOnly = {
 // Hosts that support MCP Apps show these previews as the meal card.
 const mealCard = { ui: { resourceUri: MEAL_CARD_URI } }
 const mealCardNote =
-  ' Hosts that show app cards display this preview as a card: then confirm it in a sentence, with any estimate assumptions, instead of redrawing it.'
+  ' Hosts that show app cards display this preview as a card: then confirm it in a sentence, with any estimate assumptions, instead of redrawing it. Its Save button sends the user\'s approval as their chat reply ("Save <meal name> · <total> kcal · <person> · <date>", or "Save this meal · …"; in Hungarian "Mentsd el"): it approves the preview matching those, not another one; if several match, ask which.'
 
 // Only the card reads the items' amounts, from _meta.
 async function mealCardResult(
@@ -89,7 +89,7 @@ const reusableWrite = {
 export const mcp: McpServer = new McpServer(components.mcp, {
   name: 'calorie-counter',
   title: 'Calorie Counter',
-  version: '1.16.0',
+  version: '1.17.0',
   consentUrl: env.MCP_CONSENT_URL ?? 'https://unconfigured.invalid/connect',
   deviceFlow: false,
   allowedOrigins: [],
