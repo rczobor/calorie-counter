@@ -6,6 +6,7 @@ import type { Id } from './_generated/dataModel'
 import { toDraftItems, type ClaudeMealOutput } from './aiMealDraft'
 import {
   asTestUser,
+  asTestUserWithToken,
   createConvexTest,
   testHouseholdId,
 } from '../src/tests/convex-test-utils'
@@ -67,6 +68,7 @@ describe('toDraftItems', () => {
           ],
         },
         candidates,
+        'en',
       ),
     ).toEqual([
       {
@@ -90,7 +92,7 @@ describe('toDraftItems', () => {
     ])
   })
 
-  it('records estimates and label readings with their source', () => {
+  it('records estimates and label readings with their source, in the asker’s language', () => {
     const [estimate, label] = toDraftItems(
       {
         mealName: '',
@@ -108,6 +110,7 @@ describe('toDraftItems', () => {
         ],
       },
       candidates,
+      'hu',
     )
     expect(estimate).toEqual({
       sourceType: 'fixedCalories',
@@ -117,7 +120,7 @@ describe('toDraftItems', () => {
       nutritionProvenance: {
         kind: 'estimate',
         origin: 'generic',
-        source: 'Claude estimate',
+        source: 'Claude becslése',
         assumptions: 'One slice.',
       },
     })
@@ -126,7 +129,8 @@ describe('toDraftItems', () => {
       nutritionProvenance: {
         kind: 'provided',
         origin: 'label',
-        assumptions: 'No assumptions stated.',
+        source: 'Tápértékcímke fotója, Claude olvasta le',
+        assumptions: 'Nincs megadott feltételezés.',
       },
     })
   })
@@ -140,6 +144,8 @@ describe('toDraftItems', () => {
             // A key that was never offered, with nothing to fall back on.
             item({ foodRef: 'i9', amount: 100 }),
             item({ foodRef: 'i0', amount: 0 }),
+            // Rounds to 0 g, which a meal refuses.
+            item({ foodRef: 'i0', amount: 0.04 }),
             item({ foodRef: 'c1', amount: Number.NaN }),
             item({ calories: -50 }),
             item({ calories: 50_000 }),
@@ -147,11 +153,13 @@ describe('toDraftItems', () => {
           ],
         },
         candidates,
+        'en',
       ),
     ).toEqual([])
     const [withoutMacros] = toDraftItems(
       { mealName: '', items: [item({ calories: 80, fatG: -1 })] },
       candidates,
+      'en',
     )
     expect(withoutMacros).not.toHaveProperty('macros')
   })
@@ -212,7 +220,7 @@ describe('draft', () => {
     expect(prompt).toContain('i0: Greek yogurt; 97 kcal per 100 g')
     // Meals reject ingredients measured in other units.
     expect(prompt).not.toContain('Olive oil')
-    expect(prompt).toContain('Write names in Hungarian.')
+    expect(prompt).toContain('Write names and assumptions in Hungarian.')
     expect(prompt).toContain('yogurt and toast')
   })
 
@@ -237,6 +245,23 @@ describe('draft', () => {
     expect(
       await account.action(api.aiMealDraft.draft, { locale: 'en', text: 'x' }),
     ).toEqual({ status: 'failed' })
+  })
+
+  it('never calls Claude for a signed-out caller or a foreign household', async () => {
+    const { t } = await fixture()
+    await expect(
+      t.action(api.aiMealDraft.draft, { locale: 'en', text: 'toast' }),
+    ).rejects.toThrow()
+    const stranger = asTestUserWithToken(t, 'user-2|token')
+    await stranger.mutation(api.households.ensurePersonal, {})
+    await expect(
+      stranger.action(api.aiMealDraft.draft, {
+        locale: 'en',
+        text: 'toast',
+        householdId: testHouseholdId(t),
+      }),
+    ).rejects.toThrow()
+    expect(parse).not.toHaveBeenCalled()
   })
 
   it('sends a photo to Claude as a base64 image', async () => {

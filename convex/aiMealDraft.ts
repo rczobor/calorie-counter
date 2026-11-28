@@ -9,6 +9,7 @@ import {
   requireAuthenticatedUser,
 } from './lib/auth'
 import { MAX_NAME_LENGTH, MAX_NOTES_LENGTH } from './lib/validation'
+import { aiMealDraftMessages } from './aiMealDraft.messages'
 import {
   localeValidator,
   macroGramsValidator,
@@ -160,7 +161,7 @@ For each food eaten:
 - If a listed food clearly is that food, set foodRef to its key and amount to the grams eaten. Set calories and macros to 0; the tracker computes them.
 - Otherwise set foodRef to "" and amount to 0, and give calories and protein, carbs and fat in grams for the whole portion eaten.
 - For a nutrition label in a photo, use the label's values scaled to the portion described, or one serving as printed on the label when no portion is given, and set fromLabel to true. Otherwise fromLabel is false.
-- assumptions: one short English sentence on the portion size and what the numbers are based on.
+- assumptions: one short sentence, in the language the user message asks for, on the portion size and what the numbers are based on.
 - name: short, in the language the user message asks for, as someone would write it in a food log.
 
 mealName is a short name for the whole meal in the same language, or "" when none fits.
@@ -217,14 +218,18 @@ const round = (value: number, digits: number) =>
 export function toDraftItems(
   output: ClaudeMealOutput,
   candidates: Candidate[],
+  locale: Infer<typeof localeValidator>,
 ): DraftItem[] {
+  const t = aiMealDraftMessages[locale]
   const byKey = keyedCandidates(candidates)
   const items: DraftItem[] = []
   for (const item of output.items.slice(0, MAX_ITEMS)) {
     const candidate = item.foodRef ? byKey.get(item.foodRef) : undefined
     if (candidate) {
-      if (!inRange(item.amount, MAX_AMOUNT) || item.amount === 0) continue
+      if (!inRange(item.amount, MAX_AMOUNT)) continue
+      // Meals refuse a zero amount, so a trace that rounds away is dropped.
       const amount = round(item.amount, 1)
+      if (amount === 0) continue
       if (candidate.kind === 'ingredient') {
         items.push({
           sourceType: 'ingredient',
@@ -267,8 +272,7 @@ export function toDraftItems(
         }
       : undefined
     const assumptions =
-      item.assumptions.trim().slice(0, MAX_NOTES_LENGTH) ||
-      'No assumptions stated.'
+      item.assumptions.trim().slice(0, MAX_NOTES_LENGTH) || t.noAssumptions
     items.push({
       sourceType: 'fixedCalories',
       name,
@@ -278,13 +282,13 @@ export function toDraftItems(
         ? {
             kind: 'provided',
             origin: 'label',
-            source: 'Nutrition label photo, read by Claude',
+            source: t.labelSource,
             assumptions,
           }
         : {
             kind: 'estimate',
             origin: 'generic',
-            source: 'Claude estimate',
+            source: t.estimateSource,
             assumptions,
           },
     })
@@ -428,7 +432,7 @@ export const draft = action({
         : []),
       {
         type: 'text',
-        text: `Household foods:\n${foods}\n\nWrite names in ${language}.\n\n<description>\n${text || '(see the photo)'}\n</description>`,
+        text: `Household foods:\n${foods}\n\nWrite names and assumptions in ${language}.\n\n<description>\n${text || '(see the photo)'}\n</description>`,
       },
     ]
 
@@ -454,7 +458,7 @@ export const draft = action({
       return { status: 'failed' }
     }
 
-    const items = toDraftItems(output, candidates)
+    const items = toDraftItems(output, candidates, args.locale)
     if (!items.length) return { status: 'empty' }
     const mealName = output.mealName.trim().slice(0, MAX_NAME_LENGTH)
     return { status: 'ok', items, ...(mealName ? { mealName } : {}) }
