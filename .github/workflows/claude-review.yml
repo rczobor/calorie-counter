@@ -1,0 +1,59 @@
+name: Claude review
+
+# Reviews each ready pull request with Claude, billed to the ANTHROPIC_API_KEY
+# secret. Needs the Claude GitHub app installed on the repository.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# A new push replaces an unfinished review instead of paying for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Renovate rebases its PRs whenever main moves, and each rebase would pay
+    # for a new review. The action refuses bots anyway; skipping the job here
+    # shows a skipped check instead of starting a runner.
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.user.login != 'renovate[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      # The action trades this for a Claude GitHub app token.
+      id-token: write
+
+    steps:
+      # pull_request checks out the PR merge commit without secrets for forks,
+      # and the action skips fork PRs by default.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Review
+        uses: anthropics/claude-code-action@4411a9e9b0283becf4b924f7bce360fd7756c78c # v1.0.290
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request against the repository's CLAUDE.md and
+            AGENTS.md. Report only real problems: bugs, missing owner or auth
+            checks in Convex functions, lost or rewritten historical data,
+            security issues, broken accessibility basics, visible strings
+            outside *.messages.ts, and tests that do not prove the change.
+            Skip style nits that Prettier or ESLint already enforce.
+
+            Post each problem as an inline comment on the line it is about.
+            Then post one short summary with `gh pr comment`. If earlier review
+            comments already raise a problem, do not repeat it. If you find
+            nothing, say so in one line.
+          # A strict tool list: read the PR and comment, nothing else.
+          claude_args: |
+            --model claude-opus-5-5
+            --permission-mode default
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
